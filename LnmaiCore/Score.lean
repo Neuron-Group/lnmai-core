@@ -1,0 +1,245 @@
+/-
+  Score and combo computation — faithful transcription of
+  ObjectCounter.UpdateComboCount() and UpdateNoteScoreCount().
+-/
+
+import LnmaiCore.Types
+
+namespace LnmaiCore.Score
+
+open JudgeGrade
+open NoteType
+
+----------------------------------------------------------------------------
+-- Base Score per Note Type
+----------------------------------------------------------------------------
+
+def baseScore (nt : NoteType) : Int :=
+  match nt with
+  | Tap   => 500
+  | Hold  => 1000
+  | Slide => 1500
+  | Touch => 500
+  | Break => 2500
+
+def extraScore : Int := 100  -- Break notes only (DX extra)
+
+----------------------------------------------------------------------------
+-- Non-Break Note Score
+--   Returns (earned, lost) base score for this note × multiple
+----------------------------------------------------------------------------
+
+/--
+  Score a non-Break note. Returns (baseEarned, baseLost).
+  - Miss/TooFast: 0% earned, 100% lost
+  - Good:         50% earned, 50% lost
+  - Great*:       80% earned, 20% lost
+  - Perfect*:     100% earned
+-/
+def scoreNonBreak (baseScore : Int) (grade : JudgeGrade) (multiple : Int := 1) : Int × Int :=
+  let b := baseScore * multiple
+  match grade with
+  | Miss    => (0, b)
+  | TooFast => (0, b)
+  | LateGood  => (b / 2,           b - b / 2)
+  | FastGood  => (b / 2,           b - b / 2)
+  | LateGreat | LateGreat2nd | LateGreat3rd
+  | FastGreat | FastGreat2nd | FastGreat3rd =>
+    (b * 4 / 5, b - b * 4 / 5)
+  | LatePerfect3rd | LatePerfect2nd | Perfect
+  | FastPerfect2nd | FastPerfect3rd =>
+    (b, 0)
+
+----------------------------------------------------------------------------
+-- Break Note Score (most complex)
+--   Returns (baseEarned, extraEarned, classicExtraEarned,
+--            baseLost, extraLost, classicExtraLost)
+----------------------------------------------------------------------------
+
+/--
+  Score a Break note (2500 base + 100 extra).
+  Extra score has two tracks: DX and Classic.
+  Classic extra is stricter (only Perfect2nd and Perfect earn any).
+-/
+def scoreBreak (grade : JudgeGrade) (multiple : Int := 1) : Int × Int × Int × Int × Int × Int :=
+  let m := multiple
+  match grade with
+  | Miss | TooFast =>
+    (0,        0,  0,    -- earned: base, extraDX, extraClassic
+     2500 * m, 100 * m, 100 * m)  -- lost: base, extraDX, extraClassic
+  | LateGood | FastGood =>
+    (1000 * m, 30 * m,  0,
+     1500 * m, 70 * m,  100 * m)
+  | LateGreat3rd | FastGreat3rd =>
+    (1250 * m, 40 * m,  0,
+     1250 * m, 60 * m,  100 * m)
+  | LateGreat2nd | FastGreat2nd =>
+    (1500 * m, 40 * m,  0,
+     1000 * m, 60 * m,  100 * m)
+  | LateGreat | FastGreat =>
+    (2000 * m, 40 * m,  0,
+      500 * m, 60 * m,  100 * m)
+  | LatePerfect3rd | FastPerfect3rd =>
+    (2500 * m, 50 * m,  0,
+         0,     50 * m,  100 * m)
+  | LatePerfect2nd | FastPerfect2nd =>
+    (2500 * m, 75 * m,  50 * m,
+         0,     25 * m,  50 * m)
+  | Perfect =>
+    (2500 * m, 100 * m, 100 * m,
+         0,         0,       0)
+
+----------------------------------------------------------------------------
+-- Combo State Update
+--   Returns (newCombo, newPCombo, newCPCombo, dXScoreLostDelta)
+--   called AFTER combo has already been incremented for non-miss
+----------------------------------------------------------------------------
+
+structure ComboDelta where
+  combo      : Int
+  pCombo     : Int
+  cPCombo    : Int
+  dXScoreLost : Int  -- negative = lost score (subtracted from total)
+deriving Repr, Inhabited
+
+/--
+  Update combo counters for a single note judgment.
+  This is the pure version of ObjectCounter.UpdateComboCount().
+  Input: current combo state, the grade, and multiple.
+  Output: new combo state.
+
+  Note: the C# code increments _combo BEFORE calling UpdateComboCount
+  for non-Miss grades. The combo reset for Miss/TooFast overrides.
+-/
+def updateCombo (combo : Int) (pCombo : Int) (cPCombo : Int) (dXScoreLost : Int) (grade : JudgeGrade) (multiple : Int := 1) : ComboDelta :=
+  let m := multiple
+  match grade with
+  | Perfect =>
+    { combo       := combo
+    , pCombo      := pCombo + m
+    , cPCombo     := cPCombo + m
+    , dXScoreLost := dXScoreLost
+    }
+  | LatePerfect2nd | FastPerfect2nd | LatePerfect3rd | FastPerfect3rd =>
+    { combo       := combo
+    , pCombo      := pCombo + m
+    , cPCombo     := 0
+    , dXScoreLost := dXScoreLost - 1 * m
+    }
+  | LateGreat3rd | LateGreat2nd | LateGreat
+  | FastGreat | FastGreat2nd | FastGreat3rd =>
+    { combo       := combo
+    , pCombo      := 0
+    , cPCombo     := 0
+    , dXScoreLost := dXScoreLost - 2 * m
+    }
+  | LateGood | FastGood =>
+    { combo       := combo
+    , pCombo      := 0
+    , cPCombo     := 0
+    , dXScoreLost := dXScoreLost - 3 * m
+    }
+  | Miss | TooFast =>
+    { combo       := 0
+    , pCombo      := 0
+    , cPCombo     := 0
+    , dXScoreLost := dXScoreLost - 3 * m
+    }
+
+----------------------------------------------------------------------------
+-- Fast / Late Counting
+--   Based on |7 - (int)grade| distance from Perfect.
+--   Only counts grades with distance > 2 for "Below Perfect" display,
+--   or all non-Perfected for "Below CP". Miss/TooFast excluded.
+----------------------------------------------------------------------------
+
+/--
+  Returns (isFast, isLate) increment flags for this grade,
+  given a display option (matching JudgeDisplayOption).
+-/
+inductive FastLateDisplay where
+  | All     -- count all non-zero-diff, non-miss
+  | BelowCP -- count everything except Perfect (CP), Miss, TooFast
+  | BelowP  -- count only Great and Good (distance from Perfect > 2)
+deriving DecidableEq, Repr
+
+def countFastLate (grade : JudgeGrade) (diffMs : Float) (display : FastLateDisplay) : (Bool × Bool) :=
+  if grade.isMissOrTooFast then
+    (false, false)
+  else
+    let d := grade.distFromPerfect
+    match display with
+    | FastLateDisplay.All =>
+      if diffMs == 0.0 then (false, false)
+      else if diffMs < 0.0 then (true, false)
+      else (false, true)
+    | FastLateDisplay.BelowCP =>
+      if grade == Perfect then (false, false)
+      else if diffMs < 0.0 then (true, false)
+      else (false, true)
+    | FastLateDisplay.BelowP =>
+      if d ≤ 2 then (false, false)  -- skip Perfect, Perfect2nd, Perfect3rd
+      else if diffMs < 0.0 then (true, false)
+      else (false, true)
+
+----------------------------------------------------------------------------
+-- DX Score Rank
+--   Based on percentage of maxDXScore achieved.
+----------------------------------------------------------------------------
+
+/--
+  DXScore ranks: 5=SSS+, 4=SSS, 3=SS+, 2=SS, 1=S, 0=none
+  Thresholds: 97%, 95%, 93%, 90%, 85%
+-/
+def dxScoreRank (achievedDxScore : Int) (maxDxScore : Int) : Nat :=
+  if maxDxScore == 0 then 0
+  else
+    let pct : Float := (Float.ofInt achievedDxScore) / (Float.ofInt maxDxScore) * 100.0
+    if pct ≥ 97.0 then 5
+    else if pct ≥ 95.0 then 4
+    else if pct ≥ 93.0 then 3
+    else if pct ≥ 90.0 then 2
+    else if pct ≥ 85.0 then 1
+    else 0
+
+----------------------------------------------------------------------------
+-- Accuracy Rate Computation
+--   The 5 accuracy formulas from ObjectCounter.UpdateAccRate()
+----------------------------------------------------------------------------
+
+structure AccRates where
+  classicAccPlus    : Float  -- [0]: classic acc (+)  = CurrentNoteScoreClassic / TotalBase * 100
+  classicAccMinus   : Float  -- [1]: classic acc (-)  = (TotalBase - LostBase + CurrentExtraClassic) / TotalBase * 100
+  dxAccMinus101     : Float  -- [2]: acc 101(-)       = (earnedBase/totalBase + earnedExtra/(totalExtra*100)) * 100
+  dxAccMinus100     : Float  -- [3]: acc 100(-)       = (earnedBase/totalBase + currentExtra/(totalExtra*100)) * 100
+  dxAccPlus         : Float  -- [4]: acc (+)          = (currentBase/totalBase + currentExtra/(totalExtra*100)) * 100
+deriving Repr
+
+def computeAccRates (totalBase : Int) (currentBase : Int) (lostBase : Int)
+                    (totalExtra : Int) (currentExtra : Int) (lostExtra : Int)
+                    (currentExtraClassic : Int) : AccRates :=
+  let tb := Float.ofInt totalBase
+  let cb := Float.ofInt currentBase
+  let lb := Float.ofInt lostBase
+  let te := max 1.0 (Float.ofInt totalExtra)
+  let ce := Float.ofInt currentExtra
+  let le := Float.ofInt lostExtra
+  let cc := Float.ofInt currentExtraClassic
+  let earnedBase := tb - lb
+  let earnedExtra := te - le
+  if totalBase == 0 then
+    { classicAccPlus    := 0.0
+    , classicAccMinus   := 0.0
+    , dxAccMinus101     := 0.0
+    , dxAccMinus100     := 0.0
+    , dxAccPlus         := 0.0
+    }
+  else
+    { classicAccPlus    := (cb + cc) / tb * 100.0
+    , classicAccMinus   := (earnedBase + cc) / tb * 100.0
+    , dxAccMinus101     := (earnedBase / tb + earnedExtra / (te * 100.0)) * 100.0
+    , dxAccMinus100     := (earnedBase / tb + ce / (te * 100.0)) * 100.0
+    , dxAccPlus         := (cb / tb + ce / (te * 100.0)) * 100.0
+    }
+
+end LnmaiCore.Score

@@ -1,0 +1,10 @@
+name = "lnmai-core"
+version = "0.1.0"
+defaultTargets = ["lnmai-core"]
+
+[[lean_lib]]
+name = "LnmaiCore"
+
+[[lean_exe]]
+name = "lnmai-core"
+root = "Main"
