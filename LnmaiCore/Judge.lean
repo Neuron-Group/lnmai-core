@@ -67,34 +67,33 @@ def judgeTap (diffMs : Float) (isEX : Bool := false) : JudgeGrade :=
 /--
   Judge a Touch note. Touch has no fast-side judgments —
   if input is too early (fast && beyond 1st perfect window), bails.
+  Unlike tap/hold-head notes, touch EX notes are not auto-promoted.
   Returns `none` if the hit is too early to count (caller should ignore).
 -/
 def judgeTouch (diffMs : Float) (isEX : Bool := false) : Option JudgeGrade :=
-  if isEX then
-    some Perfect
+  let _ := isEX
+  let isFast := diffMs < 0.0
+  let diffMSec := absDiffSec diffMs
+  -- Touch: if fast and beyond 1st perfect, too early → no judgment
+  if isFast && diffMSec > touchPerfect1Ms then
+    none
   else
-    let isFast := diffMs < 0.0
-    let diffMSec := absDiffSec diffMs
-    -- Touch: if fast and beyond 1st perfect, too early → no judgment
-    if isFast && diffMSec > touchPerfect1Ms then
-      none
-    else
-      let grade :=
-        if diffMSec ≤ touchPerfect1Ms then
-          Perfect
-        else if diffMSec ≤ touchPerfect2Ms then
-          LatePerfect2nd
-        else if diffMSec ≤ touchPerfect3Ms then
-          LatePerfect3rd
-        else if diffMSec ≤ touchGreat1Ms then
-          LateGreat
-        else if diffMSec ≤ touchGreat2Ms then
-          LateGreat2nd
-        else if diffMSec ≤ touchGreat3Ms then
-          LateGreat3rd
-        else
-          LateGood
-      some grade
+    let grade :=
+      if diffMSec ≤ touchPerfect1Ms then
+        Perfect
+      else if diffMSec ≤ touchPerfect2Ms then
+        LatePerfect2nd
+      else if diffMSec ≤ touchPerfect3Ms then
+        LatePerfect3rd
+      else if diffMSec ≤ touchGreat1Ms then
+        LateGreat
+      else if diffMSec ≤ touchGreat2Ms then
+        LateGreat2nd
+      else if diffMSec ≤ touchGreat3Ms then
+        LateGreat3rd
+      else
+        LateGood
+    some grade
 
 ----------------------------------------------------------------------------
 -- Modern Slide Judgment (dynamic extension)
@@ -105,32 +104,31 @@ def judgeTouch (diffMs : Float) (isEX : Bool := false) : Option JudgeGrade :=
   Judge a modern (deluxe) slide. The 3rd-perfect window is dynamically extended
   based on `stayTimeMs` (last wait time at slide end, in ms).
   The 1st and 2nd perfect windows are 1/3 and 2/3 of the 3rd window respectively.
+  Slide EX notes are judged normally; they are not auto-promoted.
 -/
 def judgeSlideModern (diffMs : Float) (stayTimeMs : Float) (isEX : Bool := false) : JudgeGrade :=
-  if isEX then
+  let _ := isEX
+  let isFast := diffMs < 0.0
+  let diffMSec := absDiffSec diffMs
+  -- Dynamic extension: ext = min(stayTimeMs / 4, 22-frame max)
+  let ext := min (stayTimeMs / 4.0) SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC
+  let seg3rdPerfect := SLIDE_JUDGE_SEG_BASE_3RD_PERFECT_MSEC + ext
+  let seg1stPerfect := seg3rdPerfect * (1.0 / 3.0)
+  let seg2ndPerfect := seg3rdPerfect * (2.0 / 3.0)
+  if diffMSec ≤ seg1stPerfect then
     Perfect
+  else if diffMSec ≤ seg2ndPerfect then
+    if isFast then FastPerfect2nd else LatePerfect2nd
+  else if diffMSec ≤ seg3rdPerfect then
+    if isFast then FastPerfect3rd else LatePerfect3rd
+  else if diffMSec ≤ SLIDE_JUDGE_SEG_1ST_GREAT_MSEC then
+    if isFast then FastGreat else LateGreat
+  else if diffMSec ≤ SLIDE_JUDGE_SEG_2ND_GREAT_MSEC then
+    if isFast then FastGreat2nd else LateGreat2nd
+  else if diffMSec ≤ SLIDE_JUDGE_SEG_3RD_GREAT_MSEC then
+    if isFast then FastGreat3rd else LateGreat3rd
   else
-    let isFast := diffMs < 0.0
-    let diffMSec := absDiffSec diffMs
-    -- Dynamic extension: ext = min(stayTimeMs / 4, 22-frame max)
-    let ext := min (stayTimeMs / 4.0) SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC
-    let seg3rdPerfect := SLIDE_JUDGE_SEG_BASE_3RD_PERFECT_MSEC + ext
-    let seg1stPerfect := seg3rdPerfect * (1.0 / 3.0)
-    let seg2ndPerfect := seg3rdPerfect * (2.0 / 3.0)
-    if diffMSec ≤ seg1stPerfect then
-      Perfect
-    else if diffMSec ≤ seg2ndPerfect then
-      if isFast then FastPerfect2nd else LatePerfect2nd
-    else if diffMSec ≤ seg3rdPerfect then
-      if isFast then FastPerfect3rd else LatePerfect3rd
-    else if diffMSec ≤ SLIDE_JUDGE_SEG_1ST_GREAT_MSEC then
-      if isFast then FastGreat else LateGreat
-    else if diffMSec ≤ SLIDE_JUDGE_SEG_2ND_GREAT_MSEC then
-      if isFast then FastGreat2nd else LateGreat2nd
-    else if diffMSec ≤ SLIDE_JUDGE_SEG_3RD_GREAT_MSEC then
-      if isFast then FastGreat3rd else LateGreat3rd
-    else
-      if isFast then FastGood else LateGood
+    if isFast then FastGood else LateGood
 
 ----------------------------------------------------------------------------
 -- Classic Slide Judgment (fixed windows, separate fast/late thresholds)
@@ -159,9 +157,9 @@ def slideClassicLateThresholds : List (Float × JudgeGrade) :=
 
 private def pickGrade (diffMSec : Float) (thresholds : List (Float × JudgeGrade)) (fallback : JudgeGrade) : JudgeGrade :=
   match thresholds with
-  | []            => fallback
-  | (limit, g) :: rest =>
-    if diffMSec ≤ limit then g else pickGrade diffMSec rest fallback
+  | []                  => fallback
+  | (limit, g) :: rest  =>
+      if diffMSec ≤ limit then g else pickGrade diffMSec rest fallback
 
 /--
   Judge a classic-mode slide. Uses fixed windows that are symmetrical in
@@ -182,17 +180,8 @@ def judgeSlideClassic (diffMs : Float) : JudgeGrade :=
   default result flow when slide subgrades are not displayed separately.
 -/
 def correctSlideGrade : JudgeGrade → JudgeGrade
-  | LateGreat | LateGreat2nd | LateGreat3rd => LateGood
-  | FastGreat | FastGreat2nd | FastGreat3rd => FastGood
-  | LatePerfect3rd => LateGreat
-  | FastPerfect3rd => FastGreat
-  | LatePerfect2nd => LatePerfect2nd
-  | FastPerfect2nd => FastPerfect2nd
-  | Perfect => Perfect
-  | Miss => Miss
-  | TooFast => TooFast
-  | LateGood => Miss
-  | FastGood => TooFast
+  | LatePerfect3rd | LatePerfect2nd | FastPerfect2nd | FastPerfect3rd => Perfect
+  | grade => grade
 
 ----------------------------------------------------------------------------
 -- Hold End Judgment (Deluxe/Modern) — press-band lookup table

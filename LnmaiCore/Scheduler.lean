@@ -21,6 +21,7 @@ open Constants
 open InputModel
 open Lifecycle
 open Score
+open LnmaiCore
 
 structure ClickCursor where
   buttonUsed : List Nat := List.replicate BUTTON_ZONE_COUNT 0
@@ -50,6 +51,62 @@ private def tryUseSensorClick (input : FrameInput) (cursor : ClickCursor) (area 
     (true, { cursor with sensorUsed := setUsed cursor.sensorUsed area (used + 1) })
   else
     (false, cursor)
+
+private def getSlideByIndex (slides : List SlideNote) (noteIndex : Nat) : Option SlideNote :=
+  slides.find? (fun slide => slide.params.noteIndex == noteIndex)
+
+private def slideRemaining (slide : SlideNote) : Nat :=
+  Lifecycle.slideQueueRemaining slide.judgeQueues
+
+private def emptySlideQueues (slide : SlideNote) : SlideNote :=
+  { slide with judgeQueues := slide.judgeQueues.map (fun _ => []) }
+
+private def resolveSlideLinks (slides : List SlideNote) : List SlideNote :=
+  slides.map (fun slide =>
+    match slide.parentNoteIndex with
+    | none => slide
+    | some parentIndex =>
+      match getSlideByIndex slides parentIndex with
+      | none => slide
+      | some parent =>
+        let remaining := slideRemaining parent
+        { slide with parentFinished := remaining == 0, parentPendingFinish := remaining == 1 })
+
+private def shouldForceFinishParent (parent child : SlideNote) : Bool :=
+  parent.isConnSlide && !parent.isGroupPartEnd && !child.parentFinished &&
+  slideRemaining child < child.initialQueueRemaining
+
+private def forceFinishParentPass (baseSlides : List SlideNote) (slides : List SlideNote) : List SlideNote :=
+  slides.map (fun slide =>
+    let hasActiveChild := baseSlides.any (fun child =>
+      match child.parentNoteIndex with
+      | some parentIndex => parentIndex == slide.params.noteIndex && shouldForceFinishParent slide child
+      | none => false)
+    if hasActiveChild then emptySlideQueues slide else slide)
+
+private def hideSlideRenderCmds (slide : SlideNote) : List RenderCommand :=
+  match slide.slideKind with
+  | SlideKind.Single => [RenderCommand.HideAllSlideBars slide.params.noteIndex]
+  | SlideKind.Wifi | SlideKind.ConnPart => [RenderCommand.HideAllSlideBars slide.params.noteIndex]
+
+private def forceFinishRenderCmds (before after : List SlideNote) : List RenderCommand :=
+  let rec go (before after : List SlideNote) : List RenderCommand :=
+    match before, after with
+    | [], _ => []
+    | _, [] => []
+    | beforeSlide :: beforeRest, afterSlide :: afterRest =>
+      let rest := go beforeRest afterRest
+      if slideRemaining beforeSlide > 0 && slideRemaining afterSlide == 0 then
+        hideSlideRenderCmds afterSlide ++ rest
+      else
+        rest
+  go before after
+
+private def iterateForceFinishParents : Nat → List SlideNote → List SlideNote
+  | 0, slides => slides
+  | n+1, slides =>
+      let updated := forceFinishParentPass slides slides
+      iterateForceFinishParents n updated
 
 ----------------------------------------------------------------------------
 -- Active Notes (all types pooled together for one frame)
@@ -162,17 +219,17 @@ private def processTouchNotes (queues : List (ZoneQueue TouchNote)) (input : Fra
 -- Process slide notes
 ----------------------------------------------------------------------------
 
-private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (currentSec : Float) (style : JudgeStyle) : List SlideNote × List JudgeEvent :=
+private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (currentSec : Float) (deltaSec : Float) (style : JudgeStyle) : List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
   match slides with
-  | [] => ([], [])
+  | [] => ([], [], [], [])
   | note :: rest =>
-    match slideStep note currentSec input.sensorHeld style with
-    | (newNote, some evt) =>
-      let (restSlides, restEvs) := processSlideNotes rest input currentSec style
-      (newNote :: restSlides, evt :: restEvs)
-    | (newNote, none) =>
-      let (restSlides, restEvs) := processSlideNotes rest input currentSec style
-      (newNote :: restSlides, restEvs)
+    match slideStep note currentSec input.sensorHeld deltaSec style with
+    | (newNote, some evt, audioCmds, renderCmds) =>
+      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentSec deltaSec style
+      (newNote :: restSlides, evt :: restEvs, audioCmds ++ restAudio, renderCmds ++ restRender)
+    | (newNote, none, audioCmds, renderCmds) =>
+      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentSec deltaSec style
+      (newNote :: restSlides, restEvs, audioCmds ++ restAudio, renderCmds ++ restRender)
 
 ----------------------------------------------------------------------------
 -- Score Accumulation from Events
@@ -200,13 +257,30 @@ private def foldEventsIntoScore (s : ScoreState) (events : List JudgeEvent) : Sc
   | [] => s
   | evt :: rest => foldEventsIntoScore (foldEventIntoScore s evt) rest
 
+private def eventToAudioCommands (evt : JudgeEvent) (atSec : Float) : List AudioCommand :=
+  [ AudioCommand.PlayJudgeSfx evt.kind evt.grade atSec evt.noteIndex ]
+
+private def eventToRenderCommands (evt : JudgeEvent) : List RenderCommand :=
+  [ RenderCommand.ShowJudgeResult evt.kind evt.grade evt.diffMs evt.noteIndex ]
+
+private def eventsToAudioCommands (events : List JudgeEvent) (atSec : Float) : List AudioCommand :=
+  match events with
+  | [] => []
+  | evt :: rest => eventToAudioCommands evt atSec ++ eventsToAudioCommands rest atSec
+
+private def eventsToRenderCommands (events : List JudgeEvent) : List RenderCommand :=
+  match events with
+  | [] => []
+  | evt :: rest => eventToRenderCommands evt ++ eventsToRenderCommands rest
+
 ----------------------------------------------------------------------------
 -- Frame Step: advance all active notes one frame (entry point)
 ----------------------------------------------------------------------------
 
-def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEvent :=
+def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEvent × List AudioCommand × List RenderCommand :=
   let newTime := st.currentTime + input.deltaSec
   let cursor : ClickCursor := {}
+  let resolvedSlides := resolveSlideLinks st.slides
 
   let (tapNotes, tapEvents) :=
     let (notes, evs, _) := processTapNotes st.tapQueues input newTime st.judgeStyle cursor
@@ -220,11 +294,16 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let (touchNotes, touchEvents) :=
     let (notes, evs, _) := processTouchNotes st.touchQueues input newTime st.judgeStyle cursor
     (notes, evs)
-  let (slideNotes, slideEvents) :=
-    processSlideNotes st.slides input newTime st.judgeStyle
+  let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
+    processSlideNotes resolvedSlides input newTime input.deltaSec st.judgeStyle
+  let slideNotes := iterateForceFinishParents slideNotes.length slideNotes
+  let slideNotes := resolveSlideLinks slideNotes
+  let forceFinishCommands := forceFinishRenderCmds resolvedSlides slideNotes
 
   let allEvents := tapEvents ++ holdEvents ++ touchHoldEvents ++ touchEvents ++ slideEvents
   let newScore := foldEventsIntoScore st.score allEvents
+  let audioCommands := slideAudioCommands ++ eventsToAudioCommands allEvents newTime
+  let renderCommands := slideRenderCommands ++ forceFinishCommands ++ eventsToRenderCommands allEvents
 
   ({ st with
       currentTime := newTime
@@ -234,6 +313,11 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     , slides      := slideNotes
     , activeHolds := holdNotes
     , activeTouchHolds := touchHoldNotes
-  }, allEvents)
+  }, allEvents, audioCommands, renderCommands)
+
+def stepFrameTimed (st : GameState) (batch : TimedInputBatch) : GameState × List JudgeEvent × List AudioCommand × List RenderCommand :=
+  let input := batch.toFrameInput (batch.currentSec - st.currentTime) st.prevButton st.prevSensor
+  let (nextState, events, audioCommands, renderCommands) := stepFrame { st with currentBatch := batch } input
+  ({ nextState with currentBatch := batch }, events, audioCommands, renderCommands)
 
 end LnmaiCore.Scheduler

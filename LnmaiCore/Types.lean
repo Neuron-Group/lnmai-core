@@ -112,6 +112,10 @@ inductive NoteType where
   | Tap | Hold | Slide | Touch | Break
 deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
+inductive SlideKind where
+  | Single | Wifi | ConnPart
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
+
 inductive AreaPolicy where
   | Or | And
 deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
@@ -271,6 +275,20 @@ structure JudgeEvent where
   diffMs    : Float
   sensorPos : Nat
   noteIndex : Nat
+deriving Repr, Inhabited
+
+inductive AudioCommand where
+  | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (atSec : Float) (noteIndex : Nat)
+  | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (atSec : Float)
+deriving Repr, Inhabited
+
+inductive RenderCommand where
+  | ShowJudgeResult (kind : JudgeEventKind) (grade : JudgeGrade) (diffMs : Float) (noteIndex : Nat)
+  | UpdateSlideProgress (noteIndex : Nat) (remaining : Nat)
+  | UpdateSlideTrackProgress (noteIndex : Nat) (trackIndex : Nat) (remaining : Nat)
+  | HideAllSlideBars (noteIndex : Nat)
+  | HideSlideBars (noteIndex : Nat) (endIndex : Nat)
+  | HideSlideTrackBars (noteIndex : Nat) (trackIndex : Nat) (endIndex : Nat)
 deriving Repr, Inhabited
 
 end LnmaiCore
