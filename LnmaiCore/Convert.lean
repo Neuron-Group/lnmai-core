@@ -32,7 +32,7 @@ def convertMaji : JudgeGrade → JudgeGrade
   | FastPerfect2nd => TooFast
   | FastGood       => TooFast
   -- Fixed points
-  | Perfect => Perfect
+  | JudgeGrade.Perfect => JudgeGrade.Perfect
   | Miss    => Miss
   | TooFast => TooFast
 
@@ -53,12 +53,12 @@ def convertGachi : JudgeGrade → JudgeGrade
   | FastGreat3rd   => TooFast
   | FastGood       => TooFast
   -- Fixed points
-  | Perfect => Perfect
+  | JudgeGrade.Perfect => JudgeGrade.Perfect
   | Miss    => Miss
   | TooFast => TooFast
 
 def convertGori : JudgeGrade → JudgeGrade
-  | Perfect => Perfect
+  | JudgeGrade.Perfect => JudgeGrade.Perfect
   | Miss    => Miss
   -- All late grades → Miss
   | LateGood       => Miss
@@ -91,16 +91,16 @@ def convertGrade (style : JudgeStyle) (g : JudgeGrade) : JudgeGrade :=
 --   We prove what we can: fixed points and structural properties.
 ----------------------------------------------------------------------------
 
-theorem perfect_fixed (style : JudgeStyle) : convertGrade style Perfect = Perfect := by
-  cases style <;> rfl
+theorem perfect_fixed (style : JudgeStyle) : convertGrade style JudgeGrade.Perfect = JudgeGrade.Perfect := by
+  cases style <;> simp [convertGrade, convertMaji, convertGachi, convertGori]
 
 theorem miss_fixed (style : JudgeStyle) : convertGrade style Miss = Miss := by
-  cases style <;> rfl
+  cases style <;> simp [convertGrade, convertMaji, convertGachi, convertGori]
 
 theorem tooFast_fixed_maji_gachi : convertMaji TooFast = TooFast ∧ convertGachi TooFast = TooFast := by
-  constructor <;> rfl
+  constructor <;> simp [convertMaji, convertGachi]
 
-theorem perfect_is_upper_bound (style : JudgeStyle) (g : JudgeGrade) : convertGrade style g = Perfect → g = Perfect := by
+theorem perfect_is_upper_bound (style : JudgeStyle) (g : JudgeGrade) : convertGrade style g = JudgeGrade.Perfect → g = JudgeGrade.Perfect := by
   cases style <;> cases g <;> simp [convertGrade, convertMaji, convertGachi, convertGori]
 
 

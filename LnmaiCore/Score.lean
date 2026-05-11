@@ -1,3 +1,5 @@
+import Mathlib
+
 /-
   Score and combo computation — faithful transcription of
   ObjectCounter.UpdateComboCount() and UpdateNoteScoreCount().
@@ -14,7 +16,7 @@ open NoteType
 -- Base Score per Note Type
 ----------------------------------------------------------------------------
 
-def baseScore (nt : NoteType) : Int :=
+def baseScore (nt : NoteType) : Nat :=
   match nt with
   | Tap   => 500
   | Hold  => 1000
@@ -22,7 +24,7 @@ def baseScore (nt : NoteType) : Int :=
   | Touch => 500
   | Break => 2500
 
-def extraScore : Int := 100  -- Break notes only (DX extra)
+def extraScore : Nat := 100  -- Break notes only (DX extra)
 
 ----------------------------------------------------------------------------
 -- Non-Break Note Score
@@ -36,7 +38,7 @@ def extraScore : Int := 100  -- Break notes only (DX extra)
   - Great*:       80% earned, 20% lost
   - Perfect*:     100% earned
 -/
-def scoreNonBreak (baseScore : Int) (grade : JudgeGrade) (multiple : Int := 1) : Int × Int :=
+def scoreNonBreak (baseScore : Nat) (grade : JudgeGrade) (multiple : Nat := 1) : Nat × Nat :=
   let b := baseScore * multiple
   match grade with
   | Miss    => (0, b)
@@ -46,7 +48,7 @@ def scoreNonBreak (baseScore : Int) (grade : JudgeGrade) (multiple : Int := 1) :
   | LateGreat | LateGreat2nd | LateGreat3rd
   | FastGreat | FastGreat2nd | FastGreat3rd =>
     (b * 4 / 5, b - b * 4 / 5)
-  | LatePerfect3rd | LatePerfect2nd | Perfect
+  | LatePerfect3rd | LatePerfect2nd | JudgeGrade.Perfect
   | FastPerfect2nd | FastPerfect3rd =>
     (b, 0)
 
@@ -61,7 +63,7 @@ def scoreNonBreak (baseScore : Int) (grade : JudgeGrade) (multiple : Int := 1) :
   Extra score has two tracks: DX and Classic.
   Classic extra is stricter (only Perfect2nd and Perfect earn any).
 -/
-def scoreBreak (grade : JudgeGrade) (multiple : Int := 1) : Int × Int × Int × Int × Int × Int :=
+def scoreBreak (grade : JudgeGrade) (multiple : Nat := 1) : Nat × Nat × Nat × Nat × Nat × Nat :=
   let m := multiple
   match grade with
   | Miss | TooFast =>
@@ -85,7 +87,7 @@ def scoreBreak (grade : JudgeGrade) (multiple : Int := 1) : Int × Int × Int ×
   | LatePerfect2nd | FastPerfect2nd =>
     (2500 * m, 75 * m,  50 * m,
          0,     25 * m,  50 * m)
-  | Perfect =>
+  | JudgeGrade.Perfect =>
     (2500 * m, 100 * m, 100 * m,
          0,         0,       0)
 
@@ -96,10 +98,10 @@ def scoreBreak (grade : JudgeGrade) (multiple : Int := 1) : Int × Int × Int ×
 ----------------------------------------------------------------------------
 
 structure ComboDelta where
-  combo      : Int
-  pCombo     : Int
-  cPCombo    : Int
-  dXScoreLost : Int  -- negative = lost score (subtracted from total)
+  combo      : Nat
+  pCombo     : Nat
+  cPCombo    : Nat
+  dXScoreLost : ℤ  -- negative = lost score (subtracted from total)
 deriving Repr, Inhabited
 
 /--
@@ -111,10 +113,10 @@ deriving Repr, Inhabited
   Note: the C# code increments _combo BEFORE calling UpdateComboCount
   for non-Miss grades. The combo reset for Miss/TooFast overrides.
 -/
-def updateCombo (combo : Int) (pCombo : Int) (cPCombo : Int) (dXScoreLost : Int) (grade : JudgeGrade) (multiple : Int := 1) : ComboDelta :=
+def updateCombo (combo : Nat) (pCombo : Nat) (cPCombo : Nat) (dXScoreLost : ℤ) (grade : JudgeGrade) (multiple : Nat := 1) : ComboDelta :=
   let m := multiple
   match grade with
-  | Perfect =>
+  | JudgeGrade.Perfect =>
     { combo       := combo
     , pCombo      := pCombo + m
     , cPCombo     := cPCombo + m
@@ -124,26 +126,26 @@ def updateCombo (combo : Int) (pCombo : Int) (cPCombo : Int) (dXScoreLost : Int)
     { combo       := combo
     , pCombo      := pCombo + m
     , cPCombo     := 0
-    , dXScoreLost := dXScoreLost - 1 * m
+    , dXScoreLost := dXScoreLost - Int.ofNat (1 * m)
     }
   | LateGreat3rd | LateGreat2nd | LateGreat
   | FastGreat | FastGreat2nd | FastGreat3rd =>
     { combo       := combo
     , pCombo      := 0
     , cPCombo     := 0
-    , dXScoreLost := dXScoreLost - 2 * m
+    , dXScoreLost := dXScoreLost - Int.ofNat (2 * m)
     }
   | LateGood | FastGood =>
     { combo       := combo
     , pCombo      := 0
     , cPCombo     := 0
-    , dXScoreLost := dXScoreLost - 3 * m
+    , dXScoreLost := dXScoreLost - Int.ofNat (3 * m)
     }
   | Miss | TooFast =>
     { combo       := 0
     , pCombo      := 0
     , cPCombo     := 0
-    , dXScoreLost := dXScoreLost - 3 * m
+    , dXScoreLost := dXScoreLost - Int.ofNat (3 * m)
     }
 
 ----------------------------------------------------------------------------
@@ -174,7 +176,7 @@ def countFastLate (grade : JudgeGrade) (diffMs : Float) (display : FastLateDispl
       else if diffMs < 0.0 then (true, false)
       else (false, true)
     | FastLateDisplay.BelowCP =>
-      if grade == Perfect then (false, false)
+      if grade == JudgeGrade.Perfect then (false, false)
       else if diffMs < 0.0 then (true, false)
       else (false, true)
     | FastLateDisplay.BelowP =>
@@ -191,10 +193,10 @@ def countFastLate (grade : JudgeGrade) (diffMs : Float) (display : FastLateDispl
   DXScore ranks: 5=SSS+, 4=SSS, 3=SS+, 2=SS, 1=S, 0=none
   Thresholds: 97%, 95%, 93%, 90%, 85%
 -/
-def dxScoreRank (achievedDxScore : Int) (maxDxScore : Int) : Nat :=
+def dxScoreRank (achievedDxScore : Nat) (maxDxScore : Nat) : Nat :=
   if maxDxScore == 0 then 0
   else
-    let pct : Float := (Float.ofInt achievedDxScore) / (Float.ofInt maxDxScore) * 100.0
+    let pct : Float := (Float.ofNat achievedDxScore) / (Float.ofNat maxDxScore) * 100.0
     if pct ≥ 97.0 then 5
     else if pct ≥ 95.0 then 4
     else if pct ≥ 93.0 then 3
@@ -215,16 +217,16 @@ structure AccRates where
   dxAccPlus         : Float  -- [4]: acc (+)          = (currentBase/totalBase + currentExtra/(totalExtra*100)) * 100
 deriving Repr
 
-def computeAccRates (totalBase : Int) (currentBase : Int) (lostBase : Int)
-                    (totalExtra : Int) (currentExtra : Int) (lostExtra : Int)
-                    (currentExtraClassic : Int) : AccRates :=
-  let tb := Float.ofInt totalBase
-  let cb := Float.ofInt currentBase
-  let lb := Float.ofInt lostBase
-  let te := max 1.0 (Float.ofInt totalExtra)
-  let ce := Float.ofInt currentExtra
-  let le := Float.ofInt lostExtra
-  let cc := Float.ofInt currentExtraClassic
+def computeAccRates (totalBase : Nat) (currentBase : Nat) (lostBase : Nat)
+                    (totalExtra : Nat) (currentExtra : Nat) (lostExtra : Nat)
+                    (currentExtraClassic : Nat) : AccRates :=
+  let tb := Float.ofNat totalBase
+  let cb := Float.ofNat currentBase
+  let lb := Float.ofNat lostBase
+  let te := max 1.0 (Float.ofNat totalExtra)
+  let ce := Float.ofNat currentExtra
+  let le := Float.ofNat lostExtra
+  let cc := Float.ofNat currentExtraClassic
   let earnedBase := tb - lb
   let earnedExtra := te - le
   if totalBase == 0 then

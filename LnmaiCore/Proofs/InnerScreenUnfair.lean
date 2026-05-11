@@ -202,6 +202,14 @@ theorem ghostTokyo1s5_A1_release_finishes_front :
     ghostTokyo1s5_A1On.check ghostTokyoSensorNone = ghostTokyo1s5_A1Solved := by
   simp [ghostTokyo1s5_A1On, ghostTokyo1s5_A1Solved, ghostTokyoSensorNone, SlideArea.check]
 
+theorem ghostTokyo1s5_A1_hold_delays_completion :
+    ghostTokyo1s5_A1On.isFinished = false ∧
+    exposeFront [ghostTokyo1s5_A1On, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] =
+      [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] := by
+  constructor
+  · simp [ghostTokyo1s5_A1On, SlideArea.isFinished]
+  · simp [exposeFront, ghostTokyo1s5_A1On, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending]
+
 theorem ghostTokyo1s5_phased_front_resolution :
     [ghostTokyo1s5_A1Pending.check ghostTokyoSensorA1,
       ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] = ghostTokyo1s5QueueAfterA1Press ∧

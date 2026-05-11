@@ -342,7 +342,7 @@ private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (cu
 ----------------------------------------------------------------------------
 
 private def foldEventIntoScore (s : ScoreState) (evt : JudgeEvent) : ScoreState :=
-  let multiple : Int := 1
+  let multiple : Nat := 1
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
   let counts := match evt.kind with
     | .Tap   => { s.counts with tapCount   := λ g => if g == evt.grade then s.counts.tapCount g + 1 else s.counts.tapCount g }

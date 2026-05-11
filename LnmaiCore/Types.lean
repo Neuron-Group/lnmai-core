@@ -6,6 +6,7 @@
   some structures; manual Eq instances are provided where needed.
 -/
 
+import Mathlib
 import Lean.Data.Json
 
 open Lean
@@ -242,19 +243,19 @@ def emptyNoteTypeJudgeCounts : NoteTypeJudgeCounts where
 ----------------------------------------------------------------------------
 
 structure ScoreState where
-  combo       : Int := 0
-  pCombo      : Int := 0
-  cPCombo     : Int := 0
-  totalBase   : Int := 0
-  totalExtra  : Int := 0
-  earnedBase  : Int := 0
-  earnedExtra : Int := 0
-  lostBase    : Int := 0
-  lostExtra   : Int := 0
-  dxScore     : Int := 0
-  maxDxScore  : Int := 0
-  fastCount   : Int := 0
-  lateCount   : Int := 0
+  combo       : Nat := 0
+  pCombo      : Nat := 0
+  cPCombo     : Nat := 0
+  totalBase   : Nat := 0
+  totalExtra  : Nat := 0
+  earnedBase  : Nat := 0
+  earnedExtra : Nat := 0
+  lostBase    : Nat := 0
+  lostExtra   : Nat := 0
+  dxScore     : ℤ := 0
+  maxDxScore  : Nat := 0
+  fastCount   : Nat := 0
+  lateCount   : Nat := 0
   counts      : NoteTypeJudgeCounts := emptyNoteTypeJudgeCounts
 deriving Inhabited, Repr
 

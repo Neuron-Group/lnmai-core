@@ -227,7 +227,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
     match band with
     | 0 =>  -- ≥ 100%: release never or very late
       match headGrade with
-      | LatePerfect3rd | LatePerfect2nd | Perfect | FastPerfect2nd | FastPerfect3rd =>
+      | LatePerfect3rd | LatePerfect2nd | JudgeGrade.Perfect | FastPerfect2nd | FastPerfect3rd =>
         headGrade
       | LateGood | LateGreat3rd | LateGreat2nd | LateGreat =>
         LateGreat
@@ -237,7 +237,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
       | TooFast => FastGood
     | 1 =>  -- [67%, 100%): release slightly early
       match headGrade with
-      | Perfect =>
+      | JudgeGrade.Perfect =>
         if judgeDiff ≥ 0.0 then LatePerfect2nd else FastPerfect2nd
       | LatePerfect3rd | LatePerfect2nd | FastPerfect2nd | FastPerfect3rd =>
         headGrade
@@ -249,7 +249,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
       | TooFast => FastGood
     | 2 =>  -- [33%, 67%): release moderately early
       match headGrade with
-      | Perfect =>
+      | JudgeGrade.Perfect =>
         if judgeDiff ≥ 0.0 then LateGreat2nd else FastGreat2nd
       | LateGood | LateGreat3rd | LateGreat2nd | LateGreat | LatePerfect3rd | LatePerfect2nd =>
         LateGreat
@@ -259,7 +259,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
       | TooFast => FastGood
     | 3 =>  -- [5%, 33%): release very early
       match headGrade with
-      | Perfect =>
+      | JudgeGrade.Perfect =>
         if judgeDiff ≥ 0.0 then LateGood else FastGood
       | Miss | LateGood | LateGreat3rd | LateGreat2nd | LateGreat | LatePerfect3rd | LatePerfect2nd =>
         LateGood
@@ -267,7 +267,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
         FastGood
     | _ =>  -- [0%, 5%): release almost immediately
       match headGrade with
-      | Perfect =>
+      | JudgeGrade.Perfect =>
         if judgeDiff ≥ 0.0 then LateGood else FastGood
       | LateGood | LateGreat3rd | LateGreat2nd | LateGreat | LatePerfect3rd | LatePerfect2nd =>
         LateGood
