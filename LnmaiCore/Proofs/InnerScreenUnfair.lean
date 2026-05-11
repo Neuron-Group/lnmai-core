@@ -380,4 +380,63 @@ theorem ghostTokyo_unfair :
   · exact ghostTokyoSceneDuringFinalTap_properties.right.right.left
   · exact ghostTokyoSceneDuringFinalTap_properties.right.right.right
 
+----------------------------------------------------------------------------
+-- Alternate witness: delayed A1 release avoids the unfair overlap
+----------------------------------------------------------------------------
+
+def ghostTokyo7x3QueueCleared : SlideQueue :=
+  []
+
+def ghostTokyoSceneAfterDelayedA1Release : GhostTokyoScene := {
+  slide73 := ghostTokyo7x3QueueCleared
+  slide15 := ghostTokyo1s5Queue
+  tap5Pressed := false
+}
+
+def ghostTokyoSceneResolvedByFinalTap : GhostTokyoScene := {
+  slide73 := ghostTokyo7x3QueueCleared
+  slide15 := ghostTokyoAdvanceExposedPair ghostTokyo1s5_B4Pending ghostTokyo1s5_A5Pending ghostTokyoSensorA5
+  tap5Pressed := true
+}
+
+theorem ghostTokyo7x3_cleared :
+    slideQueuesCleared [ghostTokyo7x3QueueCleared] = true := by
+  simp [ghostTokyo7x3QueueCleared, slideQueuesCleared]
+
+theorem ghostTokyoSceneAfterDelayedA1Release_properties :
+    hasInnerScreenUnfairShape ghostTokyoSceneAfterDelayedA1Release.slide15 ∧
+      exposeFront ghostTokyoSceneAfterDelayedA1Release.slide15 = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] ∧
+      ghostTokyoSceneAfterDelayedA1Release.tap5Pressed = false ∧
+      slideQueuesCleared [ghostTokyoSceneAfterDelayedA1Release.slide73] = true := by
+  simp [ghostTokyoSceneAfterDelayedA1Release, ghostTokyo1s5_hasInnerScreenUnfairShape,
+    ghostTokyo1s5_exposes_B4_after_A1, ghostTokyo7x3_cleared]
+
+theorem ghostTokyoSceneResolvedByFinalTap_properties :
+    exposeFront ghostTokyoSceneResolvedByFinalTap.slide15 = [ghostTokyo1s5_A5On] ∧
+      ghostTokyo1s5_A5On.isFinished = true ∧
+      ghostTokyoSceneResolvedByFinalTap.tap5Pressed = true ∧
+      slideQueuesCleared [ghostTokyoSceneResolvedByFinalTap.slide73] = true := by
+  simp [ghostTokyoSceneResolvedByFinalTap, ghostTokyo1s5_finalTap_exposes_A5,
+    ghostTokyo1s5_finalTap_finishes_A5, ghostTokyo7x3_cleared]
+
+theorem ghostTokyo_delayed_A1_release_resolves :
+    let beforeTap := ghostTokyoSceneAfterDelayedA1Release
+    let duringTap := ghostTokyoSceneResolvedByFinalTap
+    hasInnerScreenUnfairShape beforeTap.slide15 ∧
+      exposeFront beforeTap.slide15 = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] ∧
+      slideQueuesCleared [beforeTap.slide73] = true ∧
+      exposeFront duringTap.slide15 = [ghostTokyo1s5_A5On] ∧
+      ghostTokyo1s5_A5On.isFinished = true ∧
+      duringTap.tap5Pressed = true ∧
+      slideQueuesCleared [duringTap.slide73] = true := by
+  dsimp
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · exact ghostTokyoSceneAfterDelayedA1Release_properties.left
+  · exact ghostTokyoSceneAfterDelayedA1Release_properties.right.left
+  · exact ghostTokyoSceneAfterDelayedA1Release_properties.right.right.right
+  · exact ghostTokyoSceneResolvedByFinalTap_properties.left
+  · exact ghostTokyoSceneResolvedByFinalTap_properties.right.left
+  · exact ghostTokyoSceneResolvedByFinalTap_properties.right.right.left
+  · exact ghostTokyoSceneResolvedByFinalTap_properties.right.right.right
+
 end LnmaiCore.Proofs.InnerScreenUnfair
