@@ -22,3 +22,4 @@ import LnmaiCore.Lifecycle
 import LnmaiCore.InputModel
 import LnmaiCore.ChartLoader
 import LnmaiCore.Scheduler
+import LnmaiCore.Proofs.InnerScreenUnfair

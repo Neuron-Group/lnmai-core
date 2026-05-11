@@ -126,13 +126,19 @@ structure GameState where
   prevSensor    : List Bool := List.replicate SENSOR_AREA_COUNT false
   tapQueues     : List (ZoneQueue Lifecycle.TapNote) := List.replicate BUTTON_ZONE_COUNT { notes := [] }
   holdQueues    : List (ZoneQueue Lifecycle.HoldNote) := List.replicate BUTTON_ZONE_COUNT { notes := [] }
+  touchHoldQueues : List (ZoneQueue Lifecycle.HoldNote) := List.replicate SENSOR_AREA_COUNT { notes := [] }
   touchQueues   : List (ZoneQueue Lifecycle.TouchNote) := List.replicate SENSOR_AREA_COUNT { notes := [] }
   slides        : List Lifecycle.SlideNote := []
   activeHolds   : List (Nat × Lifecycle.HoldNote) := []
   activeTouchHolds : List (Nat × Lifecycle.HoldNote) := []
+  touchGroupStates : List GroupState := []
+  touchHoldGroupStates : List GroupState := []
   currentBatch  : TimedInputBatch := {}
   score         : ScoreState := {}
   judgeStyle    : JudgeStyle := JudgeStyle.Default
+  touchPanelOffsetSec : Float := 0.0
+  useButtonRingForTouch : Bool := Constants.USE_BUTTON_RING_FOR_TOUCH
+  subdivideSlideJudgeGrade : Bool := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
 deriving Inhabited, Repr
 
 end LnmaiCore.InputModel

@@ -193,6 +193,14 @@ structure NoteJudgeResult where
   isEX     : Bool := false
 deriving Repr, Inhabited
 
+structure GroupState where
+  groupId : Nat
+  count   : Nat
+  size    : Nat
+  grade   : JudgeGrade
+  diffMs  : Float
+deriving Repr, Inhabited
+
 namespace NoteJudgeResult
 
 def isFast (r : NoteJudgeResult) : Bool := r.diffMs < 0.0

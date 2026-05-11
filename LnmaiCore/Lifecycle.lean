@@ -67,7 +67,7 @@ def tapStep (note : TapNote) (currentSec : Float) (judgeDiffMs : Float) (inputCl
       -- too late before being judgeable — force Miss
       let raw := JudgeGrade.Miss
       let grade := Convert.convertGrade style raw
-      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := diffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := -1.0, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
       ({ note with state := TapState.Ended }, some evt)
     else if currentSec ≥ judgeableRange.1 then
       -- entering judgeable window
@@ -79,7 +79,7 @@ def tapStep (note : TapNote) (currentSec : Float) (judgeDiffMs : Float) (inputCl
       -- too late → Miss
       let raw := JudgeGrade.Miss
       let grade := Convert.convertGrade style raw
-      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := 150.0, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := -1.0, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
       ({ note with state := TapState.Ended }, some evt)
     else if inputClicked && currentSec ≥ judgeableRange.1 then
       let raw := Judge.judgeTap judgeDiffMs note.params.isEX
@@ -115,6 +115,9 @@ structure HoldNote where
   playerReleaseTimeSec : Float := 0.0         -- accumulated release time
   isClassic  : Bool := false
   isTouchHold : Bool := false
+  touchHoldGroupId : Option Nat := none
+  touchHoldGroupSize : Nat := 1
+  touchHoldGroupTriggered : Bool := false
 deriving Inhabited, Repr
 
 /--
@@ -122,71 +125,112 @@ deriving Inhabited, Repr
   `inputPressed` = button/sensor is held this frame.
   `inputClicked` = button/sensor just pressed this frame (edge).
 -/
-def holdStep (note : HoldNote) (currentSec : Float) (judgeDiffMs : Float) (headIgnoreSec : Float) (tailIgnoreSec : Float) (inputClicked : Bool) (inputPressed : Bool) (deltaSec : Float) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
+def holdStep (note : HoldNote) (currentSec : Float) (judgeDiffMs : Float) (headIgnoreSec : Float) (tailIgnoreSec : Float) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffsetSec : Float) (sharedResult : Option (JudgeGrade × Float)) (deltaSec : Float) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   let diffSec := currentSec - timing
-  let diffMs := diffSec * 1000.0
   let bodyCheckStart := timing + headIgnoreSec
   let bodyCheckEnd   := timing + note.lengthSec - tailIgnoreSec
   let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC)
-  let endHold (note : HoldNote) (headGrade : JudgeGrade) (releaseTimeSec : Float) : HoldNote × Option JudgeEvent :=
+  let releaseOffsetSec := if prevSensorPressed && !currentButtonPressed then 0.0 else touchPanelOffsetSec
+  let endHold (note : HoldNote) (headGrade : JudgeGrade) (classicReleaseTimingSec : Float) (releaseTimeSec : Float) : HoldNote × Option JudgeEvent :=
     let finalGrade :=
       if note.isClassic then
-        Judge.judgeHoldClassicEnd headGrade timing note.lengthSec currentSec
+        Judge.judgeHoldClassicEnd headGrade timing note.lengthSec classicReleaseTimingSec
       else
         Judge.judgeHoldEnd headGrade note.headDiffMs note.lengthSec (headIgnoreSec + tailIgnoreSec) releaseTimeSec
     let finalGrade' := Convert.convertGrade style finalGrade
-    let evt : JudgeEvent := { kind := .Hold, grade := finalGrade', diffMs := diffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
-    ({ note with state := HoldSubState.Ended finalGrade' }, some evt)
+    let eventDiffMs := if note.headDiffMs == 0.0 && headGrade == Miss then 150.0 else note.headDiffMs
+    let evt : JudgeEvent := { kind := .Hold, grade := finalGrade', diffMs := eventDiffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+    ({ note with state := HoldSubState.Ended finalGrade', touchHoldGroupTriggered := false }, some evt)
   match note.state with
   | .HeadWaiting =>
-    if currentSec > timing + tapGoodMs / 1000.0 then
-      -- too late for head → mark miss, but let the hold end logic run
-      ({ note with state := HoldSubState.HeadJudged Miss }, none)
+    if note.isTouchHold then
+      match sharedResult with
+      | some (grade, sharedDiffMs) =>
+        ({ note with state := HoldSubState.HeadJudged grade, headDiffMs := sharedDiffMs, headGrade := grade, touchHoldGroupTriggered := true }, none)
+      | none =>
+        if currentSec > timing + touchGoodMs / 1000.0 then
+          ({ note with state := HoldSubState.HeadJudged Miss, headDiffMs := touchGoodMs, headGrade := Miss }, none)
+        else if currentSec ≥ judgeableRange.1 then
+          ({ note with state := HoldSubState.HeadJudgeable }, none)
+        else
+          (note, none)
+    else if currentSec > timing + tapGoodMs / 1000.0 then
+      ({ note with state := HoldSubState.HeadJudged Miss, headDiffMs := 150.0, headGrade := Miss }, none)
     else if currentSec ≥ judgeableRange.1 then
       ({ note with state := HoldSubState.HeadJudgeable }, none)
     else
       (note, none)
   | .HeadJudgeable =>
-    if inputClicked && currentSec ≥ judgeableRange.1 then
+    if note.isTouchHold then
+      match sharedResult with
+      | some (grade, sharedDiffMs) =>
+        ({ note with state := HoldSubState.HeadJudged grade, headDiffMs := sharedDiffMs, headGrade := grade, touchHoldGroupTriggered := true }, none)
+      | none =>
+        if inputClicked && currentSec ≥ judgeableRange.1 then
+          match Judge.judgeTouch judgeDiffMs note.params.isEX with
+          | some raw =>
+            let grade := Convert.convertGrade style raw
+            ({ note with state := HoldSubState.HeadJudged grade, headDiffMs := judgeDiffMs, headGrade := grade, touchHoldGroupTriggered := note.isTouchHold }, none)
+          | none =>
+            (note, none)
+        else if currentSec > timing + touchGoodMs / 1000.0 then
+          ({ note with state := HoldSubState.HeadJudged Miss, headDiffMs := touchGoodMs, headGrade := Miss }, none)
+        else
+          (note, none)
+    else if inputClicked && currentSec ≥ judgeableRange.1 then
       let raw := Judge.judgeTap judgeDiffMs note.params.isEX
       let grade := Convert.convertGrade style raw
-      ({ note with state := HoldSubState.HeadJudged grade, headDiffMs := judgeDiffMs, headGrade := grade }, none)
+      ({ note with state := HoldSubState.HeadJudged grade, headDiffMs := judgeDiffMs, headGrade := grade, touchHoldGroupTriggered := note.isTouchHold }, none)
     else if currentSec > timing + tapGoodMs / 1000.0 then
-      ({ note with state := HoldSubState.HeadJudged Miss, headGrade := Miss }, none)
+      ({ note with state := HoldSubState.HeadJudged Miss, headDiffMs := 150.0, headGrade := Miss }, none)
     else
       (note, none)
   | .HeadJudged headGrade =>
     if currentSec < bodyCheckStart then
       -- still in head ignore window, keep waiting
       (note, none)
+    else if note.isClassic then
+      if diffSec >= note.lengthSec + CLASSIC_HOLD_ALLOW_OVER_LENGTH_SEC || headGrade.isMissOrTooFast then
+        endHold note headGrade currentSec note.playerReleaseTimeSec
+      else if inputPressed then
+        ({ note with state := HoldSubState.BodyHeld, touchHoldGroupTriggered := note.isTouchHold }, none)
+      else
+        endHold note headGrade (currentSec - releaseOffsetSec) note.playerReleaseTimeSec
     else if currentSec > bodyCheckEnd then
       -- past body check window → force end
-      endHold note headGrade note.playerReleaseTimeSec
+      endHold note headGrade currentSec note.playerReleaseTimeSec
     else if inputPressed then
-      ({ note with state := HoldSubState.BodyHeld, playerReleaseTimeSec := 0.0 }, none)
+      ({ note with state := HoldSubState.BodyHeld, playerReleaseTimeSec := 0.0, touchHoldGroupTriggered := note.isTouchHold }, none)
     else
       -- not pressed, accumulate release time if past release ignore
       let newRT := note.playerReleaseTimeSec + deltaSec
       if newRT ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
         ({ note with playerReleaseTimeSec := newRT }, none)
       else
-        ({ note with state := HoldSubState.BodyReleased, playerReleaseTimeSec := newRT }, none)
+        ({ note with state := HoldSubState.BodyReleased, playerReleaseTimeSec := newRT, touchHoldGroupTriggered := false }, none)
   | .BodyHeld =>
     -- check if body still active
-    if inputPressed then
-      (note, none)  -- still held
+    if note.isClassic then
+      if diffSec >= note.lengthSec + CLASSIC_HOLD_ALLOW_OVER_LENGTH_SEC || note.headGrade.isMissOrTooFast then
+        endHold note note.headGrade currentSec note.playerReleaseTimeSec
+      else if inputPressed then
+        ({ note with touchHoldGroupTriggered := note.isTouchHold }, none)
+      else
+        endHold note note.headGrade (currentSec - releaseOffsetSec) note.playerReleaseTimeSec
+    else if inputPressed then
+      ({ note with touchHoldGroupTriggered := note.isTouchHold }, none)  -- still held
     else
-      ({ note with state := HoldSubState.BodyReleased, playerReleaseTimeSec := note.playerReleaseTimeSec + deltaSec }, none)
+      ({ note with state := HoldSubState.BodyReleased, playerReleaseTimeSec := note.playerReleaseTimeSec + deltaSec, touchHoldGroupTriggered := false }, none)
   | .BodyReleased =>
     -- accumulate release time until force-end
     let newRT := note.playerReleaseTimeSec + deltaSec
     let _remainingTime := max 0.0 (note.lengthSec - diffSec)
     if currentSec > bodyCheckEnd || diffSec >= note.lengthSec then
       -- force end: compute final grade
-      endHold note note.headGrade newRT
+      endHold note note.headGrade currentSec newRT
     else
-      ({ note with playerReleaseTimeSec := newRT }, none)
+      ({ note with playerReleaseTimeSec := newRT, touchHoldGroupTriggered := false }, none)
   | .Ended _ =>
     (note, none)
 
@@ -205,18 +249,25 @@ structure TouchNote where
   params       : NoteParams
   state        : TouchState
   sensorPos    : Nat       -- sensor area (0-32)
+  touchGroupId : Option Nat := none
+  touchGroupSize : Nat := 1
 deriving Inhabited, Repr
 
 /--
   Advance a touch note one frame. Touch uses wider windows
   and only late-side judgments.
 -/
-def touchStep (note : TouchNote) (currentSec : Float) (judgeDiffMs : Float) (inputClicked : Bool) (style : JudgeStyle) : TouchNote × Option JudgeEvent :=
+def touchStep (note : TouchNote) (currentSec : Float) (judgeDiffMs : Float) (inputClicked : Bool) (sharedResult : Option (JudgeGrade × Float)) (style : JudgeStyle) : TouchNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   let diffSec := currentSec - timing
   let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC + TOUCH_JUDGABLE_RANGE_LATE_EXTRA_SEC)
   match note.state with
   | .Waiting =>
+    match sharedResult with
+    | some (grade, sharedDiffMs) =>
+      let evt : JudgeEvent := { kind := .Touch, grade := Convert.convertGrade style grade, diffMs := sharedDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
+      ({ note with state := TouchState.Ended }, some evt)
+    | none =>
     if currentSec ≥ judgeableRange.2 then
       let evt : JudgeEvent := { kind := .Touch, grade := Miss, diffMs := judgeDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
       ({ note with state := TouchState.Ended }, some evt)
@@ -225,6 +276,11 @@ def touchStep (note : TouchNote) (currentSec : Float) (judgeDiffMs : Float) (inp
     else
       (note, none)
   | .Judgeable =>
+    match sharedResult with
+    | some (grade, sharedDiffMs) =>
+      let evt : JudgeEvent := { kind := .Touch, grade := Convert.convertGrade style grade, diffMs := sharedDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
+      ({ note with state := TouchState.Ended }, some evt)
+    | none =>
     if currentSec > timing + touchGoodMs / 1000.0 then
       let evt : JudgeEvent := { kind := .Touch, grade := Miss, diffMs := judgeDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
       ({ note with state := TouchState.Ended }, some evt)
@@ -394,7 +450,7 @@ private def slideHideRenderCmds (note : SlideNote) : List RenderCommand :=
       [RenderCommand.HideAllSlideBars note.params.noteIndex]
 
 /-- Advance a slide note with queue traversal. -/
-def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (deltaSec : Float) (style : JudgeStyle) : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
+def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (deltaSec : Float) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
   let timing := note.params.effectiveTiming
   let diffSec := currentSec - timing
   let diffMs := diffSec * 1000.0
@@ -456,7 +512,9 @@ def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (
       ({ note with state := SlideState.Judged raw waitTime, judgeQueues := updatedQueues, isCheckable := isCheckable }, none, audioCmdsForTrackOns, queueRenderCmds ++ renderCmds)
     else if isJudgable && isTooLate then
       let raw := Judge.judgeSlideTooLate (slideQueueRemaining updatedQueues)
-      let grade := Judge.correctSlideGrade (Convert.convertGrade style raw)
+      let grade :=
+        let converted := Convert.convertGrade style raw
+        if subdivideSlideJudgeGrade then converted else Judge.correctSlideGrade converted
       let evt : JudgeEvent := { kind := .Slide, grade := grade, diffMs := diffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
       ({ note with state := SlideState.Ended, judgeQueues := updatedQueues, isCheckable := isCheckable }, some evt, [], queueRenderCmds ++ slideHideRenderCmds note)
     else
@@ -469,7 +527,9 @@ def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (
     let newWait := waitTime - deltaSec
     if newWait ≤ 0.0 then
       let raw := match note.state with | .Judged grade _ => grade | _ => Miss
-      let grade := Judge.correctSlideGrade (Convert.convertGrade style raw)
+      let grade :=
+        let converted := Convert.convertGrade style raw
+        if subdivideSlideJudgeGrade then converted else Judge.correctSlideGrade converted
       let evt : JudgeEvent := { kind := .Slide, grade := grade, diffMs := diffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
       ({ note with state := SlideState.Ended, judgeQueues := updatedQueues, isCheckable := isCheckable }, some evt, [], queueRenderCmds ++ slideHideRenderCmds note)
     else
