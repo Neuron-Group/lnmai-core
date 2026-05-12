@@ -6,6 +6,15 @@ open Lean Elab Term
 namespace LnmaiCore.Simai
 
 syntax "simai_chart!" str : term
+syntax "simai_chart_at!" num str : term
+syntax "simai_semantic_chart!" str : term
+syntax "simai_semantic_chart_at!" num str : term
+syntax "simai_inspection_chart!" str : term
+syntax "simai_inspection_chart_at!" num str : term
+syntax "simai_normalized_chart!" str : term
+syntax "simai_normalized_chart_at!" num str : term
+syntax "simai_lowered_chart!" str : term
+syntax "simai_lowered_chart_at!" num str : term
 syntax "simai_note!" str : term
 syntax "simai_slide!" str : term
 syntax "simai_normalized_slide!" str : term
@@ -16,15 +25,103 @@ private def getStringLiteral? (stx : Syntax) : Option String :=
 private def throwDslError (kind : String) (input : String) (err : ParseError) : TermElabM α :=
   throwError m!"{kind} parse failed for {repr input}: {err.message}"
 
+private def getNatLiteral? (stx : Syntax) : Option Nat :=
+  stx.isNatLit?
+
+private def validateChartLiteral (kind : String) (levelIndex : Nat) (content : String) : TermElabM Unit := do
+  match parseFrontendChartResult content levelIndex with
+  | .ok _ => pure ()
+  | .error err => throwDslError kind content err
+
 elab_rules : term
   | `(simai_chart! $s:str) => do
       let some content := getStringLiteral? s
         | throwUnsupportedSyntax
-      match parseFrontendChartResult content 1 with
-      | .ok _ =>
-          let stx ← `((frontendChartLiteral $s : FrontendChartResult))
-          elabTerm stx none
-      | .error err => throwDslError "simai_chart!" content err
+      validateChartLiteral "simai_chart!" 1 content
+      let stx ← `((frontendChartLiteral $s : FrontendChartResult))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_chart_at! $n:num $s:str) => do
+      let some levelIndex := getNatLiteral? n
+        | throwUnsupportedSyntax
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_chart_at!" levelIndex content
+      let stx ← `((frontendChartLiteral $s $n : FrontendChartResult))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_semantic_chart! $s:str) => do
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_semantic_chart!" 1 content
+      let stx ← `((frontendSemanticChartLiteral $s : FrontendSemanticChart))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_semantic_chart_at! $n:num $s:str) => do
+      let some levelIndex := getNatLiteral? n
+        | throwUnsupportedSyntax
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_semantic_chart_at!" levelIndex content
+      let stx ← `((frontendSemanticChartLiteral $s $n : FrontendSemanticChart))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_inspection_chart! $s:str) => do
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_inspection_chart!" 1 content
+      let stx ← `((frontendInspectionChartLiteral $s : FrontendChartInspection))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_inspection_chart_at! $n:num $s:str) => do
+      let some levelIndex := getNatLiteral? n
+        | throwUnsupportedSyntax
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_inspection_chart_at!" levelIndex content
+      let stx ← `((frontendInspectionChartLiteral $s $n : FrontendChartInspection))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_normalized_chart! $s:str) => do
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_normalized_chart!" 1 content
+      let stx ← `((frontendNormalizedChartLiteral $s : NormalizedChart))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_normalized_chart_at! $n:num $s:str) => do
+      let some levelIndex := getNatLiteral? n
+        | throwUnsupportedSyntax
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_normalized_chart_at!" levelIndex content
+      let stx ← `((frontendNormalizedChartLiteral $s $n : NormalizedChart))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_lowered_chart! $s:str) => do
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_lowered_chart!" 1 content
+      let stx ← `((frontendLoweredChartLiteral $s : ChartLoader.ChartSpec))
+      elabTerm stx none
+
+elab_rules : term
+  | `(simai_lowered_chart_at! $n:num $s:str) => do
+      let some levelIndex := getNatLiteral? n
+        | throwUnsupportedSyntax
+      let some content := getStringLiteral? s
+        | throwUnsupportedSyntax
+      validateChartLiteral "simai_lowered_chart_at!" levelIndex content
+      let stx ← `((frontendLoweredChartLiteral $s $n : ChartLoader.ChartSpec))
+      elabTerm stx none
 
 elab_rules : term
   | `(simai_note! $s:str) => do
@@ -57,7 +154,3 @@ elab_rules : term
       | .error err => throwDslError "simai_normalized_slide!" content err
 
 end LnmaiCore.Simai
-
-def x := simai_normalized_slide! "1<5[4:1]"
-#eval x
-

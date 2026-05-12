@@ -2,4 +2,5 @@
 -- Import modules here that should be built as part of the library.
 import LnmaiCore.Basic
 import LnmaiCore.Simai
+import LnmaiCore.Proofs.QueueInterop
 import LnmaiCore.Proofs.SimaiNormalize

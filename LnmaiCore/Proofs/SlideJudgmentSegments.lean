@@ -55,28 +55,6 @@ theorem singleton_hasJudgmentSegments
     HasJudgmentSegments [area] := by
   exact cons_hasJudgmentSegments area [] hArea nil_hasJudgmentSegments
 
-theorem ghostTokyo1s5_A1_isJudgmentSegment :
-    IsJudgmentSegment ghostTokyo1s5_A1Pending := by
-  simp [IsJudgmentSegment, ghostTokyo1s5_A1Pending]
-
-theorem ghostTokyo1s5_B4_isJudgmentSegment :
-    IsJudgmentSegment ghostTokyo1s5_B4Pending := by
-  simp [IsJudgmentSegment, ghostTokyo1s5_B4Pending]
-
-theorem ghostTokyo1s5_A5_isJudgmentSegment :
-    IsJudgmentSegment ghostTokyo1s5_A5Pending := by
-  simp [IsJudgmentSegment, ghostTokyo1s5_A5Pending]
-
-theorem ghostTokyo1s5Queue_hasJudgmentSegments :
-    HasJudgmentSegments ghostTokyo1s5QueueStart := by
-  apply cons_hasJudgmentSegments
-  · exact ghostTokyo1s5_A1_isJudgmentSegment
-  · apply cons_hasJudgmentSegments
-    · exact ghostTokyo1s5_B4_isJudgmentSegment
-    · apply cons_hasJudgmentSegments
-      · exact ghostTokyo1s5_A5_isJudgmentSegment
-      · exact nil_hasJudgmentSegments
-
 theorem judgmentSegment_has_one_or_two_zones
     (queue : SlideQueue) (hSegments : HasJudgmentSegments queue)
     (area : SlideArea) (hMem : area ∈ queue) :

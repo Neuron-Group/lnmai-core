@@ -38,6 +38,23 @@ def test_simai_slide_dsl_smoke : ParityCase :=
      normalized.trackCount = 3 && normalized.slideKind = LnmaiCore.SlideKind.Wifi)
     "slide DSL elaborates through shared parser/normalizer"
 
+def test_simai_chart_level_dsl_smoke : ParityCase :=
+  let chart : FrontendChartResult :=
+    simai_chart_at! 2 "&first=0\n&inote_1=\n(120)\n1,\n&inote_2=\n(120)\n2,\n"
+  supportedCase "simai_chart_level_dsl_smoke"
+    (match chart.semantic.normalized.taps with
+     | tap :: _ => tap.lane = 1
+     | _ => false)
+    "level-aware chart DSL selects the requested inote block"
+
+def test_simai_normalized_chart_dsl_smoke : ParityCase :=
+  let chart : NormalizedChart := simai_normalized_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1],\n"
+  supportedCase "simai_normalized_chart_dsl_smoke"
+    (match chart.slides with
+     | slide :: _ => !slide.judgeQueues.isEmpty && slide.totalJudgeQueueLen > 0
+     | _ => false)
+    "normalized chart DSL exposes normalization-owned topology"
+
 def test_metadata_parsing : ParityCase :=
   match parseFrontendMaidata "&title=My Awesome Song\n&artist=The Best Artist\n&des=Chart Master\n&first=1.5\n&lv_1=1\n&lv_4=10+\n&lv_5=12\n&uot_other=some_value\n" with
   | .ok file =>

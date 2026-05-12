@@ -381,7 +381,15 @@ private def collectNewSlideOnTracks (index : Nat) (oldQueues newQueues : List Sl
 def updateSlideArea (area : SlideArea) (sensorHeld : List Bool) : SlideArea :=
   area.check sensorHeld
 
-private partial def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : List Bool) : SlideQueue × List RenderCommand :=
+/-- Flatten multi-track queue specs for proof-facing single-track reasoning. -/
+def flattenSlideQueues : List SlideQueue → SlideQueue
+  | [] => []
+  | q :: qs => q ++ flattenSlideQueues qs
+
+/-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
+private partial def slideQueueCore
+    (noteIndex : Nat) (trackIndex : Option Nat) (emitCmds : Bool) (queue : SlideQueue) (sensorHeld : List Bool) :
+    SlideQueue × List RenderCommand :=
   match queue with
   | [] => ([], [])
   | first :: rest =>
@@ -389,30 +397,43 @@ private partial def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Opt
     match rest with
     | [] =>
       if first'.isFinished then
-        ([], [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished])
+        let cmds := if emitCmds then [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished] else []
+        ([], cmds)
       else if first'.on then
-        ([first'], [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenOn])
+        let cmds := if emitCmds then [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenOn] else []
+        ([first'], cmds)
       else
         ([first'], [])
     | second :: rest2 =>
       if first'.isSkippable || first'.on then
         let second' := updateSlideArea second sensorHeld
         if second'.isFinished then
-          let (restQueue, restCmds) := updateSlideQueueWithCmds noteIndex trackIndex rest2 sensorHeld
-          (restQueue, slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenFinished :: restCmds)
+          let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds rest2 sensorHeld
+          let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenFinished :: restCmds else []
+          (restQueue, cmds)
         else if second'.on then
-          let (restQueue, restCmds) := updateSlideQueueWithCmds noteIndex trackIndex (second' :: rest2) sensorHeld
-          (restQueue, slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenOn :: restCmds)
+          let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds (second' :: rest2) sensorHeld
+          let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenOn :: restCmds else []
+          (restQueue, cmds)
         else if first'.isFinished then
-          let (restQueue, restCmds) := updateSlideQueueWithCmds noteIndex trackIndex (second' :: rest2) sensorHeld
-          (restQueue, slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds)
+          let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds (second' :: rest2) sensorHeld
+          let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds else []
+          (restQueue, cmds)
         else
           ([first', second'] ++ rest2, [])
       else if first'.isFinished then
-        let (restQueue, restCmds) := updateSlideQueueWithCmds noteIndex trackIndex rest sensorHeld
-        (restQueue, slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds)
+        let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds rest sensorHeld
+        let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds else []
+        (restQueue, cmds)
       else
         ([first'] ++ rest, [])
+
+/-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
+partial def replaySlideQueue (queue : SlideQueue) (sensorHeld : List Bool) : SlideQueue :=
+  (slideQueueCore 0 none false queue sensorHeld).1
+
+private partial def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : List Bool) : SlideQueue × List RenderCommand :=
+  slideQueueCore noteIndex trackIndex true queue sensorHeld
 
 private def updateSlideQueue (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : List Bool) : SlideQueue × List RenderCommand :=
   updateSlideQueueWithCmds noteIndex trackIndex queue sensorHeld

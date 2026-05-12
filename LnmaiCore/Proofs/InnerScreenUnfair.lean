@@ -7,11 +7,15 @@
 -/
 
 import LnmaiCore.Lifecycle
+import LnmaiCore.Simai
+import LnmaiCore.Proofs.QueueInterop
 
 namespace LnmaiCore.Proofs.InnerScreenUnfair
 
 open LnmaiCore.Constants
 open LnmaiCore.Lifecycle
+open LnmaiCore.Simai
+open LnmaiCore.Proofs.QueueInterop
 
 ----------------------------------------------------------------------------
 -- Local model: queue exposure under a skip-friendly front area
@@ -123,320 +127,103 @@ theorem innerScreenUnfairShape_isWitness
 -- Concrete witness: “Ghost Tokyo” 1s5 inner-screen unfair fragment
 ----------------------------------------------------------------------------
 
+def ghostTokyoSimaiFragment : NormalizedChart :=
+  simai_normalized_chart! "&first=0\n&inote_1=\n(124){4}\n7x-3[8:1],1xs5[4:1],5x,\n"
+
+def ghostTokyo1s5Normalized : NormalizedSlide :=
+  match ghostTokyoSimaiFragment.slides with
+  | _ :: slide15 :: _ => slide15
+  | _ => panic! "Ghost Tokyo fragment should contain the 1s5 slide as its second normalized slide"
+
+def ghostTokyo7x3Normalized : NormalizedSlide :=
+  match ghostTokyoSimaiFragment.slides with
+  | slide73 :: _ :: _ => slide73
+  | _ => panic! "Ghost Tokyo fragment should contain the 7x-3 slide as its first normalized slide"
+
+def ghostTokyo7x3FullQueueStart : SlideQueue :=
+  flattenSimaiSlideQueues ghostTokyo7x3Normalized.judgeQueues
+
+def ghostTokyo1s5FullQueueStart : SlideQueue :=
+  flattenSimaiSlideQueues ghostTokyo1s5Normalized.judgeQueues
+
+theorem ghostTokyo1s5Normalized_matches_reference_shape :
+    ghostTokyo1s5Normalized.simaiShape.kind = SlideKind.s ∧
+      ghostTokyo1s5Normalized.judgeQueues.length = 7 := by
+  native_decide
+
+theorem ghostTokyo1s5FullQueue_matches_parsed_topology :
+    List.map (fun area => area.targetAreas) ghostTokyo1s5FullQueueStart =
+      [[1], [8], [7], [16], [3], [4], [5]] := by
+  native_decide
+
+theorem ghostTokyo7x3FullQueue_matches_parsed_topology :
+    List.map (fun area => area.targetAreas) ghostTokyo7x3FullQueueStart =
+      [[1], [9], [16], [14], [5]] := by
+  native_decide
+
 def ghostTokyoSensorNone : List Bool :=
-  [false, false, false, false, false, false, false, false, false, false, false, false]
+  List.replicate 17 false
 
 def ghostTokyoSensorA1 : List Bool :=
-  [false, true, false, false, false, false, false, false, false, false, false, false]
+  (List.range 17).map (fun i => i = 1)
+
+def ghostTokyoSensorB7 : List Bool :=
+  (List.range 17).map (fun i => i = 7)
+
+def ghostTokyoSensorC : List Bool :=
+  (List.range 17).map (fun i => i = 16)
+
+def ghostTokyoSensorB3 : List Bool :=
+  (List.range 17).map (fun i => i = 3)
 
 def ghostTokyoSensorA5 : List Bool :=
-  [false, false, false, false, false, true, false, false, false, false, false, false]
+  (List.range 17).map (fun i => i = 5)
 
-def ghostTokyo1s5_A1Pending : SlideArea := {
-  targetAreas := [1]
-  isLast := false
-  isSkippable := true
-  arrowProgressWhenOn := 0
-  arrowProgressWhenFinished := 0
-  wasOn := false
-  wasOff := false
-}
+def ghostTokyo1s5AfterA1Press : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo1s5FullQueueStart ghostTokyoSensorA1
 
-def ghostTokyo1s5_A1On : SlideArea := {
-  targetAreas := [1]
-  isLast := false
-  isSkippable := true
-  arrowProgressWhenOn := 0
-  arrowProgressWhenFinished := 0
-  wasOn := true
-  wasOff := false
-}
+def ghostTokyo1s5AfterA1Release : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo1s5AfterA1Press ghostTokyoSensorNone
 
-def ghostTokyo1s5_A1Solved : SlideArea := {
-  targetAreas := [1]
-  isLast := false
-  isSkippable := true
-  arrowProgressWhenOn := 0
-  arrowProgressWhenFinished := 0
-  wasOn := true
-  wasOff := true
-}
+def ghostTokyo1s5AfterB7 : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo1s5AfterA1Release ghostTokyoSensorB7
 
-def ghostTokyo1s5_B4Pending : SlideArea := {
-  targetAreas := [11]
-  isLast := false
-  isSkippable := true
-  arrowProgressWhenOn := 1
-  arrowProgressWhenFinished := 1
-  wasOn := false
-  wasOff := false
-}
+def ghostTokyo1s5AfterC : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo1s5AfterB7 ghostTokyoSensorC
 
-def ghostTokyo1s5_A5Pending : SlideArea := {
-  targetAreas := [5]
-  isLast := true
-  isSkippable := true
-  arrowProgressWhenOn := 2
-  arrowProgressWhenFinished := 2
-  wasOn := false
-  wasOff := false
-}
+def ghostTokyo1s5AfterB3 : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo1s5AfterC ghostTokyoSensorB3
 
-def ghostTokyo1s5QueueStart : SlideQueue :=
-  [ghostTokyo1s5_A1Pending, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending]
+def ghostTokyo1s5AfterA5 : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo1s5AfterB3 ghostTokyoSensorA5
 
-def ghostTokyo1s5QueueAfterA1Press : SlideQueue :=
-  [ghostTokyo1s5_A1On, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending]
+def ghostTokyo7x3AfterB7 : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo7x3FullQueueStart ghostTokyoSensorB7
 
-def ghostTokyo1s5Queue : SlideQueue :=
-  [ghostTokyo1s5_A1Solved, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending]
+def ghostTokyo7x3AfterC : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo7x3AfterB7 ghostTokyoSensorC
 
-def ghostTokyoAdvanceExposedPair (first second : SlideArea) (sensorHeld : List Bool) : SlideQueue :=
-  [first.check sensorHeld, second.check sensorHeld]
+def ghostTokyo7x3AfterB3 : SlideQueue :=
+  Lifecycle.replaySlideQueue ghostTokyo7x3AfterC ghostTokyoSensorB3
 
-theorem ghostTokyo1s5_A1_press_marks_front_on :
-    ghostTokyo1s5_A1Pending.check ghostTokyoSensorA1 = ghostTokyo1s5_A1On := by
-  simp [ghostTokyo1s5_A1Pending, ghostTokyo1s5_A1On, ghostTokyoSensorA1, SlideArea.check]
+theorem ghostTokyo1s5_exact_progression :
+    List.map (fun area => area.targetAreas) ghostTokyo1s5AfterA1Press = [[1], [8], [7], [16], [3], [4], [5]] ∧
+    ghostTokyo1s5AfterA1Press[0]!.wasOn = true ∧
+    List.map (fun area => area.targetAreas) ghostTokyo1s5AfterA1Release = [[8], [7], [16], [3], [4], [5]] ∧
+    List.map (fun area => area.targetAreas) ghostTokyo1s5AfterB7 = [[7], [16], [3], [4], [5]] ∧
+    List.map (fun area => area.targetAreas) ghostTokyo1s5AfterC = [[16], [3], [4], [5]] ∧
+    List.map (fun area => area.targetAreas) ghostTokyo1s5AfterB3 = [[3], [4], [5]] ∧
+    ghostTokyo1s5AfterA5 = [] := by
+  native_decide
 
-theorem ghostTokyo1s5_A1_release_finishes_front :
-    ghostTokyo1s5_A1On.check ghostTokyoSensorNone = ghostTokyo1s5_A1Solved := by
-  simp [ghostTokyo1s5_A1On, ghostTokyo1s5_A1Solved, ghostTokyoSensorNone, SlideArea.check]
+theorem ghostTokyo7x3_exact_progression :
+    List.map (fun area => area.targetAreas) ghostTokyo7x3AfterB7 = [[1], [9], [16], [14], [5]] ∧
+    List.map (fun area => area.targetAreas) ghostTokyo7x3AfterC = [[1], [9], [16], [14], [5]] ∧
+    List.map (fun area => area.targetAreas) ghostTokyo7x3AfterB3 = [[1], [9], [16], [14], [5]] := by
+  native_decide
 
-theorem ghostTokyo1s5_A1_hold_delays_completion :
-    ghostTokyo1s5_A1On.isFinished = false ∧
-    exposeFront [ghostTokyo1s5_A1On, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] =
-      [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] := by
-  constructor
-  · simp [ghostTokyo1s5_A1On, SlideArea.isFinished]
-  · simp [exposeFront, ghostTokyo1s5_A1On, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending]
-
-theorem ghostTokyo1s5_phased_front_resolution :
-    [ghostTokyo1s5_A1Pending.check ghostTokyoSensorA1,
-      ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] = ghostTokyo1s5QueueAfterA1Press ∧
-    [ghostTokyo1s5_A1On.check ghostTokyoSensorNone,
-      ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] = ghostTokyo1s5Queue := by
-  constructor
-  · simp [ghostTokyo1s5QueueAfterA1Press, ghostTokyo1s5_A1_press_marks_front_on]
-  · simp [ghostTokyo1s5Queue, ghostTokyo1s5_A1_release_finishes_front]
-
-theorem ghostTokyo1s5_hasInnerScreenUnfairShape :
-    hasInnerScreenUnfairShape ghostTokyo1s5Queue := by
-  simp [ghostTokyo1s5Queue, hasInnerScreenUnfairShape,
-    ghostTokyo1s5_A1Solved, ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending,
-    SlideArea.isFinished]
-
-theorem ghostTokyo1s5_isWitness :
-    InnerScreenUnfairWitness ghostTokyo1s5Queue := by
-  exact innerScreenUnfairShape_isWitness ghostTokyo1s5Queue ghostTokyo1s5_hasInnerScreenUnfairShape
-
-theorem ghostTokyo1s5_exposes_B4_after_A1 :
-    exposeFront ghostTokyo1s5Queue = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] := by
-  exact innerScreenUnfairShape_implies_exposable ghostTokyo1s5Queue ghostTokyo1s5_hasInnerScreenUnfairShape
-
-def ghostTokyo1s5_A5On : SlideArea := {
-  targetAreas := [5]
-  isLast := true
-  isSkippable := true
-  arrowProgressWhenOn := 2
-  arrowProgressWhenFinished := 2
-  wasOn := true
-  wasOff := false
-}
-
-def ghostTokyo1s5FinalTapQueue : SlideQueue :=
-  [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5On]
-
-theorem ghostTokyo1s5_A5_tap_marks_last_on :
-    ghostTokyo1s5_A5Pending.check ghostTokyoSensorA5 = ghostTokyo1s5_A5On := by
-  simp [ghostTokyo1s5_A5Pending, ghostTokyo1s5_A5On, ghostTokyoSensorA5, SlideArea.check]
-
-theorem ghostTokyo1s5_finalTap_updates_exposed_pair :
-    ghostTokyoAdvanceExposedPair ghostTokyo1s5_B4Pending ghostTokyo1s5_A5Pending ghostTokyoSensorA5 =
-      ghostTokyo1s5FinalTapQueue := by
-  simp [ghostTokyoAdvanceExposedPair, ghostTokyo1s5FinalTapQueue,
-    ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending, ghostTokyo1s5_A5On,
-    ghostTokyoSensorA5, SlideArea.check]
-
-theorem ghostTokyo1s5_finalTap_exposes_A5 :
-    exposeFront (ghostTokyoAdvanceExposedPair ghostTokyo1s5_B4Pending ghostTokyo1s5_A5Pending ghostTokyoSensorA5) =
-      [ghostTokyo1s5_A5On] := by
-  simp [ghostTokyoAdvanceExposedPair,
-    ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending, ghostTokyo1s5_A5On,
-    ghostTokyoSensorA5, SlideArea.check, exposeFront]
-
-theorem ghostTokyo1s5_finalTap_finishes_A5 :
-    ghostTokyo1s5_A5On.isFinished = true := by
-  exact slideArea_isFinished_of_last_on ghostTokyo1s5_A5On rfl rfl
-
-theorem ghostTokyo1s5_three_note_interaction_unfair :
-    let queueAfterA1Release := ghostTokyo1s5Queue
-    let queueDuringFinalTap :=
-      ghostTokyoAdvanceExposedPair ghostTokyo1s5_B4Pending ghostTokyo1s5_A5Pending ghostTokyoSensorA5
-    hasInnerScreenUnfairShape queueAfterA1Release ∧
-      exposeFront queueAfterA1Release = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] ∧
-      exposeFront queueDuringFinalTap = [ghostTokyo1s5_A5On] ∧
-      ghostTokyo1s5_A5On.isFinished = true := by
-  simp [ghostTokyo1s5_hasInnerScreenUnfairShape, ghostTokyo1s5_exposes_B4_after_A1,
-    ghostTokyo1s5_finalTap_exposes_A5, ghostTokyo1s5_finalTap_finishes_A5]
-
-structure GhostTokyoScene where
-  slide73 : SlideQueue
-  slide15 : SlideQueue
-  tap5Pressed : Bool
-
-def ghostTokyo7x3_B7On : SlideArea := {
-  targetAreas := [7]
-  isLast := false
-  isSkippable := true
-  arrowProgressWhenOn := 0
-  arrowProgressWhenFinished := 0
-  wasOn := true
-  wasOff := false
-}
-
-def ghostTokyo7x3_COn : SlideArea := {
-  targetAreas := [8]
-  isLast := false
-  isSkippable := true
-  arrowProgressWhenOn := 1
-  arrowProgressWhenFinished := 1
-  wasOn := true
-  wasOff := false
-}
-
-def ghostTokyo7x3_B3Pending : SlideArea := {
-  targetAreas := [3]
-  isLast := true
-  isSkippable := true
-  arrowProgressWhenOn := 2
-  arrowProgressWhenFinished := 2
-  wasOn := false
-  wasOff := false
-}
-
-def ghostTokyo7x3QueueCrossing : SlideQueue :=
-  [ghostTokyo7x3_B7On, ghostTokyo7x3_COn, ghostTokyo7x3_B3Pending]
-
-def ghostTokyoSceneAfterA1Release : GhostTokyoScene := {
-  slide73 := ghostTokyo7x3QueueCrossing
-  slide15 := ghostTokyo1s5Queue
-  tap5Pressed := false
-}
-
-def ghostTokyoSceneDuringFinalTap : GhostTokyoScene := {
-  slide73 := ghostTokyo7x3QueueCrossing
-  slide15 := ghostTokyoAdvanceExposedPair ghostTokyo1s5_B4Pending ghostTokyo1s5_A5Pending ghostTokyoSensorA5
-  tap5Pressed := true
-}
-
-theorem ghostTokyo7x3_crossing_not_finished :
-    slideQueuesCleared [ghostTokyo7x3QueueCrossing] = false := by
-  simp [ghostTokyo7x3QueueCrossing, slideQueuesCleared]
-
-theorem ghostTokyo7x3_front_is_on :
-    ghostTokyo7x3_B7On.on = true := by
-  simp [ghostTokyo7x3_B7On, SlideArea.on]
-
-theorem ghostTokyo7x3_exposes_center :
-    exposeFront ghostTokyo7x3QueueCrossing = [ghostTokyo7x3_COn, ghostTokyo7x3_B3Pending] := by
-  simp [ghostTokyo7x3QueueCrossing, ghostTokyo7x3_B7On, ghostTokyo7x3_COn, ghostTokyo7x3_B3Pending,
-    exposeFront, SlideArea.on]
-
-theorem ghostTokyoSceneAfterA1Release_properties :
-    hasInnerScreenUnfairShape ghostTokyoSceneAfterA1Release.slide15 ∧
-      exposeFront ghostTokyoSceneAfterA1Release.slide15 = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] ∧
-      ghostTokyoSceneAfterA1Release.tap5Pressed = false ∧
-      slideQueuesCleared [ghostTokyoSceneAfterA1Release.slide73] = false := by
-  simp [ghostTokyoSceneAfterA1Release, ghostTokyo1s5_hasInnerScreenUnfairShape,
-    ghostTokyo1s5_exposes_B4_after_A1, ghostTokyo7x3_crossing_not_finished]
-
-theorem ghostTokyoSceneDuringFinalTap_properties :
-    exposeFront ghostTokyoSceneDuringFinalTap.slide15 = [ghostTokyo1s5_A5On] ∧
-      ghostTokyo1s5_A5On.isFinished = true ∧
-      ghostTokyoSceneDuringFinalTap.tap5Pressed = true ∧
-      slideQueuesCleared [ghostTokyoSceneDuringFinalTap.slide73] = false := by
-  simp [ghostTokyoSceneDuringFinalTap, ghostTokyo1s5_finalTap_exposes_A5,
-    ghostTokyo1s5_finalTap_finishes_A5, ghostTokyo7x3_crossing_not_finished]
-
-theorem ghostTokyo_unfair :
-    let beforeTap := ghostTokyoSceneAfterA1Release
-    let duringTap := ghostTokyoSceneDuringFinalTap
-    hasInnerScreenUnfairShape beforeTap.slide15 ∧
-      exposeFront beforeTap.slide15 = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] ∧
-      exposeFront beforeTap.slide73 = [ghostTokyo7x3_COn, ghostTokyo7x3_B3Pending] ∧
-      slideQueuesCleared [beforeTap.slide73] = false ∧
-      exposeFront duringTap.slide15 = [ghostTokyo1s5_A5On] ∧
-      ghostTokyo1s5_A5On.isFinished = true ∧
-      duringTap.tap5Pressed = true ∧
-      slideQueuesCleared [duringTap.slide73] = false := by
-  dsimp
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · exact ghostTokyoSceneAfterA1Release_properties.left
-  · exact ghostTokyoSceneAfterA1Release_properties.right.left
-  · exact ghostTokyo7x3_exposes_center
-  · exact ghostTokyoSceneAfterA1Release_properties.right.right.right
-  · exact ghostTokyoSceneDuringFinalTap_properties.left
-  · exact ghostTokyoSceneDuringFinalTap_properties.right.left
-  · exact ghostTokyoSceneDuringFinalTap_properties.right.right.left
-  · exact ghostTokyoSceneDuringFinalTap_properties.right.right.right
-
-----------------------------------------------------------------------------
--- Alternate witness: delayed A1 release avoids the unfair overlap
-----------------------------------------------------------------------------
-
-def ghostTokyo7x3QueueCleared : SlideQueue :=
-  []
-
-def ghostTokyoSceneAfterDelayedA1Release : GhostTokyoScene := {
-  slide73 := ghostTokyo7x3QueueCleared
-  slide15 := ghostTokyo1s5Queue
-  tap5Pressed := false
-}
-
-def ghostTokyoSceneResolvedByFinalTap : GhostTokyoScene := {
-  slide73 := ghostTokyo7x3QueueCleared
-  slide15 := ghostTokyoAdvanceExposedPair ghostTokyo1s5_B4Pending ghostTokyo1s5_A5Pending ghostTokyoSensorA5
-  tap5Pressed := true
-}
-
-theorem ghostTokyo7x3_cleared :
-    slideQueuesCleared [ghostTokyo7x3QueueCleared] = true := by
-  simp [ghostTokyo7x3QueueCleared, slideQueuesCleared]
-
-theorem ghostTokyoSceneAfterDelayedA1Release_properties :
-    hasInnerScreenUnfairShape ghostTokyoSceneAfterDelayedA1Release.slide15 ∧
-      exposeFront ghostTokyoSceneAfterDelayedA1Release.slide15 = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] ∧
-      ghostTokyoSceneAfterDelayedA1Release.tap5Pressed = false ∧
-      slideQueuesCleared [ghostTokyoSceneAfterDelayedA1Release.slide73] = true := by
-  simp [ghostTokyoSceneAfterDelayedA1Release, ghostTokyo1s5_hasInnerScreenUnfairShape,
-    ghostTokyo1s5_exposes_B4_after_A1, ghostTokyo7x3_cleared]
-
-theorem ghostTokyoSceneResolvedByFinalTap_properties :
-    exposeFront ghostTokyoSceneResolvedByFinalTap.slide15 = [ghostTokyo1s5_A5On] ∧
-      ghostTokyo1s5_A5On.isFinished = true ∧
-      ghostTokyoSceneResolvedByFinalTap.tap5Pressed = true ∧
-      slideQueuesCleared [ghostTokyoSceneResolvedByFinalTap.slide73] = true := by
-  simp [ghostTokyoSceneResolvedByFinalTap, ghostTokyo1s5_finalTap_exposes_A5,
-    ghostTokyo1s5_finalTap_finishes_A5, ghostTokyo7x3_cleared]
-
-theorem ghostTokyo_delayed_A1_release_resolves :
-    let beforeTap := ghostTokyoSceneAfterDelayedA1Release
-    let duringTap := ghostTokyoSceneResolvedByFinalTap
-    hasInnerScreenUnfairShape beforeTap.slide15 ∧
-      exposeFront beforeTap.slide15 = [ghostTokyo1s5_B4Pending, ghostTokyo1s5_A5Pending] ∧
-      slideQueuesCleared [beforeTap.slide73] = true ∧
-      exposeFront duringTap.slide15 = [ghostTokyo1s5_A5On] ∧
-      ghostTokyo1s5_A5On.isFinished = true ∧
-      duringTap.tap5Pressed = true ∧
-      slideQueuesCleared [duringTap.slide73] = true := by
-  dsimp
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · exact ghostTokyoSceneAfterDelayedA1Release_properties.left
-  · exact ghostTokyoSceneAfterDelayedA1Release_properties.right.left
-  · exact ghostTokyoSceneAfterDelayedA1Release_properties.right.right.right
-  · exact ghostTokyoSceneResolvedByFinalTap_properties.left
-  · exact ghostTokyoSceneResolvedByFinalTap_properties.right.left
-  · exact ghostTokyoSceneResolvedByFinalTap_properties.right.right.left
-  · exact ghostTokyoSceneResolvedByFinalTap_properties.right.right.right
+-- The older reduced-witness Ghost Tokyo proof family is retired.
+-- The authoritative proof path now goes through parser-derived full queues
+-- and the exact replay theorems above.
 
 end LnmaiCore.Proofs.InnerScreenUnfair

@@ -61,6 +61,18 @@ def frontendChartLiteral (content : String) (levelIndex : Nat := 1) : FrontendCh
   | .ok result => result
   | .error err => panic! s!"invalid simai chart literal: {err.message}"
 
+def frontendSemanticChartLiteral (content : String) (levelIndex : Nat := 1) : FrontendSemanticChart :=
+  (frontendChartLiteral content levelIndex).semantic
+
+def frontendInspectionChartLiteral (content : String) (levelIndex : Nat := 1) : FrontendChartInspection :=
+  (frontendChartLiteral content levelIndex).inspection
+
+def frontendNormalizedChartLiteral (content : String) (levelIndex : Nat := 1) : NormalizedChart :=
+  (frontendChartLiteral content levelIndex).semantic.normalized
+
+def frontendLoweredChartLiteral (content : String) (levelIndex : Nat := 1) : ChartLoader.ChartSpec :=
+  (frontendChartLiteral content levelIndex).semantic.lowered
+
 def frontendNoteLiteral (noteText : String) : RawNoteToken :=
   match parseFrontendSingleToken noteText with
   | .ok token => token
