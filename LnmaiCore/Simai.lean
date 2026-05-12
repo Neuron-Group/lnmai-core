@@ -1,5 +1,10 @@
 import LnmaiCore.Simai.Syntax
+import LnmaiCore.Simai.Timing
+import LnmaiCore.Simai.Tokenize
 import LnmaiCore.Simai.Shape
 import LnmaiCore.Simai.SlideTables
-import LnmaiCore.Simai.Parser
+import LnmaiCore.Simai.SlideParser
+import LnmaiCore.Simai.IR
+import LnmaiCore.Simai.Source.Maidata
 import LnmaiCore.Simai.Maidata
+import LnmaiCore.Simai.Frontend

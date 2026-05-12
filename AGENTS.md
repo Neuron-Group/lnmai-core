@@ -301,6 +301,22 @@ Goal:
 
 - represent and construct reference-faithful slide judge queues inside Lean
 
+Status:
+
+- partially completed
+- implemented modules now include:
+  - `LnmaiCore.Simai.Syntax`
+  - `LnmaiCore.Simai.Timing`
+  - `LnmaiCore.Simai.Tokenize`
+  - `LnmaiCore.Simai.Shape`
+  - `LnmaiCore.Simai.SlideParser`
+  - `LnmaiCore.Simai.SlideTables`
+  - `LnmaiCore.Simai.IR`
+  - `LnmaiCore.Simai.Source.Maidata`
+  - `LnmaiCore.Simai.Frontend`
+  - `LnmaiCore.Simai.Normalize`
+- remaining work in this phase is primarily connected-slide source semantics and final topology-authority cleanup
+
 ### Phase 2: Add pure parser entry points
 
 Add:
@@ -312,6 +328,16 @@ Goal:
 
 - runtime and proof code share the same parsing core
 
+Status:
+
+- substantially completed for the current maidata/Simai source pipeline
+- implemented entrypoints now include:
+  - `LnmaiCore.Simai.parseFrontendMaidata`
+  - `LnmaiCore.Simai.parseFrontendChartByLevel`
+  - `LnmaiCore.Simai.frontendNormalizedChart`
+  - `LnmaiCore.Simai.frontendLoweredChart`
+- current Lean parity mirrors all 18 Python reference tests from `../reference/PySimaiParser/tests/test_core.py`
+
 ### Phase 3: Add Lean DSL elaborator
 
 Add:
@@ -322,6 +348,10 @@ Add:
 Goal:
 
 - proof/spec authoring becomes ergonomic without splitting semantics from the parser core
+
+Status:
+
+- not started
 
 ### Phase 4: Port MajdataPlay shape detection
 
@@ -349,6 +379,25 @@ Goal:
 
 - Lean can derive the same shape key that the reference uses
 
+Status:
+
+- substantially completed for ordinary single-slide tokens in the current parser pipeline
+- parser support exists for:
+  - `-`
+  - `>`
+  - `<`
+  - `^`
+  - `v`
+  - `p`
+  - `q`
+  - `pp`
+  - `qq`
+  - `s`
+  - `z`
+  - `V`
+  - `w`
+- remaining work is same-head slide `*` handling and connected-slide/group semantics
+
 ### Phase 5: Port MajdataPlay table data
 
 Mirror the actual queue tables from:
@@ -360,6 +409,12 @@ Goal:
 - ordinary slide tables become authoritative Lean data
 - Wifi left/center/right tables become authoritative Lean data
 
+Status:
+
+- partially completed
+- `LnmaiCore.Simai.SlideTables` exists and is used as the fallback authoritative source when runtime slide notes do not already carry `judgeQueues`
+- remaining work is to make topology construction fully sourced from Simai normalization rather than fallback attachment during runtime slide building
+
 ### Phase 6: Connect normalized slides to runtime `SlideChartNote`
 
 Replace externally supplied hand-authored `judgeQueues` as the primary source of truth.
@@ -367,6 +422,12 @@ Replace externally supplied hand-authored `judgeQueues` as the primary source of
 Goal:
 
 - runtime slides are built from parsed Simai semantics inside Lean
+
+Status:
+
+- partially completed
+- normalized slide timing, star-wait timing, shape key, and modifier semantics are sourced from Lean parsing/normalization
+- remaining work is connected-slide grouping and direct normalized construction of authoritative `judgeQueues`
 
 ### Phase 7: Add proof-facing propositions
 
@@ -381,40 +442,61 @@ Examples:
 - short connected-slide no-skip rule is applied at the correct queue positions
 - `V` / `L` turning exception is reflected in the affected segment skip flags
 
+Status:
+
+- not started in the new parser/IR architecture
+
+### Phase 8: Add grouped-source and connected-slide lowering
+
+Add modules or layers for:
+
+- same-head slide source groups (`*`)
+- connected-slide group/source semantics
+- source-position-aware timing events if needed for diagnostics/spec parity
+
+Goal:
+
+- represent grouped source syntax before normalization
+- lower grouped slide source into `ConnPart`/parent-linked normalized slides
+- remove the remaining semantic gap between current single-slide parity and MajdataPlay connected-slide behavior
+
 ## Known Implementation Gaps Today
 
 The current codebase does **not** yet have the following:
 
-### Gap 1: No explicit slide-shape classifier in Lean
+### Gap 1: Slide-shape classification exists, but grouped slide source semantics remain incomplete
 
-The repo has `SlideKind`, but that is not enough to represent actual Simai slide species.
+The repo now has an explicit single-slide shape classifier, but still lacks full source-level handling for:
 
-### Gap 1b: No Lean Simai parser or DSL front-end yet
+- same-head slide `*`
+- connected-slide grouping
+- source-group-to-runtime parent linkage
 
-The repo still lacks both:
+### Gap 1b: Lean parser front-end exists, but DSL front-end is still missing
 
-- a pure Lean parser from Simai text
+The repo now has a pure Lean parser/front-end pipeline for current maidata/Simai source text, but still lacks:
+
 - a Lean DSL elaborator for proof/spec authoring
 
-Those should be introduced together, with the parser core preceding the DSL.
+The parser core now precedes the DSL as intended; the DSL is the remaining piece.
 
-### Gap 2: No authoritative slide table library in Lean
+### Gap 2: Slide table library exists, but full topology construction is not yet front-loaded into normalization
 
-The repo accepts `judgeQueues` as input data. It does not derive them from Simai semantics.
+The repo no longer depends only on external slide semantics, but normalized slides still do not fully construct authoritative `judgeQueues` before runtime adaptation.
 
-### Gap 3: Wifi is only partially semantic today
+### Gap 3: Wifi parsing exists, but grouped/connected source semantics are still partial
 
-`Wifi` currently affects rendering layout and multi-track handling, but the topology source is still external data.
+`Wifi` shape and track semantics are represented, but topology construction should move fully into normalization rather than runtime fallback.
 
-### Gap 4: Ordinary-slide D/E exclusion is not enforced by construction
+### Gap 4: Ordinary-slide D/E exclusion is not yet enforced purely by constructor path
 
 It is only true if the input `judgeQueues` happen to respect it.
 
-### Gap 5: Turning-slide exceptions are not first-class
+### Gap 5: Turning-slide and connected-slide exceptions are not yet fully first-class in normalized constructors
 
 The `V` / big-turn skip exception is not encoded as a Lean constructor rule today.
 
-### Gap 6: Proof layer is ahead of the real topology layer
+### Gap 6: Proof layer still trails the final constructor path
 
 Some proofs currently use local witness models because the authoritative mapping module does not exist yet.
 
@@ -437,14 +519,31 @@ When extending this repo, prefer the following rules:
 
 The next major milestone should be:
 
-1. add Lean slide-shape classification
-2. add Lean parser entry points
-3. add Lean DSL front-end
-4. add Lean slide table data
-5. normalize Simai slides into runtime `judgeQueues`
-6. then continue parity work for tap / hold / touch / touch-hold
+1. add grouped source syntax for same-head slide `*`
+2. add connected-slide grouping and lowering
+3. move authoritative slide topology construction into normalization
+4. add Lean DSL front-end
+5. expose normalized chart / topology IR cleanly to Rust FFI
+6. then continue proof-facing propositions over the real constructor path
 
 This order is preferred because slide correctness depends heavily on parser-derived topology.
+
+## Current Implementation Snapshot
+
+The repository currently has:
+
+- a Lean Simai/maidata source parser pipeline
+- a Lean front-end module for parser entrypoints
+- a true normalized chart IR module
+- Lean-side parity wiring for all current Python reference tests in `../reference/PySimaiParser/tests/test_core.py`
+- slide timing/modifier semantics for single-slide source tokens
+
+The repository does not yet have:
+
+- a Lean DSL elaborator
+- source-level same-head slide `*` grouping
+- connected-slide lowering into normalized parent-linked runtime-ready slides
+- fully front-loaded authoritative topology construction for every slide inside normalization
 
 ## Acceptance Criteria for This Proposal
 

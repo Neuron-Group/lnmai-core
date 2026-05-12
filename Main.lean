@@ -32,11 +32,11 @@ def sampleRealSimaiTokens (content : String) : List String :=
 def realSimaiAstProbe : IO (Except Simai.ParseError Simai.TimingPointSemantics) := do
   let content ← IO.FS.readFile realChartPath
   let tokens := sampleRealSimaiTokens content |>.take 8
-  pure <| Simai.parseTimingPointSlides 0.0 128.0 1.0 tokens
+  pure <| Simai.parseSlideTimingPoint 0.0 128.0 1.0 tokens
 
 def realMaidataLoweredProbe : IO (Except Simai.ParseError Simai.ParsedMaidataChart) := do
   let content ← IO.FS.readFile realChartPath
-  pure <| Simai.parseAndLowerMaidata content 4
+  pure <| Simai.parseFrontendChartByLevel content 4
 
 def sampleChartJson : String :=
   "{\n" ++
@@ -59,7 +59,7 @@ def sampleChartSpec : Except String ChartLoader.ChartSpec :=
 #eval sampleChartSpec
 
 def sampleSimaiAst : Except Simai.ParseError Simai.TimingPointSemantics :=
-  Simai.parseTimingPointSlides 12.0 180.0 1.0 ["1-3", "1V35", "1w5"]
+  Simai.parseSlideTimingPoint 12.0 180.0 1.0 ["1-3", "1V35", "1w5"]
 
 #eval sampleSimaiAst
 

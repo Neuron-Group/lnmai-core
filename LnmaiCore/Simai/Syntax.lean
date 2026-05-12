@@ -68,4 +68,48 @@ structure SimaiChartSemantics where
   level : String := ""
 deriving Inhabited, Repr
 
+inductive RawNoteKind where
+  | tap
+  | hold
+  | slide
+  | touch
+  | touchHold
+  | rest
+  | unknown
+deriving DecidableEq, Repr, Inhabited, BEq
+
+structure MaidataMetadata where
+  fields : List (String × String) := []
+deriving Inhabited, Repr
+
+structure MaidataChartBlock where
+  levelIndex : Nat
+  rawBody : String
+deriving Inhabited, Repr
+
+structure MaidataFile where
+  metadata : MaidataMetadata := {}
+  charts : List MaidataChartBlock := []
+deriving Inhabited, Repr
+
+structure RawNoteToken where
+  rawText : String
+  kind : RawNoteKind
+  timingSec : Float
+  bpm : Float
+  hSpeed : Float := 1.0
+  divisor : Nat
+  lane : Option Nat := none
+  sensorPos : Option Nat := none
+  lengthSec : Option Float := none
+  starWaitSec : Option Float := none
+  isBreak : Bool := false
+  isEX : Bool := false
+  isHanabi : Bool := false
+  isSlideNoHead : Bool := false
+  isForceStar : Bool := false
+  isFakeRotate : Bool := false
+  isSlideBreak : Bool := false
+deriving Inhabited, Repr
+
 end LnmaiCore.Simai
