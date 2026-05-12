@@ -10,6 +10,10 @@ import LnmaiCore.Types
 import LnmaiCore.Constants
 import LnmaiCore.Lifecycle
 import LnmaiCore.InputModel
+import LnmaiCore.Simai.Syntax
+import LnmaiCore.Simai.Shape
+import LnmaiCore.Simai.SlideTables
+import LnmaiCore.Simai.Parser
 import Lean.Data.Json
 
 open Lean
@@ -52,14 +56,7 @@ structure TouchChartNote where
   noteIndex : Nat := 0
 deriving Inhabited, Repr, ToJson, FromJson
 
-structure SlideAreaSpec where
-  targetAreas : List Nat
-  policy      : AreaPolicy := .Or
-  isLast      : Bool := false
-  isSkippable : Bool := true
-  arrowProgressWhenOn : Nat := 0
-  arrowProgressWhenFinished : Nat := 0
-deriving Inhabited, Repr, ToJson, FromJson
+abbrev SlideAreaSpec := Simai.SlideAreaSpec
 
 structure SlideChartNote where
   timingSec     : Float
@@ -81,6 +78,16 @@ structure SlideChartNote where
   isEX          : Bool := false
   noteIndex     : Nat := 0
   judgeQueues   : List (List SlideAreaSpec) := []
+  simaiRawText  : Option String := none
+  simaiShapeKey : Option String := none
+  simaiIsJustRight : Option Bool := none
+deriving Inhabited, Repr, ToJson, FromJson
+
+structure SimaiSlideAnnotation where
+  noteIndex : Nat
+  rawText   : String
+  shapeKey  : String
+  isJustRight : Bool
 deriving Inhabited, Repr, ToJson, FromJson
 
 structure ChartSpec where
@@ -91,6 +98,23 @@ structure ChartSpec where
   slides     : List SlideChartNote := []
   slideSkipping : Option Bool := none
 deriving Inhabited, Repr, ToJson, FromJson
+
+private def annotateSlide (slide : SlideChartNote) (annotation : SimaiSlideAnnotation) : SlideChartNote :=
+  if slide.noteIndex == annotation.noteIndex then
+    { slide with
+      simaiRawText := some annotation.rawText,
+      simaiShapeKey := some annotation.shapeKey,
+      simaiIsJustRight := some annotation.isJustRight }
+  else
+    slide
+
+def annotateSimaiSlides (chart : ChartSpec) (annotations : List SimaiSlideAnnotation) : ChartSpec :=
+  { chart with
+    slides := chart.slides.map (fun slide =>
+      annotations.foldl (fun acc annotation => annotateSlide acc annotation) slide) }
+
+def slideAnnotationFromSemantics (noteIndex : Nat) (note : Simai.SlideNoteSemantics) : SimaiSlideAnnotation :=
+  { noteIndex := noteIndex, rawText := note.rawText, shapeKey := Simai.shapeKey note.shape, isJustRight := note.isJustRight }
 
 private def insertByTiming {α : Type} (getTiming : α → Float) (item : α) : List α → List α
   | [] => [item]
@@ -128,6 +152,15 @@ private def buildTouch (note : TouchChartNote) : TouchNote :=
   , touchGroupSize := note.touchGroupSize.getD 1 }
 
 private def buildSlideArea (spec : SlideAreaSpec) : SlideArea :=
+  { targetAreas := spec.targetAreas
+  , policy := spec.policy
+  , isLast := spec.isLast
+  , isSkippable := spec.isSkippable
+  , arrowProgressWhenOn := spec.arrowProgressWhenOn
+  , arrowProgressWhenFinished := spec.arrowProgressWhenFinished
+  }
+
+private def buildSlideAreasFromSimai (spec : Simai.SlideAreaSpec) : SlideArea :=
   { targetAreas := spec.targetAreas
   , policy := spec.policy
   , isLast := spec.isLast
@@ -253,7 +286,16 @@ private def assignTouchGroups (notes : List TouchChartNote) : List TouchChartNot
 
 private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNote :=
   let judgeQueues :=
-    let queues := note.judgeQueues.map (fun queue => queue.map buildSlideArea)
+    let queues :=
+      if note.judgeQueues.isEmpty then
+        match note.simaiShapeKey with
+        | some key =>
+          match Simai.judgeQueuesForShapeKey key note.isClassic with
+          | some simaiQueues => simaiQueues.map (fun queue => queue.map buildSlideAreasFromSimai)
+          | none => []
+        | none => []
+      else
+        note.judgeQueues.map (fun queue => queue.map buildSlideArea)
     if !slideSkipping then
       disableSlideSkipping queues
     else
@@ -262,7 +304,7 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
       | _ => queues
   let judgeTimingSec := note.judgeAtSec.getD note.timingSec
   let waitTimeSec := max 0.0 (note.startTimingSec + note.lengthSec - judgeTimingSec)
-  let rec maxQueueLength : List (List SlideAreaSpec) → Nat
+  let rec maxQueueLength : List (List SlideArea) → Nat
     | [] => 0
     | queue :: rest => Nat.max queue.length (maxQueueLength rest)
   { params := { judgeTimingSec := judgeTimingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, startPos := note.lane, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
@@ -277,7 +319,7 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   , isGroupPartEnd := note.isGroupEnd
   , parentFinished := note.parentFinished
   , parentPendingFinish := note.parentPendingFinish
-  , initialQueueRemaining := maxQueueLength note.judgeQueues
+  , initialQueueRemaining := maxQueueLength judgeQueues
   , totalJudgeQueueLen := note.totalJudgeQueueLen
   , trackCount := note.trackCount
   , isCheckable := false
