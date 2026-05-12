@@ -153,6 +153,14 @@ private def applySingleTrackConnRules (note : SlideChartNote) (queue : List Slid
   else
     queue.map (fun area => { area with isSkippable := true })
 
+theorem shortConnSlide_applySingleTrackConnRules
+    (note : SlideChartNote) (first second : SlideArea) (rest : List SlideArea)
+    (hConn : note.isConnSlide = true) (hShort : note.totalJudgeQueueLen < 4) :
+    applySingleTrackConnRules note (first :: second :: rest) =
+      ({ first with isSkippable := note.isGroupHead } ::
+        { second with isSkippable := note.isGroupEnd } :: rest) := by
+  simp [applySingleTrackConnRules, hConn, hShort]
+
 private def touchHoldNeighbors : Nat → List Nat
   | 0  => [17, 18, 25, 26, 8]
   | 1  => [18, 19, 26, 27, 9]
