@@ -303,7 +303,7 @@ Goal:
 
 Status:
 
-- partially completed
+- substantially completed
 - implemented modules now include:
   - `LnmaiCore.Simai.Syntax`
   - `LnmaiCore.Simai.Timing`
@@ -315,7 +315,7 @@ Status:
   - `LnmaiCore.Simai.Source.Maidata`
   - `LnmaiCore.Simai.Frontend`
   - `LnmaiCore.Simai.Normalize`
-- remaining work in this phase is primarily connected-slide source semantics and final topology-authority cleanup
+- remaining work in this phase is primarily Lean DSL work and proof-facing cleanup over the now-authoritative constructor path
 
 ### Phase 2: Add pure parser entry points
 
@@ -333,10 +333,14 @@ Status:
 - substantially completed for the current maidata/Simai source pipeline
 - implemented entrypoints now include:
   - `LnmaiCore.Simai.parseFrontendMaidata`
+  - `LnmaiCore.Simai.parseFrontendChartResult`
+  - `LnmaiCore.Simai.parseFrontendSemanticChart`
+  - `LnmaiCore.Simai.parseFrontendInspectionChart`
   - `LnmaiCore.Simai.parseFrontendChartByLevel`
   - `LnmaiCore.Simai.frontendNormalizedChart`
   - `LnmaiCore.Simai.frontendLoweredChart`
 - current Lean parity mirrors all 18 Python reference tests from `../reference/PySimaiParser/tests/test_core.py`
+- the Lean-side test suite also contains additional parity-extension tests for same-head `*`, connected-slide lowering, and normalization-owned topology attachment
 
 ### Phase 3: Add Lean DSL elaborator
 
@@ -381,7 +385,7 @@ Goal:
 
 Status:
 
-- substantially completed for ordinary single-slide tokens in the current parser pipeline
+- substantially completed for the current parser pipeline
 - parser support exists for:
   - `-`
   - `>`
@@ -396,7 +400,9 @@ Status:
   - `z`
   - `V`
   - `w`
-- remaining work is same-head slide `*` handling and connected-slide/group semantics
+- same-head slide `*` handling is now present in the current source/token pipeline
+- connected/group semantics now lower into normalized `ConnPart` / parent-linked slide structures
+- remaining work is mostly proof-facing coverage and any reference-faithful edge-case refinements beyond the current parity surface
 
 ### Phase 5: Port MajdataPlay table data
 
@@ -411,9 +417,10 @@ Goal:
 
 Status:
 
-- partially completed
-- `LnmaiCore.Simai.SlideTables` exists and is used as the fallback authoritative source when runtime slide notes do not already carry `judgeQueues`
-- remaining work is to make topology construction fully sourced from Simai normalization rather than fallback attachment during runtime slide building
+- substantially completed
+- `LnmaiCore.Simai.SlideTables` exists and normalized slides now attach authoritative `judgeQueues` during `LnmaiCore.Simai.Normalize`
+- runtime `ChartLoader` now acts as an adapter over normalized topology rather than a fallback topology constructor
+- remaining work is tightening constructor-path fidelity for any remaining reference edge cases and extending proof coverage over the real tables
 
 ### Phase 6: Connect normalized slides to runtime `SlideChartNote`
 
@@ -425,9 +432,10 @@ Goal:
 
 Status:
 
-- partially completed
-- normalized slide timing, star-wait timing, shape key, and modifier semantics are sourced from Lean parsing/normalization
-- remaining work is connected-slide grouping and direct normalized construction of authoritative `judgeQueues`
+- substantially completed
+- normalized slide timing, star-wait timing, typed shape semantics, connected-slide grouping, and authoritative `judgeQueues` are sourced from Lean parsing/normalization
+- runtime slides are built from normalized Lean topology data rather than external/fallback queue invention
+- remaining work is mostly API/FFI surfacing and proof-facing consolidation
 
 ### Phase 7: Add proof-facing propositions
 
@@ -464,14 +472,6 @@ Goal:
 
 The current codebase does **not** yet have the following:
 
-### Gap 1: Slide-shape classification exists, but grouped slide source semantics remain incomplete
-
-The repo now has an explicit single-slide shape classifier, but still lacks full source-level handling for:
-
-- same-head slide `*`
-- connected-slide grouping
-- source-group-to-runtime parent linkage
-
 ### Gap 1b: Lean parser front-end exists, but DSL front-end is still missing
 
 The repo now has a pure Lean parser/front-end pipeline for current maidata/Simai source text, but still lacks:
@@ -480,23 +480,15 @@ The repo now has a pure Lean parser/front-end pipeline for current maidata/Simai
 
 The parser core now precedes the DSL as intended; the DSL is the remaining piece.
 
-### Gap 2: Slide table library exists, but full topology construction is not yet front-loaded into normalization
-
-The repo no longer depends only on external slide semantics, but normalized slides still do not fully construct authoritative `judgeQueues` before runtime adaptation.
-
-### Gap 3: Wifi parsing exists, but grouped/connected source semantics are still partial
-
-`Wifi` shape and track semantics are represented, but topology construction should move fully into normalization rather than runtime fallback.
-
-### Gap 4: Ordinary-slide D/E exclusion is not yet enforced purely by constructor path
+### Gap 2: Ordinary-slide D/E exclusion is not yet enforced purely by constructor path
 
 It is only true if the input `judgeQueues` happen to respect it.
 
-### Gap 5: Turning-slide and connected-slide exceptions are not yet fully first-class in normalized constructors
+### Gap 3: Turning-slide and connected-slide exceptions are not yet fully first-class in normalized constructors
 
 The `V` / big-turn skip exception is not encoded as a Lean constructor rule today.
 
-### Gap 6: Proof layer still trails the final constructor path
+### Gap 4: Proof layer still trails the final constructor path
 
 Some proofs currently use local witness models because the authoritative mapping module does not exist yet.
 
@@ -519,12 +511,10 @@ When extending this repo, prefer the following rules:
 
 The next major milestone should be:
 
-1. add grouped source syntax for same-head slide `*`
-2. add connected-slide grouping and lowering
-3. move authoritative slide topology construction into normalization
-4. add Lean DSL front-end
-5. expose normalized chart / topology IR cleanly to Rust FFI
-6. then continue proof-facing propositions over the real constructor path
+1. add Lean DSL front-end
+2. expose normalized chart / topology IR cleanly to Rust FFI
+3. continue proof-facing propositions over the real constructor path
+4. tighten any remaining turning-slide / connected-slide constructor exceptions
 
 This order is preferred because slide correctness depends heavily on parser-derived topology.
 
@@ -533,17 +523,19 @@ This order is preferred because slide correctness depends heavily on parser-deri
 The repository currently has:
 
 - a Lean Simai/maidata source parser pipeline
-- a Lean front-end module for parser entrypoints
-- a true normalized chart IR module
+- a Lean front-end module for parser entrypoints with explicit semantic/inspection result splitting
+- a true normalized chart IR module with normalized debug split out from core slide semantics
 - Lean-side parity wiring for all current Python reference tests in `../reference/PySimaiParser/tests/test_core.py`
 - slide timing/modifier semantics for single-slide source tokens
+- source-level same-head slide `*` grouping
+- connected-slide lowering into normalized parent-linked runtime-ready slides
+- fully front-loaded authoritative topology construction for normalized slides before runtime adaptation
 
 The repository does not yet have:
 
 - a Lean DSL elaborator
-- source-level same-head slide `*` grouping
-- connected-slide lowering into normalized parent-linked runtime-ready slides
-- fully front-loaded authoritative topology construction for every slide inside normalization
+- proof-facing coverage over the full real constructor path
+- clean Rust FFI exposure of the semantic/inspection split and normalized IR boundary
 
 ## Acceptance Criteria for This Proposal
 

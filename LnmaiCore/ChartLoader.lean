@@ -78,16 +78,7 @@ structure SlideChartNote where
   isEX          : Bool := false
   noteIndex     : Nat := 0
   judgeQueues   : List (List SlideAreaSpec) := []
-  simaiRawText  : Option String := none
-  simaiShapeKey : Option String := none
-  simaiIsJustRight : Option Bool := none
-deriving Inhabited, Repr, ToJson, FromJson
-
-structure SimaiSlideAnnotation where
-  noteIndex : Nat
-  rawText   : String
-  shapeKey  : String
-  isJustRight : Bool
+  debugSimai : Option (String × String × Bool) := none
 deriving Inhabited, Repr, ToJson, FromJson
 
 structure ChartSpec where
@@ -98,23 +89,6 @@ structure ChartSpec where
   slides     : List SlideChartNote := []
   slideSkipping : Option Bool := none
 deriving Inhabited, Repr, ToJson, FromJson
-
-private def annotateSlide (slide : SlideChartNote) (annotation : SimaiSlideAnnotation) : SlideChartNote :=
-  if slide.noteIndex == annotation.noteIndex then
-    { slide with
-      simaiRawText := some annotation.rawText,
-      simaiShapeKey := some annotation.shapeKey,
-      simaiIsJustRight := some annotation.isJustRight }
-  else
-    slide
-
-def annotateSimaiSlides (chart : ChartSpec) (annotations : List SimaiSlideAnnotation) : ChartSpec :=
-  { chart with
-    slides := chart.slides.map (fun slide =>
-      annotations.foldl (fun acc annotation => annotateSlide acc annotation) slide) }
-
-def slideAnnotationFromSemantics (noteIndex : Nat) (note : Simai.SlideNoteSemantics) : SimaiSlideAnnotation :=
-  { noteIndex := noteIndex, rawText := note.rawText, shapeKey := Simai.shapeKey note.shape, isJustRight := note.isJustRight }
 
 private def insertByTiming {α : Type} (getTiming : α → Float) (item : α) : List α → List α
   | [] => [item]
@@ -286,16 +260,7 @@ private def assignTouchGroups (notes : List TouchChartNote) : List TouchChartNot
 
 private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNote :=
   let judgeQueues :=
-    let queues :=
-      if note.judgeQueues.isEmpty then
-        match note.simaiShapeKey with
-        | some key =>
-          match Simai.judgeQueuesForShapeKey key note.isClassic with
-          | some simaiQueues => simaiQueues.map (fun queue => queue.map buildSlideAreasFromSimai)
-          | none => []
-        | none => []
-      else
-        note.judgeQueues.map (fun queue => queue.map buildSlideArea)
+    let queues := note.judgeQueues.map (fun queue => queue.map buildSlideArea)
     if !slideSkipping then
       disableSlideSkipping queues
     else

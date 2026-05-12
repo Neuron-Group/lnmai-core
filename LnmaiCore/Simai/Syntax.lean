@@ -110,6 +110,28 @@ structure RawNoteToken where
   isForceStar : Bool := false
   isFakeRotate : Bool := false
   isSlideBreak : Bool := false
+  sourceGroupId : Option Nat := none
+  sourceGroupIndex : Option Nat := none
+  sourceGroupSize : Option Nat := none
+  sourcePos : Option SourceSpan := none
+deriving Inhabited, Repr
+
+structure SourceNote where
+  token : RawNoteToken
+  sourcePos : Option SourceSpan := none
+deriving Inhabited, Repr
+
+structure SourceEvent where
+  timingSec : Float
+  bpm : Float
+  hSpeed : Float := 1.0
+  divisor : Nat := 4
+  notes : List SourceNote := []
+  sourcePos : Option SourceSpan := none
+deriving Inhabited, Repr
+
+structure SourceChart where
+  events : List SourceEvent := []
 deriving Inhabited, Repr
 
 end LnmaiCore.Simai

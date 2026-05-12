@@ -3,6 +3,11 @@ import LnmaiCore.Simai.Syntax
 
 namespace LnmaiCore.Simai
 
+structure NormalizedSlideDebug where
+  noteIndex : Nat
+  rawText : String
+deriving Inhabited, Repr
+
 structure NormalizedTap where
   timingSec : Float
   lane : Nat
@@ -48,10 +53,17 @@ structure NormalizedSlide where
   isForceStar : Bool := false
   isFakeRotate : Bool := false
   isSlideBreak : Bool := false
+  isConnSlide : Bool := false
+  parentNoteIndex : Option Nat := none
+  isGroupHead : Bool := false
+  isGroupEnd : Bool := false
+  totalJudgeQueueLen : Nat := 0
+  judgeQueues : List (List SlideAreaSpec) := []
+  sourceGroupId : Option Nat := none
+  sourceGroupIndex : Option Nat := none
+  sourceGroupSize : Option Nat := none
   noteIndex : Nat
-  simaiRawText : String
-  simaiShapeKey : String
-  simaiIsJustRight : Bool
+  simaiShape : SlideShape
 deriving Inhabited, Repr
 
 structure NormalizedChart where
@@ -60,16 +72,26 @@ structure NormalizedChart where
   touches : List NormalizedTouch := []
   touchHolds : List NormalizedHold := []
   slides : List NormalizedSlide := []
+  slideDebug : List NormalizedSlideDebug := []
   slideSkipping : Bool := true
 deriving Inhabited, Repr
 
-structure ParsedMaidataChart where
+structure FrontendChartInspection where
   metadata : MaidataMetadata
   chart : MaidataChartBlock
+  source : SourceChart := {}
   tokens : List RawNoteToken
   slideNotes : List SlideNoteSemantics
+deriving Inhabited, Repr
+
+structure FrontendSemanticChart where
   normalized : NormalizedChart
   lowered : ChartLoader.ChartSpec
+deriving Inhabited, Repr
+
+structure FrontendChartResult where
+  semantic : FrontendSemanticChart
+  inspection : FrontendChartInspection
 deriving Inhabited, Repr
 
 end LnmaiCore.Simai

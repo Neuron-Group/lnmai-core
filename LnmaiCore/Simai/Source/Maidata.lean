@@ -3,6 +3,25 @@ import LnmaiCore.Simai.Normalize
 
 namespace LnmaiCore.Simai
 
+private def sameEventKey (token : RawNoteToken) (timingSec bpm hSpeed : Float) (divisor : Nat) : Bool :=
+  token.timingSec == timingSec && token.bpm == bpm && token.hSpeed == hSpeed && token.divisor == divisor
+
+private def sourceChartFromTokens (tokens : List RawNoteToken) : SourceChart :=
+  let rec loop (remaining : List RawNoteToken) (current : Option (Float × Float × Float × Nat × List SourceNote)) (acc : List SourceEvent) :=
+    match remaining, current with
+    | [], none => { events := acc.reverse }
+    | [], some (timingSec, bpm, hSpeed, divisor, notes) =>
+        { events := ({ timingSec := timingSec, bpm := bpm, hSpeed := hSpeed, divisor := divisor, notes := notes.reverse } :: acc).reverse }
+    | token :: rest, none =>
+        loop rest (some (token.timingSec, token.bpm, token.hSpeed, token.divisor, [{ token := token, sourcePos := token.sourcePos }])) acc
+    | token :: rest, some (timingSec, bpm, hSpeed, divisor, notes) =>
+        if sameEventKey token timingSec bpm hSpeed divisor then
+          loop rest (some (timingSec, bpm, hSpeed, divisor, { token := token, sourcePos := token.sourcePos } :: notes)) acc
+        else
+          let event : SourceEvent := { timingSec := timingSec, bpm := bpm, hSpeed := hSpeed, divisor := divisor, notes := notes.reverse }
+          loop rest (some (token.timingSec, token.bpm, token.hSpeed, token.divisor, [{ token := token, sourcePos := token.sourcePos }])) (event :: acc)
+  loop tokens none []
+
 private def startsWithAmp (s : String) : Bool :=
   match s.toList with
   | '&' :: _ => true
@@ -50,22 +69,25 @@ private def metadataField (md : MaidataMetadata) (key : String) : Option String 
 def parseSourceMaidata (content : String) : Except ParseError MaidataFile :=
   Except.ok <| parseMaidataLines (content.splitOn "\n") [] []
 
-def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Except ParseError ParsedMaidataChart := do
+def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Except ParseError FrontendChartResult := do
   let baseBpm := parseFloatDef ((metadataField file.metadata "&wholebpm").getD "120") 120.0
   let firstOffset := parseFloatDef ((metadataField file.metadata "&first").getD "0") 0.0
   let cleanedBody := stripComments block.rawBody
   let segments := cleanedBody.splitOn ","
   let tokens := parseSegments segments firstOffset baseBpm 1.0 4 []
+  let source := sourceChartFromTokens tokens
   let (normalized, slideNotes) := lowerRawTokens measureDurSec tokens
   let lowered := toChartSpec normalized
-  pure { metadata := file.metadata, chart := block, tokens := tokens, slideNotes := slideNotes, normalized := normalized, lowered := lowered }
+  pure
+    { semantic := { normalized := normalized, lowered := lowered }
+    , inspection := { metadata := file.metadata, chart := block, source := source, tokens := tokens, slideNotes := slideNotes } }
 
-def lowerSourceChartByLevel (file : MaidataFile) (levelIndex : Nat) : Except ParseError ParsedMaidataChart := do
+def lowerSourceChartByLevel (file : MaidataFile) (levelIndex : Nat) : Except ParseError FrontendChartResult := do
   match file.charts.find? (fun block => block.levelIndex = levelIndex) with
   | some block => lowerSourceChartBlock file block
   | none => Except.error { kind := .invalidSyntax, rawText := "", message := s!"missing inote block {levelIndex}" }
 
-def parseAndLowerSourceMaidata (content : String) (levelIndex : Nat) : Except ParseError ParsedMaidataChart := do
+def parseAndLowerSourceMaidata (content : String) (levelIndex : Nat) : Except ParseError FrontendChartResult := do
   let file ← parseSourceMaidata content
   lowerSourceChartByLevel file levelIndex
 

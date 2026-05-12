@@ -191,6 +191,66 @@ def mkRawToken (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) :
   , isFakeRotate := isFakeRotate
   , isSlideBreak := isSlideBreak }
 
+private def sameHeadGroupParts (token : String) : List String :=
+  (splitTopLevel '*' token).map trim |>.filter (fun t => t ≠ "")
+
+private def sameHeadHeadPrefix (token : String) : String :=
+  let t := trim <| stripPrefixDirectives token
+  match t.toList with
+  | [] => ""
+  | first :: rest =>
+      if isTouchAreaChar first then
+        match first, rest with
+        | 'C', _ => "C"
+        | _, digit :: _ =>
+            if digit.isDigit then String.singleton first ++ String.singleton digit else String.singleton first
+        | _, _ => String.singleton first
+      else if first.isDigit then
+        String.singleton first
+      else
+        ""
+
+private def expandSameHeadGroupRest (groupId : Nat) (timingSec bpm hSpeed : Float) (divisor : Nat)
+    (headPrefix : String) (size : Nat) : Nat → List String → List RawNoteToken
+  | _, [] => []
+  | idx, part :: rest =>
+      let rebuilt := if headPrefix = "" then part else headPrefix ++ part
+      let tok := mkRawToken timingSec bpm hSpeed divisor rebuilt
+      { tok with
+        isSlideNoHead := true,
+        sourceGroupId := some groupId,
+        sourceGroupIndex := some idx,
+        sourceGroupSize := some size } ::
+      expandSameHeadGroupRest groupId timingSec bpm hSpeed divisor headPrefix size (idx + 1) rest
+
+private def expandSameHeadGroup (groupId : Nat) (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) : List RawNoteToken :=
+  let parts := sameHeadGroupParts token
+  match parts with
+  | [] => []
+  | first :: rest =>
+      let headPrefix := sameHeadHeadPrefix first
+      let firstTok := mkRawToken timingSec bpm hSpeed divisor first
+      let firstIsGroupedSlide := firstTok.kind = .slide
+      let groupedSlideCount := (if firstIsGroupedSlide then 1 else 0) + rest.length
+      let firstTok :=
+        if firstIsGroupedSlide then
+          { firstTok with sourceGroupId := some groupId, sourceGroupIndex := some 0, sourceGroupSize := some groupedSlideCount }
+        else
+          firstTok
+      let restStartIndex := if firstIsGroupedSlide then 1 else 0
+      let restToks := expandSameHeadGroupRest groupId timingSec bpm hSpeed divisor headPrefix groupedSlideCount restStartIndex rest
+      firstTok :: restToks
+
+private def expandTokenList (baseGroupId : Nat) (timingSec bpm hSpeed : Float) (divisor : Nat) : Nat → List String → List RawNoteToken
+  | _, [] => []
+  | idx, tokText :: rest =>
+      let current :=
+        if tokText.contains '*' then
+          expandSameHeadGroup (baseGroupId + idx) timingSec bpm hSpeed divisor tokText
+        else
+          [mkRawToken timingSec bpm hSpeed divisor tokText]
+      current ++ expandTokenList baseGroupId timingSec bpm hSpeed divisor (idx + 1) rest
+
 def parseSegmentNotes (segment : String) (timeSec bpm hSpeed : Float) (divisor : Nat) : List RawNoteToken :=
   let normalized := trim <| segment.replace "\n" ""
   if normalized = "" then
@@ -201,12 +261,12 @@ def parseSegmentNotes (segment : String) (timeSec bpm hSpeed : Float) (divisor :
       parts.foldl
         (fun (state : Float × List RawNoteToken) part =>
           let (currentTime, acc) := state
-          let tokens := splitEntryTokens part |>.map (mkRawToken currentTime bpm hSpeed divisor)
+          let tokens := expandTokenList 0 currentTime bpm hSpeed divisor 0 (splitEntryTokens part)
           (currentTime + pseudoIncrement bpm, acc ++ tokens))
         (timeSec, [])
     acc
   else
-    splitEntryTokens normalized |>.map (mkRawToken timeSec bpm hSpeed divisor)
+    expandTokenList 0 timeSec bpm hSpeed divisor 0 (splitEntryTokens normalized)
 
 partial def parseSegments (segments : List String) (timeSec bpm hSpeed : Float) (divisor : Nat) (acc : List RawNoteToken) : List RawNoteToken :=
   match segments with
