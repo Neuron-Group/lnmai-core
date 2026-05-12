@@ -23,6 +23,21 @@ private def supportedCase (name : String) (passed : Bool) (note : String := "") 
 private def gapCase (name : String) (note : String) : ParityCase :=
   { name := name, supported := false, passed := false, note := note }
 
+def test_simai_chart_dsl_smoke : ParityCase :=
+  let chart : FrontendChartResult := simai_chart! "&first=0\n&inote_1=\n(120)\n1,\n"
+  supportedCase "simai_chart_dsl_smoke"
+    (chart.semantic.normalized.taps.length = 1)
+    "chart DSL elaborates through frontend parser"
+
+def test_simai_slide_dsl_smoke : ParityCase :=
+  let slide : SlideNoteSemantics := simai_slide! "1V35"
+  let normalized : NormalizedSlide := simai_normalized_slide! "1w5[4:1]"
+  supportedCase "simai_slide_dsl_smoke"
+    (slide.startPos = 1 && slide.endPos = 5 &&
+     slide.shape.kind = SlideKind.turn &&
+     normalized.trackCount = 3 && normalized.slideKind = LnmaiCore.SlideKind.Wifi)
+    "slide DSL elaborates through shared parser/normalizer"
+
 def test_metadata_parsing : ParityCase :=
   match parseFrontendMaidata "&title=My Awesome Song\n&artist=The Best Artist\n&des=Chart Master\n&first=1.5\n&lv_1=1\n&lv_4=10+\n&lv_5=12\n&uot_other=some_value\n" with
   | .ok file =>

@@ -8,3 +8,4 @@ import LnmaiCore.Simai.IR
 import LnmaiCore.Simai.Source.Maidata
 import LnmaiCore.Simai.Maidata
 import LnmaiCore.Simai.Frontend
+import LnmaiCore.Simai.DSL
