@@ -502,7 +502,44 @@ def supportedCount : Nat :=
 def passedCount : Nat :=
   all.foldl (fun acc item => if item.supported && item.passed then acc + 1 else acc) 0
 
-#eval all
+#eval! all
 #eval (supportedCount, passedCount, all.length)
+
+theorem test_simai_chart_dsl_smoke_proof : test_simai_chart_dsl_smoke.passed = true := by native_decide
+theorem test_simai_slide_dsl_smoke_proof : test_simai_slide_dsl_smoke.passed = true := by native_decide
+theorem test_simai_chart_level_dsl_smoke_proof : test_simai_chart_level_dsl_smoke.passed = true := by native_decide
+theorem test_simai_normalized_chart_dsl_smoke_proof : test_simai_normalized_chart_dsl_smoke.passed = true := by native_decide
+theorem test_metadata_parsing_proof : test_metadata_parsing.passed = true := by native_decide
+theorem test_empty_fumen_proof : test_empty_fumen.passed = true := by native_decide
+theorem test_simple_tap_and_bpm_proof : test_simple_tap_and_bpm.passed = true := by native_decide
+theorem test_hold_note_basic_duration_proof : test_hold_note_basic_duration.passed = true := by native_decide
+theorem test_hold_note_custom_bpm_duration_proof : test_hold_note_custom_bpm_duration.passed = true := by native_decide
+theorem test_hold_note_absolute_time_duration_proof : test_hold_note_absolute_time_duration.passed = true := by native_decide
+theorem test_slide_note_duration_and_star_wait_proof : test_slide_note_duration_and_star_wait.passed = true := by native_decide
+theorem test_slide_note_custom_bpm_star_and_duration_proof : test_slide_note_custom_bpm_star_and_duration.passed = true := by native_decide
+theorem test_slide_note_absolute_star_wait_no_hash_and_duration_proof : test_slide_note_absolute_star_wait_no_hash_and_duration.passed = true := by native_decide
+theorem test_touch_note_proof : test_touch_note.passed = true := by native_decide
+theorem test_modifiers_proof : test_modifiers.passed = true := by native_decide
+theorem test_slide_modifiers_proof : test_slide_modifiers.passed = true := by native_decide
+theorem test_slide_break_on_segment_proof : test_slide_break_on_segment.passed = true := by native_decide
+theorem test_simultaneous_notes_slash_proof : test_simultaneous_notes_slash.passed = true := by native_decide
+theorem test_pseudo_simultaneous_backtick_proof : test_pseudo_simultaneous_backtick.passed = true := by native_decide
+theorem test_comment_handling_proof : test_comment_handling.passed = true := by native_decide
+theorem test_beat_signature_change_proof : test_beat_signature_change.passed = true := by native_decide
+theorem test_hspeed_change_proof : test_hspeed_change.passed = true := by native_decide
+theorem test_unfit_bpm_quantizes_consistently_proof : test_unfit_bpm_quantizes_consistently.passed = true := by native_decide
+theorem test_rational_inspection_json_is_stable_proof : test_rational_inspection_json_is_stable.passed = true := by native_decide
+theorem test_same_head_slide_group_lowering_proof : test_same_head_slide_group_lowering.passed = true := by native_decide
+theorem test_same_head_wifi_group_lowering_proof : test_same_head_wifi_group_lowering.passed = true := by native_decide
+theorem test_normalized_slide_topology_attached_proof : test_normalized_slide_topology_attached.passed = true := by native_decide
+theorem test_normalized_short_conn_skip_rule_proof : test_normalized_short_conn_skip_rule.passed = true := by native_decide
+theorem test_same_head_with_tap_head_matches_python_flattening_proof : test_same_head_with_tap_head_matches_python_flattening.passed = true := by native_decide
+theorem test_same_head_subsequent_parts_are_headless_proof : test_same_head_subsequent_parts_are_headless.passed = true := by native_decide
+theorem test_normalized_topology_comes_from_typed_shape_proof : test_normalized_topology_comes_from_typed_shape.passed = true := by native_decide
+theorem test_reference_circle_mirror_semantics_proof : test_reference_circle_mirror_semantics.passed = true := by native_decide
+theorem test_reference_circle_realpaths_proof : test_reference_circle_realpaths.passed = true := by native_decide
+theorem test_reference_other_shape_realpaths_proof : test_reference_other_shape_realpaths.passed = true := by native_decide
+theorem test_shape_key_is_annotation_not_authority_proof : test_shape_key_is_annotation_not_authority.passed = true := by native_decide
+theorem test_just_right_is_debug_not_normalized_authority_proof : test_just_right_is_debug_not_normalized_authority.passed = true := by native_decide
 
 end LnmaiCore.Simai.Tests

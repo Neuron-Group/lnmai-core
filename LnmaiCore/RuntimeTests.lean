@@ -202,7 +202,7 @@ private def activeFinishedSlideState : InputModel.GameState :=
     , judgeQueues := [[finishedArea]] }
   { currentTime := tp 1184000
   , slides := [slide]
-  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+  , touchPanelOffset := dur 16000 }
 
 def test_slide_judge_uses_touch_panel_offset : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
@@ -480,5 +480,41 @@ def passedCount : Nat :=
 
 -- #eval all
 -- #eval (passedCount, all.length)
+
+theorem test_button_tap_can_use_matching_a_sensor_proof :
+    test_button_tap_can_use_matching_a_sensor.passed = true := by native_decide
+
+theorem test_classic_hold_matching_a_sensor_keeps_body_pressed_proof :
+    test_classic_hold_matching_a_sensor_keeps_body_pressed.passed = true := by native_decide
+
+theorem test_modern_hold_head_miss_can_end_as_late_good_proof :
+    test_modern_hold_head_miss_can_end_as_late_good.passed = true := by native_decide
+
+theorem test_conn_child_progress_force_finishes_parent_proof :
+    test_conn_child_progress_force_finishes_parent.passed = true := by native_decide
+
+theorem test_slide_judge_uses_touch_panel_offset_proof :
+    test_slide_judge_uses_touch_panel_offset.passed = true := by native_decide
+
+theorem test_touch_group_majority_shares_result_same_frame_proof :
+    test_touch_group_majority_shares_result_same_frame.passed = true := by native_decide
+
+theorem test_conn_child_pending_finish_becomes_checkable_proof :
+    test_conn_child_pending_finish_becomes_checkable.passed = true := by native_decide
+
+theorem test_wifi_classic_tail_progress_uses_special_marker_proof :
+    test_wifi_classic_tail_progress_uses_special_marker.passed = true := by native_decide
+
+theorem test_wifi_center_cleared_progress_uses_special_marker_proof :
+    test_wifi_center_cleared_progress_uses_special_marker.passed = true := by native_decide
+
+theorem test_wifi_judged_wait_emits_delayed_event_then_hides_proof :
+    test_wifi_judged_wait_emits_delayed_event_then_hides.passed = true := by native_decide
+
+theorem test_wifi_too_late_ends_immediately_proof :
+    test_wifi_too_late_ends_immediately.passed = true := by native_decide
+
+theorem test_typed_json_boundary_symbolic_only_proof :
+    test_typed_json_boundary_symbolic_only.passed = true := by native_decide
 
 end LnmaiCore.RuntimeTests

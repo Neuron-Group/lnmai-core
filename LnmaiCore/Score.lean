@@ -117,26 +117,26 @@ def updateCombo (combo : Nat) (pCombo : Nat) (cPCombo : Nat) (dXScoreLost : ℤ)
   let m := multiple
   match grade with
   | JudgeGrade.Perfect =>
-    { combo       := combo
+    { combo       := combo + m
     , pCombo      := pCombo + m
     , cPCombo     := cPCombo + m
     , dXScoreLost := dXScoreLost
     }
   | LatePerfect2nd | FastPerfect2nd | LatePerfect3rd | FastPerfect3rd =>
-    { combo       := combo
+    { combo       := combo + m
     , pCombo      := pCombo + m
     , cPCombo     := 0
     , dXScoreLost := dXScoreLost - Int.ofNat (1 * m)
     }
   | LateGreat3rd | LateGreat2nd | LateGreat
   | FastGreat | FastGreat2nd | FastGreat3rd =>
-    { combo       := combo
+    { combo       := combo + m
     , pCombo      := 0
     , cPCombo     := 0
     , dXScoreLost := dXScoreLost - Int.ofNat (2 * m)
     }
   | LateGood | FastGood =>
-    { combo       := combo
+    { combo       := combo + m
     , pCombo      := 0
     , cPCombo     := 0
     , dXScoreLost := dXScoreLost - Int.ofNat (3 * m)

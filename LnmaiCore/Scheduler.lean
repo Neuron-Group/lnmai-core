@@ -56,6 +56,11 @@ private def fallbackSensorHeldForButtonNote (input : FrameInput) (zone : ButtonZ
 private def fallbackPrevSensorHeldForButtonNote (prevSensor : SensorVec Bool) (zone : ButtonZone) : Bool :=
   InputModel.prevSensorHeldAt prevSensor (fallbackSensorAreaForButtonNote zone)
 
+private def listSetAt : List α → Nat → α → List α
+  | [], _, _ => []
+  | _ :: rest, 0, value => value :: rest
+  | head :: rest, index + 1, value => head :: listSetAt rest index value
+
 private def slideHasNoteIndex (slide : SlideNote) (noteIndex : Nat) : Bool :=
   slide.params.noteIndex == noteIndex
 
@@ -150,8 +155,15 @@ private def processTapNotes (queues : ButtonQueueVec TapNote) (input : FrameInpu
               tryUseSensorClickAt input cursor1 (fallbackSensorAreaForButtonNote note.lane.toButtonZone)
             if usedSensor then (true, sensorDiff, cursorS) else (false, buttonDiff, cursorS)
         match tapStep note currentTime diff clicked style with
-        | (_, some evt) => (q.advance, (cursor2, evt :: evsRev))
-        | (_, none) => (q, (cursor2, evsRev)))
+        | (newNote, some evt) =>
+            let nextQueue :=
+              match newNote.state with
+              | Lifecycle.TapState.Ended => q.advance
+              | _ => { q with notes := listSetAt q.notes q.currentIndex newNote }
+            (nextQueue, (cursor2, evt :: evsRev))
+        | (newNote, none) =>
+            let nextQueue := { q with notes := listSetAt q.notes q.currentIndex newNote }
+            (nextQueue, (cursor2, evsRev)))
   (nextQueues, evsRev.reverse, cursor')
 
 ----------------------------------------------------------------------------
@@ -342,16 +354,16 @@ private def processTouchNotes (queues : SensorQueueVec TouchNote) (input : Frame
 -- Process slide notes
 ----------------------------------------------------------------------------
 
-private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (currentTime : TimePoint) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
+private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (currentTime : TimePoint) (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
   match slides with
   | [] => ([], [], [], [])
   | note :: rest =>
-    match slideStep note currentTime input.sensorHeld Constants.TOUCH_PANEL_OFFSET delta style subdivideSlideJudgeGrade with
+    match slideStep note currentTime input.sensorHeld touchPanelOffset delta style subdivideSlideJudgeGrade with
     | (newNote, some evt, audioCmds, renderCmds) =>
-      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentTime delta style subdivideSlideJudgeGrade
+      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade
       (newNote :: restSlides, evt :: restEvs, audioCmds ++ restAudio, renderCmds ++ restRender)
     | (newNote, none, audioCmds, renderCmds) =>
-      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentTime delta style subdivideSlideJudgeGrade
+      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade
       (newNote :: restSlides, restEvs, audioCmds ++ restAudio, renderCmds ++ restRender)
 
 ----------------------------------------------------------------------------
@@ -415,7 +427,7 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let (touchNotes, touchEvents, _cursor3, touchGroupStates) :=
     processTouchNotes st.touchQueues input newTime st.judgeStyle cursor2 st.useButtonRingForTouch st.touchPanelOffset st.touchGroupStates
   let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
-    processSlideNotes resolvedSlides input newTime input.delta st.judgeStyle st.subdivideSlideJudgeGrade
+    processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
   let slideNotes := iterateForceFinishParents slideNotes.length slideNotes
   let slideNotes := resolveSlideLinks slideNotes
   let forceFinishCommands := forceFinishRenderCmds resolvedSlides slideNotes
@@ -429,8 +441,10 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
       currentTime := newTime
     , prevButton  := input.buttonHeld
     , prevSensor  := input.sensorHeld
+    , tapQueues   := tapNotes
     , holdQueues  := holdQueues
     , touchHoldQueues := touchHoldQueues
+    , touchQueues := touchNotes
     , score       := newScore
     , slides      := slideNotes
     , activeHolds := holdNotes

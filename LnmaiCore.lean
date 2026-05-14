@@ -4,6 +4,7 @@ import LnmaiCore.Basic
 import LnmaiCore.Areas
 import LnmaiCore.Time
 import LnmaiCore.Simai
+import LnmaiCore.RuntimeProofAPI
 import LnmaiCore.RuntimeTests
 -- import LnmaiCore.Proofs.QueueInterop
 -- import LnmaiCore.Proofs.SimaiNormalize
