@@ -8,6 +8,8 @@
 -/
 
 import LnmaiCore.Types
+import LnmaiCore.Areas
+import LnmaiCore.Storage
 import LnmaiCore.Constants
 import LnmaiCore.Judge
 import LnmaiCore.Convert
@@ -24,18 +26,26 @@ open NoteType
 -- Common Note Parameters (set at spawn time)
 ----------------------------------------------------------------------------
 
-structure NoteParams where
+structure CommonNoteParams where
   judgeTimingSec : Float           -- scheduled judge time
   judgeOffsetSec : Float           -- user judge offset
-  startPos       : Nat             -- button zone (0-7) or primary sensor area
   isBreak        : Bool := false
   isEX           : Bool := false
   noteIndex      : Nat             -- unique id in chart
 deriving Inhabited, Repr
 
 /-- Effective judge timing with user offset -/
-def NoteParams.effectiveTiming (p : NoteParams) : Float :=
+def CommonNoteParams.effectiveTiming (p : CommonNoteParams) : Float :=
   p.judgeTimingSec + p.judgeOffsetSec
+
+inductive HoldStart where
+  | button (zone : ButtonZone)
+  | sensor (area : SensorArea)
+deriving Inhabited, Repr
+
+def HoldStart.toRuntimePos : HoldStart → RuntimePos
+  | .button zone => .button zone
+  | .sensor area => .sensor area
 
 ----------------------------------------------------------------------------
 -- Tap Note State
@@ -49,9 +59,13 @@ inductive TapState where
 deriving Inhabited, Repr
 
 structure TapNote where
-  params : NoteParams
+  params : CommonNoteParams
+  lane   : ButtonZone
   state  : TapState
 deriving Inhabited, Repr
+
+def TapNote.position (note : TapNote) : RuntimePos :=
+  .button note.lane
 
 /--
   Advance a tap note one frame. Returns (new_note, optional JudgeEvent).
@@ -67,7 +81,7 @@ def tapStep (note : TapNote) (currentSec : Float) (judgeDiffMs : Float) (inputCl
       -- too late before being judgeable — force Miss
       let raw := JudgeGrade.Miss
       let grade := Convert.convertGrade style raw
-      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := -1.0, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := -1.0, position := note.position, noteIndex := note.params.noteIndex }
       ({ note with state := TapState.Ended }, some evt)
     else if currentSec ≥ judgeableRange.1 then
       -- entering judgeable window
@@ -79,12 +93,12 @@ def tapStep (note : TapNote) (currentSec : Float) (judgeDiffMs : Float) (inputCl
       -- too late → Miss
       let raw := JudgeGrade.Miss
       let grade := Convert.convertGrade style raw
-      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := -1.0, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := -1.0, position := note.position, noteIndex := note.params.noteIndex }
       ({ note with state := TapState.Ended }, some evt)
     else if inputClicked && currentSec ≥ judgeableRange.1 then
       let raw := Judge.judgeTap judgeDiffMs note.params.isEX
       let grade := Convert.convertGrade style raw
-      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := judgeDiffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Tap, grade := grade, diffMs := judgeDiffMs, position := note.position, noteIndex := note.params.noteIndex }
       ({ note with state := TapState.Ended }, some evt)
     else
       (note, none)
@@ -107,7 +121,8 @@ inductive HoldSubState where
 deriving Inhabited, Repr
 
 structure HoldNote where
-  params     : NoteParams
+  params     : CommonNoteParams
+  start      : HoldStart
   state      : HoldSubState
   lengthSec  : Float                          -- total hold length
   headDiffMs : Float := 0.0                   -- head timing diff in ms
@@ -119,6 +134,9 @@ structure HoldNote where
   touchHoldGroupSize : Nat := 1
   touchHoldGroupTriggered : Bool := false
 deriving Inhabited, Repr
+
+def HoldNote.position (note : HoldNote) : RuntimePos :=
+  note.start.toRuntimePos
 
 /--
   Advance a hold note one frame.
@@ -140,7 +158,7 @@ def holdStep (note : HoldNote) (currentSec : Float) (judgeDiffMs : Float) (headI
         Judge.judgeHoldEnd headGrade note.headDiffMs note.lengthSec (headIgnoreSec + tailIgnoreSec) releaseTimeSec
     let finalGrade' := Convert.convertGrade style finalGrade
     let eventDiffMs := if note.headDiffMs == 0.0 && headGrade == Miss then 150.0 else note.headDiffMs
-    let evt : JudgeEvent := { kind := .Hold, grade := finalGrade', diffMs := eventDiffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+    let evt : JudgeEvent := { kind := .Hold, grade := finalGrade', diffMs := eventDiffMs, position := note.position, noteIndex := note.params.noteIndex }
     ({ note with state := HoldSubState.Ended finalGrade', touchHoldGroupTriggered := false }, some evt)
   match note.state with
   | .HeadWaiting =>
@@ -246,9 +264,9 @@ inductive TouchState where
 deriving Inhabited, Repr
 
 structure TouchNote where
-  params       : NoteParams
+  params       : CommonNoteParams
   state        : TouchState
-  sensorPos    : Nat       -- sensor area (0-32)
+  sensorPos    : SensorArea
   touchGroupId : Option Nat := none
   touchGroupSize : Nat := 1
 deriving Inhabited, Repr
@@ -265,11 +283,11 @@ def touchStep (note : TouchNote) (currentSec : Float) (judgeDiffMs : Float) (inp
   | .Waiting =>
     match sharedResult with
     | some (grade, sharedDiffMs) =>
-      let evt : JudgeEvent := { kind := .Touch, grade := Convert.convertGrade style grade, diffMs := sharedDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Touch, grade := Convert.convertGrade style grade, diffMs := sharedDiffMs, position := .sensor note.sensorPos, noteIndex := note.params.noteIndex }
       ({ note with state := TouchState.Ended }, some evt)
     | none =>
     if currentSec ≥ judgeableRange.2 then
-      let evt : JudgeEvent := { kind := .Touch, grade := Miss, diffMs := judgeDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Touch, grade := Miss, diffMs := judgeDiffMs, position := .sensor note.sensorPos, noteIndex := note.params.noteIndex }
       ({ note with state := TouchState.Ended }, some evt)
     else if currentSec ≥ judgeableRange.1 then
       ({ note with state := TouchState.Judgeable }, none)
@@ -278,17 +296,17 @@ def touchStep (note : TouchNote) (currentSec : Float) (judgeDiffMs : Float) (inp
   | .Judgeable =>
     match sharedResult with
     | some (grade, sharedDiffMs) =>
-      let evt : JudgeEvent := { kind := .Touch, grade := Convert.convertGrade style grade, diffMs := sharedDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Touch, grade := Convert.convertGrade style grade, diffMs := sharedDiffMs, position := .sensor note.sensorPos, noteIndex := note.params.noteIndex }
       ({ note with state := TouchState.Ended }, some evt)
     | none =>
     if currentSec > timing + touchGoodMs / 1000.0 then
-      let evt : JudgeEvent := { kind := .Touch, grade := Miss, diffMs := judgeDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Touch, grade := Miss, diffMs := judgeDiffMs, position := .sensor note.sensorPos, noteIndex := note.params.noteIndex }
       ({ note with state := TouchState.Ended }, some evt)
     else if inputClicked then
       match Judge.judgeTouch judgeDiffMs note.params.isEX with
       | some raw =>
         let grade := Convert.convertGrade style raw
-        let evt : JudgeEvent := { kind := .Touch, grade := grade, diffMs := judgeDiffMs, sensorPos := note.sensorPos, noteIndex := note.params.noteIndex }
+        let evt : JudgeEvent := { kind := .Touch, grade := grade, diffMs := judgeDiffMs, position := .sensor note.sensorPos, noteIndex := note.params.noteIndex }
         ({ note with state := TouchState.Ended }, some evt)
       | none =>
         (note, none)  -- too early, keep waiting
@@ -304,12 +322,12 @@ def touchStep (note : TouchNote) (currentSec : Float) (judgeDiffMs : Float) (inp
 inductive SlideState where
   | Waiting
   | Active  (waitTimeSec : Float)          -- star traveling, wait time for end window
-  | Judged  (grade : JudgeGrade) (waitTimeSec : Float)
+  | Judged  (grade : JudgeGrade) (waitTimeSec : Float) (judgeDiffMs : Float)
   | Ended
 deriving Inhabited, Repr
 
 structure SlideArea where
-  targetAreas : List Nat
+  targetAreas : List SensorArea
   policy      : AreaPolicy := AreaPolicy.Or
   isLast      : Bool := false
   isSkippable : Bool := true
@@ -328,11 +346,14 @@ def SlideArea.isFinished (area : SlideArea) : Bool :=
   else
     area.wasOn && area.wasOff
 
-def SlideArea.check (area : SlideArea) (sensorHeld : List Bool) : SlideArea :=
+private def sensorHeldAt (sensorHeld : SensorVec Bool) (area : SensorArea) : Bool :=
+  sensorHeld.getD area false
+
+def SlideArea.check (area : SlideArea) (sensorHeld : SensorVec Bool) : SlideArea :=
   let isHeld :=
     match area.policy with
-    | .Or  => area.targetAreas.any (fun target => (sensorHeld[target]?).getD false)
-    | .And => area.targetAreas.all (fun target => (sensorHeld[target]?).getD false)
+    | .Or  => area.targetAreas.any (fun target => sensorHeldAt sensorHeld target)
+    | .And => area.targetAreas.all (fun target => sensorHeldAt sensorHeld target)
   if isHeld then
     { area with wasOn := true }
   else if area.wasOn then
@@ -347,6 +368,34 @@ def slideQueueRemaining (queues : List SlideQueue) : Nat :=
     | [] => acc
     | q :: rest => go (max acc q.length) rest
   go 0 queues
+
+private def wifiQueueProgressRemaining (isClassic : Bool) (queues : List SlideQueue) : Nat :=
+  match queues with
+  | [left, center, right] =>
+      if isClassic then
+        if left.length ≤ 1 && center.length ≤ 1 && right.length ≤ 1 then 8
+        else
+          let maxLen := Nat.max left.length (Nat.max center.length right.length)
+          let pick (candidates : List SlideQueue) : Nat :=
+            match candidates.find? (fun queue => queue.length = maxLen) with
+            | some (area :: _) => area.arrowProgressWhenFinished
+            | _ => 0
+          pick [left, center, right]
+      else if center.isEmpty && left.length ≤ 1 && right.length ≤ 1 then
+        9
+      else
+        let maxLen := Nat.max left.length (Nat.max center.length right.length)
+        let pick (candidates : List SlideQueue) : Nat :=
+          match candidates.find? (fun queue => queue.length = maxLen) with
+          | some (area :: _) => area.arrowProgressWhenFinished
+          | _ => 0
+        pick [left, center, right]
+  | _ => slideQueueRemaining queues
+
+private def slideProgressRemaining (slideKind : SlideKind) (isClassic : Bool) (queues : List SlideQueue) : Nat :=
+  match slideKind with
+  | SlideKind.Wifi => wifiQueueProgressRemaining isClassic queues
+  | _ => slideQueueRemaining queues
 
 def slideQueuesCleared (queues : List SlideQueue) : Bool :=
   match queues with
@@ -378,7 +427,7 @@ private def collectNewSlideOnTracks (index : Nat) (oldQueues newQueues : List Sl
     else
       rest
 
-def updateSlideArea (area : SlideArea) (sensorHeld : List Bool) : SlideArea :=
+def updateSlideArea (area : SlideArea) (sensorHeld : SensorVec Bool) : SlideArea :=
   area.check sensorHeld
 
 /-- Flatten multi-track queue specs for proof-facing single-track reasoning. -/
@@ -388,7 +437,7 @@ def flattenSlideQueues : List SlideQueue → SlideQueue
 
 /-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
 private partial def slideQueueCore
-    (noteIndex : Nat) (trackIndex : Option Nat) (emitCmds : Bool) (queue : SlideQueue) (sensorHeld : List Bool) :
+    (noteIndex : Nat) (trackIndex : Option Nat) (emitCmds : Bool) (queue : SlideQueue) (sensorHeld : SensorVec Bool) :
     SlideQueue × List RenderCommand :=
   match queue with
   | [] => ([], [])
@@ -429,17 +478,18 @@ private partial def slideQueueCore
         ([first'] ++ rest, [])
 
 /-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
-partial def replaySlideQueue (queue : SlideQueue) (sensorHeld : List Bool) : SlideQueue :=
+partial def replaySlideQueue (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue :=
   (slideQueueCore 0 none false queue sensorHeld).1
 
-private partial def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : List Bool) : SlideQueue × List RenderCommand :=
+private partial def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue × List RenderCommand :=
   slideQueueCore noteIndex trackIndex true queue sensorHeld
 
-private def updateSlideQueue (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : List Bool) : SlideQueue × List RenderCommand :=
+private def updateSlideQueue (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue × List RenderCommand :=
   updateSlideQueueWithCmds noteIndex trackIndex queue sensorHeld
 
 structure SlideNote where
-  params          : NoteParams
+  params          : CommonNoteParams
+  lane            : ButtonZone
   state           : SlideState
   lengthSec       : Float               -- total slide length
   startTiming     : Float               -- when slide started
@@ -458,11 +508,23 @@ structure SlideNote where
   judgeQueues     : List SlideQueue := []
 deriving Inhabited, Repr
 
+def SlideNote.position (note : SlideNote) : RuntimePos :=
+  .button note.lane
+
+private def SlideNote.queueTracks (note : SlideNote) : List (Option Nat × SlideQueue) :=
+  if note.trackCount = 1 then
+    note.judgeQueues.map (fun queue => (none, queue))
+  else
+    ((List.range note.judgeQueues.length).map some).zip note.judgeQueues
+
+private def SlideNote.trackRenderIndices (note : SlideNote) : List Nat :=
+  List.range note.trackCount
+
 private def slideProgressRenderCmds (note : SlideNote) (remaining : Nat) : List RenderCommand :=
   match note.slideKind with
   | SlideKind.Single => [RenderCommand.UpdateSlideProgress note.params.noteIndex remaining]
   | SlideKind.Wifi | SlideKind.ConnPart =>
-      (List.range note.trackCount).map (fun trackIndex => RenderCommand.UpdateSlideTrackProgress note.params.noteIndex trackIndex remaining)
+      note.trackRenderIndices.map (fun trackIndex => RenderCommand.UpdateSlideTrackProgress note.params.noteIndex trackIndex remaining)
 
 private def slideHideRenderCmds (note : SlideNote) : List RenderCommand :=
   match note.slideKind with
@@ -471,11 +533,14 @@ private def slideHideRenderCmds (note : SlideNote) : List RenderCommand :=
       [RenderCommand.HideAllSlideBars note.params.noteIndex]
 
 /-- Advance a slide note with queue traversal. -/
-def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (deltaSec : Float) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
+def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : SensorVec Bool) (touchPanelOffsetSec : Float) (deltaSec : Float) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
   let timing := note.params.effectiveTiming
+  let judgeCurrentSec := currentSec - touchPanelOffsetSec
+  let judgeDiffSec := judgeCurrentSec - timing
+  let judgeDiffMs := judgeDiffSec * 1000.0
   let diffSec := currentSec - timing
   let diffMs := diffSec * 1000.0
-  let oldRemaining := slideQueueRemaining note.judgeQueues
+  let oldRemaining := slideProgressRemaining note.slideKind note.isClassic note.judgeQueues
   let startTiming := currentSec - note.startTiming
   let isCheckable :=
     if note.isCheckable then
@@ -489,15 +554,14 @@ def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (
       startTiming >= -0.05
   let updatedQueuesWithCmds :=
     if isCheckable then
-      ((List.range note.judgeQueues.length).zip note.judgeQueues).map (fun pair =>
-        let ⟨trackIndex, queue⟩ := pair
-        updateSlideQueue note.params.noteIndex (if note.trackCount = 1 then none else some trackIndex) queue sensorHeld)
+      note.queueTracks.map (fun (trackIndex, queue) =>
+        updateSlideQueue note.params.noteIndex trackIndex queue sensorHeld)
     else
       note.judgeQueues.map (fun queue => (queue, []))
   let updatedQueues := updatedQueuesWithCmds.map Prod.fst
   let queueRenderCmds := flattenRenderCmds (updatedQueuesWithCmds.map Prod.snd)
   let queueFullyCleared := slideQueuesCleared updatedQueues
-  let newRemaining := slideQueueRemaining updatedQueues
+  let newRemaining := slideProgressRemaining note.slideKind note.isClassic updatedQueues
   let newTrackOns :=
     if isCheckable then collectNewSlideOnTracks 0 note.judgeQueues updatedQueues else []
   let canPlaySlideCue := note.isGroupPartHead || !note.isConnSlide
@@ -525,18 +589,18 @@ def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (
     else if isJudgable && queueFullyCleared && !isTooLate then
       let raw :=
         if note.isClassic then
-          Judge.judgeSlideClassic diffMs
+          Judge.judgeSlideClassic judgeDiffMs
         else
-          Judge.judgeSlideModern diffMs (waitTime * 1000.0) note.params.isEX
+          Judge.judgeSlideModern judgeDiffMs (waitTime * 1000.0) note.params.isEX
       let renderCmds :=
         slideProgressRenderCmds note newRemaining
-      ({ note with state := SlideState.Judged raw waitTime, judgeQueues := updatedQueues, isCheckable := isCheckable }, none, audioCmdsForTrackOns, queueRenderCmds ++ renderCmds)
+      ({ note with state := SlideState.Judged raw waitTime judgeDiffMs, judgeQueues := updatedQueues, isCheckable := isCheckable }, none, audioCmdsForTrackOns, queueRenderCmds ++ renderCmds)
     else if isJudgable && isTooLate then
       let raw := Judge.judgeSlideTooLate (slideQueueRemaining updatedQueues)
       let grade :=
         let converted := Convert.convertGrade style raw
         if subdivideSlideJudgeGrade then converted else Judge.correctSlideGrade converted
-      let evt : JudgeEvent := { kind := .Slide, grade := grade, diffMs := diffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Slide, grade := grade, diffMs := diffMs, position := note.position, noteIndex := note.params.noteIndex }
       ({ note with state := SlideState.Ended, judgeQueues := updatedQueues, isCheckable := isCheckable }, some evt, [], queueRenderCmds ++ slideHideRenderCmds note)
     else
       let renderCmds :=
@@ -544,21 +608,20 @@ def slideStep (note : SlideNote) (currentSec : Float) (sensorHeld : List Bool) (
           slideProgressRenderCmds note newRemaining
         else []
       ({ note with judgeQueues := updatedQueues, isCheckable := isCheckable }, none, audioCmdsForTrackOns, queueRenderCmds ++ renderCmds)
-  | .Judged _ waitTime =>
+  | .Judged grade waitTime storedJudgeDiffMs =>
     let newWait := waitTime - deltaSec
     if newWait ≤ 0.0 then
-      let raw := match note.state with | .Judged grade _ => grade | _ => Miss
       let grade :=
-        let converted := Convert.convertGrade style raw
+        let converted := Convert.convertGrade style grade
         if subdivideSlideJudgeGrade then converted else Judge.correctSlideGrade converted
-      let evt : JudgeEvent := { kind := .Slide, grade := grade, diffMs := diffMs, sensorPos := note.params.startPos, noteIndex := note.params.noteIndex }
+      let evt : JudgeEvent := { kind := .Slide, grade := grade, diffMs := storedJudgeDiffMs, position := note.position, noteIndex := note.params.noteIndex }
       ({ note with state := SlideState.Ended, judgeQueues := updatedQueues, isCheckable := isCheckable }, some evt, [], queueRenderCmds ++ slideHideRenderCmds note)
     else
       let renderCmds :=
         if newRemaining != oldRemaining then
           slideProgressRenderCmds note newRemaining
         else []
-      ({ note with state := SlideState.Judged (match note.state with | .Judged g _ => g | _ => Miss) newWait, judgeQueues := updatedQueues, isCheckable := isCheckable }, none, audioCmdsForTrackOns, queueRenderCmds ++ renderCmds)
+      ({ note with state := SlideState.Judged grade newWait storedJudgeDiffMs, judgeQueues := updatedQueues, isCheckable := isCheckable }, none, audioCmdsForTrackOns, queueRenderCmds ++ renderCmds)
   | .Ended =>
     ({ note with judgeQueues := updatedQueues, isCheckable := isCheckable }, none, [], [])
 

@@ -1,5 +1,6 @@
 import LnmaiCore.Simai.Timing
 import LnmaiCore.Simai.Shape
+import LnmaiCore.Areas
 
 namespace LnmaiCore.Simai
 
@@ -21,16 +22,16 @@ def leadingTouchPos? (s : String) : Option Nat :=
       | _, _ => none
   | _ => none
 
-def touchAreaToSensorPos? (s : String) : Option Nat :=
+def touchAreaToSensorArea? (s : String) : Option SensorArea :=
   let cs := s.toList
   match cs with
   | area :: rest =>
       match area, rest with
-      | 'C', _ => some 16
-      | 'A', digit :: _ => digitToNat? digit |>.map (fun n => n - 1)
-      | 'D', digit :: _ => digitToNat? digit |>.map (fun n => 7 + n)
-      | 'E', digit :: _ => digitToNat? digit |>.map (fun n => 16 + n)
-      | 'B', digit :: _ => digitToNat? digit |>.map (fun n => 24 + n)
+      | 'C', _ => some .C
+      | 'A', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (n - 1))
+      | 'D', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (7 + n))
+      | 'E', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (16 + n))
+      | 'B', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (24 + n))
       | _ , _ => none
   | _ => none
 
@@ -162,8 +163,8 @@ def mkRawToken (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) :
   let t := trim token
   let kind := inferKind t
   let parsedText := if kind = .slide then sanitizeSlideToken t else t
-  let lane := leadingDigit? parsedText |>.map (fun n => n - 1)
-  let sensorPos := touchAreaToSensorPos? t
+  let lane := leadingDigit? parsedText >>= (fun n => ButtonZone.ofIndex? (n - 1))
+  let sensorPos := touchAreaToSensorArea? t
   let lengthSec := parseDurationSpec bpm t
   let starWaitSec := if kind = .slide then parseStarWaitSpec bpm t else none
   let isBreak := parseHeadBreak t

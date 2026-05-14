@@ -1,5 +1,6 @@
 import Mathlib
 import Lean.Data.Json
+import LnmaiCore.Areas
 
 namespace LnmaiCore.Simai
 
@@ -47,8 +48,8 @@ deriving DecidableEq, Repr, Inhabited, BEq
 
 structure SlideNoteSemantics where
   rawText : String
-  startPos : Nat
-  endPos : Nat
+  startLane : ButtonZone
+  endArea : SensorArea
   shape : SlideShape
   isJustRight : Bool := false
 deriving DecidableEq, Repr, Inhabited, BEq
@@ -99,8 +100,8 @@ structure RawNoteToken where
   bpm : Float
   hSpeed : Float := 1.0
   divisor : Nat
-  lane : Option Nat := none
-  sensorPos : Option Nat := none
+  lane : Option ButtonZone := none
+  sensorPos : Option SensorArea := none
   lengthSec : Option Float := none
   starWaitSec : Option Float := none
   isBreak : Bool := false

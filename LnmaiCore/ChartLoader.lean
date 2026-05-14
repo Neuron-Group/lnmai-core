@@ -7,6 +7,8 @@
 -/
 
 import LnmaiCore.Types
+import LnmaiCore.Areas
+import LnmaiCore.Storage
 import LnmaiCore.Constants
 import LnmaiCore.Lifecycle
 import LnmaiCore.InputModel
@@ -28,7 +30,7 @@ open Lifecycle
 
 structure TapChartNote where
   timingSec : Float
-  lane      : Nat
+  lane      : ButtonZone
   isBreak   : Bool := false
   isEX      : Bool := false
   noteIndex : Nat := 0
@@ -36,7 +38,7 @@ deriving Inhabited, Repr, ToJson, FromJson
 
 structure HoldChartNote where
   timingSec : Float
-  lane      : Nat
+  lane      : ButtonZone
   lengthSec : Float
   isBreak   : Bool := false
   isEX      : Bool := false
@@ -47,9 +49,20 @@ structure HoldChartNote where
   noteIndex : Nat := 0
 deriving Inhabited, Repr, ToJson, FromJson
 
+structure TouchHoldChartNote where
+  timingSec : Float
+  sensorPos : SensorArea
+  lengthSec : Float
+  isBreak   : Bool := false
+  isEX      : Bool := false
+  touchHoldGroupId : Option Nat := none
+  touchHoldGroupSize : Option Nat := none
+  noteIndex : Nat := 0
+deriving Inhabited, Repr, ToJson, FromJson
+
 structure TouchChartNote where
   timingSec : Float
-  sensorPos : Nat
+  sensorPos : SensorArea
   isBreak   : Bool := false
   touchGroupId : Option Nat := none
   touchGroupSize : Option Nat := none
@@ -60,7 +73,7 @@ abbrev SlideAreaSpec := Simai.SlideAreaSpec
 
 structure SlideChartNote where
   timingSec     : Float
-  lane          : Nat
+  lane          : ButtonZone
   lengthSec     : Float
   startTimingSec : Float := 0.0
   slideKind     : SlideKind := .Single
@@ -85,7 +98,7 @@ structure ChartSpec where
   taps       : List TapChartNote := []
   holds      : List HoldChartNote := []
   touches    : List TouchChartNote := []
-  touchHolds : List HoldChartNote := []
+  touchHolds : List TouchHoldChartNote := []
   slides     : List SlideChartNote := []
   slideSkipping : Option Bool := none
 deriving Inhabited, Repr, ToJson, FromJson
@@ -102,11 +115,13 @@ private def sortByTiming {α : Type} (getTiming : α → Float) (items : List α
   items.foldl (fun acc item => insertByTiming getTiming item acc) []
 
 private def buildTap (note : TapChartNote) : TapNote :=
-  { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, startPos := note.lane, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
+  { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
+  , lane := note.lane
   , state := TapState.Waiting }
 
 private def buildHold (note : HoldChartNote) : HoldNote :=
-  { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, startPos := note.lane, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
+  { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
+  , start := .button note.lane
   , state := HoldSubState.HeadWaiting
   , lengthSec := note.lengthSec
   , headDiffMs := 0.0
@@ -118,8 +133,22 @@ private def buildHold (note : HoldChartNote) : HoldNote :=
   , touchHoldGroupSize := note.touchHoldGroupSize.getD 1
   , touchHoldGroupTriggered := false }
 
+private def buildTouchHold (note : TouchHoldChartNote) : HoldNote :=
+  { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
+  , start := .sensor note.sensorPos
+  , state := HoldSubState.HeadWaiting
+  , lengthSec := note.lengthSec
+  , headDiffMs := 0.0
+  , headGrade := .Miss
+  , playerReleaseTimeSec := 0.0
+  , isClassic := false
+  , isTouchHold := true
+  , touchHoldGroupId := note.touchHoldGroupId
+  , touchHoldGroupSize := note.touchHoldGroupSize.getD 1
+  , touchHoldGroupTriggered := false }
+
 private def buildTouch (note : TouchChartNote) : TouchNote :=
-  { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, startPos := note.sensorPos, isBreak := note.isBreak, isEX := false, noteIndex := note.noteIndex }
+  { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := false, noteIndex := note.noteIndex }
   , state := TouchState.Waiting
   , sensorPos := note.sensorPos
   , touchGroupId := note.touchGroupId
@@ -168,94 +197,90 @@ theorem shortConnSlide_applySingleTrackConnRules
         { second with isSkippable := note.isGroupEnd } :: rest) := by
   simp [applySingleTrackConnRules, hConn, hShort]
 
-private def touchHoldNeighbors : Nat → List Nat
-  | 0  => [17, 18, 25, 26, 8]
-  | 1  => [18, 19, 26, 27, 9]
-  | 2  => [19, 20, 27, 28, 10]
-  | 3  => [20, 21, 28, 29, 11]
-  | 4  => [21, 22, 29, 30, 12]
-  | 5  => [22, 23, 30, 31, 13]
-  | 6  => [23, 24, 31, 32, 14]
-  | 7  => [24, 17, 32, 25, 15]
-  | 8  => [0, 7, 25]
-  | 9  => [1, 0, 26]
-  | 10 => [2, 1, 27]
-  | 11 => [3, 2, 28]
-  | 12 => [4, 3, 29]
-  | 13 => [5, 4, 30]
-  | 14 => [6, 5, 31]
-  | 15 => [7, 6, 32]
-  | 16 => [8, 9, 10, 11, 12, 13, 14, 15]
-  | 17 => [0, 7, 25]
-  | 18 => [0, 1, 26]
-  | 19 => [1, 2, 27]
-  | 20 => [2, 3, 28]
-  | 21 => [3, 4, 29]
-  | 22 => [4, 5, 30]
-  | 23 => [5, 6, 31]
-  | 24 => [6, 7, 32]
-  | 25 => [17, 0, 26, 8, 16]
-  | 26 => [18, 1, 25, 27, 9, 16]
-  | 27 => [19, 2, 26, 28, 10, 16]
-  | 28 => [20, 3, 27, 29, 11, 16]
-  | 29 => [21, 4, 28, 30, 12, 16]
-  | 30 => [22, 5, 29, 31, 13, 16]
-  | 31 => [23, 6, 30, 32, 14, 16]
-  | 32 => [24, 7, 31, 15, 16]
-  | _  => []
+private def touchHoldNeighbors : SensorArea → List SensorArea
+  | .A1 => [.D1, .D2, .E1, .E2, .B1]
+  | .A2 => [.D2, .D3, .E2, .E3, .B2]
+  | .A3 => [.D3, .D4, .E3, .E4, .B3]
+  | .A4 => [.D4, .D5, .E4, .E5, .B4]
+  | .A5 => [.D5, .D6, .E5, .E6, .B5]
+  | .A6 => [.D6, .D7, .E6, .E7, .B6]
+  | .A7 => [.D7, .D8, .E7, .E8, .B7]
+  | .A8 => [.D8, .D1, .E8, .E1, .B8]
+  | .D1 => [.A1, .A8, .E1]
+  | .D2 => [.A2, .A1, .E2]
+  | .D3 => [.A3, .A2, .E3]
+  | .D4 => [.A4, .A3, .E4]
+  | .D5 => [.A5, .A4, .E5]
+  | .D6 => [.A6, .A5, .E6]
+  | .D7 => [.A7, .A6, .E7]
+  | .D8 => [.A8, .A7, .E8]
+  | .E1 => [.D1, .A1, .A8, .B1, .B8]
+  | .E2 => [.D2, .A2, .A1, .B2, .B1]
+  | .E3 => [.D3, .A3, .A2, .B3, .B2]
+  | .E4 => [.D4, .A4, .A3, .B4, .B3]
+  | .E5 => [.D5, .A5, .A4, .B5, .B4]
+  | .E6 => [.D6, .A6, .A5, .B6, .B5]
+  | .E7 => [.D7, .A7, .A6, .B7, .B6]
+  | .E8 => [.D8, .A8, .A7, .B8, .B7]
+  | .B1 => [.E1, .E2, .B8, .B2, .A1, .C]
+  | .B2 => [.E2, .E3, .B1, .B3, .A2, .C]
+  | .B3 => [.E3, .E4, .B2, .B4, .A3, .C]
+  | .B4 => [.E4, .E5, .B3, .B5, .A4, .C]
+  | .B5 => [.E5, .E6, .B4, .B6, .A5, .C]
+  | .B6 => [.E6, .E7, .B5, .B7, .A6, .C]
+  | .B7 => [.E7, .E8, .B6, .B8, .A7, .C]
+  | .B8 => [.E8, .E1, .B7, .B1, .A8, .C]
+  | .C  => [.B1, .B2, .B3, .B4, .B5, .B6, .B7, .B8]
 
-private def containsNat (items : List Nat) (value : Nat) : Bool :=
+private def containsArea (items : List SensorArea) (value : SensorArea) : Bool :=
   items.any (fun item => item == value)
 
-private def removeNat (items : List Nat) (value : Nat) : List Nat :=
-  items.filter (fun item => item != value)
-
-partial def collectTouchHoldComponent (pending : List Nat) (remaining : List Nat) (component : List Nat) : List Nat :=
+partial def collectTouchHoldComponent (pending : List SensorArea) (remaining : List SensorArea) (component : List SensorArea) : List SensorArea :=
   match pending with
   | [] => component
   | area :: rest =>
-    if containsNat component area then
+    if containsArea component area then
       collectTouchHoldComponent rest remaining component
     else
       let neighbors := touchHoldNeighbors area
-      let newlyReached := remaining.filter (fun candidate => containsNat neighbors candidate)
-      let remaining' := remaining.filter (fun candidate => candidate != area && !containsNat neighbors candidate)
+      let newlyReached := remaining.filter (fun candidate => containsArea neighbors candidate)
+      let remaining' := remaining.filter (fun candidate => candidate != area && !containsArea neighbors candidate)
       collectTouchHoldComponent (rest ++ newlyReached) remaining' (area :: component)
 
-partial def assignTouchHoldGroupsLoop (allNotes : List HoldChartNote) (remaining : List Nat) (groupId : Nat) (acc : List HoldChartNote) : List HoldChartNote :=
+partial def assignTouchHoldGroupsLoop (allNotes : List TouchHoldChartNote) (remaining : List SensorArea) (groupId : Nat) (acc : List TouchHoldChartNote) : List TouchHoldChartNote :=
   match remaining with
   | [] => acc
   | area :: rest =>
     let component := collectTouchHoldComponent [area] remaining []
-    let componentSize := List.length (allNotes.filter (fun note => containsNat component note.lane))
-      let nextAcc := acc.map (fun note =>
-        if containsNat component note.lane then
-          { note with touchHoldGroupId := some groupId, touchHoldGroupSize := some componentSize }
-        else
-          note)
-    let remaining' := rest.filter (fun candidate => !containsNat component candidate)
+    let componentSize := List.length (allNotes.filter (fun note => containsArea component note.sensorPos))
+    let nextAcc := acc.map (fun note =>
+      if containsArea component note.sensorPos then
+        { note with touchHoldGroupId := some groupId, touchHoldGroupSize := some componentSize }
+      else
+        note)
+    let remaining' := rest.filter (fun candidate => !containsArea component candidate)
     assignTouchHoldGroupsLoop allNotes remaining' (groupId + 1) nextAcc
 
-private def assignTouchHoldGroups (notes : List HoldChartNote) : List HoldChartNote :=
-  let sensorTypes := notes.foldl (fun acc note => if containsNat acc note.lane then acc else note.lane :: acc) []
+private def assignTouchHoldGroups (notes : List TouchHoldChartNote) : List TouchHoldChartNote :=
+  let sensorTypes := notes.foldl (fun acc note => if containsArea acc note.sensorPos then acc else note.sensorPos :: acc) []
   assignTouchHoldGroupsLoop notes sensorTypes 0 notes
 
-partial def assignTouchGroupsLoop (allNotes : List TouchChartNote) (remaining : List Nat) (groupId : Nat) (acc : List TouchChartNote) : List TouchChartNote :=
+partial def assignTouchGroupsLoop (allNotes : List TouchChartNote) (remaining : List SensorArea) (groupId : Nat) (acc : List TouchChartNote) : List TouchChartNote :=
   match remaining with
   | [] => acc
   | area :: rest =>
     let component := collectTouchHoldComponent [area] remaining []
-    let componentSize := List.length (allNotes.filter (fun note => containsNat component note.sensorPos))
+    let componentSize := List.length (allNotes.filter (fun note => containsArea component note.sensorPos))
     let nextAcc := acc.map (fun note =>
-      if containsNat component note.sensorPos then
+      if containsArea component note.sensorPos then
         { note with touchGroupId := some groupId, touchGroupSize := some componentSize }
       else
         note)
-    let remaining' := rest.filter (fun candidate => !containsNat component candidate)
+    let remaining' := rest.filter (fun candidate => !containsArea component candidate)
     assignTouchGroupsLoop allNotes remaining' (groupId + 1) nextAcc
 
 private def assignTouchGroups (notes : List TouchChartNote) : List TouchChartNote :=
-  let sensorTypes := notes.foldl (fun acc note => if containsNat acc note.sensorPos then acc else note.sensorPos :: acc) []
+  let sensorTypes := notes.foldl (fun acc note => if containsArea acc note.sensorPos then acc else note.sensorPos :: acc) []
   assignTouchGroupsLoop notes sensorTypes 0 notes
 
 private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNote :=
@@ -272,7 +297,8 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   let rec maxQueueLength : List (List SlideArea) → Nat
     | [] => 0
     | queue :: rest => Nat.max queue.length (maxQueueLength rest)
-  { params := { judgeTimingSec := judgeTimingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, startPos := note.lane, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
+  { params := { judgeTimingSec := judgeTimingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
+  , lane := note.lane
   , state := SlideState.Active waitTimeSec
   , lengthSec := note.lengthSec
   , startTiming := note.startTimingSec
@@ -291,32 +317,32 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   , judgeQueues := judgeQueues }
 
 def buildGameState (chart : ChartSpec) : GameState :=
-  let tapQueues : List (ZoneQueue TapNote) :=
-    (List.range BUTTON_ZONE_COUNT).map (fun zone =>
+  let tapQueues : ButtonQueueVec TapNote :=
+    ButtonVec.ofFn (fun zone =>
       let notes := (sortByTiming (fun note => note.timingSec) (chart.taps.filter (fun note => note.lane == zone))).map buildTap
       { notes := notes })
-  let holdQueues : List (ZoneQueue HoldNote) :=
-    (List.range BUTTON_ZONE_COUNT).map (fun zone =>
+  let holdQueues : ButtonQueueVec HoldNote :=
+    ButtonVec.ofFn (fun zone =>
       let notes := (sortByTiming (fun note => note.timingSec) (chart.holds.filter (fun note => note.lane == zone))).map buildHold
       { notes := notes })
   let touchHoldNotes := assignTouchHoldGroups chart.touchHolds
   let touchNotesGrouped := assignTouchGroups chart.touches
-  let touchHoldQueues : List (ZoneQueue HoldNote) :=
-    (List.range SENSOR_AREA_COUNT).map (fun area =>
-      let notes := (sortByTiming (fun note => note.timingSec) (touchHoldNotes.filter (fun note => note.lane == area))).map buildHold
+  let touchHoldQueues : SensorQueueVec HoldNote :=
+    SensorVec.ofFn (fun area =>
+      let notes := (sortByTiming (fun note => note.timingSec) (touchHoldNotes.filter (fun note => note.sensorPos == area))).map buildTouchHold
       { notes := notes })
-  let touchQueues : List (ZoneQueue TouchNote) :=
-    (List.range SENSOR_AREA_COUNT).map (fun area =>
+  let touchQueues : SensorQueueVec TouchNote :=
+    SensorVec.ofFn (fun area =>
       let notes := (sortByTiming (fun note => note.timingSec) (touchNotesGrouped.filter (fun note => note.sensorPos == area))).map buildTouch
       { notes := notes })
   let activeHolds :=
-    (chart.holds.filter (fun note => note.isTouch = false)).map (fun note => (note.lane, buildHold note))
+    (chart.holds.map (fun note => (note.lane, buildHold note)))
   let activeTouchHolds :=
-    (touchHoldNotes.map (fun note => (note.lane, buildHold note)))
+    (touchHoldNotes.map (fun note => (note.sensorPos, buildTouchHold note)))
   {
     currentTime := 0.0,
-    prevButton := List.replicate BUTTON_ZONE_COUNT false,
-    prevSensor := List.replicate SENSOR_AREA_COUNT false,
+    prevButton := ButtonVec.replicate BUTTON_ZONE_COUNT false,
+    prevSensor := SensorVec.replicate SENSOR_AREA_COUNT false,
     tapQueues := tapQueues,
     holdQueues := holdQueues,
     touchHoldQueues := touchHoldQueues,

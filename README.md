@@ -83,6 +83,27 @@ Still open or incomplete:
 - broader proof coverage over the real constructor path
 - more cleanup around generic proof APIs and shared conversion surfaces
 
+## Typed Domain Refactor Plan
+
+`lnmai-core` is moving toward a typed gameplay-identity model: sensor areas and outer buttons should be represented by explicit inductive domains throughout the Lean core, while numeric indices are retained only as hidden storage or ABI details.
+
+This change is architectural, not cosmetic. The goal is to ensure that parser IR, normalized IR, runtime note logic, proof APIs, and FFI payloads all speak in terms of gameplay identities rather than unstructured integers.
+
+A detailed design and migration roadmap lives in `docs/typed-domain-refactor.md`.
+
+Summary:
+
+- use typed `SensorArea` and `ButtonZone` domains across semantic and runtime-facing APIs
+- keep exact symbolic slide topology as the source of truth
+- confine numeric encodings to private storage helpers and explicit boundary layers
+- migrate proofs and FFI around the same typed identity model
+
+Current status:
+
+- `LnmaiCore.Simai.SlideTables` already uses exact symbolic sensor areas for canonical slide topology
+- runtime-facing numeric area lists still exist as compatibility/storage artifacts
+- the remaining refactor is to propagate the same design through the rest of the engine
+
 ## Building
 
 This repository uses Lean 4 and Lake.

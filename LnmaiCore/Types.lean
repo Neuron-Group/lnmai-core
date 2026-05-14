@@ -8,12 +8,46 @@
 
 import Mathlib
 import Lean.Data.Json
+import LnmaiCore.Areas
 
 open Lean
 
 set_option linter.unusedVariables false
 
 namespace LnmaiCore
+
+----------------------------------------------------------------------------
+-- Typed runtime note/event positions
+----------------------------------------------------------------------------
+
+inductive RuntimePos where
+  | button (zone : ButtonZone)
+  | sensor (area : SensorArea)
+deriving DecidableEq, Repr, Inhabited
+
+def RuntimePos.buttonZone? : RuntimePos → Option ButtonZone
+  | .button zone => some zone
+  | .sensor _ => none
+
+def RuntimePos.sensorArea? : RuntimePos → Option SensorArea
+  | .button _ => none
+  | .sensor area => some area
+
+instance : ToJson RuntimePos where
+  toJson
+    | .button zone => Json.mkObj [("button", toJson zone)]
+    | .sensor area => Json.mkObj [("sensor", toJson area)]
+
+instance : FromJson RuntimePos where
+  fromJson?
+    | json@(Json.obj _) =>
+        match json.getObjVal? "button" with
+        | .ok buttonJson => RuntimePos.button <$> fromJson? buttonJson
+        | .error _ =>
+            match json.getObjVal? "sensor" with
+            | .ok sensorJson => RuntimePos.sensor <$> fromJson? sensorJson
+            | .error _ => .error "invalid RuntimePos"
+    | _ => .error "invalid RuntimePos"
 
 ----------------------------------------------------------------------------
 -- Judgment Grades (15-tier lattice, ordered by quality ascending)
@@ -35,7 +69,7 @@ inductive JudgeGrade where
   | FastGreat3rd
   | FastGood
   | TooFast
-deriving DecidableEq, Ord, Repr, Inhabited
+deriving DecidableEq, Ord, Repr, Inhabited, ToJson, FromJson
 
 instance : ToString JudgeGrade where
   toString
@@ -276,15 +310,15 @@ def comboState (s : ScoreState) : ComboState :=
 
 inductive JudgeEventKind where
   | Tap    | Hold | Slide | Touch | Break
-deriving DecidableEq, Repr, Inhabited
+deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
 structure JudgeEvent where
   kind      : JudgeEventKind
   grade     : JudgeGrade
   diffMs    : Float
-  sensorPos : Nat
+  position  : RuntimePos
   noteIndex : Nat
-deriving Repr, Inhabited
+deriving Repr, Inhabited, ToJson, FromJson
 
 inductive AudioCommand where
   | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (atSec : Float) (noteIndex : Nat)

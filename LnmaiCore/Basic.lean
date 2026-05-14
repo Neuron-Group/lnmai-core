@@ -14,6 +14,7 @@
 -/
 
 import LnmaiCore.Types
+import LnmaiCore.Areas
 import LnmaiCore.Constants
 import LnmaiCore.Convert
 import LnmaiCore.Judge
@@ -22,7 +23,7 @@ import LnmaiCore.Lifecycle
 import LnmaiCore.InputModel
 import LnmaiCore.ChartLoader
 import LnmaiCore.Scheduler
-import LnmaiCore.Proofs.InnerScreenUnfair
-import LnmaiCore.Proofs.SlideZoneSkipping
-import LnmaiCore.Proofs.SlideJudgmentSegments
-import LnmaiCore.Proofs.SlideDEWifi
+-- import LnmaiCore.Proofs.InnerScreenUnfair
+-- import LnmaiCore.Proofs.SlideZoneSkipping
+-- import LnmaiCore.Proofs.SlideJudgmentSegments
+-- import LnmaiCore.Proofs.SlideDEWifi

@@ -4,6 +4,8 @@
 -/
 
 import LnmaiCore.Types
+import LnmaiCore.Areas
+import LnmaiCore.Storage
 import LnmaiCore.Constants
 import LnmaiCore.Lifecycle
 
@@ -16,87 +18,93 @@ open Constants
 ----------------------------------------------------------------------------
 
 structure FrameInput where
-  buttonClicked : List Bool := List.replicate BUTTON_ZONE_COUNT false
-  buttonHeld    : List Bool := List.replicate BUTTON_ZONE_COUNT false
-  sensorClicked : List Bool := List.replicate SENSOR_AREA_COUNT false
-  sensorHeld    : List Bool := List.replicate SENSOR_AREA_COUNT false
-  buttonClickCount : List Nat := List.replicate BUTTON_ZONE_COUNT 0
-  sensorClickCount : List Nat := List.replicate SENSOR_AREA_COUNT 0
+  buttonClicked : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false
+  buttonHeld    : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false
+  sensorClicked : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false
+  sensorHeld    : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false
+  buttonClickCount : ButtonVec Nat := ButtonVec.replicate BUTTON_ZONE_COUNT 0
+  sensorClickCount : SensorVec Nat := SensorVec.replicate SENSOR_AREA_COUNT 0
   deltaSec      : Float := 0.0
 deriving Inhabited
 
-inductive TimedInputKind where
-  | ButtonClick | ButtonHold | SensorClick | SensorHold
-deriving Inhabited, Repr, DecidableEq
-
-structure TimedInputEvent where
-  atSec   : Float
-  kind    : TimedInputKind
-  index   : Nat
-  isDown  : Bool := true
+inductive TimedInputEvent where
+  | buttonClick (atSec : Float) (zone : ButtonZone)
+  | buttonHold (atSec : Float) (zone : ButtonZone) (isDown : Bool := true)
+  | sensorClick (atSec : Float) (area : SensorArea)
+  | sensorHold (atSec : Float) (area : SensorArea) (isDown : Bool := true)
 deriving Inhabited, Repr
+
+def TimedInputEvent.atSec : TimedInputEvent → Float
+  | .buttonClick atSec _ => atSec
+  | .buttonHold atSec _ _ => atSec
+  | .sensorClick atSec _ => atSec
+  | .sensorHold atSec _ _ => atSec
 
 structure TimedInputBatch where
   currentSec : Float := 0.0
   events     : List TimedInputEvent := []
 deriving Inhabited, Repr
 
-/-- Get nth element, default false -/
-def FrameInput.getButtonHeld (fi : FrameInput) (i : Nat) : Bool :=
-  (fi.buttonHeld[i]?).getD false
+def FrameInput.getButtonHeld (fi : FrameInput) (zone : ButtonZone) : Bool :=
+  fi.buttonHeld.getD zone false
 
-def FrameInput.getButtonClicked (fi : FrameInput) (i : Nat) : Bool :=
-  (fi.buttonClicked[i]?).getD false
+def FrameInput.getButtonHeldList (fi : FrameInput) : List Bool :=
+  fi.buttonHeld.toList
 
-def FrameInput.getSensorHeld (fi : FrameInput) (i : Nat) : Bool :=
-  (fi.sensorHeld[i]?).getD false
+def FrameInput.getButtonClicked (fi : FrameInput) (zone : ButtonZone) : Bool :=
+  fi.buttonClicked.getD zone false
 
-def FrameInput.getSensorClicked (fi : FrameInput) (i : Nat) : Bool :=
-  (fi.sensorClicked[i]?).getD false
+def FrameInput.getSensorHeld (fi : FrameInput) (area : SensorArea) : Bool :=
+  fi.sensorHeld.getD area false
 
-def FrameInput.getButtonClickCount (fi : FrameInput) (i : Nat) : Nat :=
-  let count := (fi.buttonClickCount[i]?).getD 0
-  if count > 0 then count else if fi.getButtonClicked i then 1 else 0
+def FrameInput.getSensorHeldList (fi : FrameInput) : List Bool :=
+  fi.sensorHeld.toList
 
-def FrameInput.getSensorClickCount (fi : FrameInput) (i : Nat) : Nat :=
-  let count := (fi.sensorClickCount[i]?).getD 0
-  if count > 0 then count else if fi.getSensorClicked i then 1 else 0
+def FrameInput.getSensorClicked (fi : FrameInput) (area : SensorArea) : Bool :=
+  fi.sensorClicked.getD area false
 
-private def setBoolAt : List Bool → Nat → Bool → List Bool
-  | [], _, _ => []
-  | _ :: rest, 0, value => value :: rest
-  | x :: rest, index+1, value => x :: setBoolAt rest index value
+def FrameInput.getButtonClickCount (fi : FrameInput) (zone : ButtonZone) : Nat :=
+  let count := fi.buttonClickCount.getD zone 0
+  if count > 0 then count else if fi.getButtonClicked zone then 1 else 0
+
+def FrameInput.getSensorClickCount (fi : FrameInput) (area : SensorArea) : Nat :=
+  let count := fi.sensorClickCount.getD area 0
+  if count > 0 then count else if fi.getSensorClicked area then 1 else 0
+
+def prevSensorHeldAt (prevSensor : SensorVec Bool) (area : SensorArea) : Bool :=
+  prevSensor.getD area false
 
 def TimedInputBatch.toFrameInput (batch : TimedInputBatch) (deltaSec : Float)
-    (prevButtonHeld : List Bool := List.replicate BUTTON_ZONE_COUNT false)
-    (prevSensorHeld : List Bool := List.replicate SENSOR_AREA_COUNT false) : FrameInput :=
+    (prevButtonHeld : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false)
+    (prevSensorHeld : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false) : FrameInput :=
   let withinFrame (evt : TimedInputEvent) : Bool :=
     evt.atSec > batch.currentSec - deltaSec && evt.atSec ≤ batch.currentSec
-  let buttonClicked :=
-    (List.range BUTTON_ZONE_COUNT).map (fun index =>
-      batch.events.any (fun evt => withinFrame evt && evt.kind = .ButtonClick && evt.index = index))
-  let sensorClicked :=
-    (List.range SENSOR_AREA_COUNT).map (fun index =>
-      batch.events.any (fun evt => withinFrame evt && evt.kind = .SensorClick && evt.index = index))
-  let buttonHeld :=
-    batch.events.foldl (fun held evt =>
-      if evt.kind = .ButtonHold then setBoolAt held evt.index evt.isDown else held) prevButtonHeld
-  let sensorHeld :=
-    batch.events.foldl (fun held evt =>
-      if evt.kind = .SensorHold then setBoolAt held evt.index evt.isDown else held) prevSensorHeld
-  let buttonClickCount :=
-    (List.range BUTTON_ZONE_COUNT).map (fun index =>
-      batch.events.foldl (fun acc evt => if withinFrame evt && evt.kind = .ButtonClick && evt.index = index then acc + 1 else acc) 0)
-  let sensorClickCount :=
-    (List.range SENSOR_AREA_COUNT).map (fun index =>
-      batch.events.foldl (fun acc evt => if withinFrame evt && evt.kind = .SensorClick && evt.index = index then acc + 1 else acc) 0)
-  { buttonClicked := buttonClicked
-  , buttonHeld := buttonHeld
-  , sensorClicked := sensorClicked
-  , sensorHeld := sensorHeld
-  , buttonClickCount := buttonClickCount
-  , sensorClickCount := sensorClickCount
-  , deltaSec := deltaSec }
+  let initial : FrameInput :=
+    { buttonHeld := prevButtonHeld
+    , sensorHeld := prevSensorHeld
+    , deltaSec := deltaSec }
+  let acc :=
+    batch.events.foldl (fun fi evt =>
+      match evt with
+      | .buttonClick atSec zone =>
+          if withinFrame (.buttonClick atSec zone) then
+            { fi with
+              buttonClicked := fi.buttonClicked.set zone true
+            , buttonClickCount := fi.buttonClickCount.set zone (fi.buttonClickCount.getD zone 0 + 1) }
+          else
+            fi
+      | .sensorClick atSec area =>
+          if withinFrame (.sensorClick atSec area) then
+            { fi with
+              sensorClicked := fi.sensorClicked.set area true
+            , sensorClickCount := fi.sensorClickCount.set area (fi.sensorClickCount.getD area 0 + 1) }
+          else
+            fi
+      | .buttonHold _ zone isDown =>
+          { fi with buttonHeld := fi.buttonHeld.set zone isDown }
+      | .sensorHold _ area isDown =>
+          { fi with sensorHeld := fi.sensorHeld.set area isDown }) initial
+  { acc with deltaSec := deltaSec }
 
 ----------------------------------------------------------------------------
 -- Per-Zone Note Queues
@@ -116,21 +124,43 @@ def ZoneQueue.peek (q : ZoneQueue α) : Option α :=
 def ZoneQueue.advance (q : ZoneQueue α) : ZoneQueue α :=
   { q with currentIndex := q.currentIndex + 1 }
 
+abbrev ButtonQueueVec (α : Type) := ButtonVec (ZoneQueue α)
+
+abbrev SensorQueueVec (α : Type) := SensorVec (ZoneQueue α)
+
+def ButtonQueueVec.replicate (n : Nat) (queue : ZoneQueue α) : ButtonQueueVec α :=
+  ButtonVec.replicate n queue
+
+def SensorQueueVec.replicate (n : Nat) (queue : ZoneQueue α) : SensorQueueVec α :=
+  SensorVec.replicate n queue
+
+def buttonQueueAt {α : Type} (queues : ButtonQueueVec α) (zone : ButtonZone) : ZoneQueue α :=
+  queues.getD zone { notes := [] }
+
+def sensorQueueAt {α : Type} (queues : SensorQueueVec α) (area : SensorArea) : ZoneQueue α :=
+  queues.getD area { notes := [] }
+
+def setButtonQueueAt {α : Type} (queues : ButtonQueueVec α) (zone : ButtonZone) (queue : ZoneQueue α) : ButtonQueueVec α :=
+  queues.set zone queue
+
+def setSensorQueueAt {α : Type} (queues : SensorQueueVec α) (area : SensorArea) (queue : ZoneQueue α) : SensorQueueVec α :=
+  queues.set area queue
+
 ----------------------------------------------------------------------------
 -- Game State (held across frames)
 ----------------------------------------------------------------------------
 
 structure GameState where
   currentTime   : Float := 0.0
-  prevButton    : List Bool := List.replicate BUTTON_ZONE_COUNT false
-  prevSensor    : List Bool := List.replicate SENSOR_AREA_COUNT false
-  tapQueues     : List (ZoneQueue Lifecycle.TapNote) := List.replicate BUTTON_ZONE_COUNT { notes := [] }
-  holdQueues    : List (ZoneQueue Lifecycle.HoldNote) := List.replicate BUTTON_ZONE_COUNT { notes := [] }
-  touchHoldQueues : List (ZoneQueue Lifecycle.HoldNote) := List.replicate SENSOR_AREA_COUNT { notes := [] }
-  touchQueues   : List (ZoneQueue Lifecycle.TouchNote) := List.replicate SENSOR_AREA_COUNT { notes := [] }
+  prevButton    : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false
+  prevSensor    : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false
+  tapQueues     : ButtonQueueVec Lifecycle.TapNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
+  holdQueues    : ButtonQueueVec Lifecycle.HoldNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
+  touchHoldQueues : SensorQueueVec Lifecycle.HoldNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }
+  touchQueues   : SensorQueueVec Lifecycle.TouchNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }
   slides        : List Lifecycle.SlideNote := []
-  activeHolds   : List (Nat × Lifecycle.HoldNote) := []
-  activeTouchHolds : List (Nat × Lifecycle.HoldNote) := []
+  activeHolds   : List (ButtonZone × Lifecycle.HoldNote) := []
+  activeTouchHolds : List (SensorArea × Lifecycle.HoldNote) := []
   touchGroupStates : List GroupState := []
   touchHoldGroupStates : List GroupState := []
   currentBatch  : TimedInputBatch := {}

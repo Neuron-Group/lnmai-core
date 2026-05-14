@@ -1,5 +1,6 @@
 import LnmaiCore.ChartLoader
 import LnmaiCore.Simai.Syntax
+import LnmaiCore.Areas
 
 namespace LnmaiCore.Simai
 
@@ -10,7 +11,7 @@ deriving Inhabited, Repr
 
 structure NormalizedTap where
   timingSec : Float
-  lane : Nat
+  lane : ButtonZone
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
@@ -20,18 +21,27 @@ deriving Inhabited, Repr
 
 structure NormalizedHold where
   timingSec : Float
-  lane : Nat
+  lane : ButtonZone
   lengthSec : Float
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
-  isTouch : Bool := false
+  noteIndex : Nat
+deriving Inhabited, Repr
+
+structure NormalizedTouchHold where
+  timingSec : Float
+  sensorPos : SensorArea
+  lengthSec : Float
+  isBreak : Bool := false
+  isEX : Bool := false
+  isHanabi : Bool := false
   noteIndex : Nat
 deriving Inhabited, Repr
 
 structure NormalizedTouch where
   timingSec : Float
-  sensorPos : Nat
+  sensorPos : SensorArea
   isBreak : Bool := false
   isHanabi : Bool := false
   noteIndex : Nat
@@ -39,7 +49,7 @@ deriving Inhabited, Repr
 
 structure NormalizedSlide where
   timingSec : Float
-  lane : Nat
+  lane : ButtonZone
   lengthSec : Float
   startTimingSec : Float
   hSpeed : Float := 1.0
@@ -70,7 +80,7 @@ structure NormalizedChart where
   taps : List NormalizedTap := []
   holds : List NormalizedHold := []
   touches : List NormalizedTouch := []
-  touchHolds : List NormalizedHold := []
+  touchHolds : List NormalizedTouchHold := []
   slides : List NormalizedSlide := []
   slideDebug : List NormalizedSlideDebug := []
   slideSkipping : Bool := true

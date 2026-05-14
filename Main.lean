@@ -37,13 +37,13 @@ def realSimaiAstProbe : IO (Except Simai.ParseError Simai.TimingPointSemantics) 
 def sampleChartJson : String :=
   "{\n" ++
   "  \"taps\": [\n" ++
-  "    { \"timingSec\": 1.0, \"lane\": 0, \"isBreak\": false, \"isEX\": false, \"noteIndex\": 1 }\n" ++
+  "    { \"timingSec\": 1.0, \"lane\": \"K1\", \"isBreak\": false, \"isEX\": false, \"noteIndex\": 1 }\n" ++
   "  ],\n" ++
   "  \"holds\": [\n" ++
-  "    { \"timingSec\": 2.0, \"lane\": 1, \"lengthSec\": 0.6, \"isBreak\": false, \"isEX\": false, \"isTouch\": false, \"noteIndex\": 2 }\n" ++
+  "    { \"timingSec\": 2.0, \"lane\": \"K2\", \"lengthSec\": 0.6, \"isBreak\": false, \"isEX\": false, \"isTouch\": false, \"noteIndex\": 2 }\n" ++
   "  ],\n" ++
   "  \"touches\": [\n" ++
-  "    { \"timingSec\": 3.0, \"sensorPos\": 4, \"isBreak\": false, \"noteIndex\": 3 }\n" ++
+  "    { \"timingSec\": 3.0, \"sensorPos\": \"A5\", \"isBreak\": false, \"noteIndex\": 3 }\n" ++
   "  ],\n" ++
   "  \"touchHolds\": [],\n" ++
   "  \"slides\": []\n" ++
