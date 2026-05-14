@@ -1,4 +1,5 @@
 import LnmaiCore.Simai.Syntax
+import LnmaiCore.Time
 
 namespace LnmaiCore.Simai
 
@@ -42,6 +43,9 @@ def parseNatDef (s : String) (fallback : Nat) : Nat :=
   match parseNatString? s with
   | some value => value
   | none => fallback
+
+def parseDurationString? (s : String) : Option Duration :=
+  Time.parseSecondsString? s
 
 def measureDurSec (bpm : Float) : Float :=
   if bpm > 0.0 then (60.0 / bpm) * 4.0 else 0.0
@@ -87,12 +91,17 @@ def parseNdDuration (bpm : Float) (timing : String) : Option Float :=
       | _, _ => none
   | _ => none
 
-def parseDurationInner (currentBpm : Float) (inner : String) : Option Float :=
+def parseNdDurationExact (bpm : Float) (timing : String) : Option Duration :=
+  match parseNdDuration bpm timing with
+  | some seconds => Time.parseSecondsString? s!"{seconds}"
+  | none => none
+
+def parseDurationInner (currentBpm : Float) (inner : String) : Option Duration :=
   if inner.startsWith "#" && inner.count '#' = 1 && !inner.contains ':' then
-    parseFloatString? ((inner.drop 1).toString)
+    parseDurationString? ((inner.drop 1).toString)
   else if inner.count '#' = 2 then
     match splitHash2 inner with
-    | some (_, _, durationPart) => parseFloatString? durationPart
+    | some (_, _, durationPart) => parseDurationString? durationPart
     | none => none
   else if inner.count '#' = 1 then
     match splitHash1 inner with
@@ -101,17 +110,17 @@ def parseDurationInner (currentBpm : Float) (inner : String) : Option Float :=
           match parseFloatString? customBpmStr with
           | some v => if v > 0.0 then v else currentBpm
           | none => currentBpm
-        match parseNdDuration segBpm timingStr with
+        match parseNdDurationExact segBpm timingStr with
         | some duration => some duration
-        | none => parseFloatString? timingStr
+        | none => parseDurationString? timingStr
     | none => none
   else
-    match parseNdDuration currentBpm inner with
+    match parseNdDurationExact currentBpm inner with
     | some duration => some duration
     | none =>
-        if !inner.startsWith "#" then parseFloatString? inner else none
+        if !inner.startsWith "#" then parseDurationString? inner else none
 
-def parseDurationSpec (bpm : Float) (token : String) : Option Float :=
+def parseDurationSpec (bpm : Float) (token : String) : Option Duration :=
   let contents := extractBracketContents token
   contents.foldl
     (fun acc inner =>
@@ -122,29 +131,35 @@ def parseDurationSpec (bpm : Float) (token : String) : Option Float :=
       | none, none => none)
     none
 
-def parseStarWaitSpec (bpm : Float) (token : String) : Option Float :=
+def parseStarWaitSpec (bpm : Float) (token : String) : Option Duration :=
   match extractBracketContents token |>.head? with
-  | none => some (beatSec bpm)
+  | none => some (Time.beatDurationMicros bpm)
   | some inner =>
       if inner.count '#' = 2 then
         match splitHash2 inner with
         | some (waitPart, _, _) =>
-            if waitPart = "" then some (beatSec bpm) else parseFloatString? waitPart
-        | none => some (beatSec bpm)
+            if waitPart = "" then some (Time.beatDurationMicros bpm) else parseDurationString? waitPart
+        | none => some (Time.beatDurationMicros bpm)
       else if inner.count '#' = 1 then
         match splitHash1 inner with
         | some (waitBpmStr, _) =>
             match parseFloatString? waitBpmStr with
-            | some waitBpm => if waitBpm > 0.0 then some (beatSec waitBpm) else some (beatSec bpm)
-            | none => some (beatSec bpm)
-        | none => some (beatSec bpm)
+            | some waitBpm => if waitBpm > 0.0 then some (Time.beatDurationMicros waitBpm) else some (Time.beatDurationMicros bpm)
+            | none => some (Time.beatDurationMicros bpm)
+        | none => some (Time.beatDurationMicros bpm)
       else
-        some (beatSec bpm)
+        some (Time.beatDurationMicros bpm)
 
-def noteTimingIncrement (bpm : Float) (divisor : Nat) : Float :=
-  if bpm > 0.0 && divisor > 0 then measureDurSec bpm / Float.ofNat divisor else 0.0
+def noteTimingIncrement (bpm : Float) (divisor : Nat) : Duration :=
+  if bpm > 0.0 && divisor > 0 then
+    Duration.ofInt ((Time.measureDurationMicros bpm).toInt / Int.ofNat divisor)
+  else
+    Duration.zero
 
-def pseudoIncrement (bpm : Float) : Float :=
-  if bpm > 0.0 then 60.0 / bpm / 32.0 else 0.001
+def pseudoIncrement (bpm : Float) : Duration :=
+  if bpm > 0.0 then
+    Duration.ofInt ((Time.beatDurationMicros bpm).toInt / 32)
+  else
+    Duration.fromMicros 1000
 
 end LnmaiCore.Simai

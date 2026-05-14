@@ -165,23 +165,23 @@ inductive FastLateDisplay where
   | BelowP  -- count only Great and Good (distance from Perfect > 2)
 deriving DecidableEq, Repr
 
-def countFastLate (grade : JudgeGrade) (diffMs : Float) (display : FastLateDisplay) : (Bool × Bool) :=
+def countFastLate (grade : JudgeGrade) (diff : Duration) (display : FastLateDisplay) : (Bool × Bool) :=
   if grade.isMissOrTooFast then
     (false, false)
   else
     let d := grade.distFromPerfect
     match display with
     | FastLateDisplay.All =>
-      if diffMs == 0.0 then (false, false)
-      else if diffMs < 0.0 then (true, false)
+      if diff == Duration.zero then (false, false)
+      else if diff < Duration.zero then (true, false)
       else (false, true)
     | FastLateDisplay.BelowCP =>
       if grade == JudgeGrade.Perfect then (false, false)
-      else if diffMs < 0.0 then (true, false)
+      else if diff < Duration.zero then (true, false)
       else (false, true)
     | FastLateDisplay.BelowP =>
       if d ≤ 2 then (false, false)  -- skip Perfect, Perfect2nd, Perfect3rd
-      else if diffMs < 0.0 then (true, false)
+      else if diff < Duration.zero then (true, false)
       else (false, true)
 
 ----------------------------------------------------------------------------

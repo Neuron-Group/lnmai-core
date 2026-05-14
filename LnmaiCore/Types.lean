@@ -9,6 +9,7 @@
 import Mathlib
 import Lean.Data.Json
 import LnmaiCore.Areas
+import LnmaiCore.Time
 
 open Lean
 
@@ -218,12 +219,12 @@ inductive ComboState where
 deriving DecidableEq, Ord, Repr, Inhabited
 
 ----------------------------------------------------------------------------
--- A single note's judgment result (with Float — no DecidableEq)
+-- A single note's judgment result
 ----------------------------------------------------------------------------
 
 structure NoteJudgeResult where
   grade    : JudgeGrade
-  diffMs   : Float
+  diff     : Duration
   isBreak  : Bool := false
   isEX     : Bool := false
 deriving Repr, Inhabited
@@ -233,12 +234,12 @@ structure GroupState where
   count   : Nat
   size    : Nat
   grade   : JudgeGrade
-  diffMs  : Float
+  diff    : Duration
 deriving Repr, Inhabited
 
 namespace NoteJudgeResult
 
-def isFast (r : NoteJudgeResult) : Bool := r.diffMs < 0.0
+def isFast (r : NoteJudgeResult) : Bool := r.diff < Duration.zero
 
 def isMissOrTooFast (r : NoteJudgeResult) : Bool :=
   r.grade.isMissOrTooFast
@@ -315,18 +316,18 @@ deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 structure JudgeEvent where
   kind      : JudgeEventKind
   grade     : JudgeGrade
-  diffMs    : Float
+  diff      : Duration
   position  : RuntimePos
   noteIndex : Nat
 deriving Repr, Inhabited, ToJson, FromJson
 
 inductive AudioCommand where
-  | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (atSec : Float) (noteIndex : Nat)
-  | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (atSec : Float)
+  | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (atTime : TimePoint) (noteIndex : Nat)
+  | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (atTime : TimePoint)
 deriving Repr, Inhabited
 
 inductive RenderCommand where
-  | ShowJudgeResult (kind : JudgeEventKind) (grade : JudgeGrade) (diffMs : Float) (noteIndex : Nat)
+  | ShowJudgeResult (kind : JudgeEventKind) (grade : JudgeGrade) (diff : Duration) (noteIndex : Nat)
   | UpdateSlideProgress (noteIndex : Nat) (remaining : Nat)
   | UpdateSlideTrackProgress (noteIndex : Nat) (trackIndex : Nat) (remaining : Nat)
   | HideAllSlideBars (noteIndex : Nat)

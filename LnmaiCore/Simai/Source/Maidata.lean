@@ -1,25 +1,26 @@
 import LnmaiCore.Simai.Tokenize
 import LnmaiCore.Simai.Normalize
+import LnmaiCore.Time
 
 namespace LnmaiCore.Simai
 
-private def sameEventKey (token : RawNoteToken) (timingSec bpm hSpeed : Float) (divisor : Nat) : Bool :=
-  token.timingSec == timingSec && token.bpm == bpm && token.hSpeed == hSpeed && token.divisor == divisor
+private def sameEventKey (token : RawNoteToken) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) : Bool :=
+  token.timing == timing && token.bpm == bpm && token.hSpeed == hSpeed && token.divisor == divisor
 
 private def sourceChartFromTokens (tokens : List RawNoteToken) : SourceChart :=
-  let rec loop (remaining : List RawNoteToken) (current : Option (Float × Float × Float × Nat × List SourceNote)) (acc : List SourceEvent) :=
+  let rec loop (remaining : List RawNoteToken) (current : Option (TimePoint × Float × Float × Nat × List SourceNote)) (acc : List SourceEvent) :=
     match remaining, current with
     | [], none => { events := acc.reverse }
-    | [], some (timingSec, bpm, hSpeed, divisor, notes) =>
-        { events := ({ timingSec := timingSec, bpm := bpm, hSpeed := hSpeed, divisor := divisor, notes := notes.reverse } :: acc).reverse }
+    | [], some (timing, bpm, hSpeed, divisor, notes) =>
+        { events := ({ timing := timing, bpm := bpm, hSpeed := hSpeed, divisor := divisor, notes := notes.reverse } :: acc).reverse }
     | token :: rest, none =>
-        loop rest (some (token.timingSec, token.bpm, token.hSpeed, token.divisor, [{ token := token, sourcePos := token.sourcePos }])) acc
-    | token :: rest, some (timingSec, bpm, hSpeed, divisor, notes) =>
-        if sameEventKey token timingSec bpm hSpeed divisor then
-          loop rest (some (timingSec, bpm, hSpeed, divisor, { token := token, sourcePos := token.sourcePos } :: notes)) acc
+        loop rest (some (token.timing, token.bpm, token.hSpeed, token.divisor, [{ token := token, sourcePos := token.sourcePos }])) acc
+    | token :: rest, some (timing, bpm, hSpeed, divisor, notes) =>
+        if sameEventKey token timing bpm hSpeed divisor then
+          loop rest (some (timing, bpm, hSpeed, divisor, { token := token, sourcePos := token.sourcePos } :: notes)) acc
         else
-          let event : SourceEvent := { timingSec := timingSec, bpm := bpm, hSpeed := hSpeed, divisor := divisor, notes := notes.reverse }
-          loop rest (some (token.timingSec, token.bpm, token.hSpeed, token.divisor, [{ token := token, sourcePos := token.sourcePos }])) (event :: acc)
+          let event : SourceEvent := { timing := timing, bpm := bpm, hSpeed := hSpeed, divisor := divisor, notes := notes.reverse }
+          loop rest (some (token.timing, token.bpm, token.hSpeed, token.divisor, [{ token := token, sourcePos := token.sourcePos }])) (event :: acc)
   loop tokens none []
 
 private def startsWithAmp (s : String) : Bool :=
@@ -71,12 +72,15 @@ def parseSourceMaidata (content : String) : Except ParseError MaidataFile :=
 
 def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Except ParseError FrontendChartResult := do
   let baseBpm := parseFloatDef ((metadataField file.metadata "&wholebpm").getD "120") 120.0
-  let firstOffset := parseFloatDef ((metadataField file.metadata "&first").getD "0") 0.0
+  let firstOffset :=
+    match Time.parseSecondsPointString? ((metadataField file.metadata "&first").getD "0") with
+    | some value => value
+    | none => TimePoint.zero
   let cleanedBody := stripComments block.rawBody
   let segments := cleanedBody.splitOn ","
   let tokens := parseSegments segments firstOffset baseBpm 1.0 4 []
   let source := sourceChartFromTokens tokens
-  let (normalized, slideNotes) := lowerRawTokens measureDurSec tokens
+  let (normalized, slideNotes) := lowerRawTokens Time.measureDurationMicros tokens
   let lowered := toChartSpec normalized
   pure
     { semantic := { normalized := normalized, lowered := lowered }

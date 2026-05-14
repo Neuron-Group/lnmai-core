@@ -15,18 +15,20 @@
 
 import LnmaiCore.Types
 import LnmaiCore.Constants
+import LnmaiCore.Time
 
 namespace LnmaiCore.Judge
 
 open Constants
 open JudgeGrade
+open LnmaiCore
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
-private def absDiffSec (diffSec : Float) : Float :=
-  if diffSec < 0.0 then -diffSec else diffSec
+private def absDiff (diff : Duration) : Duration :=
+  Duration.abs diff
 
 ----------------------------------------------------------------------------
 -- Tap / Hold Head Judgment
@@ -38,12 +40,12 @@ private def absDiffSec (diffSec : Float) : Float :=
   `diffMs` = (currentSec - JudgeTimingWithOffset) * 1000
   Returns the raw (unconverted) grade.
 -/
-def judgeTap (diffMs : Float) (isEX : Bool := false) : JudgeGrade :=
+def judgeTap (diff : Duration) (isEX : Bool := false) : JudgeGrade :=
   if isEX then
     Perfect  -- EX notes always Critical Perfect
   else
-    let isFast := diffMs < 0.0
-    let diffMSec := absDiffSec diffMs
+    let isFast := diff < Duration.zero
+    let diffMSec := absDiff diff
     if diffMSec ≤ tapPerfect1Ms then
       Perfect
     else if diffMSec ≤ tapPerfect2Ms then
@@ -70,10 +72,10 @@ def judgeTap (diffMs : Float) (isEX : Bool := false) : JudgeGrade :=
   Unlike tap/hold-head notes, touch EX notes are not auto-promoted.
   Returns `none` if the hit is too early to count (caller should ignore).
 -/
-def judgeTouch (diffMs : Float) (isEX : Bool := false) : Option JudgeGrade :=
+def judgeTouch (diff : Duration) (isEX : Bool := false) : Option JudgeGrade :=
   let _ := isEX
-  let isFast := diffMs < 0.0
-  let diffMSec := absDiffSec diffMs
+  let isFast := diff < Duration.zero
+  let diffMSec := absDiff diff
   -- Touch: if fast and beyond 1st perfect, too early → no judgment
   if isFast && diffMSec > touchPerfect1Ms then
     none
@@ -106,15 +108,15 @@ def judgeTouch (diffMs : Float) (isEX : Bool := false) : Option JudgeGrade :=
   The 1st and 2nd perfect windows are 1/3 and 2/3 of the 3rd window respectively.
   Slide EX notes are judged normally; they are not auto-promoted.
 -/
-def judgeSlideModern (diffMs : Float) (stayTimeMs : Float) (isEX : Bool := false) : JudgeGrade :=
+def judgeSlideModern (diff : Duration) (stayTime : Duration) (isEX : Bool := false) : JudgeGrade :=
   let _ := isEX
-  let isFast := diffMs < 0.0
-  let diffMSec := absDiffSec diffMs
+  let isFast := diff < Duration.zero
+  let diffMSec := absDiff diff
   -- Dynamic extension: ext = min(stayTimeMs / 4, 22-frame max)
-  let ext := min (stayTimeMs / 4.0) SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC
+  let ext := min (Duration.divNat stayTime 4) SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC
   let seg3rdPerfect := SLIDE_JUDGE_SEG_BASE_3RD_PERFECT_MSEC + ext
-  let seg1stPerfect := seg3rdPerfect * (1.0 / 3.0)
-  let seg2ndPerfect := seg3rdPerfect * (2.0 / 3.0)
+  let seg1stPerfect := Duration.divNat seg3rdPerfect 3
+  let seg2ndPerfect := Duration.divNat (Duration.scaleNat seg3rdPerfect 2) 3
   if diffMSec ≤ seg1stPerfect then
     Perfect
   else if diffMSec ≤ seg2ndPerfect then
@@ -136,7 +138,7 @@ def judgeSlideModern (diffMs : Float) (stayTimeMs : Float) (isEX : Bool := false
 ----------------------------------------------------------------------------
 
 /-- Classic slide: fast-side thresholds (ms) -/
-def slideClassicFastThresholds : List (Float × JudgeGrade) :=
+def slideClassicFastThresholds : List (Duration × JudgeGrade) :=
   [ (SLIDE_JUDGE_CLASSIC_FAST_SEG_1ST_PERFECT_MSEC, Perfect)
   , (SLIDE_JUDGE_CLASSIC_FAST_SEG_2ND_PERFECT_MSEC, FastPerfect2nd)
   , (SLIDE_JUDGE_CLASSIC_FAST_SEG_3RD_PERFECT_MSEC, FastPerfect3rd)
@@ -146,7 +148,7 @@ def slideClassicFastThresholds : List (Float × JudgeGrade) :=
   ]
 
 /-- Classic slide: late-side thresholds (ms) -/
-def slideClassicLateThresholds : List (Float × JudgeGrade) :=
+def slideClassicLateThresholds : List (Duration × JudgeGrade) :=
   [ (SLIDE_JUDGE_CLASSIC_LATE_SEG_1ST_PERFECT_MSEC, Perfect)
   , (SLIDE_JUDGE_CLASSIC_LATE_SEG_2ND_PERFECT_MSEC, LatePerfect2nd)
   , (SLIDE_JUDGE_CLASSIC_LATE_SEG_3RD_PERFECT_MSEC, LatePerfect3rd)
@@ -155,7 +157,7 @@ def slideClassicLateThresholds : List (Float × JudgeGrade) :=
   , (SLIDE_JUDGE_CLASSIC_LATE_SEG_3RD_GREAT_MSEC,   LateGreat3rd)
   ]
 
-private def pickGrade (diffMSec : Float) (thresholds : List (Float × JudgeGrade)) (fallback : JudgeGrade) : JudgeGrade :=
+private def pickGrade (diffMSec : Duration) (thresholds : List (Duration × JudgeGrade)) (fallback : JudgeGrade) : JudgeGrade :=
   match thresholds with
   | []                  => fallback
   | (limit, g) :: rest  =>
@@ -165,9 +167,9 @@ private def pickGrade (diffMSec : Float) (thresholds : List (Float × JudgeGrade
   Judge a classic-mode slide. Uses fixed windows that are symmetrical in
   frame count but stored as separate fast/late constant sets.
 -/
-def judgeSlideClassic (diffMs : Float) : JudgeGrade :=
-  let isFast := diffMs < 0.0
-  let diffMSec := absDiffSec diffMs
+def judgeSlideClassic (diff : Duration) : JudgeGrade :=
+  let isFast := diff < Duration.zero
+  let diffMSec := absDiff diff
   if isFast then
     pickGrade diffMSec slideClassicFastThresholds FastGood
   else
@@ -193,11 +195,11 @@ def correctSlideGrade : JudgeGrade → JudgeGrade
     0: >= 100%    1: [67%, 100%)   2: [33%, 67%)
     3: [5%, 33%)  4: [0%, 5%)
 -/
-private def pressBand (percent : Float) : Nat :=
-  if percent ≥ 1.0 then 0
-  else if percent ≥ 0.67 then 1
-  else if percent ≥ 0.33 then 2
-  else if percent ≥ 0.05 then 3
+private def pressBandMicros (heldMicros realityMicros : Int) : Nat :=
+  if heldMicros >= realityMicros then 0
+  else if heldMicros * 100 >= realityMicros * 67 then 1
+  else if heldMicros * 100 >= realityMicros * 33 then 2
+  else if heldMicros * 100 >= realityMicros * 5 then 3
   else 4
 
 /--
@@ -211,19 +213,18 @@ private def pressBand (percent : Float) : Nat :=
     ignoreTimeSec        — head + tail ignore duration (6f+12f=0.3s for regular hold, 15f+12f=0.45s for touch hold)
     playerReleaseTimeSec — accumulated release time in seconds
 -/
-def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float) (ignoreTimeSec : Float) (playerReleaseTimeSec : Float) : JudgeGrade :=
+def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Duration) (length : Duration) (ignoreTime : Duration) (playerReleaseTime : Duration) : JudgeGrade :=
   -- offset: 0 if fast-side head, otherwise = judgeDiff
-  let offset := if headGrade.isFast then 0.0 else judgeDiff
+  let offset := if headGrade.isFast then Duration.zero else judgeDiff
   -- realityHT = effective hold time (minus ignores, minus late offset, clamped)
-  let realityHTRaw := lengthSec - ignoreTimeSec - offset / 1000.0
-  let realityHT := max 0.0 (min realityHTRaw (lengthSec - 0.3))
-  if realityHT ≤ 0.0 then
+  let realityHTRaw := length - ignoreTime - offset
+  let realityHTMax := length - Duration.fromMicros 300000
+  let realityHT := max Duration.zero (min realityHTRaw realityHTMax)
+  if realityHT ≤ Duration.zero then
     headGrade
   else
-    -- percent = fraction of realityHT actually held
-    let percentRaw := (realityHT - playerReleaseTimeSec) / realityHT
-    let percent := max 0.0 (min percentRaw 1.0)
-    let band := pressBand percent
+    let held := max Duration.zero (realityHT - playerReleaseTime)
+    let band := pressBandMicros held.toMicros realityHT.toMicros
     match band with
     | 0 =>  -- ≥ 100%: release never or very late
       match headGrade with
@@ -238,7 +239,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
     | 1 =>  -- [67%, 100%): release slightly early
       match headGrade with
       | JudgeGrade.Perfect =>
-        if judgeDiff ≥ 0.0 then LatePerfect2nd else FastPerfect2nd
+        if judgeDiff ≥ Duration.zero then LatePerfect2nd else FastPerfect2nd
       | LatePerfect3rd | LatePerfect2nd | FastPerfect2nd | FastPerfect3rd =>
         headGrade
       | LateGood | LateGreat3rd | LateGreat2nd | LateGreat =>
@@ -250,7 +251,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
     | 2 =>  -- [33%, 67%): release moderately early
       match headGrade with
       | JudgeGrade.Perfect =>
-        if judgeDiff ≥ 0.0 then LateGreat2nd else FastGreat2nd
+        if judgeDiff ≥ Duration.zero then LateGreat2nd else FastGreat2nd
       | LateGood | LateGreat3rd | LateGreat2nd | LateGreat | LatePerfect3rd | LatePerfect2nd =>
         LateGreat
       | FastPerfect2nd | FastPerfect3rd | FastGreat | FastGreat2nd | FastGreat3rd | FastGood =>
@@ -260,7 +261,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
     | 3 =>  -- [5%, 33%): release very early
       match headGrade with
       | JudgeGrade.Perfect =>
-        if judgeDiff ≥ 0.0 then LateGood else FastGood
+        if judgeDiff ≥ Duration.zero then LateGood else FastGood
       | Miss | LateGood | LateGreat3rd | LateGreat2nd | LateGreat | LatePerfect3rd | LatePerfect2nd =>
         LateGood
       | FastPerfect2nd | FastPerfect3rd | FastGreat | FastGreat2nd | FastGreat3rd | FastGood | TooFast =>
@@ -268,7 +269,7 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
     | _ =>  -- [0%, 5%): release almost immediately
       match headGrade with
       | JudgeGrade.Perfect =>
-        if judgeDiff ≥ 0.0 then LateGood else FastGood
+        if judgeDiff ≥ Duration.zero then LateGood else FastGood
       | LateGood | LateGreat3rd | LateGreat2nd | LateGreat | LatePerfect3rd | LatePerfect2nd =>
         LateGood
       | FastPerfect2nd | FastPerfect3rd | FastGreat | FastGreat2nd | FastGreat3rd | FastGood =>
@@ -288,15 +289,15 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Float) (lengthSec : Float
   Comparison uses |7 - (int)grade| distance from Perfect.
 -/
 def judgeHoldClassicEnd
-    (headGrade : JudgeGrade) (timingSec : Float) (lengthSec : Float)
-    (releaseTimingSec : Float) : JudgeGrade :=
+    (headGrade : JudgeGrade) (timing : TimePoint) (length : Duration)
+    (releaseTiming : TimePoint) : JudgeGrade :=
   -- If head is already Miss or TooFast, no improvement possible
   if headGrade.isMissOrTooFast then
     headGrade
   else
-    let diffSec := timingSec + lengthSec - releaseTimingSec
-    let isFast := diffSec > 0.0  -- released early = fast (diffSec positive means release was before end)
-    let diffMSec := absDiffSec diffSec * 1000.0
+    let diff := timing + length - releaseTiming
+    let isFast := diff > Duration.zero
+    let diffMSec := absDiff diff
     -- End grade: Perfect if within window, else Good
     let endGrade :=
       if isFast then
@@ -323,8 +324,8 @@ def judgeSlideTooLate (queueRemaining : Nat) : JudgeGrade :=
 --  In the real game: timing > SLIDE_JUDGE_GOOD_AREA_MSEC / 1000 + min(user_offset, 0)
 ----------------------------------------------------------------------------
 
-def isTooLateSlide (diffSec : Float) (userOffsetSec : Float := 0.0) : Bool :=
-  let threshold := SLIDE_JUDGE_GOOD_AREA_MSEC / 1000.0 + min userOffsetSec 0.0
-  diffSec > threshold
+def isTooLateSlide (diff : Duration) (userOffset : Duration := Duration.zero) : Bool :=
+  let threshold := SLIDE_JUDGE_GOOD_AREA_MSEC + min userOffset Duration.zero
+  diff > threshold
 
 end LnmaiCore.Judge

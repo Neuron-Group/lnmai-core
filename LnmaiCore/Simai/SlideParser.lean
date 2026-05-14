@@ -1,4 +1,5 @@
 import LnmaiCore.Simai.Shape
+import LnmaiCore.Time
 
 namespace LnmaiCore.Simai
 
@@ -116,7 +117,7 @@ def parseSlideJustText (rawText : String) : Except ParseError Bool :=
       let endArea ← parseTerminalEndArea sanitized
       fallbackJustType sanitized startSlot endArea
 
-def parseSlideTimingPoint (timingSec bpm hSpeed : Float) (rawNotes : List String) : Except ParseError TimingPointSemantics := do
+def parseSlideTimingPoint (timing : TimePoint) (bpm hSpeed : Float) (rawNotes : List String) : Except ParseError TimingPointSemantics := do
   let notes ← rawNotes.mapM (fun raw => do
     let shape ← detectShapeFromText raw
     let just ← detectJustType raw
@@ -130,6 +131,6 @@ def parseSlideTimingPoint (timingSec bpm hSpeed : Float) (rawNotes : List String
       shape := shape,
       isJustRight := just
     })
-  pure { timingSec := timingSec, bpm := bpm, hSpeed := hSpeed, notes := notes }
+  pure { timing := timing, bpm := bpm, hSpeed := hSpeed, notes := notes }
 
 end LnmaiCore.Simai

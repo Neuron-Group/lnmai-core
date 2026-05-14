@@ -15,6 +15,7 @@
 
 import LnmaiCore.Types
 import LnmaiCore.Areas
+import LnmaiCore.Time
 import LnmaiCore.Constants
 import LnmaiCore.Convert
 import LnmaiCore.Judge

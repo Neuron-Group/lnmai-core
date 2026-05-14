@@ -18,6 +18,15 @@ private def passCase (name : String) (passed : Bool) (note : String := "") : Run
 private def floatEq (a b : Float) : Bool :=
   Float.abs (a - b) < 0.0001
 
+private def tp (secondsMicros : Int) : TimePoint :=
+  TimePoint.fromMicros secondsMicros
+
+private def dur (micros : Int) : Duration :=
+  Duration.fromMicros micros
+
+private def secs (whole : Int) : TimePoint :=
+  tp (whole * 1000000)
+
 private def runtimePosJsonEq (lhs rhs : RuntimePos) : Bool :=
   toJson lhs == toJson rhs
 
@@ -65,14 +74,14 @@ private def mkButtonFrameInput
   , sensorHeld := sensorFlagVec sensorHeld
   , buttonClickCount := buttonCountVec buttonClicks
   , sensorClickCount := sensorCountVec sensorClicks
-  , deltaSec := deltaSec }
+  , delta := Duration.fromMicros (Int.ofNat (Float.toUInt64 (deltaSec * 1000000.0)).toNat) }
 
 private def activeSingleTapState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 1 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 1 }
     , lane := .S1
     , state := .Judgeable }
-  { currentTime := 0.984
+  { currentTime := tp 984000
   , tapQueues := ButtonVec.ofFn (fun zone => if zone == .K1 then { notes := [tap] } else { notes := [] }) }
 
 def test_button_tap_can_use_matching_a_sensor : RuntimeCase :=
@@ -87,14 +96,14 @@ def test_button_tap_can_use_matching_a_sensor : RuntimeCase :=
 
 private def activeClassicHoldState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 2 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 2 }
     , start := .button .K1
     , state := .BodyHeld
-    , lengthSec := 0.2
-    , headDiffMs := 0.0
+    , length := dur 200000
+    , headDiff := Duration.zero
     , headGrade := .Perfect
     , isClassic := true }
-  { currentTime := 1.05
+  { currentTime := tp 1050000
   , activeHolds := [(.K1, hold)]
   , prevSensor := sensorHeldVec [.A1] }
 
@@ -108,15 +117,15 @@ def test_classic_hold_matching_a_sensor_keeps_body_pressed : RuntimeCase :=
 
 private def activeModernHoldHeadMissState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 3 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 3 }
     , start := .button .K1
     , state := .HeadJudged .Miss
-    , lengthSec := 0.8
-    , headDiffMs := 150.0
+    , length := dur 800000
+    , headDiff := dur 150000
     , headGrade := .Miss
-    , playerReleaseTimeSec := 0.0
+    , playerReleaseTime := Duration.zero
     , isClassic := false }
-  { currentTime := 1.70
+  { currentTime := tp 1700000
   , activeHolds := [(.K1, hold)] }
 
 def test_modern_hold_head_miss_can_end_as_late_good : RuntimeCase :=
@@ -135,11 +144,11 @@ private def activeConnSlidesState : InputModel.GameState :=
   let childArea : Lifecycle.SlideArea :=
     { targetAreas := [.A2], isLast := true }
   let parent : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 10 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 10 }
     , lane := .S1
-    , state := .Active 0.1
-    , lengthSec := 0.4
-    , startTiming := 0.6
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
     , isGroupPartHead := true
@@ -150,11 +159,11 @@ private def activeConnSlidesState : InputModel.GameState :=
     , isCheckable := true
     , judgeQueues := [[parentArea]] }
   let child : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.4, judgeOffsetSec := 0.0, noteIndex := 11 }
+    { params := { judgeTiming := tp 1400000, judgeOffset := Duration.zero, noteIndex := 11 }
     , lane := .S1
-    , state := .Active 0.1
-    , lengthSec := 0.4
-    , startTiming := 1.0
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
     , parentNoteIndex := some 10
@@ -165,7 +174,7 @@ private def activeConnSlidesState : InputModel.GameState :=
     , totalJudgeQueueLen := 1
     , isCheckable := false
     , judgeQueues := [[childArea]] }
-  { currentTime := 1.0
+  { currentTime := secs 1
   , slides := [parent, child] }
 
 def test_conn_child_progress_force_finishes_parent : RuntimeCase :=
@@ -182,11 +191,11 @@ private def activeFinishedSlideState : InputModel.GameState :=
   let finishedArea : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true, wasOn := true }
   let slide : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 20 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 20 }
     , lane := .S1
-    , state := .Active 0.05
-    , lengthSec := 0.2
-    , startTiming := 0.8
+    , state := .Active (dur 50000)
+    , length := dur 200000
+    , startTiming := tp 800000
     , slideKind := .Single
     , isClassic := true
     , trackCount := 1
@@ -194,9 +203,9 @@ private def activeFinishedSlideState : InputModel.GameState :=
     , totalJudgeQueueLen := 1
     , isCheckable := true
     , judgeQueues := [[finishedArea]] }
-  { currentTime := 1.184
+  { currentTime := tp 1184000
   , slides := [slide]
-  , touchPanelOffsetSec := Constants.TOUCH_PANEL_OFFSET_SEC }
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
 
 def test_slide_judge_uses_touch_panel_offset : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [.A1] 0.016
@@ -204,33 +213,33 @@ def test_slide_judge_uses_touch_panel_offset : RuntimeCase :=
   match nextState.slides with
   | slide :: _ =>
       match slide.state with
-      | .Judged _ _ judgeDiffMs =>
+      | .Judged _ _ judgeDiff =>
           passCase "slide_judge_uses_touch_panel_offset"
-            (floatEq judgeDiffMs ((1.2 - Constants.TOUCH_PANEL_OFFSET_SEC - 1.0) * 1000.0))
+            (judgeDiff = Time.fromMillis 184)
             "finished slide stores offset-adjusted judge diff"
       | _ => passCase "slide_judge_uses_touch_panel_offset" false "expected slide to enter judged wait state"
   | _ => passCase "slide_judge_uses_touch_panel_offset" false "expected one slide"
 
 private def sharedTouchGroupState : InputModel.GameState :=
   let noteA1 : Lifecycle.TouchNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 30 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 30 }
     , state := .Judgeable
     , sensorPos := .A1
     , touchGroupId := some 7
     , touchGroupSize := 3 }
   let noteA2 : Lifecycle.TouchNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 31 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 31 }
     , state := .Judgeable
     , sensorPos := .A2
     , touchGroupId := some 7
     , touchGroupSize := 3 }
   let noteA3 : Lifecycle.TouchNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 32 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 32 }
     , state := .Judgeable
     , sensorPos := .A3
     , touchGroupId := some 7
     , touchGroupSize := 3 }
-  { currentTime := 0.984
+  { currentTime := tp 984000
   , touchQueues := SensorVec.ofFn (fun area =>
       if area == .A1 then { notes := [noteA1] }
       else if area == .A2 then { notes := [noteA2] }
@@ -256,8 +265,8 @@ def test_touch_group_majority_shares_result_same_frame : RuntimeCase :=
           && evt3.position = .sensor .A3
           && evt1.grade = evt2.grade
           && evt2.grade = evt3.grade
-          && floatEq evt1.diffMs evt2.diffMs
-          && floatEq evt2.diffMs evt3.diffMs)
+          && evt1.diff = evt2.diff
+          && evt2.diff = evt3.diff)
         "grouped touch majority shares the judged result to the later sibling in the same frame"
   | _ => passCase "touch_group_majority_shares_result_same_frame" false "expected three touch events in one frame"
 
@@ -267,11 +276,11 @@ private def pendingConnChildState : InputModel.GameState :=
   let childArea : Lifecycle.SlideArea :=
     { targetAreas := [.A2], isLast := true }
   let parent : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 40 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 40 }
     , lane := .S1
-    , state := .Active 0.1
-    , lengthSec := 0.4
-    , startTiming := 0.6
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
     , isGroupPartHead := true
@@ -282,11 +291,11 @@ private def pendingConnChildState : InputModel.GameState :=
     , isCheckable := true
     , judgeQueues := [[parentArea]] }
   let child : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.4, judgeOffsetSec := 0.0, noteIndex := 41 }
+    { params := { judgeTiming := tp 1400000, judgeOffset := Duration.zero, noteIndex := 41 }
     , lane := .S1
-    , state := .Active 0.1
-    , lengthSec := 0.4
-    , startTiming := 1.0
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
     , parentNoteIndex := some 40
@@ -298,7 +307,7 @@ private def pendingConnChildState : InputModel.GameState :=
     , totalJudgeQueueLen := 1
     , isCheckable := false
     , judgeQueues := [[childArea]] }
-  { currentTime := 0.984
+  { currentTime := tp 984000
   , slides := [parent, child] }
 
 def test_conn_child_pending_finish_becomes_checkable : RuntimeCase :=
@@ -315,11 +324,11 @@ private def activeWifiClassicTailState : InputModel.GameState :=
   let mkLast (progress : Nat) : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true, arrowProgressWhenFinished := progress }
   let slide : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 50 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 50 }
     , lane := .S1
-    , state := .Active 0.1
-    , lengthSec := 0.5
-    , startTiming := 0.5
+    , state := .Active (dur 100000)
+    , length := dur 500000
+    , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := true
     , trackCount := 3
@@ -327,7 +336,7 @@ private def activeWifiClassicTailState : InputModel.GameState :=
     , totalJudgeQueueLen := 2
     , isCheckable := true
     , judgeQueues := [[mkLast 1], [mkLast 2], [mkLast 3]] }
-  { currentTime := 0.984
+  { currentTime := tp 984000
   , slides := [slide] }
 
 def test_wifi_classic_tail_progress_uses_special_marker : RuntimeCase :=
@@ -345,11 +354,11 @@ private def activeWifiCenterClearedState : InputModel.GameState :=
   let sideTail : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 4, arrowProgressWhenFinished := 4 }
   let slide : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 51 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 51 }
     , lane := .S1
-    , state := .Active 0.1
-    , lengthSec := 0.5
-    , startTiming := 0.5
+    , state := .Active (dur 100000)
+    , length := dur 500000
+    , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := false
     , trackCount := 3
@@ -357,7 +366,7 @@ private def activeWifiCenterClearedState : InputModel.GameState :=
     , totalJudgeQueueLen := 2
     , isCheckable := true
     , judgeQueues := [[sideTail], [], [sideTail]] }
-  { currentTime := 0.984
+  { currentTime := tp 984000
   , slides := [slide] }
 
 def test_wifi_center_cleared_progress_uses_special_marker : RuntimeCase :=
@@ -373,11 +382,11 @@ def test_wifi_center_cleared_progress_uses_special_marker : RuntimeCase :=
 
 private def activeWifiJudgedWaitState : InputModel.GameState :=
   let slide : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 52 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 52 }
     , lane := .S1
-    , state := .Judged .Perfect 0.01 123.0
-    , lengthSec := 0.5
-    , startTiming := 0.5
+    , state := .Judged .Perfect (dur 10000) (dur 123000)
+    , length := dur 500000
+    , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := false
     , trackCount := 3
@@ -385,7 +394,7 @@ private def activeWifiJudgedWaitState : InputModel.GameState :=
     , totalJudgeQueueLen := 0
     , isCheckable := true
     , judgeQueues := [[], [], []] }
-  { currentTime := 1.0
+  { currentTime := secs 1
   , slides := [slide] }
 
 def test_wifi_judged_wait_emits_delayed_event_then_hides : RuntimeCase :=
@@ -395,7 +404,7 @@ def test_wifi_judged_wait_emits_delayed_event_then_hides : RuntimeCase :=
   | [evt] =>
       passCase "wifi_judged_wait_emits_delayed_event_then_hides"
         (evt.kind = .Slide
-          && floatEq evt.diffMs 123.0
+          && evt.diff = Time.fromMillis 123
           && hasHideAllSlideBars renderCmds 52)
         "wifi judged-wait preserves stored diff and emits the final slide event on expiry"
   | _ => passCase "wifi_judged_wait_emits_delayed_event_then_hides" false "expected one final slide event"
@@ -404,11 +413,11 @@ private def activeWifiTooLateState : InputModel.GameState :=
   let unfinished : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true }
   let slide : Lifecycle.SlideNote :=
-    { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 53 }
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 53 }
     , lane := .S1
-    , state := .Active 0.1
-    , lengthSec := 0.2
-    , startTiming := 0.8
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , startTiming := tp 800000
     , slideKind := .Wifi
     , isClassic := false
     , trackCount := 3
@@ -416,9 +425,9 @@ private def activeWifiTooLateState : InputModel.GameState :=
     , totalJudgeQueueLen := 1
     , isCheckable := true
     , judgeQueues := [[unfinished], [unfinished], [unfinished]] }
-  { currentTime := 1.600
+  { currentTime := tp 1600000
   , slides := [slide]
-  , touchPanelOffsetSec := Constants.TOUCH_PANEL_OFFSET_SEC }
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
 
 def test_wifi_too_late_ends_immediately : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [] 0.016
@@ -472,7 +481,7 @@ def all : List RuntimeCase :=
 def passedCount : Nat :=
   (all.filter (·.passed)).length
 
-#eval all
-#eval (passedCount, all.length)
+-- #eval all
+-- #eval (passedCount, all.length)
 
 end LnmaiCore.RuntimeTests

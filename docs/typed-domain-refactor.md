@@ -23,6 +23,36 @@ The refactor will establish:
 
 The end state is that gameplay-facing core timing no longer uses `Float`.
 
+## Current Status
+
+The refactor is in progress.
+
+Implemented so far:
+
+- `LnmaiCore/Time.lean` now defines `TimeTick`, `Duration`, and `TimePoint`
+- the core affine time algebra is implemented over exact microsecond ticks
+- normalized and lowered compiler timing fields have been migrated to typed time
+- chart loader timing fields have been migrated to typed time
+- runtime state timing fields have been migrated to typed time
+- scheduler and judge logic now compare exact `Duration` and `TimePoint` values
+- runtime event payloads now use exact `Duration` and `TimePoint` values
+- runtime tests have started migrating from float comparison to exact equality
+
+Proof support implemented so far:
+
+- injectivity of `Duration.toMicros`
+- injectivity of `TimePoint.toMicros`
+- non-strict order preservation through `toMicros`
+- strict order preservation through `toMicros`
+- compare transport lemmas for `Duration` and `TimePoint`
+- pairwise order transport lemmas suitable for sorted-list reasoning
+
+Remaining high-priority work:
+
+- remove remaining compiler-side timing `Float` usage in Simai timing/parsing code
+- migrate remaining host/FFI bridge surfaces to exact time exchange where required
+- continue replacing incidental float-based test expectations with exact time values
+
 ## Core Time Model
 
 The refactor introduces three time-domain types.
@@ -218,6 +248,8 @@ Define:
 
 This phase establishes the new time API.
 
+Status: completed.
+
 ### Phase 2 — Migrate compiler-side timing
 
 Replace `Float` in the Simai compiler pipeline.
@@ -231,6 +263,10 @@ Migrate:
 - lowered chart timing outputs
 
 This phase establishes exact chart semantics.
+
+Status: mostly completed for normalized/lowered/compiler output timing fields, but
+some Simai timing and parsing code still uses `Float` internally and remains to
+be migrated.
 
 ### Phase 3 — Migrate runtime timing
 
@@ -247,6 +283,9 @@ Migrate:
 
 This phase establishes exact runtime semantics.
 
+Status: completed for gameplay-facing runtime timing fields, scheduler/judge
+logic, runtime state, event diffs, and event timestamps.
+
 ### Phase 4 — Migrate tests and proof-facing APIs
 
 Replace `floatEq`-style assertions with exact equality over `Duration` and
@@ -261,6 +300,25 @@ Strengthen proof-facing APIs around:
 - event emission
 
 This phase establishes exact proof-facing behavior.
+
+Status: in progress. Core exact-time lemmas are in place, and some runtime tests
+now use exact equality over `Duration` and `TimePoint`, but additional cleanup
+remains.
+
+## Remaining Float Hotspots
+
+The remaining timing-related `Float` usage is concentrated in compiler-side or
+bridge-side code, rather than gameplay-facing runtime APIs.
+
+Current hotspots include:
+
+- `LnmaiCore/Simai/Timing.lean`
+- `LnmaiCore/Simai/IR.lean`
+- `LnmaiCore/Simai/SlideParser.lean`
+- `LnmaiCore/Simai/Normalize.lean`
+- `LnmaiCore/Simai/Source/Maidata.lean`
+
+These are the next refactor targets.
 
 ## Implementation Outcomes
 

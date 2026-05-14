@@ -8,6 +8,7 @@ import LnmaiCore.Areas
 import LnmaiCore.Storage
 import LnmaiCore.Constants
 import LnmaiCore.Lifecycle
+import LnmaiCore.Time
 
 namespace LnmaiCore.InputModel
 
@@ -24,24 +25,24 @@ structure FrameInput where
   sensorHeld    : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false
   buttonClickCount : ButtonVec Nat := ButtonVec.replicate BUTTON_ZONE_COUNT 0
   sensorClickCount : SensorVec Nat := SensorVec.replicate SENSOR_AREA_COUNT 0
-  deltaSec      : Float := 0.0
+  delta         : Duration := Duration.zero
 deriving Inhabited
 
 inductive TimedInputEvent where
-  | buttonClick (atSec : Float) (zone : ButtonZone)
-  | buttonHold (atSec : Float) (zone : ButtonZone) (isDown : Bool := true)
-  | sensorClick (atSec : Float) (area : SensorArea)
-  | sensorHold (atSec : Float) (area : SensorArea) (isDown : Bool := true)
+  | buttonClick (tp : TimePoint) (zone : ButtonZone)
+  | buttonHold (tp : TimePoint) (zone : ButtonZone) (isDown : Bool := true)
+  | sensorClick (tp : TimePoint) (area : SensorArea)
+  | sensorHold (tp : TimePoint) (area : SensorArea) (isDown : Bool := true)
 deriving Inhabited, Repr
 
-def TimedInputEvent.atSec : TimedInputEvent → Float
-  | .buttonClick atSec _ => atSec
-  | .buttonHold atSec _ _ => atSec
-  | .sensorClick atSec _ => atSec
-  | .sensorHold atSec _ _ => atSec
+def TimedInputEvent.at : TimedInputEvent → TimePoint
+  | .buttonClick tp _ => tp
+  | .buttonHold tp _ _ => tp
+  | .sensorClick tp _ => tp
+  | .sensorHold tp _ _ => tp
 
 structure TimedInputBatch where
-  currentSec : Float := 0.0
+  currentTime : TimePoint := TimePoint.zero
   events     : List TimedInputEvent := []
 deriving Inhabited, Repr
 
@@ -74,27 +75,27 @@ def FrameInput.getSensorClickCount (fi : FrameInput) (area : SensorArea) : Nat :
 def prevSensorHeldAt (prevSensor : SensorVec Bool) (area : SensorArea) : Bool :=
   prevSensor.getD area false
 
-def TimedInputBatch.toFrameInput (batch : TimedInputBatch) (deltaSec : Float)
+def TimedInputBatch.toFrameInput (batch : TimedInputBatch) (delta : Duration)
     (prevButtonHeld : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false)
     (prevSensorHeld : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false) : FrameInput :=
   let withinFrame (evt : TimedInputEvent) : Bool :=
-    evt.atSec > batch.currentSec - deltaSec && evt.atSec ≤ batch.currentSec
+    evt.at > batch.currentTime - delta && evt.at ≤ batch.currentTime
   let initial : FrameInput :=
     { buttonHeld := prevButtonHeld
     , sensorHeld := prevSensorHeld
-    , deltaSec := deltaSec }
+    , delta := delta }
   let acc :=
     batch.events.foldl (fun fi evt =>
       match evt with
-      | .buttonClick atSec zone =>
-          if withinFrame (.buttonClick atSec zone) then
+      | .buttonClick tp zone =>
+          if withinFrame (.buttonClick tp zone) then
             { fi with
               buttonClicked := fi.buttonClicked.set zone true
             , buttonClickCount := fi.buttonClickCount.set zone (fi.buttonClickCount.getD zone 0 + 1) }
           else
             fi
-      | .sensorClick atSec area =>
-          if withinFrame (.sensorClick atSec area) then
+      | .sensorClick tp area =>
+          if withinFrame (.sensorClick tp area) then
             { fi with
               sensorClicked := fi.sensorClicked.set area true
             , sensorClickCount := fi.sensorClickCount.set area (fi.sensorClickCount.getD area 0 + 1) }
@@ -104,7 +105,7 @@ def TimedInputBatch.toFrameInput (batch : TimedInputBatch) (deltaSec : Float)
           { fi with buttonHeld := fi.buttonHeld.set zone isDown }
       | .sensorHold _ area isDown =>
           { fi with sensorHeld := fi.sensorHeld.set area isDown }) initial
-  { acc with deltaSec := deltaSec }
+  { acc with delta := delta }
 
 ----------------------------------------------------------------------------
 -- Per-Zone Note Queues
@@ -151,7 +152,7 @@ def setSensorQueueAt {α : Type} (queues : SensorQueueVec α) (area : SensorArea
 ----------------------------------------------------------------------------
 
 structure GameState where
-  currentTime   : Float := 0.0
+  currentTime   : TimePoint := TimePoint.zero
   prevButton    : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false
   prevSensor    : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false
   tapQueues     : ButtonQueueVec Lifecycle.TapNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
@@ -166,7 +167,7 @@ structure GameState where
   currentBatch  : TimedInputBatch := {}
   score         : ScoreState := {}
   judgeStyle    : JudgeStyle := JudgeStyle.Default
-  touchPanelOffsetSec : Float := 0.0
+  touchPanelOffset : Duration := Duration.zero
   useButtonRingForTouch : Bool := Constants.USE_BUTTON_RING_FOR_TOUCH
   subdivideSlideJudgeGrade : Bool := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
 deriving Inhabited, Repr

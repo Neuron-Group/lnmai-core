@@ -1,6 +1,7 @@
 import LnmaiCore.ChartLoader
 import LnmaiCore.Simai.Syntax
 import LnmaiCore.Areas
+import LnmaiCore.Time
 
 namespace LnmaiCore.Simai
 
@@ -10,7 +11,7 @@ structure NormalizedSlideDebug where
 deriving Inhabited, Repr
 
 structure NormalizedTap where
-  timingSec : Float
+  timing : TimePoint
   slot : OuterSlot
   isBreak : Bool := false
   isEX : Bool := false
@@ -20,9 +21,9 @@ structure NormalizedTap where
 deriving Inhabited, Repr
 
 structure NormalizedHold where
-  timingSec : Float
+  timing : TimePoint
   slot : OuterSlot
-  lengthSec : Float
+  length : Duration
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
@@ -30,9 +31,9 @@ structure NormalizedHold where
 deriving Inhabited, Repr
 
 structure NormalizedTouchHold where
-  timingSec : Float
+  timing : TimePoint
   sensorPos : SensorArea
-  lengthSec : Float
+  length : Duration
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
@@ -40,7 +41,7 @@ structure NormalizedTouchHold where
 deriving Inhabited, Repr
 
 structure NormalizedTouch where
-  timingSec : Float
+  timing : TimePoint
   sensorPos : SensorArea
   isBreak : Bool := false
   isHanabi : Bool := false
@@ -48,14 +49,14 @@ structure NormalizedTouch where
 deriving Inhabited, Repr
 
 structure NormalizedSlide where
-  timingSec : Float
+  timing : TimePoint
   slot : OuterSlot
-  lengthSec : Float
-  startTimingSec : Float
+  length : Duration
+  startTiming : TimePoint
   hSpeed : Float := 1.0
   slideKind : LnmaiCore.SlideKind := .Single
   trackCount : Nat := 1
-  judgeAtSec : Option Float := none
+  judgeAt : Option TimePoint := none
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false

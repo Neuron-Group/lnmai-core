@@ -1,6 +1,7 @@
 import LnmaiCore.Simai.Timing
 import LnmaiCore.Simai.Shape
 import LnmaiCore.Areas
+import LnmaiCore.Time
 
 namespace LnmaiCore.Simai
 
@@ -159,14 +160,14 @@ partial def applyInlineDirective (bpm : Float) (divisor : Nat) (hSpeed : Float) 
   else
     (bpm, divisor, hSpeed, t)
 
-def mkRawToken (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) : RawNoteToken :=
+def mkRawToken (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) (token : String) : RawNoteToken :=
   let t := trim token
   let kind := inferKind t
   let parsedText := if kind = .slide then sanitizeSlideToken t else t
   let slot := leadingDigit? parsedText >>= (fun n => OuterSlot.ofIndex? (n - 1))
   let sensorPos := touchAreaToSensorArea? t
-  let lengthSec := parseDurationSpec bpm t
-  let starWaitSec := if kind = .slide then parseStarWaitSpec bpm t else none
+  let length := parseDurationSpec bpm t
+  let starWait := if kind = .slide then parseStarWaitSpec bpm t else none
   let isBreak := parseHeadBreak t
   let isEX := t.contains 'x'
   let isHanabi := t.contains 'f'
@@ -176,14 +177,14 @@ def mkRawToken (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) :
   let isSlideBreak := parseSlideSegmentBreak t
   { rawText := parsedText
   , kind := kind
-  , timingSec := timingSec
+  , timing := timing
   , bpm := bpm
   , hSpeed := hSpeed
   , divisor := divisor
   , slot := slot
   , sensorPos := sensorPos
-  , lengthSec := lengthSec
-  , starWaitSec := starWaitSec
+  , length := length
+  , starWait := starWait
   , isBreak := isBreak
   , isEX := isEX
   , isHanabi := isHanabi
@@ -211,26 +212,26 @@ private def sameHeadHeadPrefix (token : String) : String :=
       else
         ""
 
-private def expandSameHeadGroupRest (groupId : Nat) (timingSec bpm hSpeed : Float) (divisor : Nat)
+private def expandSameHeadGroupRest (groupId : Nat) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat)
     (headPrefix : String) (size : Nat) : Nat → List String → List RawNoteToken
   | _, [] => []
   | idx, part :: rest =>
       let rebuilt := if headPrefix = "" then part else headPrefix ++ part
-      let tok := mkRawToken timingSec bpm hSpeed divisor rebuilt
+      let tok := mkRawToken timing bpm hSpeed divisor rebuilt
       { tok with
         isSlideNoHead := true,
         sourceGroupId := some groupId,
         sourceGroupIndex := some idx,
         sourceGroupSize := some size } ::
-      expandSameHeadGroupRest groupId timingSec bpm hSpeed divisor headPrefix size (idx + 1) rest
+      expandSameHeadGroupRest groupId timing bpm hSpeed divisor headPrefix size (idx + 1) rest
 
-private def expandSameHeadGroup (groupId : Nat) (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) : List RawNoteToken :=
+private def expandSameHeadGroup (groupId : Nat) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) (token : String) : List RawNoteToken :=
   let parts := sameHeadGroupParts token
   match parts with
   | [] => []
   | first :: rest =>
       let headPrefix := sameHeadHeadPrefix first
-      let firstTok := mkRawToken timingSec bpm hSpeed divisor first
+      let firstTok := mkRawToken timing bpm hSpeed divisor first
       let firstIsGroupedSlide := firstTok.kind = .slide
       let groupedSlideCount := (if firstIsGroupedSlide then 1 else 0) + rest.length
       let firstTok :=
@@ -239,20 +240,20 @@ private def expandSameHeadGroup (groupId : Nat) (timingSec bpm hSpeed : Float) (
         else
           firstTok
       let restStartIndex := if firstIsGroupedSlide then 1 else 0
-      let restToks := expandSameHeadGroupRest groupId timingSec bpm hSpeed divisor headPrefix groupedSlideCount restStartIndex rest
+      let restToks := expandSameHeadGroupRest groupId timing bpm hSpeed divisor headPrefix groupedSlideCount restStartIndex rest
       firstTok :: restToks
 
-private def expandTokenList (baseGroupId : Nat) (timingSec bpm hSpeed : Float) (divisor : Nat) : Nat → List String → List RawNoteToken
+private def expandTokenList (baseGroupId : Nat) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) : Nat → List String → List RawNoteToken
   | _, [] => []
   | idx, tokText :: rest =>
       let current :=
         if tokText.contains '*' then
-          expandSameHeadGroup (baseGroupId + idx) timingSec bpm hSpeed divisor tokText
+          expandSameHeadGroup (baseGroupId + idx) timing bpm hSpeed divisor tokText
         else
-          [mkRawToken timingSec bpm hSpeed divisor tokText]
-      current ++ expandTokenList baseGroupId timingSec bpm hSpeed divisor (idx + 1) rest
+          [mkRawToken timing bpm hSpeed divisor tokText]
+      current ++ expandTokenList baseGroupId timing bpm hSpeed divisor (idx + 1) rest
 
-def parseSegmentNotes (segment : String) (timeSec bpm hSpeed : Float) (divisor : Nat) : List RawNoteToken :=
+def parseSegmentNotes (segment : String) (time : TimePoint) (bpm hSpeed : Float) (divisor : Nat) : List RawNoteToken :=
   let normalized := trim <| segment.replace "\n" ""
   if normalized = "" then
     []
@@ -260,23 +261,23 @@ def parseSegmentNotes (segment : String) (timeSec bpm hSpeed : Float) (divisor :
     let parts := normalized.splitOn "`"
     let (_, acc) :=
       parts.foldl
-        (fun (state : Float × List RawNoteToken) part =>
+        (fun (state : TimePoint × List RawNoteToken) part =>
           let (currentTime, acc) := state
           let tokens := expandTokenList 0 currentTime bpm hSpeed divisor 0 (splitEntryTokens part)
           (currentTime + pseudoIncrement bpm, acc ++ tokens))
-        (timeSec, [])
+        (time, [])
     acc
   else
-    expandTokenList 0 timeSec bpm hSpeed divisor 0 (splitEntryTokens normalized)
+    expandTokenList 0 time bpm hSpeed divisor 0 (splitEntryTokens normalized)
 
-partial def parseSegments (segments : List String) (timeSec bpm hSpeed : Float) (divisor : Nat) (acc : List RawNoteToken) : List RawNoteToken :=
+partial def parseSegments (segments : List String) (time : TimePoint) (bpm hSpeed : Float) (divisor : Nat) (acc : List RawNoteToken) : List RawNoteToken :=
   match segments with
   | [] => acc.reverse
   | segment :: rest =>
       let clean := trim segment
       let (bpm', divisor', hSpeed', body) := applyInlineDirective bpm divisor hSpeed clean
-      let newTokens := parseSegmentNotes body timeSec bpm' hSpeed' divisor'
-      let nextTime := timeSec + noteTimingIncrement bpm' divisor'
+      let newTokens := parseSegmentNotes body time bpm' hSpeed' divisor'
+      let nextTime := time + noteTimingIncrement bpm' divisor'
       parseSegments rest nextTime bpm' hSpeed' divisor' (newTokens.reverse ++ acc)
 
 end LnmaiCore.Simai

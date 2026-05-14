@@ -1,6 +1,7 @@
 import Mathlib
 import Lean.Data.Json
 import LnmaiCore.Areas
+import LnmaiCore.Time
 
 namespace LnmaiCore.Simai
 
@@ -55,7 +56,7 @@ structure SlideNoteSemantics where
 deriving DecidableEq, Repr, Inhabited, BEq
 
 structure TimingPointSemantics where
-  timingSec : Float
+  timing : TimePoint
   bpm : Float
   hSpeed : Float
   notes : List SlideNoteSemantics := []
@@ -63,7 +64,7 @@ deriving Inhabited, Repr
 
 structure SimaiChartSemantics where
   timingPoints : List TimingPointSemantics := []
-  commaTimings : List Float := []
+  commaTimings : List TimePoint := []
   title : String := ""
   designer : String := ""
   level : String := ""
@@ -96,14 +97,14 @@ deriving Inhabited, Repr
 structure RawNoteToken where
   rawText : String
   kind : RawNoteKind
-  timingSec : Float
+  timing : TimePoint
   bpm : Float
   hSpeed : Float := 1.0
   divisor : Nat
   slot : Option OuterSlot := none
   sensorPos : Option SensorArea := none
-  lengthSec : Option Float := none
-  starWaitSec : Option Float := none
+  length : Option Duration := none
+  starWait : Option Duration := none
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
@@ -123,7 +124,7 @@ structure SourceNote where
 deriving Inhabited, Repr
 
 structure SourceEvent where
-  timingSec : Float
+  timing : TimePoint
   bpm : Float
   hSpeed : Float := 1.0
   divisor : Nat := 4
