@@ -158,3 +158,4 @@ end LnmaiCore.Simai
 #eval simai_normalized_slide! "1<3[4:1]"
 #eval simai_normalized_slide! "1xs5[4:1]"
 #eval simai_normalized_slide! "7x-3[4:1]"
+#eval simai_normalized_slide! "1x-3[4:1]"

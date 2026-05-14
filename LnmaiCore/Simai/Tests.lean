@@ -1,4 +1,5 @@
 import LnmaiCore.Simai
+import LnmaiCore.Simai.ProofAPI
 
 namespace LnmaiCore.Simai.Tests
 
@@ -15,7 +16,12 @@ private def floatEq (a b : Float) : Bool :=
   Float.abs (a - b) < 0.0001
 
 private def parseLevel1 (content : String) : Except ParseError FrontendChartResult :=
-  parseFrontendChartResult content 1
+  compileChart content 1
+
+example (content : String) : compileChart content 1 = parseFrontendChartResult content 1 := rfl
+example (content : String) : compileNormalized content 1 = frontendNormalizedChart content 1 := rfl
+example (content : String) : compileInspection content 1 = parseFrontendInspectionChart content 1 := rfl
+example (noteText : String) : compileSingleNormalizedSlide noteText = parseFrontendSingleNormalizedSlide noteText := rfl
 
 private def supportedCase (name : String) (passed : Bool) (note : String := "") : ParityCase :=
   { name := name, supported := true, passed := passed, note := note }
