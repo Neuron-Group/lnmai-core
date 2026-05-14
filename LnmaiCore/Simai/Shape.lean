@@ -19,8 +19,8 @@ private def keyPosToOuterSensorArea? (pos : Nat) : Option SensorArea :=
   (OuterSlot.ofIndex? (pos - 1)).map OuterSlot.toOuterSensorArea
 
 private def mirrorKey : Nat → Nat
-  | 1 => 8 | 2 => 7 | 3 => 6 | 4 => 5
-  | 5 => 4 | 6 => 3 | 7 => 2 | 8 => 1
+  | 1 => 1 | 2 => 8 | 3 => 7 | 4 => 6
+  | 5 => 5 | 6 => 4 | 7 => 3 | 8 => 2
   | n => n
 
 private def mirrorRelEnd : Nat → Nat := mirrorKey

@@ -23,6 +23,12 @@ private def supportedCase (name : String) (passed : Bool) (note : String := "") 
 private def gapCase (name : String) (note : String) : ParityCase :=
   { name := name, supported := false, passed := false, note := note }
 
+private def areaCodes (queue : List SlideAreaSpec) : List String :=
+  queue.map (fun spec =>
+    match spec.targetAreas with
+    | area :: _ => area.code
+    | [] => "")
+
 def test_simai_chart_dsl_smoke : ParityCase :=
   let chart : FrontendChartResult := simai_chart! "&first=0\n&inote_1=\n(120)\n1,\n"
   supportedCase "simai_chart_dsl_smoke"
@@ -133,7 +139,7 @@ def test_slide_note_custom_bpm_star_and_duration : ParityCase :=
   | .error err => supportedCase "slide_note_custom_bpm_star_and_duration" false s!"unexpected parse error: {err.message}"
 
 def test_slide_note_absolute_star_wait_no_hash_and_duration : ParityCase :=
-  match parseLevel1 "&first=0\n&inote_1=\n(100)\n1<[0.2##0.75],\n" with
+  match parseLevel1 "&first=0\n&inote_1=\n(100)\n1<5[0.2##0.75],\n" with
   | .ok chart =>
       match chart.semantic.normalized.slides with
       | slide :: _ =>
@@ -176,7 +182,7 @@ def test_slide_modifiers : ParityCase :=
   | .error err => supportedCase "slide_modifiers" false s!"unexpected parse error: {err.message}"
 
 def test_slide_break_on_segment : ParityCase :=
-  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-b[4:1],\n" with
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3b[4:1],\n" with
   | .ok chart =>
       match chart.inspection.tokens, chart.semantic.normalized.slides with
       | tok :: _, slide :: _ =>
@@ -328,11 +334,59 @@ def test_normalized_topology_comes_from_typed_shape : ParityCase :=
       match chart.semantic.normalized.slides with
       | slide :: _ =>
           supportedCase "normalized_topology_comes_from_typed_shape"
-            (shapeKey slide.simaiShape = "-circle4" && slide.simaiShape.mirrored &&
+            (shapeKey slide.simaiShape = "-circle5" && slide.simaiShape.mirrored &&
              !slide.judgeQueues.isEmpty)
             "normalization derives topology from parser-produced shape semantics, not an unconstrained string"
       | _ => supportedCase "normalized_topology_comes_from_typed_shape" false "expected one slide"
   | .error err => supportedCase "normalized_topology_comes_from_typed_shape" false s!"unexpected parse error: {err.message}"
+
+def test_reference_circle_mirror_semantics : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1>3[4:1],1<3[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | right :: left :: _ =>
+          supportedCase "reference_circle_mirror_semantics"
+            (shapeKey right.simaiShape = "circle3" &&
+             !right.simaiShape.mirrored &&
+             shapeKey left.simaiShape = "-circle7" &&
+             left.simaiShape.mirrored)
+            "`1>3` stays `circle3` while `1<3` mirrors to `-circle7`, matching MajdataPlay"
+      | _ => supportedCase "reference_circle_mirror_semantics" false "expected two slides"
+  | .error err => supportedCase "reference_circle_mirror_semantics" false s!"unexpected parse error: {err.message}"
+
+def test_reference_circle_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1>3[4:1],1<3[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | right :: left :: _ =>
+          let rightPath := right.judgeQueues.headD [] |> areaCodes
+          let leftPath := left.judgeQueues.headD [] |> areaCodes
+          supportedCase "reference_circle_realpaths"
+            (rightPath = ["A1", "A2", "A3"] &&
+             leftPath = ["A1", "A8", "A7", "A6", "A5", "A4", "A3"])
+            "resolved judge queues match MajdataPlay table semantics for `circle3` and mirrored `circle7`"
+      | _ => supportedCase "reference_circle_realpaths" false "expected two slides"
+  | .error err => supportedCase "reference_circle_realpaths" false s!"unexpected parse error: {err.message}"
+
+def test_reference_other_shape_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1],1v3[4:1],1pp3[4:1],1V35[4:1],1s5[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | line :: vshape :: pp :: turn :: sshape :: _ =>
+          let linePath := line.judgeQueues.headD [] |> areaCodes
+          let vPath := vshape.judgeQueues.headD [] |> areaCodes
+          let ppPath := pp.judgeQueues.headD [] |> areaCodes
+          let turnPath := turn.judgeQueues.headD [] |> areaCodes
+          let sPath := sshape.judgeQueues.headD [] |> areaCodes
+          supportedCase "reference_other_shape_realpaths"
+            (linePath = ["A1", "A2", "A3"] &&
+             vPath = ["A1", "B1", "C", "B3", "A3"] &&
+             ppPath = ["A1", "B1", "C", "B4", "A3"] &&
+             turnPath = ["A1", "A2", "A3", "A4", "A5"] &&
+             sPath = ["A1", "B8", "B7", "C", "B3", "B4", "A5"])
+            "non-circle slide families resolve to MajdataPlay single-track judge paths"
+      | _ => supportedCase "reference_other_shape_realpaths" false "expected five slides"
+  | .error err => supportedCase "reference_other_shape_realpaths" false s!"unexpected parse error: {err.message}"
 
 def test_shape_key_is_annotation_not_authority : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1w5[4:1],\n" with
@@ -390,6 +444,9 @@ def all : List ParityCase :=
   , test_same_head_with_tap_head_matches_python_flattening
   , test_same_head_subsequent_parts_are_headless
   , test_normalized_topology_comes_from_typed_shape
+  , test_reference_circle_mirror_semantics
+  , test_reference_circle_realpaths
+  , test_reference_other_shape_realpaths
   , test_shape_key_is_annotation_not_authority
   , test_just_right_is_debug_not_normalized_authority ]
 
