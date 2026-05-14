@@ -146,7 +146,7 @@ private def processTapNotes (queues : ButtonQueueVec TapNote) (input : FrameInpu
           if usedButton then (true, buttonDiffMs, cursor1)
           else
             let (usedSensor, cursorS) :=
-              tryUseSensorClickAt input cursor1 (fallbackSensorAreaForButtonNote note.lane)
+              tryUseSensorClickAt input cursor1 (fallbackSensorAreaForButtonNote note.lane.toButtonZone)
             if usedSensor then (true, sensorDiffMs, cursorS) else (false, buttonDiffMs, cursorS)
         match tapStep note currentSec diffMs clicked style with
         | (_, some evt) => (q.advance, (cursor2, evt :: evsRev))

@@ -48,7 +48,7 @@ deriving DecidableEq, Repr, Inhabited, BEq
 
 structure SlideNoteSemantics where
   rawText : String
-  startLane : ButtonZone
+  startSlot : OuterSlot
   endArea : SensorArea
   shape : SlideShape
   isJustRight : Bool := false
@@ -100,7 +100,7 @@ structure RawNoteToken where
   bpm : Float
   hSpeed : Float := 1.0
   divisor : Nat
-  lane : Option ButtonZone := none
+  slot : Option OuterSlot := none
   sensorPos : Option SensorArea := none
   lengthSec : Option Float := none
   starWaitSec : Option Float := none

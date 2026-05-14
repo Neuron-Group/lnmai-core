@@ -12,11 +12,11 @@ def digitToNat? : Char → Option Nat
   | '5' => some 5 | '6' => some 6 | '7' => some 7 | '8' => some 8
   | _ => none
 
-private def keyPosToButtonZone? (pos : Nat) : Option ButtonZone :=
-  ButtonZone.ofIndex? (pos - 1)
+private def keyPosToOuterSlot? (pos : Nat) : Option OuterSlot :=
+  OuterSlot.ofIndex? (pos - 1)
 
 private def keyPosToOuterSensorArea? (pos : Nat) : Option SensorArea :=
-  (ButtonZone.ofIndex? (pos - 1)).map ButtonZone.toOuterSensorArea
+  (OuterSlot.ofIndex? (pos - 1)).map OuterSlot.toOuterSensorArea
 
 private def mirrorKey : Nat → Nat
   | 1 => 8 | 2 => 7 | 3 => 6 | 4 => 5
@@ -28,16 +28,16 @@ private def mirrorRelEnd : Nat → Nat := mirrorKey
 private def relativeEndPos (startPos endPos : Nat) : Nat :=
   (((endPos - 1) + 8 - (startPos - 1)) % 8) + 1
 
-private def buttonZoneIsRightHalf (zone : ButtonZone) : Bool :=
-  zone.toIndex < 4
+private def outerSlotIsRightHalf (slot : OuterSlot) : Bool :=
+  slot.toIndex < 4
 
-private def buttonZoneIsUpperHalf (zone : ButtonZone) : Bool :=
-  match zone with
-  | .K7 | .K8 | .K1 | .K2 => true
+private def outerSlotIsUpperHalf (slot : OuterSlot) : Bool :=
+  match slot with
+  | .S7 | .S8 | .S1 | .S2 => true
   | _ => false
 
-private def relativeEndFromTyped (startLane : ButtonZone) (endArea : SensorArea) : Except ParseError Nat :=
-  match endArea.toOuterButtonZone? with
+private def relativeEndFromTyped (startLane : OuterSlot) (endArea : SensorArea) : Except ParseError Nat :=
+  match endArea.toOuterSlot? with
   | some endZone => pure <| relativeEndPos (startLane.toIndex + 1) (endZone.toIndex + 1)
   | none => Except.error { kind := .invalidEndPosition, rawText := "", message := "slide end must be on outer A-ring" }
 
@@ -49,9 +49,9 @@ private def readDigitAt (content : List Char) (index : Nat) : Except ParseError 
       | none => Except.error { kind := .invalidSyntax, rawText := String.ofList content, message := s!"expected digit at {index}" }
   | none => Except.error { kind := .invalidSyntax, rawText := String.ofList content, message := s!"missing digit at {index}" }
 
-private def readStartLaneAt (content : List Char) (index : Nat) : Except ParseError ButtonZone := do
+private def readStartLaneAt (content : List Char) (index : Nat) : Except ParseError OuterSlot := do
   let pos ← readDigitAt content index
-  match keyPosToButtonZone? pos with
+  match keyPosToOuterSlot? pos with
   | some zone => pure zone
   | none => Except.error { kind := .invalidSyntax, rawText := String.ofList content, message := s!"invalid start lane at {index}" }
 
@@ -75,7 +75,7 @@ def detectShapeFromText (content : String) : Except ParseError SlideShape := do
     let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
     let relEnd ← relativeEndFromTyped startLane endArea
-    if buttonZoneIsUpperHalf startLane then
+    if outerSlotIsUpperHalf startLane then
       pure { kind := .circle, relEnd := some relEnd, mirrored := false }
     else
       pure { kind := .circle, relEnd := some (mirrorRelEnd relEnd), mirrored := true }
@@ -83,7 +83,7 @@ def detectShapeFromText (content : String) : Except ParseError SlideShape := do
     let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
     let relEnd ← relativeEndFromTyped startLane endArea
-    if !buttonZoneIsUpperHalf startLane then
+    if !outerSlotIsUpperHalf startLane then
       pure { kind := .circle, relEnd := some relEnd, mirrored := false }
     else
       pure { kind := .circle, relEnd := some (mirrorRelEnd relEnd), mirrored := true }
@@ -175,11 +175,11 @@ def detectJustType (content : String) : Except ParseError Bool := do
   if content.contains '>' then
     let startLane ← readStartLaneAt cs 0
     let _endArea ← readEndAreaAt cs 2
-    Except.ok (buttonZoneIsUpperHalf startLane)
+    Except.ok (outerSlotIsUpperHalf startLane)
   else if content.contains '<' then
     let startLane ← readStartLaneAt cs 0
     let _endArea ← readEndAreaAt cs 2
-    Except.ok (!buttonZoneIsUpperHalf startLane)
+    Except.ok (!outerSlotIsUpperHalf startLane)
   else if content.contains '^' then
     let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
@@ -188,25 +188,25 @@ def detectJustType (content : String) : Except ParseError Bool := do
   else if content.contains 'V' then
     let _startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 3
-    let some endZone := endArea.toOuterButtonZone?
+    let some endZone := endArea.toOuterSlot?
       | Except.error { kind := .invalidEndPosition, rawText := content, message := "slide end must be on outer A-ring" }
-    Except.ok (buttonZoneIsRightHalf endZone)
+    Except.ok (outerSlotIsRightHalf endZone)
   else if content.contains 'w' then
     let _startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let some endZone := endArea.toOuterButtonZone?
+    let some endZone := endArea.toOuterSlot?
       | Except.error { kind := .invalidEndPosition, rawText := content, message := "slide end must be on outer A-ring" }
-    pure (buttonZoneIsUpperHalf endZone)
+    pure (outerSlotIsUpperHalf endZone)
   else
     let endArea ← if content.contains "qq" || content.contains "pp" then
       readEndAreaAt cs 3
     else
       readEndAreaAt cs 2
-    let some endZone := endArea.toOuterButtonZone?
+    let some endZone := endArea.toOuterSlot?
       | Except.error { kind := .invalidEndPosition, rawText := content, message := "slide end must be on outer A-ring" }
-    pure (buttonZoneIsRightHalf endZone)
+    pure (outerSlotIsRightHalf endZone)
 
-def parseStartLaneAt (content : List Char) (index : Nat) : Except ParseError ButtonZone :=
+def parseStartLaneAt (content : List Char) (index : Nat) : Except ParseError OuterSlot :=
   readStartLaneAt content index
 
 def parseEndAreaAt (content : List Char) (index : Nat) : Except ParseError SensorArea :=

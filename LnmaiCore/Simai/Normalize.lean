@@ -27,7 +27,7 @@ private def applySingleTrackConnRulesNormalized (slide : NormalizedSlide) (queue
 
 private def attachJudgeQueues (slide : NormalizedSlide) : NormalizedSlide :=
   let rawQueues := judgeQueuesForShapeKey (shapeKey slide.simaiShape) false |>.getD []
-  let placedQueues := rotateJudgeQueues slide.lane.toIndex rawQueues
+  let placedQueues := rotateJudgeQueues slide.slot.toIndex rawQueues
   let withLen := { slide with totalJudgeQueueLen := totalJudgeQueueLen placedQueues }
   let queues :=
     match placedQueues with
@@ -39,17 +39,17 @@ private def slideDebugFor (chart : NormalizedChart) (noteIndex : Nat) : Option N
   chart.slideDebug.find? (fun dbg => dbg.noteIndex = noteIndex)
 
 def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (NormalizedSlide × SlideNoteSemantics) :=
-  match token.lane with
-  | some lane =>
+  match token.slot with
+  | some slot =>
       match parseTerminalEndArea token.rawText with
       | .ok endArea =>
-          match parseSlideNote token.rawText lane endArea with
+          match parseSlideNote token.rawText slot endArea with
           | .ok parsed =>
               let isWifi := parsed.shape.kind = SlideKind.wifi
               let lengthSec := token.lengthSec.getD ((60.0 / token.bpm) * 4.0 / Float.ofNat (max token.divisor 1))
               let slide : NormalizedSlide :=
                 { timingSec := token.timingSec
-                , lane := lane
+                , slot := slot
                 , lengthSec := lengthSec
                 , startTimingSec := token.timingSec + token.starWaitSec.getD 0.0
                 , hSpeed := token.hSpeed
@@ -112,18 +112,18 @@ def lowerRawTokens (measureDurSec : Float → Float) (tokens : List RawNoteToken
         let (noteIndex, taps, holds, touches, touchHolds, slides, slideDebug, slideSemantics) := state
         match token.kind with
         | .tap =>
-            match token.lane with
-            | some lane =>
+            match token.slot with
+            | some slot =>
                 (noteIndex + 1,
-                 { timingSec := token.timingSec, lane := lane, isBreak := token.isBreak, isEX := token.isEX, isHanabi := token.isHanabi, isForceStar := token.isForceStar, noteIndex := noteIndex } :: taps,
+                 { timingSec := token.timingSec, slot := slot, isBreak := token.isBreak, isEX := token.isEX, isHanabi := token.isHanabi, isForceStar := token.isForceStar, noteIndex := noteIndex } :: taps,
                  holds, touches, touchHolds, slides, slideDebug, slideSemantics)
             | none => state
         | .hold =>
-            match token.lane with
-            | some lane =>
+            match token.slot with
+            | some slot =>
                 (noteIndex + 1,
                  taps,
-                 { timingSec := token.timingSec, lane := lane, lengthSec := token.lengthSec.getD (measureDurSec token.bpm / Float.ofNat (max token.divisor 1)), isBreak := token.isBreak, isEX := token.isEX, isHanabi := token.isHanabi, noteIndex := noteIndex } :: holds,
+                 { timingSec := token.timingSec, slot := slot, lengthSec := token.lengthSec.getD (measureDurSec token.bpm / Float.ofNat (max token.divisor 1)), isBreak := token.isBreak, isEX := token.isEX, isHanabi := token.isHanabi, noteIndex := noteIndex } :: holds,
                  touches, touchHolds, slides, slideDebug, slideSemantics)
             | none => state
         | .touch =>
@@ -154,16 +154,16 @@ def lowerRawTokens (measureDurSec : Float → Float) (tokens : List RawNoteToken
 
 def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
   { taps := chart.taps.map (fun note =>
-      { timingSec := note.timingSec, lane := note.lane, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex })
+      { timingSec := note.timingSec, slot := note.slot, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex })
   , holds := chart.holds.map (fun note =>
-      { timingSec := note.timingSec, lane := note.lane, lengthSec := note.lengthSec, isBreak := note.isBreak, isEX := note.isEX, isTouch := false, noteIndex := note.noteIndex })
+      { timingSec := note.timingSec, slot := note.slot, lengthSec := note.lengthSec, isBreak := note.isBreak, isEX := note.isEX, isTouch := false, noteIndex := note.noteIndex })
   , touches := chart.touches.map (fun note =>
       { timingSec := note.timingSec, sensorPos := note.sensorPos, isBreak := note.isBreak, noteIndex := note.noteIndex })
   , touchHolds := chart.touchHolds.map (fun note =>
       { timingSec := note.timingSec, sensorPos := note.sensorPos, lengthSec := note.lengthSec, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex })
   , slides := chart.slides.map (fun note =>
       { timingSec := note.timingSec
-      , lane := note.lane
+      , slot := note.slot
       , lengthSec := note.lengthSec
       , startTimingSec := note.startTimingSec
       , slideKind := note.slideKind

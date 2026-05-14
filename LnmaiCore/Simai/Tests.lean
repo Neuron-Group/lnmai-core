@@ -33,7 +33,7 @@ def test_simai_slide_dsl_smoke : ParityCase :=
   let slide : SlideNoteSemantics := simai_slide! "1V35"
   let normalized : NormalizedSlide := simai_normalized_slide! "1w5[4:1]"
   supportedCase "simai_slide_dsl_smoke"
-    (slide.startLane = .K1 && slide.endArea = .A5 &&
+    (slide.startSlot = .S1 && slide.endArea = .A5 &&
      slide.shape.kind = SlideKind.turn &&
      normalized.trackCount = 3 && normalized.slideKind = LnmaiCore.SlideKind.Wifi)
     "slide DSL elaborates through shared parser/normalizer"
@@ -43,7 +43,7 @@ def test_simai_chart_level_dsl_smoke : ParityCase :=
     simai_chart_at! 2 "&first=0\n&inote_1=\n(120)\n1,\n&inote_2=\n(120)\n2,\n"
   supportedCase "simai_chart_level_dsl_smoke"
     (match chart.semantic.normalized.taps with
-     | tap :: _ => tap.lane = .K2
+     | tap :: _ => tap.slot = .S2
      | _ => false)
     "level-aware chart DSL selects the requested inote block"
 
@@ -80,7 +80,7 @@ def test_simple_tap_and_bpm : ParityCase :=
       match chart.semantic.normalized.taps with
       | first :: second :: _ =>
           supportedCase "simple_tap_and_bpm"
-            (first.lane = .K1 && second.lane = .K2 &&
+            (first.slot = .S1 && second.slot = .S2 &&
              floatEq first.timingSec 0.5 && floatEq second.timingSec 1.0)
             "&first offset and BPM step apply"
       | _ => supportedCase "simple_tap_and_bpm" false "expected two taps"
@@ -90,7 +90,7 @@ def test_hold_note_basic_duration : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(60)\n1h[4:1],\n" with
   | .ok chart =>
       match chart.semantic.normalized.holds with
-      | hold :: _ => supportedCase "hold_note_basic_duration" (hold.lane = .K1 && floatEq hold.lengthSec 1.0) "generic BPM parsing works"
+      | hold :: _ => supportedCase "hold_note_basic_duration" (hold.slot = .S1 && floatEq hold.lengthSec 1.0) "generic BPM parsing works"
       | _ => supportedCase "hold_note_basic_duration" false "expected one hold"
   | .error err => supportedCase "hold_note_basic_duration" false s!"unexpected parse error: {err.message}"
 
@@ -302,7 +302,7 @@ def test_same_head_with_tap_head_matches_python_flattening : ParityCase :=
       match chart.semantic.normalized.taps, chart.semantic.normalized.slides with
       | tap :: _, first :: second :: _ =>
           supportedCase "same_head_with_tap_head_matches_python_flattening"
-            (tap.lane = .K1 &&
+            (tap.slot = .S1 &&
              first.isConnSlide && second.isConnSlide &&
              first.isGroupHead && !first.isGroupEnd && first.parentNoteIndex = none &&
              !second.isGroupHead && second.isGroupEnd && second.parentNoteIndex = some first.noteIndex &&

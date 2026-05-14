@@ -163,7 +163,7 @@ def mkRawToken (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) :
   let t := trim token
   let kind := inferKind t
   let parsedText := if kind = .slide then sanitizeSlideToken t else t
-  let lane := leadingDigit? parsedText >>= (fun n => ButtonZone.ofIndex? (n - 1))
+  let slot := leadingDigit? parsedText >>= (fun n => OuterSlot.ofIndex? (n - 1))
   let sensorPos := touchAreaToSensorArea? t
   let lengthSec := parseDurationSpec bpm t
   let starWaitSec := if kind = .slide then parseStarWaitSpec bpm t else none
@@ -180,7 +180,7 @@ def mkRawToken (timingSec bpm hSpeed : Float) (divisor : Nat) (token : String) :
   , bpm := bpm
   , hSpeed := hSpeed
   , divisor := divisor
-  , lane := lane
+  , slot := slot
   , sensorPos := sensorPos
   , lengthSec := lengthSec
   , starWaitSec := starWaitSec

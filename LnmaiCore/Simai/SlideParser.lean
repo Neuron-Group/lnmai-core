@@ -2,28 +2,28 @@ import LnmaiCore.Simai.Shape
 
 namespace LnmaiCore.Simai
 
-private def relativeEndPosCompat (startLane endZone : ButtonZone) : Nat :=
-  (((endZone.toIndex + 1 - 1) + 8 - startLane.toIndex) % 8) + 1
+private def relativeEndPosCompat (startSlot endZone : OuterSlot) : Nat :=
+  (((endZone.toIndex + 1 - 1) + 8 - startSlot.toIndex) % 8) + 1
 
-private def isRightHalfCompat (zone : ButtonZone) : Bool :=
+private def isRightHalfCompat (zone : OuterSlot) : Bool :=
   zone.toIndex < 4
 
-private def isUpperHalfCompat : ButtonZone → Bool
-  | .K7 | .K8 | .K1 | .K2 => true
+private def isUpperHalfCompat : OuterSlot → Bool
+  | .S7 | .S8 | .S1 | .S2 => true
   | _ => false
 
 private def sanitizeSlideText (rawText : String) : String :=
   String.ofList <| rawText.toList.filter (fun c =>
     c ≠ 'b' && c ≠ 'x' && c ≠ 'f' && c ≠ '!' && c ≠ '?' && c ≠ '$')
 
-private def outerButtonZoneForEndArea (endArea : SensorArea) : Except ParseError ButtonZone :=
-  match endArea.toOuterButtonZone? with
+private def outerSlotForEndArea (endArea : SensorArea) : Except ParseError OuterSlot :=
+  match endArea.toOuterSlot? with
   | some zone => pure zone
   | none => Except.error { kind := .invalidSyntax, rawText := "", message := "invalid slide end position" }
 
-private def fallbackShapeFromText (rawText : String) (startLane : ButtonZone) (endArea : SensorArea) : Except ParseError SlideShape := do
-  let endZone ← outerButtonZoneForEndArea endArea
-  let relEnd := relativeEndPosCompat startLane endZone
+private def fallbackShapeFromText (rawText : String) (startSlot : OuterSlot) (endArea : SensorArea) : Except ParseError SlideShape := do
+  let endZone ← outerSlotForEndArea endArea
+  let relEnd := relativeEndPosCompat startSlot endZone
   if rawText.contains '-' then
     pure { kind := .line, relEnd := some relEnd, mirrored := false }
   else if rawText.contains '>' then
@@ -53,14 +53,14 @@ private def fallbackShapeFromText (rawText : String) (startLane : ButtonZone) (e
   else
     Except.error { kind := .invalidShape, rawText := rawText, message := "unrecognized Simai slide shape" }
 
-private def fallbackJustType (rawText : String) (startLane : ButtonZone) (endArea : SensorArea) : Except ParseError Bool := do
-  let endZone ← outerButtonZoneForEndArea endArea
+private def fallbackJustType (rawText : String) (startSlot : OuterSlot) (endArea : SensorArea) : Except ParseError Bool := do
+  let endZone ← outerSlotForEndArea endArea
   if rawText.contains '>' then
-    pure <| isUpperHalfCompat startLane
+    pure <| isUpperHalfCompat startSlot
   else if rawText.contains '<' then
-    pure <| !isUpperHalfCompat startLane
+    pure <| !isUpperHalfCompat startSlot
   else if rawText.contains '^' then
-    pure <| relativeEndPosCompat startLane endZone < 4
+    pure <| relativeEndPosCompat startSlot endZone < 4
   else if rawText.contains 'V' then
     pure <| isRightHalfCompat endZone
   else if rawText.contains 'w' then
@@ -68,20 +68,20 @@ private def fallbackJustType (rawText : String) (startLane : ButtonZone) (endAre
   else
     pure <| isRightHalfCompat endZone
 
-def parseSlideNote (rawText : String) (startLane : ButtonZone) (endArea : SensorArea) : Except ParseError SlideNoteSemantics := do
+def parseSlideNote (rawText : String) (startSlot : OuterSlot) (endArea : SensorArea) : Except ParseError SlideNoteSemantics := do
   let sanitized := sanitizeSlideText rawText
   let shape ←
     match detectShapeFromText sanitized with
     | .ok shape => pure shape
-    | .error _ => fallbackShapeFromText sanitized startLane endArea
+    | .error _ => fallbackShapeFromText sanitized startSlot endArea
   let isJustRight :=
     match detectJustType sanitized with
     | .ok value => pure value
-    | .error _ => fallbackJustType sanitized startLane endArea
+    | .error _ => fallbackJustType sanitized startSlot endArea
   let isJustRight ← isJustRight
   pure {
     rawText := sanitized,
-    startLane := startLane,
+    startSlot := startSlot,
     endArea := endArea,
     shape := shape,
     isJustRight := isJustRight
@@ -102,9 +102,9 @@ def parseSlideShapeText (rawText : String) : Except ParseError SlideShape :=
   | .ok shape => pure shape
   | .error _ => do
       let cs := sanitized.toList
-      let startLane ← parseStartLaneAt cs 0
+      let startSlot ← parseStartLaneAt cs 0
       let endArea ← parseTerminalEndArea sanitized
-      fallbackShapeFromText sanitized startLane endArea
+      fallbackShapeFromText sanitized startSlot endArea
 
 def parseSlideJustText (rawText : String) : Except ParseError Bool :=
   let sanitized := sanitizeSlideText rawText
@@ -112,20 +112,20 @@ def parseSlideJustText (rawText : String) : Except ParseError Bool :=
   | .ok value => pure value
   | .error _ => do
       let cs := sanitized.toList
-      let startLane ← parseStartLaneAt cs 0
+      let startSlot ← parseStartLaneAt cs 0
       let endArea ← parseTerminalEndArea sanitized
-      fallbackJustType sanitized startLane endArea
+      fallbackJustType sanitized startSlot endArea
 
 def parseSlideTimingPoint (timingSec bpm hSpeed : Float) (rawNotes : List String) : Except ParseError TimingPointSemantics := do
   let notes ← rawNotes.mapM (fun raw => do
     let shape ← detectShapeFromText raw
     let just ← detectJustType raw
     let cs := raw.toList
-    let startLane ← parseStartLaneAt cs 0
+    let startSlot ← parseStartLaneAt cs 0
     let endArea ← parseTerminalEndArea raw
     pure {
       rawText := raw,
-      startLane := startLane,
+      startSlot := startSlot,
       endArea := endArea,
       shape := shape,
       isJustRight := just

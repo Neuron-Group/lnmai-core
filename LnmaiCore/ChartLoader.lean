@@ -30,7 +30,7 @@ open Lifecycle
 
 structure TapChartNote where
   timingSec : Float
-  lane      : ButtonZone
+  slot      : OuterSlot
   isBreak   : Bool := false
   isEX      : Bool := false
   noteIndex : Nat := 0
@@ -38,7 +38,7 @@ deriving Inhabited, Repr, ToJson, FromJson
 
 structure HoldChartNote where
   timingSec : Float
-  lane      : ButtonZone
+  slot      : OuterSlot
   lengthSec : Float
   isBreak   : Bool := false
   isEX      : Bool := false
@@ -73,7 +73,7 @@ abbrev SlideAreaSpec := Simai.SlideAreaSpec
 
 structure SlideChartNote where
   timingSec     : Float
-  lane          : ButtonZone
+  slot          : OuterSlot
   lengthSec     : Float
   startTimingSec : Float := 0.0
   slideKind     : SlideKind := .Single
@@ -116,12 +116,12 @@ private def sortByTiming {α : Type} (getTiming : α → Float) (items : List α
 
 private def buildTap (note : TapChartNote) : TapNote :=
   { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
-  , lane := note.lane
+  , lane := note.slot
   , state := TapState.Waiting }
 
 private def buildHold (note : HoldChartNote) : HoldNote :=
   { params := { judgeTimingSec := note.timingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
-  , start := .button note.lane
+  , start := .button note.slot.toButtonZone
   , state := HoldSubState.HeadWaiting
   , lengthSec := note.lengthSec
   , headDiffMs := 0.0
@@ -298,7 +298,7 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
     | [] => 0
     | queue :: rest => Nat.max queue.length (maxQueueLength rest)
   { params := { judgeTimingSec := judgeTimingSec, judgeOffsetSec := Constants.JUDGE_OFFSET_SEC, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
-  , lane := note.lane
+  , lane := note.slot
   , state := SlideState.Active waitTimeSec
   , lengthSec := note.lengthSec
   , startTiming := note.startTimingSec
@@ -319,11 +319,11 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
 def buildGameState (chart : ChartSpec) : GameState :=
   let tapQueues : ButtonQueueVec TapNote :=
     ButtonVec.ofFn (fun zone =>
-      let notes := (sortByTiming (fun note => note.timingSec) (chart.taps.filter (fun note => note.lane == zone))).map buildTap
+      let notes := (sortByTiming (fun note => note.timingSec) (chart.taps.filter (fun note => note.slot.toButtonZone == zone))).map buildTap
       { notes := notes })
   let holdQueues : ButtonQueueVec HoldNote :=
     ButtonVec.ofFn (fun zone =>
-      let notes := (sortByTiming (fun note => note.timingSec) (chart.holds.filter (fun note => note.lane == zone))).map buildHold
+      let notes := (sortByTiming (fun note => note.timingSec) (chart.holds.filter (fun note => note.slot.toButtonZone == zone))).map buildHold
       { notes := notes })
   let touchHoldNotes := assignTouchHoldGroups chart.touchHolds
   let touchNotesGrouped := assignTouchGroups chart.touches
@@ -336,7 +336,7 @@ def buildGameState (chart : ChartSpec) : GameState :=
       let notes := (sortByTiming (fun note => note.timingSec) (touchNotesGrouped.filter (fun note => note.sensorPos == area))).map buildTouch
       { notes := notes })
   let activeHolds :=
-    (chart.holds.map (fun note => (note.lane, buildHold note)))
+    (chart.holds.map (fun note => (note.slot.toButtonZone, buildHold note)))
   let activeTouchHolds :=
     (touchHoldNotes.map (fun note => (note.sensorPos, buildTouchHold note)))
   {

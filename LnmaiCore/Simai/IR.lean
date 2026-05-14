@@ -11,7 +11,7 @@ deriving Inhabited, Repr
 
 structure NormalizedTap where
   timingSec : Float
-  lane : ButtonZone
+  slot : OuterSlot
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
@@ -21,7 +21,7 @@ deriving Inhabited, Repr
 
 structure NormalizedHold where
   timingSec : Float
-  lane : ButtonZone
+  slot : OuterSlot
   lengthSec : Float
   isBreak : Bool := false
   isEX : Bool := false
@@ -49,7 +49,7 @@ deriving Inhabited, Repr
 
 structure NormalizedSlide where
   timingSec : Float
-  lane : ButtonZone
+  slot : OuterSlot
   lengthSec : Float
   startTimingSec : Float
   hSpeed : Float := 1.0

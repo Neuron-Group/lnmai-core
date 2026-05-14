@@ -70,7 +70,7 @@ private def mkButtonFrameInput
 private def activeSingleTapState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 1 }
-    , lane := .K1
+    , lane := .S1
     , state := .Judgeable }
   { currentTime := 0.984
   , tapQueues := ButtonVec.ofFn (fun zone => if zone == .K1 then { notes := [tap] } else { notes := [] }) }
@@ -136,7 +136,7 @@ private def activeConnSlidesState : InputModel.GameState :=
     { targetAreas := [.A2], isLast := true }
   let parent : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 10 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.1
     , lengthSec := 0.4
     , startTiming := 0.6
@@ -151,7 +151,7 @@ private def activeConnSlidesState : InputModel.GameState :=
     , judgeQueues := [[parentArea]] }
   let child : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.4, judgeOffsetSec := 0.0, noteIndex := 11 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.1
     , lengthSec := 0.4
     , startTiming := 1.0
@@ -183,7 +183,7 @@ private def activeFinishedSlideState : InputModel.GameState :=
     { targetAreas := [.A1], isLast := true, wasOn := true }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 20 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.05
     , lengthSec := 0.2
     , startTiming := 0.8
@@ -268,7 +268,7 @@ private def pendingConnChildState : InputModel.GameState :=
     { targetAreas := [.A2], isLast := true }
   let parent : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 40 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.1
     , lengthSec := 0.4
     , startTiming := 0.6
@@ -283,7 +283,7 @@ private def pendingConnChildState : InputModel.GameState :=
     , judgeQueues := [[parentArea]] }
   let child : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.4, judgeOffsetSec := 0.0, noteIndex := 41 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.1
     , lengthSec := 0.4
     , startTiming := 1.0
@@ -316,7 +316,7 @@ private def activeWifiClassicTailState : InputModel.GameState :=
     { targetAreas := [.A1], isLast := true, arrowProgressWhenFinished := progress }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 50 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.1
     , lengthSec := 0.5
     , startTiming := 0.5
@@ -346,7 +346,7 @@ private def activeWifiCenterClearedState : InputModel.GameState :=
     { targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 4, arrowProgressWhenFinished := 4 }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 51 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.1
     , lengthSec := 0.5
     , startTiming := 0.5
@@ -374,7 +374,7 @@ def test_wifi_center_cleared_progress_uses_special_marker : RuntimeCase :=
 private def activeWifiJudgedWaitState : InputModel.GameState :=
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 52 }
-    , lane := .K1
+    , lane := .S1
     , state := .Judged .Perfect 0.01 123.0
     , lengthSec := 0.5
     , startTiming := 0.5
@@ -405,7 +405,7 @@ private def activeWifiTooLateState : InputModel.GameState :=
     { targetAreas := [.A1], isLast := true }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTimingSec := 1.0, judgeOffsetSec := 0.0, noteIndex := 53 }
-    , lane := .K1
+    , lane := .S1
     , state := .Active 0.1
     , lengthSec := 0.2
     , startTiming := 0.8

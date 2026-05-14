@@ -18,6 +18,10 @@ inductive ButtonZone where
   | K1 | K2 | K3 | K4 | K5 | K6 | K7 | K8
 deriving Inhabited, Repr, BEq, DecidableEq, Ord
 
+inductive OuterSlot where
+  | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8
+deriving Inhabited, Repr, BEq, DecidableEq, Ord
+
 def SensorArea.all : List SensorArea :=
   [ .A1, .A2, .A3, .A4, .A5, .A6, .A7, .A8
   , .B1, .B2, .B3, .B4, .B5, .B6, .B7, .B8
@@ -27,6 +31,9 @@ def SensorArea.all : List SensorArea :=
 
 def ButtonZone.all : List ButtonZone :=
   [ .K1, .K2, .K3, .K4, .K5, .K6, .K7, .K8 ]
+
+def OuterSlot.all : List OuterSlot :=
+  [ .S1, .S2, .S3, .S4, .S5, .S6, .S7, .S8 ]
 
 def SensorArea.toIndex : SensorArea → Nat
   | .A1 => 0 | .A2 => 1 | .A3 => 2 | .A4 => 3 | .A5 => 4 | .A6 => 5 | .A7 => 6 | .A8 => 7
@@ -51,6 +58,14 @@ def ButtonZone.ofIndex? : Nat → Option ButtonZone
   | 4 => some .K5 | 5 => some .K6 | 6 => some .K7 | 7 => some .K8
   | _ => none
 
+def OuterSlot.toIndex : OuterSlot → Nat
+  | .S1 => 0 | .S2 => 1 | .S3 => 2 | .S4 => 3 | .S5 => 4 | .S6 => 5 | .S7 => 6 | .S8 => 7
+
+def OuterSlot.ofIndex? : Nat → Option OuterSlot
+  | 0 => some .S1 | 1 => some .S2 | 2 => some .S3 | 3 => some .S4
+  | 4 => some .S5 | 5 => some .S6 | 6 => some .S7 | 7 => some .S8
+  | _ => none
+
 theorem sensorArea_ofIndex_toIndex (area : SensorArea) : SensorArea.ofIndex? area.toIndex = some area := by
   cases area <;> rfl
 
@@ -64,9 +79,19 @@ theorem sensorArea_toIndex_ofIndex (index : Nat) (h : index < Constants.SENSOR_A
 theorem buttonZone_ofIndex_toIndex (zone : ButtonZone) : ButtonZone.ofIndex? zone.toIndex = some zone := by
   cases zone <;> rfl
 
+theorem outerSlot_ofIndex_toIndex (slot : OuterSlot) : OuterSlot.ofIndex? slot.toIndex = some slot := by
+  cases slot <;> rfl
+
 theorem buttonZone_toIndex_ofIndex (index : Nat) (h : index < Constants.BUTTON_ZONE_COUNT) :
     match ButtonZone.ofIndex? index with
     | some zone => zone.toIndex = index
+    | none => False := by
+  have h' : index < 8 := by simpa [Constants.BUTTON_ZONE_COUNT] using h
+  interval_cases index <;> rfl
+
+theorem outerSlot_toIndex_ofIndex (index : Nat) (h : index < Constants.BUTTON_ZONE_COUNT) :
+    match OuterSlot.ofIndex? index with
+    | some slot => slot.toIndex = index
     | none => False := by
   have h' : index < 8 := by simpa [Constants.BUTTON_ZONE_COUNT] using h
   interval_cases index <;> rfl
@@ -93,11 +118,18 @@ def ButtonZone.code : ButtonZone → String
   | .K1 => "K1" | .K2 => "K2" | .K3 => "K3" | .K4 => "K4"
   | .K5 => "K5" | .K6 => "K6" | .K7 => "K7" | .K8 => "K8"
 
+def OuterSlot.code : OuterSlot → String
+  | .S1 => "S1" | .S2 => "S2" | .S3 => "S3" | .S4 => "S4"
+  | .S5 => "S5" | .S6 => "S6" | .S7 => "S7" | .S8 => "S8"
+
 instance : ToString SensorArea where
   toString := SensorArea.code
 
 instance : ToString ButtonZone where
   toString := ButtonZone.code
+
+instance : ToString OuterSlot where
+  toString := OuterSlot.code
 
 instance : ToJson SensorArea where
   toJson area := Json.str area.code
@@ -123,6 +155,15 @@ instance : FromJson ButtonZone where
     | Json.str "K1" => .ok .K1 | Json.str "K2" => .ok .K2 | Json.str "K3" => .ok .K3 | Json.str "K4" => .ok .K4
     | Json.str "K5" => .ok .K5 | Json.str "K6" => .ok .K6 | Json.str "K7" => .ok .K7 | Json.str "K8" => .ok .K8
     | _ => .error "invalid ButtonZone"
+
+instance : ToJson OuterSlot where
+  toJson slot := Json.str slot.code
+
+instance : FromJson OuterSlot where
+  fromJson?
+    | Json.str "S1" => .ok .S1 | Json.str "S2" => .ok .S2 | Json.str "S3" => .ok .S3 | Json.str "S4" => .ok .S4
+    | Json.str "S5" => .ok .S5 | Json.str "S6" => .ok .S6 | Json.str "S7" => .ok .S7 | Json.str "S8" => .ok .S8
+    | _ => .error "invalid OuterSlot"
 
 private def rotateRingIndex (steps : Nat) (n : Nat) : Nat :=
   (((n - 1) + steps) % 8) + 1
@@ -175,13 +216,37 @@ def ButtonZone.rotate (steps : Nat) : ButtonZone → ButtonZone
   | .K5 => rotateRingButton steps 5 | .K6 => rotateRingButton steps 6
   | .K7 => rotateRingButton steps 7 | .K8 => rotateRingButton steps 8
 
+def OuterSlot.rotate (steps : Nat) : OuterSlot → OuterSlot
+  | .S1 => match (1 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+  | .S2 => match (2 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+  | .S3 => match (3 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+  | .S4 => match (4 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+  | .S5 => match (5 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+  | .S6 => match (6 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+  | .S7 => match (7 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+  | .S8 => match (8 - 1 + steps) % 8 + 1 with | 1 => .S1 | 2 => .S2 | 3 => .S3 | 4 => .S4 | 5 => .S5 | 6 => .S6 | 7 => .S7 | _ => .S8
+
+def OuterSlot.toButtonZone : OuterSlot → ButtonZone
+  | .S1 => .K1 | .S2 => .K2 | .S3 => .K3 | .S4 => .K4
+  | .S5 => .K5 | .S6 => .K6 | .S7 => .K7 | .S8 => .K8
+
+def ButtonZone.toOuterSlot : ButtonZone → OuterSlot
+  | .K1 => .S1 | .K2 => .S2 | .K3 => .S3 | .K4 => .S4
+  | .K5 => .S5 | .K6 => .S6 | .K7 => .S7 | .K8 => .S8
+
+def OuterSlot.toOuterSensorArea : OuterSlot → SensorArea
+  | .S1 => .A1 | .S2 => .A2 | .S3 => .A3 | .S4 => .A4
+  | .S5 => .A5 | .S6 => .A6 | .S7 => .A7 | .S8 => .A8
+
+def SensorArea.toOuterSlot? : SensorArea → Option OuterSlot
+  | .A1 => some .S1 | .A2 => some .S2 | .A3 => some .S3 | .A4 => some .S4
+  | .A5 => some .S5 | .A6 => some .S6 | .A7 => some .S7 | .A8 => some .S8
+  | _ => none
+
 def ButtonZone.toOuterSensorArea : ButtonZone → SensorArea
-  | .K1 => .A1 | .K2 => .A2 | .K3 => .A3 | .K4 => .A4
-  | .K5 => .A5 | .K6 => .A6 | .K7 => .A7 | .K8 => .A8
+  | zone => zone.toOuterSlot.toOuterSensorArea
 
 def SensorArea.toOuterButtonZone? : SensorArea → Option ButtonZone
-  | .A1 => some .K1 | .A2 => some .K2 | .A3 => some .K3 | .A4 => some .K4
-  | .A5 => some .K5 | .A6 => some .K6 | .A7 => some .K7 | .A8 => some .K8
-  | _ => none
+  | area => area.toOuterSlot?.map OuterSlot.toButtonZone
 
 end LnmaiCore

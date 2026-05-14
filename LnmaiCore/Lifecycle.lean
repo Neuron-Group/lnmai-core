@@ -60,12 +60,12 @@ deriving Inhabited, Repr
 
 structure TapNote where
   params : CommonNoteParams
-  lane   : ButtonZone
+  lane   : OuterSlot
   state  : TapState
 deriving Inhabited, Repr
 
 def TapNote.position (note : TapNote) : RuntimePos :=
-  .button note.lane
+  .button note.lane.toButtonZone
 
 /--
   Advance a tap note one frame. Returns (new_note, optional JudgeEvent).
@@ -489,7 +489,7 @@ private def updateSlideQueue (noteIndex : Nat) (trackIndex : Option Nat) (queue 
 
 structure SlideNote where
   params          : CommonNoteParams
-  lane            : ButtonZone
+  lane            : OuterSlot
   state           : SlideState
   lengthSec       : Float               -- total slide length
   startTiming     : Float               -- when slide started
@@ -509,7 +509,7 @@ structure SlideNote where
 deriving Inhabited, Repr
 
 def SlideNote.position (note : SlideNote) : RuntimePos :=
-  .button note.lane
+  .button note.lane.toButtonZone
 
 private def SlideNote.queueTracks (note : SlideNote) : List (Option Nat × SlideQueue) :=
   if note.trackCount = 1 then
