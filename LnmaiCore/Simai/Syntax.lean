@@ -3,7 +3,57 @@ import Lean.Data.Json
 import LnmaiCore.Areas
 import LnmaiCore.Time
 
+open Lean
+
 namespace LnmaiCore.Simai
+
+private def ratToDecimalStringAux (numerator denominator : Nat) : Nat → Nat → List Char
+  | 0, _ => []
+  | fuel + 1, rem =>
+      if rem = 0 then
+        []
+      else
+        let scaled := rem * 10
+        let digit := scaled / denominator
+        let nextRem := scaled % denominator
+        Char.ofNat (digit + '0'.toNat) :: ratToDecimalStringAux numerator denominator fuel nextRem
+
+def ratToDecimalString (value : Rat) : String :=
+  let num := value.num
+  let denNat := value.den
+  let negative := num < 0
+  let numAbs := num.natAbs
+  let whole := numAbs / denNat
+  let rem := numAbs % denNat
+  let fracChars := ratToDecimalStringAux numAbs denNat 12 rem
+  let fracTrimmed := fracChars.reverse.dropWhile (· = '0') |>.reverse
+  let sign := if negative then "-" else ""
+  if fracTrimmed.isEmpty then
+    s!"{sign}{whole}"
+  else
+    s!"{sign}{whole}.{String.ofList fracTrimmed}"
+
+def ratToJson (value : Rat) : Json :=
+  Json.mkObj
+    [ ("num", toJson value.num)
+    , ("den", toJson value.den)
+    , ("decimal", Json.str (ratToDecimalString value)) ]
+
+def ratFromJson? (json : Json) : Except String Rat := do
+  let numJson ← json.getObjVal? "num"
+  let denJson ← json.getObjVal? "den"
+  let num : Int <- fromJson? numJson
+  let denNat : Nat <- fromJson? denJson
+  if denNat = 0 then
+    Except.error "rational denominator must be nonzero"
+  else
+    pure (num / denNat)
+
+instance : ToJson Rat where
+  toJson := ratToJson
+
+instance : FromJson Rat where
+  fromJson? := ratFromJson?
 
 structure SourcePos where
   line : Nat
@@ -57,8 +107,8 @@ deriving DecidableEq, Repr, Inhabited, BEq
 
 structure TimingPointSemantics where
   timing : TimePoint
-  bpm : Float
-  hSpeed : Float
+  bpm : Rat
+  hSpeed : Rat
   notes : List SlideNoteSemantics := []
 deriving Inhabited, Repr
 
@@ -98,8 +148,8 @@ structure RawNoteToken where
   rawText : String
   kind : RawNoteKind
   timing : TimePoint
-  bpm : Float
-  hSpeed : Float := 1.0
+  bpm : Rat
+  hSpeed : Rat := 1
   divisor : Nat
   slot : Option OuterSlot := none
   sensorPos : Option SensorArea := none
@@ -125,8 +175,8 @@ deriving Inhabited, Repr
 
 structure SourceEvent where
   timing : TimePoint
-  bpm : Float
-  hSpeed : Float := 1.0
+  bpm : Rat
+  hSpeed : Rat := 1
   divisor : Nat := 4
   notes : List SourceNote := []
   sourcePos : Option SourceSpan := none

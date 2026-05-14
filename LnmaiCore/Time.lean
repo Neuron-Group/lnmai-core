@@ -243,29 +243,55 @@ namespace Time
 
 def microsPerMilli : Int := 1000
 
+def microsPerSecond : Int := 1000000
+
+def microsPerMinute : Int := 60 * microsPerSecond
+
 def millisToMicros (millis : Int) : Int :=
   millis * microsPerMilli
+
+private def roundDivAwayFromZero (num den : Int) : Int :=
+  if den = 0 then
+    0
+  else
+    let denAbs := Int.natAbs den
+    let denPos : Int := Int.ofNat denAbs
+    let numAdj :=
+      if num < 0 then
+        num - denPos / 2
+      else
+        num + denPos / 2
+    numAdj / denPos
+
+def quantizeRatMicros (value : Rat) : Int :=
+  roundDivAwayFromZero value.num value.den
+
+def durationFromRatMicros (value : Rat) : Duration :=
+  Duration.fromMicros (quantizeRatMicros value)
+
+def pointFromRatMicros (value : Rat) : TimePoint :=
+  TimePoint.fromMicros (quantizeRatMicros value)
+
+def bpmBeatMicrosRat (bpm : Rat) : Rat :=
+  if bpm = 0 then
+    1
+  else
+    (microsPerMinute : Rat) / bpm
+
+def bpmMeasureMicrosRat (bpm : Rat) : Rat :=
+  bpmBeatMicrosRat bpm * 4
+
+def durationFromSecondsRat (seconds : Rat) : Duration :=
+  durationFromRatMicros (seconds * microsPerSecond)
+
+def pointFromSecondsRat (seconds : Rat) : TimePoint :=
+  pointFromRatMicros (seconds * microsPerSecond)
 
 def fromMillis (millis : Int) : Duration :=
   Duration.fromMicros (millisToMicros millis)
 
 def pointFromMillis (millis : Int) : TimePoint :=
   TimePoint.fromMicros (millisToMicros millis)
-
-def microsToSecondsFloat (micros : Int) : Float :=
-  if micros < 0 then
-    - (Float.ofNat micros.natAbs / 1000000.0)
-  else
-    Float.ofNat micros.natAbs / 1000000.0
-
-def durationToSecondsFloat (duration : Duration) : Float :=
-  microsToSecondsFloat duration.toMicros
-
-def pointToSecondsFloat (point : TimePoint) : Float :=
-  microsToSecondsFloat point.toMicros
-
-def durationToMillisFloat (duration : Duration) : Float :=
-  microsToSecondsFloat duration.toMicros * 1000.0
 
 theorem timePoint_toMicros_order_preserving (a b : TimePoint) :
     a ≤ b ↔ a.toMicros ≤ b.toMicros := by
@@ -347,15 +373,6 @@ def parseSecondsString? (text : String) : Option Duration :=
 
 def parseSecondsPointString? (text : String) : Option TimePoint :=
   TimePoint.fromMicros <$> quantizeSecondsString text
-
-def beatDurationMicros (bpm : Float) : Duration :=
-  if bpm > 0.0 then
-    Duration.fromMicros <| Int.ofNat (Float.toUInt64 ((60.0 / bpm) * 1000000.0)).toNat
-  else
-    Duration.fromMicros 1000
-
-def measureDurationMicros (bpm : Float) : Duration :=
-  Duration.scaleNat (beatDurationMicros bpm) 4
 
 end Time
 

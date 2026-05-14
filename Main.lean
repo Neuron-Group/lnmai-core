@@ -32,18 +32,18 @@ def sampleRealSimaiTokens (content : String) : List String :=
 def realSimaiAstProbe : IO (Except Simai.ParseError Simai.TimingPointSemantics) := do
   let content ← IO.FS.readFile realChartPath
   let tokens := sampleRealSimaiTokens content |>.take 8
-  pure <| Simai.parseSlideTimingPoint 0.0 128.0 1.0 tokens
+  pure <| Simai.parseSlideTimingPoint TimePoint.zero 128 1 tokens
 
 def sampleChartJson : String :=
   "{\n" ++
   "  \"taps\": [\n" ++
-  "    { \"timingSec\": 1.0, \"lane\": \"K1\", \"isBreak\": false, \"isEX\": false, \"noteIndex\": 1 }\n" ++
+  "    { \"timing\": 1000000, \"slot\": \"S1\", \"isBreak\": false, \"isEX\": false, \"noteIndex\": 1 }\n" ++
   "  ],\n" ++
   "  \"holds\": [\n" ++
-  "    { \"timingSec\": 2.0, \"lane\": \"K2\", \"lengthSec\": 0.6, \"isBreak\": false, \"isEX\": false, \"isTouch\": false, \"noteIndex\": 2 }\n" ++
+  "    { \"timing\": 2000000, \"slot\": \"S2\", \"length\": 600000, \"isBreak\": false, \"isEX\": false, \"isTouch\": false, \"noteIndex\": 2 }\n" ++
   "  ],\n" ++
   "  \"touches\": [\n" ++
-  "    { \"timingSec\": 3.0, \"sensorPos\": \"A5\", \"isBreak\": false, \"noteIndex\": 3 }\n" ++
+  "    { \"timing\": 3000000, \"sensorPos\": \"A5\", \"isBreak\": false, \"noteIndex\": 3 }\n" ++
   "  ],\n" ++
   "  \"touchHolds\": [],\n" ++
   "  \"slides\": []\n" ++
@@ -55,11 +55,11 @@ def sampleChartSpec : Except String ChartLoader.ChartSpec :=
 #eval sampleChartSpec
 
 def sampleSimaiAst : Except Simai.ParseError Simai.TimingPointSemantics :=
-  Simai.parseSlideTimingPoint 12.0 180.0 1.0 ["1-3", "1V35", "1w5"]
+  Simai.parseSlideTimingPoint (LnmaiCore.Time.pointFromSecondsRat 12) 180 1 ["1-3", "1V35", "1w5"]
 
 #eval sampleSimaiAst
 
-#eval! realSimaiAstProbe
+#eval realSimaiAstProbe
 
 def main : IO Unit := do
   match sampleChartSpec with

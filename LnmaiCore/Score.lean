@@ -196,12 +196,13 @@ def countFastLate (grade : JudgeGrade) (diff : Duration) (display : FastLateDisp
 def dxScoreRank (achievedDxScore : Nat) (maxDxScore : Nat) : Nat :=
   if maxDxScore == 0 then 0
   else
-    let pct : Float := (Float.ofNat achievedDxScore) / (Float.ofNat maxDxScore) * 100.0
-    if pct ≥ 97.0 then 5
-    else if pct ≥ 95.0 then 4
-    else if pct ≥ 93.0 then 3
-    else if pct ≥ 90.0 then 2
-    else if pct ≥ 85.0 then 1
+    let meetsPercent (threshold : Nat) : Bool :=
+      achievedDxScore * 100 ≥ maxDxScore * threshold
+    if meetsPercent 97 then 5
+    else if meetsPercent 95 then 4
+    else if meetsPercent 93 then 3
+    else if meetsPercent 90 then 2
+    else if meetsPercent 85 then 1
     else 0
 
 ----------------------------------------------------------------------------
@@ -210,38 +211,39 @@ def dxScoreRank (achievedDxScore : Nat) (maxDxScore : Nat) : Nat :=
 ----------------------------------------------------------------------------
 
 structure AccRates where
-  classicAccPlus    : Float  -- [0]: classic acc (+)  = CurrentNoteScoreClassic / TotalBase * 100
-  classicAccMinus   : Float  -- [1]: classic acc (-)  = (TotalBase - LostBase + CurrentExtraClassic) / TotalBase * 100
-  dxAccMinus101     : Float  -- [2]: acc 101(-)       = (earnedBase/totalBase + earnedExtra/(totalExtra*100)) * 100
-  dxAccMinus100     : Float  -- [3]: acc 100(-)       = (earnedBase/totalBase + currentExtra/(totalExtra*100)) * 100
-  dxAccPlus         : Float  -- [4]: acc (+)          = (currentBase/totalBase + currentExtra/(totalExtra*100)) * 100
+  classicAccPlus    : Rat  -- [0]: classic acc (+)  = CurrentNoteScoreClassic / TotalBase * 100
+  classicAccMinus   : Rat  -- [1]: classic acc (-)  = (TotalBase - LostBase + CurrentExtraClassic) / TotalBase * 100
+  dxAccMinus101     : Rat  -- [2]: acc 101(-)       = (earnedBase/totalBase + earnedExtra/(totalExtra*100)) * 100
+  dxAccMinus100     : Rat  -- [3]: acc 100(-)       = (earnedBase/totalBase + currentExtra/(totalExtra*100)) * 100
+  dxAccPlus         : Rat  -- [4]: acc (+)          = (currentBase/totalBase + currentExtra/(totalExtra*100)) * 100
 deriving Repr
 
 def computeAccRates (totalBase : Nat) (currentBase : Nat) (lostBase : Nat)
                     (totalExtra : Nat) (currentExtra : Nat) (lostExtra : Nat)
                     (currentExtraClassic : Nat) : AccRates :=
-  let tb := Float.ofNat totalBase
-  let cb := Float.ofNat currentBase
-  let lb := Float.ofNat lostBase
-  let te := max 1.0 (Float.ofNat totalExtra)
-  let ce := Float.ofNat currentExtra
-  let le := Float.ofNat lostExtra
-  let cc := Float.ofNat currentExtraClassic
+  let tb : Rat := Int.ofNat totalBase
+  let cb : Rat := Int.ofNat currentBase
+  let lb : Rat := Int.ofNat lostBase
+  let te : Rat := Int.ofNat (max 1 totalExtra)
+  let ce : Rat := Int.ofNat currentExtra
+  let le : Rat := Int.ofNat lostExtra
+  let cc : Rat := Int.ofNat currentExtraClassic
+  let hundred : Rat := 100
   let earnedBase := tb - lb
   let earnedExtra := te - le
   if totalBase == 0 then
-    { classicAccPlus    := 0.0
-    , classicAccMinus   := 0.0
-    , dxAccMinus101     := 0.0
-    , dxAccMinus100     := 0.0
-    , dxAccPlus         := 0.0
+    { classicAccPlus    := 0
+    , classicAccMinus   := 0
+    , dxAccMinus101     := 0
+    , dxAccMinus100     := 0
+    , dxAccPlus         := 0
     }
   else
-    { classicAccPlus    := (cb + cc) / tb * 100.0
-    , classicAccMinus   := (earnedBase + cc) / tb * 100.0
-    , dxAccMinus101     := (earnedBase / tb + earnedExtra / (te * 100.0)) * 100.0
-    , dxAccMinus100     := (earnedBase / tb + ce / (te * 100.0)) * 100.0
-    , dxAccPlus         := (cb / tb + ce / (te * 100.0)) * 100.0
+    { classicAccPlus    := (cb + cc) / tb * hundred
+    , classicAccMinus   := (earnedBase + cc) / tb * hundred
+    , dxAccMinus101     := (earnedBase / tb + earnedExtra / (te * hundred)) * hundred
+    , dxAccMinus100     := (earnedBase / tb + ce / (te * hundred)) * hundred
+    , dxAccPlus         := (cb / tb + ce / (te * hundred)) * hundred
     }
 
 end LnmaiCore.Score

@@ -107,7 +107,7 @@ private def applyConnectedSlideMetadata (slides : List NormalizedSlide) : List N
             loop rest none none ({ slide with isConnSlide := false, isGroupHead := false, isGroupEnd := false, parentNoteIndex := none } :: acc)
   loop slides none none []
 
-def lowerRawTokens (measureDurSec : Float → Duration) (tokens : List RawNoteToken) : NormalizedChart × List SlideNoteSemantics :=
+def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToken) : NormalizedChart × List SlideNoteSemantics :=
   let (_, taps, holds, touches, touchHolds, slides, slideDebug, slideSemantics) :=
     tokens.foldl
       (fun (state : Nat × List NormalizedTap × List NormalizedHold × List NormalizedTouch × List NormalizedTouchHold × List NormalizedSlide × List NormalizedSlideDebug × List SlideNoteSemantics) token =>

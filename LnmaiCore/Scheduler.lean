@@ -187,10 +187,13 @@ private def advanceSensorQueueIfHead (queues : SensorQueueVec HoldNote) (area : 
 private def touchHoldGroupTriggeredCount (holds : List (SensorArea × HoldNote)) (groupId : Nat) : Nat :=
   (holds.filter (fun note => note.2.touchHoldGroupId == some groupId && note.2.touchHoldGroupTriggered)).length
 
+private def hasStrictMajority (count size : Nat) : Bool :=
+  size > 0 && count * 2 > size
+
 private def groupShareResult (groups : List GroupState) (groupId : Nat) : Option (JudgeGrade × Duration) :=
   match groups.find? (fun group => group.groupId == groupId) with
   | some group =>
-      if group.size > 0 && group.count * 2 > group.size then some (group.grade, group.diff) else none
+      if hasStrictMajority group.count group.size then some (group.grade, group.diff) else none
   | none => none
 
 private def updateGroupState (groups : List GroupState) (groupId : Nat) (groupSize : Nat) (grade : JudgeGrade) (diff : Duration) : List GroupState :=
@@ -240,12 +243,12 @@ private def processTouchHoldNotes (queues : SensorQueueVec HoldNote) (holds : Li
     let timing := note.params.effectiveTiming
     let buttonDiff := currentTime - timing
     let sensorDiff := (currentTime - touchPanelOffset) - timing
-    let groupPercent :=
+    let groupTriggeredCount :=
       match note.touchHoldGroupId with
       | some groupId =>
-          if note.touchHoldGroupSize == 0 then 0.0 else Float.ofNat (touchHoldGroupTriggeredCount holds groupId) / Float.ofNat note.touchHoldGroupSize
-      | none => 0.0
-    let effectivePressed := input.getSensorHeld area || groupPercent > 0.5
+          touchHoldGroupTriggeredCount holds groupId
+      | none => 0
+    let effectivePressed := input.getSensorHeld area || hasStrictMajority groupTriggeredCount note.touchHoldGroupSize
     let allowInput := queueHeadMatches (InputModel.sensorQueueAt queues area) note
     let (usedButton, cursor1) :=
       if allowInput && useButtonRingForTouch then

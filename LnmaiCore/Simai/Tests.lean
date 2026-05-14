@@ -1,5 +1,6 @@
 import LnmaiCore.Simai
 import LnmaiCore.Simai.ProofAPI
+import Lean.Data.Json
 
 namespace LnmaiCore.Simai.Tests
 
@@ -11,9 +12,6 @@ structure ParityCase where
   passed : Bool
   note : String
 deriving Repr
-
-private def floatEq (a b : Float) : Bool :=
-  Float.abs (a - b) < 0.0001
 
 private def parseLevel1 (content : String) : Except ParseError FrontendChartResult :=
   compileChart content 1
@@ -91,9 +89,9 @@ def test_simple_tap_and_bpm : ParityCase :=
   | .ok chart =>
       match chart.semantic.normalized.taps with
       | first :: second :: _ =>
-          supportedCase "simple_tap_and_bpm"
+        supportedCase "simple_tap_and_bpm"
             (first.slot = .S1 && second.slot = .S2 &&
-             floatEq first.timingSec 0.5 && floatEq second.timingSec 1.0)
+             first.timing = TimePoint.fromMicros 500000 && second.timing = TimePoint.fromMicros 1000000)
             "&first offset and BPM step apply"
       | _ => supportedCase "simple_tap_and_bpm" false "expected two taps"
   | .error err => supportedCase "simple_tap_and_bpm" false s!"unexpected parse error: {err.message}"
@@ -102,7 +100,7 @@ def test_hold_note_basic_duration : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(60)\n1h[4:1],\n" with
   | .ok chart =>
       match chart.semantic.normalized.holds with
-      | hold :: _ => supportedCase "hold_note_basic_duration" (hold.slot = .S1 && floatEq hold.lengthSec 1.0) "generic BPM parsing works"
+      | hold :: _ => supportedCase "hold_note_basic_duration" (hold.slot = .S1 && hold.length = Duration.fromMicros 1000000) "generic BPM parsing works"
       | _ => supportedCase "hold_note_basic_duration" false "expected one hold"
   | .error err => supportedCase "hold_note_basic_duration" false s!"unexpected parse error: {err.message}"
 
@@ -110,7 +108,7 @@ def test_hold_note_custom_bpm_duration : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(60)\n1h[120#4:1],\n" with
   | .ok chart =>
       match chart.semantic.normalized.holds with
-      | hold :: _ => supportedCase "hold_note_custom_bpm_duration" (floatEq hold.lengthSec 0.5) "custom-BPM duration works"
+      | hold :: _ => supportedCase "hold_note_custom_bpm_duration" (hold.length = Duration.fromMicros 500000) "custom-BPM duration works"
       | _ => supportedCase "hold_note_custom_bpm_duration" false "expected one hold"
   | .error err => supportedCase "hold_note_custom_bpm_duration" false s!"unexpected parse error: {err.message}"
 
@@ -118,7 +116,7 @@ def test_hold_note_absolute_time_duration : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(100)\n1h[#2.5],\n" with
   | .ok chart =>
       match chart.semantic.normalized.holds with
-      | hold :: _ => supportedCase "hold_note_absolute_time_duration" (floatEq hold.lengthSec 2.5) "absolute duration works"
+      | hold :: _ => supportedCase "hold_note_absolute_time_duration" (hold.length = Duration.fromMicros 2500000) "absolute duration works"
       | _ => supportedCase "hold_note_absolute_time_duration" false "expected one hold"
   | .error err => supportedCase "hold_note_absolute_time_duration" false s!"unexpected parse error: {err.message}"
 
@@ -128,7 +126,9 @@ def test_slide_note_duration_and_star_wait : ParityCase :=
       match chart.semantic.normalized.slides with
       | slide :: _ =>
           supportedCase "slide_note_duration_and_star_wait"
-            (floatEq slide.lengthSec 0.5 && floatEq slide.startTimingSec 0.5 && slide.judgeAtSec == some 1.0)
+            (slide.length = Duration.fromMicros 500000 &&
+             slide.startTiming = TimePoint.fromMicros 500000 &&
+             slide.judgeAt = some (TimePoint.fromMicros 1000000))
             "slide duration and star-wait both lower"
       | _ => supportedCase "slide_note_duration_and_star_wait" false "expected one slide"
   | .error err => supportedCase "slide_note_duration_and_star_wait" false s!"unexpected parse error: {err.message}"
@@ -139,7 +139,9 @@ def test_slide_note_custom_bpm_star_and_duration : ParityCase :=
       match chart.semantic.normalized.slides with
       | slide :: _ =>
           supportedCase "slide_note_custom_bpm_star_and_duration"
-            (floatEq slide.startTimingSec 0.5 && floatEq slide.lengthSec 0.25 && slide.judgeAtSec == some 0.75)
+            (slide.startTiming = TimePoint.fromMicros 500000 &&
+             slide.length = Duration.fromMicros 250000 &&
+             slide.judgeAt = some (TimePoint.fromMicros 750000))
             "custom-BPM slide star/duration timing works"
       | _ => supportedCase "slide_note_custom_bpm_star_and_duration" false "expected one slide"
   | .error err => supportedCase "slide_note_custom_bpm_star_and_duration" false s!"unexpected parse error: {err.message}"
@@ -150,7 +152,9 @@ def test_slide_note_absolute_star_wait_no_hash_and_duration : ParityCase :=
       match chart.semantic.normalized.slides with
       | slide :: _ =>
           supportedCase "slide_note_absolute_star_wait_no_hash_and_duration"
-            (floatEq slide.startTimingSec 0.2 && floatEq slide.lengthSec 0.75 && slide.judgeAtSec == some 0.95)
+            (slide.startTiming = TimePoint.fromMicros 200000 &&
+             slide.length = Duration.fromMicros 750000 &&
+             slide.judgeAt = some (TimePoint.fromMicros 950000))
             "absolute star-wait and duration work"
       | _ => supportedCase "slide_note_absolute_star_wait_no_hash_and_duration" false "expected one slide"
   | .error err => supportedCase "slide_note_absolute_star_wait_no_hash_and_duration" false s!"unexpected parse error: {err.message}"
@@ -212,7 +216,9 @@ def test_pseudo_simultaneous_backtick : ParityCase :=
       match chart.semantic.normalized.taps, chart.semantic.normalized.holds, chart.semantic.normalized.touches with
       | tap :: _, hold :: _, touch :: _ =>
           supportedCase "pseudo_simultaneous_backtick"
-            (floatEq tap.timingSec 1.0 && floatEq hold.timingSec 1.03125 && floatEq touch.timingSec 1.0625)
+            (tap.timing = TimePoint.fromMicros 1000000 &&
+             hold.timing = TimePoint.fromMicros 1031250 &&
+             touch.timing = TimePoint.fromMicros 1062500)
             "backtick pseudo-simultaneous timing works"
       | _, _, _ => supportedCase "pseudo_simultaneous_backtick" false "expected tap/hold/touch sequence"
   | .error err => supportedCase "pseudo_simultaneous_backtick" false s!"unexpected parse error: {err.message}"
@@ -223,7 +229,7 @@ def test_comment_handling : ParityCase :=
       supportedCase "comment_handling"
         (chart.semantic.normalized.taps.length = 2 &&
          match chart.semantic.normalized.taps with
-         | first :: second :: _ => floatEq first.timingSec 0.0 && floatEq second.timingSec 0.5
+         | first :: second :: _ => first.timing = TimePoint.zero && second.timing = TimePoint.fromMicros 500000
          | _ => false)
         "line comments are stripped"
   | .error err => supportedCase "comment_handling" false s!"unexpected parse error: {err.message}"
@@ -234,7 +240,9 @@ def test_beat_signature_change : ParityCase :=
       match chart.semantic.normalized.taps with
       | first :: second :: third :: _ =>
           supportedCase "beat_signature_change"
-            (floatEq first.timingSec 0.0 && floatEq second.timingSec 1.0 && floatEq third.timingSec 1.5)
+            (first.timing = TimePoint.zero &&
+             second.timing = TimePoint.fromMicros 1000000 &&
+             third.timing = TimePoint.fromMicros 1500000)
             "beat/divisor changes work"
       | _ => supportedCase "beat_signature_change" false "expected three taps"
   | .error err => supportedCase "beat_signature_change" false s!"unexpected parse error: {err.message}"
@@ -245,10 +253,37 @@ def test_hspeed_change : ParityCase :=
       match chart.inspection.tokens with
       | first :: second :: _ =>
           supportedCase "hspeed_change"
-            (floatEq first.hSpeed 2.5 && floatEq second.hSpeed 0.5)
+            (first.hSpeed = (5 : Rat) / 2 && second.hSpeed = (1 : Rat) / 2)
             "hspeed directives parse"
       | _ => supportedCase "hspeed_change" false "expected two tap tokens"
   | .error err => supportedCase "hspeed_change" false s!"unexpected parse error: {err.message}"
+
+def test_unfit_bpm_quantizes_consistently : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(180)\n1,\n2,\n3,\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.taps with
+      | first :: second :: third :: _ =>
+          supportedCase "unfit_bpm_quantizes_consistently"
+            (first.timing = TimePoint.zero &&
+             second.timing = TimePoint.fromMicros 1333333 &&
+             third.timing = TimePoint.fromMicros 2666667)
+            "non-integral beat durations quantize once per absolute event with stable nearest-microsecond results"
+      | _ => supportedCase "unfit_bpm_quantizes_consistently" false "expected three taps"
+  | .error err => supportedCase "unfit_bpm_quantizes_consistently" false s!"unexpected parse error: {err.message}"
+
+def test_rational_inspection_json_is_stable : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(180)\n<H2.5>\n1,\n" with
+  | .ok chart =>
+      match chart.inspection.tokens with
+      | token :: _ =>
+          let bpmJson := toJson token.bpm
+          let hSpeedJson := toJson token.hSpeed
+          supportedCase "rational_inspection_json_is_stable"
+            (bpmJson = Lean.Json.mkObj [("num", toJson (180 : Int)), ("den", toJson (1 : Nat)), ("decimal", Lean.Json.str "180")] &&
+             hSpeedJson = Lean.Json.mkObj [("num", toJson (5 : Int)), ("den", toJson (2 : Nat)), ("decimal", Lean.Json.str "2.5")])
+            "inspection rationals serialize as stable num/den/decimal objects"
+      | _ => supportedCase "rational_inspection_json_is_stable" false "expected one token"
+  | .error err => supportedCase "rational_inspection_json_is_stable" false s!"unexpected parse error: {err.message}"
 
 def test_same_head_slide_group_lowering : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1],\n" with
@@ -443,6 +478,8 @@ def all : List ParityCase :=
   , test_comment_handling
   , test_beat_signature_change
   , test_hspeed_change
+  , test_unfit_bpm_quantizes_consistently
+  , test_rational_inspection_json_is_stable
   , test_same_head_slide_group_lowering
   , test_same_head_wifi_group_lowering
   , test_normalized_slide_topology_attached

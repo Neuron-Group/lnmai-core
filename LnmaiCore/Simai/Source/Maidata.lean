@@ -4,11 +4,11 @@ import LnmaiCore.Time
 
 namespace LnmaiCore.Simai
 
-private def sameEventKey (token : RawNoteToken) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) : Bool :=
+private def sameEventKey (token : RawNoteToken) (timing : TimePoint) (bpm hSpeed : Rat) (divisor : Nat) : Bool :=
   token.timing == timing && token.bpm == bpm && token.hSpeed == hSpeed && token.divisor == divisor
 
 private def sourceChartFromTokens (tokens : List RawNoteToken) : SourceChart :=
-  let rec loop (remaining : List RawNoteToken) (current : Option (TimePoint × Float × Float × Nat × List SourceNote)) (acc : List SourceEvent) :=
+  let rec loop (remaining : List RawNoteToken) (current : Option (TimePoint × Rat × Rat × Nat × List SourceNote)) (acc : List SourceEvent) :=
     match remaining, current with
     | [], none => { events := acc.reverse }
     | [], some (timing, bpm, hSpeed, divisor, notes) =>
@@ -71,16 +71,16 @@ def parseSourceMaidata (content : String) : Except ParseError MaidataFile :=
   Except.ok <| parseMaidataLines (content.splitOn "\n") [] []
 
 def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Except ParseError FrontendChartResult := do
-  let baseBpm := parseFloatDef ((metadataField file.metadata "&wholebpm").getD "120") 120.0
+  let baseBpm := parseRatDef ((metadataField file.metadata "&wholebpm").getD "120") 120
   let firstOffset :=
     match Time.parseSecondsPointString? ((metadataField file.metadata "&first").getD "0") with
     | some value => value
     | none => TimePoint.zero
   let cleanedBody := stripComments block.rawBody
   let segments := cleanedBody.splitOn ","
-  let tokens := parseSegments segments firstOffset baseBpm 1.0 4 []
+  let tokens := parseSegments segments firstOffset baseBpm 1 4 []
   let source := sourceChartFromTokens tokens
-  let (normalized, slideNotes) := lowerRawTokens Time.measureDurationMicros tokens
+  let (normalized, slideNotes) := lowerRawTokens (fun bpm => Time.durationFromRatMicros (Time.bpmMeasureMicrosRat bpm)) tokens
   let lowered := toChartSpec normalized
   pure
     { semantic := { normalized := normalized, lowered := lowered }

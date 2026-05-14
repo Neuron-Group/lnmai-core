@@ -125,7 +125,7 @@ def parseSlideSegmentBreak (token : String) : Bool :=
     | head :: _ => head.endsWith "b"
     | [] => false
 
-def parseHSpeedDirective (text : String) (current : Float) : Float :=
+def parseHSpeedDirective (text : String) (current : Rat) : Rat :=
   let t := trim text
   if !t.startsWith "<H" then current
   else
@@ -135,15 +135,16 @@ def parseHSpeedDirective (text : String) (current : Float) : Float :=
       | [] => ""
     let valueText :=
       if body.startsWith "S*" then (body.drop 2).toString else body
-    parseFloatDef valueText current
+    parseRatDef valueText current
 
-partial def applyInlineDirective (bpm : Float) (divisor : Nat) (hSpeed : Float) (segment : String) : Float × Nat × Float × String :=
+partial def applyInlineDirective (bpm : Rat) (divisor : Nat) (hSpeed : Rat) (segment : String) : Rat × Nat × Rat × String :=
   let t := trim segment
   if t.startsWith "(" then
     let after := (t.drop 1).toString
     match after.splitOn ")" with
     | inside :: rest =>
-        applyInlineDirective (parseFloatDef inside bpm) divisor hSpeed (String.intercalate ")" rest)
+        let nextBpm := parseRatDef inside bpm
+        applyInlineDirective nextBpm divisor hSpeed (String.intercalate ")" rest)
     | _ => (bpm, divisor, hSpeed, t)
   else if t.startsWith "{" then
     let after := (t.drop 1).toString
@@ -160,7 +161,7 @@ partial def applyInlineDirective (bpm : Float) (divisor : Nat) (hSpeed : Float) 
   else
     (bpm, divisor, hSpeed, t)
 
-def mkRawToken (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) (token : String) : RawNoteToken :=
+def mkRawToken (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (token : String) : RawNoteToken :=
   let t := trim token
   let kind := inferKind t
   let parsedText := if kind = .slide then sanitizeSlideToken t else t
@@ -212,7 +213,7 @@ private def sameHeadHeadPrefix (token : String) : String :=
       else
         ""
 
-private def expandSameHeadGroupRest (groupId : Nat) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat)
+private def expandSameHeadGroupRest (groupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat)
     (headPrefix : String) (size : Nat) : Nat → List String → List RawNoteToken
   | _, [] => []
   | idx, part :: rest =>
@@ -225,7 +226,7 @@ private def expandSameHeadGroupRest (groupId : Nat) (timing : TimePoint) (bpm hS
         sourceGroupSize := some size } ::
       expandSameHeadGroupRest groupId timing bpm hSpeed divisor headPrefix size (idx + 1) rest
 
-private def expandSameHeadGroup (groupId : Nat) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) (token : String) : List RawNoteToken :=
+private def expandSameHeadGroup (groupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (token : String) : List RawNoteToken :=
   let parts := sameHeadGroupParts token
   match parts with
   | [] => []
@@ -243,7 +244,7 @@ private def expandSameHeadGroup (groupId : Nat) (timing : TimePoint) (bpm hSpeed
       let restToks := expandSameHeadGroupRest groupId timing bpm hSpeed divisor headPrefix groupedSlideCount restStartIndex rest
       firstTok :: restToks
 
-private def expandTokenList (baseGroupId : Nat) (timing : TimePoint) (bpm hSpeed : Float) (divisor : Nat) : Nat → List String → List RawNoteToken
+private def expandTokenList (baseGroupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) : Nat → List String → List RawNoteToken
   | _, [] => []
   | idx, tokText :: rest =>
       let current :=
@@ -253,7 +254,7 @@ private def expandTokenList (baseGroupId : Nat) (timing : TimePoint) (bpm hSpeed
           [mkRawToken timing bpm hSpeed divisor tokText]
       current ++ expandTokenList baseGroupId timing bpm hSpeed divisor (idx + 1) rest
 
-def parseSegmentNotes (segment : String) (time : TimePoint) (bpm hSpeed : Float) (divisor : Nat) : List RawNoteToken :=
+def parseSegmentNotes (segment : String) (time : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) : List RawNoteToken :=
   let normalized := trim <| segment.replace "\n" ""
   if normalized = "" then
     []
@@ -270,7 +271,7 @@ def parseSegmentNotes (segment : String) (time : TimePoint) (bpm hSpeed : Float)
   else
     expandTokenList 0 time bpm hSpeed divisor 0 (splitEntryTokens normalized)
 
-partial def parseSegments (segments : List String) (time : TimePoint) (bpm hSpeed : Float) (divisor : Nat) (acc : List RawNoteToken) : List RawNoteToken :=
+partial def parseSegments (segments : List String) (time : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (acc : List RawNoteToken) : List RawNoteToken :=
   match segments with
   | [] => acc.reverse
   | segment :: rest =>

@@ -117,7 +117,7 @@ def parseSlideJustText (rawText : String) : Except ParseError Bool :=
       let endArea ← parseTerminalEndArea sanitized
       fallbackJustType sanitized startSlot endArea
 
-def parseSlideTimingPoint (timing : TimePoint) (bpm hSpeed : Float) (rawNotes : List String) : Except ParseError TimingPointSemantics := do
+def parseSlideTimingPoint (timing : TimePoint) (bpm hSpeed : Rat) (rawNotes : List String) : Except ParseError TimingPointSemantics := do
   let notes ← rawNotes.mapM (fun raw => do
     let shape ← detectShapeFromText raw
     let just ← detectJustType raw

@@ -15,9 +15,6 @@ deriving Repr
 private def passCase (name : String) (passed : Bool) (note : String := "") : RuntimeCase :=
   { name := name, passed := passed, note := note }
 
-private def floatEq (a b : Float) : Bool :=
-  Float.abs (a - b) < 0.0001
-
 private def tp (secondsMicros : Int) : TimePoint :=
   TimePoint.fromMicros secondsMicros
 
@@ -67,14 +64,14 @@ private def mkButtonFrameInput
     (buttonHeld : List ButtonZone := [])
     (sensorClicks : List SensorArea := [])
     (sensorHeld : List SensorArea := [])
-    (deltaSec : Float := 0.016) : InputModel.FrameInput :=
+    (delta : Duration := dur 16000) : InputModel.FrameInput :=
   { buttonClicked := buttonFlagVec buttonClicks
   , buttonHeld := buttonFlagVec buttonHeld
   , sensorClicked := sensorFlagVec sensorClicks
   , sensorHeld := sensorFlagVec sensorHeld
   , buttonClickCount := buttonCountVec buttonClicks
   , sensorClickCount := sensorCountVec sensorClicks
-  , delta := Duration.fromMicros (Int.ofNat (Float.toUInt64 (deltaSec * 1000000.0)).toNat) }
+  , delta := delta }
 
 private def activeSingleTapState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
@@ -85,7 +82,7 @@ private def activeSingleTapState : InputModel.GameState :=
   , tapQueues := ButtonVec.ofFn (fun zone => if zone == .K1 then { notes := [tap] } else { notes := [] }) }
 
 def test_button_tap_can_use_matching_a_sensor : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [.A1] [] 0.016
+  let input := mkButtonFrameInput [] [] [.A1] [] (dur 16000)
   let (_, events, _, _) := Scheduler.stepFrame activeSingleTapState input
   match events with
   | [evt] =>
@@ -108,7 +105,7 @@ private def activeClassicHoldState : InputModel.GameState :=
   , prevSensor := sensorHeldVec [.A1] }
 
 def test_classic_hold_matching_a_sensor_keeps_body_pressed : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [] [.A1] 0.016
+  let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame activeClassicHoldState input
   let stillActive := nextState.activeHolds.length = 1
   passCase "classic_hold_matching_a_sensor_keeps_body_pressed"
@@ -129,7 +126,7 @@ private def activeModernHoldHeadMissState : InputModel.GameState :=
   , activeHolds := [(.K1, hold)] }
 
 def test_modern_hold_head_miss_can_end_as_late_good : RuntimeCase :=
-  let input := mkButtonFrameInput [] [.K1] [] [] 0.016
+  let input := mkButtonFrameInput [] [.K1] [] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame activeModernHoldHeadMissState input
   match nextState.activeHolds, events with
   | [], [evt] =>
@@ -178,7 +175,7 @@ private def activeConnSlidesState : InputModel.GameState :=
   , slides := [parent, child] }
 
 def test_conn_child_progress_force_finishes_parent : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [] [.A2] 0.016
+  let input := mkButtonFrameInput [] [] [] [.A2] (dur 16000)
   let (nextState, _, _, _) := Scheduler.stepFrame activeConnSlidesState input
   match nextState.slides with
   | parent :: child :: _ =>
@@ -208,7 +205,7 @@ private def activeFinishedSlideState : InputModel.GameState :=
   , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
 
 def test_slide_judge_uses_touch_panel_offset : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [] [.A1] 0.016
+  let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
   let (nextState, _, _, _) := Scheduler.stepFrame activeFinishedSlideState input
   match nextState.slides with
   | slide :: _ =>
@@ -247,7 +244,7 @@ private def sharedTouchGroupState : InputModel.GameState :=
       else { notes := [] }) }
 
 def test_touch_group_majority_shares_result_same_frame : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [.A1, .A2] [] 0.016
+  let input := mkButtonFrameInput [] [] [.A1, .A2] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame sharedTouchGroupState input
   let groupStored :=
     match nextState.touchGroupStates with
@@ -311,7 +308,7 @@ private def pendingConnChildState : InputModel.GameState :=
   , slides := [parent, child] }
 
 def test_conn_child_pending_finish_becomes_checkable : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [] [] 0.016
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
   let (nextState, _, _, _) := Scheduler.stepFrame pendingConnChildState input
   match nextState.slides with
   | _parent :: child :: _ =>
@@ -340,7 +337,7 @@ private def activeWifiClassicTailState : InputModel.GameState :=
   , slides := [slide] }
 
 def test_wifi_classic_tail_progress_uses_special_marker : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [.A1] [.A1] 0.016
+  let input := mkButtonFrameInput [] [] [.A1] [.A1] (dur 16000)
   let (_, _, _, renderCmds) := Scheduler.stepFrame activeWifiClassicTailState input
   let hasExpected :=
     hasTrackProgress renderCmds 50 0 8
@@ -370,7 +367,7 @@ private def activeWifiCenterClearedState : InputModel.GameState :=
   , slides := [slide] }
 
 def test_wifi_center_cleared_progress_uses_special_marker : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [.A1] [.A1] 0.016
+  let input := mkButtonFrameInput [] [] [.A1] [.A1] (dur 16000)
   let (_, _, _, renderCmds) := Scheduler.stepFrame activeWifiCenterClearedState input
   let hasExpected :=
     hasTrackProgress renderCmds 51 0 9
@@ -398,7 +395,7 @@ private def activeWifiJudgedWaitState : InputModel.GameState :=
   , slides := [slide] }
 
 def test_wifi_judged_wait_emits_delayed_event_then_hides : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [] [] 0.016
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
   let (_, events, _, renderCmds) := Scheduler.stepFrame activeWifiJudgedWaitState input
   match events with
   | [evt] =>
@@ -430,7 +427,7 @@ private def activeWifiTooLateState : InputModel.GameState :=
   , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
 
 def test_wifi_too_late_ends_immediately : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [] [] 0.016
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame activeWifiTooLateState input
   match nextState.slides, events with
   | [slide], [evt] =>

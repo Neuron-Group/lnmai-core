@@ -53,7 +53,7 @@ structure NormalizedSlide where
   slot : OuterSlot
   length : Duration
   startTiming : TimePoint
-  hSpeed : Float := 1.0
+  hSpeed : Rat := 1
   slideKind : LnmaiCore.SlideKind := .Single
   trackCount : Nat := 1
   judgeAt : Option TimePoint := none

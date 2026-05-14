@@ -9,33 +9,36 @@ def parseNatString? (s : String) : Option Nat :=
   let t := trim s
   if t = "" then none else t.toNat?
 
-def parseFloatString? (s : String) : Option Float :=
+def parseRatString? (s : String) : Option Rat :=
   let t := trim s
   if t = "" then
     none
   else
-    match t.splitOn "." with
+    let negative := t.startsWith "-"
+    let unsigned := if negative then (t.drop 1).toString else t
+    match unsigned.splitOn "." with
     | [whole] =>
-        match whole.toInt? with
-        | some n => some <| if n < 0 then - Float.ofNat (Int.natAbs n) else Float.ofNat (Int.natAbs n)
+        match whole.toNat? with
+        | some n =>
+            let value : Rat := Int.ofNat n
+            some <| if negative then -value else value
         | none => none
     | [whole, frac] =>
-        if frac = "" then
-          match whole.toInt? with
-          | some n => some <| if n < 0 then - Float.ofNat (Int.natAbs n) else Float.ofNat (Int.natAbs n)
-          | none => none
-        else
-          match whole.toInt?, frac.toNat? with
-          | some wn, some fn =>
-              let sign : Float := if wn < 0 then -1.0 else 1.0
-              let absWhole : Float := Int.natAbs wn |>.toFloat
-              let denom := (10 : Nat) ^ frac.length
-              some <| sign * (absWhole + (Float.ofNat fn / Float.ofNat denom))
-          | _, _ => none
+        match whole.toNat? with
+        | none => none
+        | some wholeNat =>
+            if frac.toList.all Char.isDigit then
+              let fracDigits := frac.length
+              let fracNat := frac.toNat?.getD 0
+              let denom : Rat := Int.ofNat ((10 : Nat) ^ fracDigits)
+              let value : Rat := Int.ofNat wholeNat + Int.ofNat fracNat / denom
+              some <| if negative then -value else value
+            else
+              none
     | _ => none
 
-def parseFloatDef (s : String) (fallback : Float) : Float :=
-  match parseFloatString? s with
+def parseRatDef (s : String) (fallback : Rat) : Rat :=
+  match parseRatString? s with
   | some value => value
   | none => fallback
 
@@ -47,11 +50,14 @@ def parseNatDef (s : String) (fallback : Nat) : Nat :=
 def parseDurationString? (s : String) : Option Duration :=
   Time.parseSecondsString? s
 
-def measureDurSec (bpm : Float) : Float :=
-  if bpm > 0.0 then (60.0 / bpm) * 4.0 else 0.0
+def parseSecondsRatString? (s : String) : Option Rat :=
+  parseRatString? s
 
-def beatSec (bpm : Float) : Float :=
-  if bpm > 0.0 then 60.0 / bpm else 0.001
+def measureDurSec (bpm : Rat) : Duration :=
+  Time.durationFromRatMicros (Time.bpmMeasureMicrosRat bpm)
+
+def beatSec (bpm : Rat) : Duration :=
+  Time.durationFromRatMicros (Time.bpmBeatMicrosRat bpm)
 
 def extractBracketContents (token : String) : List String :=
   let rec loop (chars : List Char) (inside : Bool) (current : List Char) (acc : List String) : List String :=
@@ -81,22 +87,22 @@ def splitHash1 (s : String) : Option (String × String) :=
   | [a, b] => some (a, b)
   | _ => none
 
-def parseNdDuration (bpm : Float) (timing : String) : Option Float :=
+def parseNdDuration (bpm : Rat) (timing : String) : Option Duration :=
   match timing.splitOn ":" with
   | [numStr, denStr] =>
       match parseNatString? numStr, parseNatString? denStr with
       | some beatDivision, some numBeats =>
           if beatDivision = 0 then none
-          else some <| beatSec bpm * (4.0 / Float.ofNat beatDivision) * Float.ofNat numBeats
+          else
+            let noteMicros := Time.bpmMeasureMicrosRat bpm * Int.ofNat numBeats / Int.ofNat beatDivision
+            some <| Time.durationFromRatMicros noteMicros
       | _, _ => none
   | _ => none
 
-def parseNdDurationExact (bpm : Float) (timing : String) : Option Duration :=
-  match parseNdDuration bpm timing with
-  | some seconds => Time.parseSecondsString? s!"{seconds}"
-  | none => none
+def parseNdDurationExact (bpm : Rat) (timing : String) : Option Duration :=
+  parseNdDuration bpm timing
 
-def parseDurationInner (currentBpm : Float) (inner : String) : Option Duration :=
+def parseDurationInner (currentBpm : Rat) (inner : String) : Option Duration :=
   if inner.startsWith "#" && inner.count '#' = 1 && !inner.contains ':' then
     parseDurationString? ((inner.drop 1).toString)
   else if inner.count '#' = 2 then
@@ -107,8 +113,8 @@ def parseDurationInner (currentBpm : Float) (inner : String) : Option Duration :
     match splitHash1 inner with
     | some (customBpmStr, timingStr) =>
         let segBpm :=
-          match parseFloatString? customBpmStr with
-          | some v => if v > 0.0 then v else currentBpm
+          match parseRatString? customBpmStr with
+          | some v => if v > 0 then v else currentBpm
           | none => currentBpm
         match parseNdDurationExact segBpm timingStr with
         | some duration => some duration
@@ -120,7 +126,7 @@ def parseDurationInner (currentBpm : Float) (inner : String) : Option Duration :
     | none =>
         if !inner.startsWith "#" then parseDurationString? inner else none
 
-def parseDurationSpec (bpm : Float) (token : String) : Option Duration :=
+def parseDurationSpec (bpm : Rat) (token : String) : Option Duration :=
   let contents := extractBracketContents token
   contents.foldl
     (fun acc inner =>
@@ -131,34 +137,38 @@ def parseDurationSpec (bpm : Float) (token : String) : Option Duration :=
       | none, none => none)
     none
 
-def parseStarWaitSpec (bpm : Float) (token : String) : Option Duration :=
+def parseStarWaitSpec (bpm : Rat) (token : String) : Option Duration :=
   match extractBracketContents token |>.head? with
-  | none => some (Time.beatDurationMicros bpm)
+  | none => some (beatSec bpm)
   | some inner =>
       if inner.count '#' = 2 then
         match splitHash2 inner with
         | some (waitPart, _, _) =>
-            if waitPart = "" then some (Time.beatDurationMicros bpm) else parseDurationString? waitPart
-        | none => some (Time.beatDurationMicros bpm)
+            if waitPart = "" then some (beatSec bpm)
+            else
+              match parseSecondsRatString? waitPart with
+              | some waitSeconds => some (Time.durationFromSecondsRat waitSeconds)
+              | none => parseDurationString? waitPart
+        | none => some (beatSec bpm)
       else if inner.count '#' = 1 then
         match splitHash1 inner with
         | some (waitBpmStr, _) =>
-            match parseFloatString? waitBpmStr with
-            | some waitBpm => if waitBpm > 0.0 then some (Time.beatDurationMicros waitBpm) else some (Time.beatDurationMicros bpm)
-            | none => some (Time.beatDurationMicros bpm)
-        | none => some (Time.beatDurationMicros bpm)
+            match parseRatString? waitBpmStr with
+            | some waitBpm => if waitBpm > 0 then some (beatSec waitBpm) else some (beatSec bpm)
+            | none => some (beatSec bpm)
+        | none => some (beatSec bpm)
       else
-        some (Time.beatDurationMicros bpm)
+        some (beatSec bpm)
 
-def noteTimingIncrement (bpm : Float) (divisor : Nat) : Duration :=
-  if bpm > 0.0 && divisor > 0 then
-    Duration.ofInt ((Time.measureDurationMicros bpm).toInt / Int.ofNat divisor)
+def noteTimingIncrement (bpm : Rat) (divisor : Nat) : Duration :=
+  if bpm > 0 && divisor > 0 then
+    Time.durationFromRatMicros (Time.bpmMeasureMicrosRat bpm / Int.ofNat divisor)
   else
     Duration.zero
 
-def pseudoIncrement (bpm : Float) : Duration :=
-  if bpm > 0.0 then
-    Duration.ofInt ((Time.beatDurationMicros bpm).toInt / 32)
+def pseudoIncrement (bpm : Rat) : Duration :=
+  if bpm > 0 then
+    Time.durationFromRatMicros (Time.bpmBeatMicrosRat bpm / 32)
   else
     Duration.fromMicros 1000
 
