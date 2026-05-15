@@ -1,0 +1,71 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {}
+  },
+  "libraries": {},
+  "projectFileDependencyGroups": {
+    "net8.0": []
+  },
+  "packageFolders": {
+    "/home/neuron/.nuget/packages/": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
+      "projectName": "MajdataHarness",
+      "projectPath": "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
+      "packagesPath": "/home/neuron/.nuget/packages/",
+      "outputPath": "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "/home/neuron/.nuget/NuGet/NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {}
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "/nix/store/lh8iah4364n978svmr6k2nh19kszfb33-dotnet-sdk-8.0.415/share/dotnet/sdk/8.0.415/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

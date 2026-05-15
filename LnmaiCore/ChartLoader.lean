@@ -56,6 +56,9 @@ structure TouchHoldChartNote where
   length : Duration
   isBreak   : Bool := false
   isEX      : Bool := false
+  touchQueueIndex : Nat := 0
+  touchGroupId : Option Nat := none
+  touchGroupSize : Option Nat := none
   touchHoldGroupId : Option Nat := none
   touchHoldGroupSize : Option Nat := none
   noteIndex : Nat := 0
@@ -65,6 +68,7 @@ structure TouchChartNote where
   timing : TimePoint
   sensorPos : SensorArea
   isBreak   : Bool := false
+  touchQueueIndex : Nat := 0
   touchGroupId : Option Nat := none
   touchGroupSize : Option Nat := none
   noteIndex : Nat := 0
@@ -144,6 +148,9 @@ private def buildTouchHold (note : TouchHoldChartNote) : HoldNote :=
   , playerReleaseTime := Duration.zero
   , isClassic := false
   , isTouchHold := true
+  , touchQueueIndex := note.touchQueueIndex
+  , touchGroupId := note.touchGroupId
+  , touchGroupSize := note.touchGroupSize.getD 1
   , touchHoldGroupId := note.touchHoldGroupId
   , touchHoldGroupSize := note.touchHoldGroupSize.getD 1
   , touchHoldGroupTriggered := false }
@@ -284,6 +291,33 @@ private def assignTouchGroups (notes : List TouchChartNote) : List TouchChartNot
   let sensorTypes := notes.foldl (fun acc note => if containsArea acc note.sensorPos then acc else note.sensorPos :: acc) []
   assignTouchGroupsLoop notes sensorTypes 0 notes
 
+private def uniqueAreasFromTouches (touches : List TouchChartNote) (touchHolds : List TouchHoldChartNote) : List SensorArea :=
+  let fromTouches := touches.foldl (fun acc note => if containsArea acc note.sensorPos then acc else note.sensorPos :: acc) []
+  touchHolds.foldl (fun acc note => if containsArea acc note.sensorPos then acc else note.sensorPos :: acc) fromTouches
+
+private def assignSharedTouchQueueIndices (touches : List TouchChartNote) (touchHolds : List TouchHoldChartNote) : List TouchChartNote × List TouchHoldChartNote :=
+  let allAreas := uniqueAreasFromTouches touches touchHolds
+  let rec mergeAssign (index : Nat) (ts : List TouchChartNote) (hs : List TouchHoldChartNote) (accT : List TouchChartNote) (accH : List TouchHoldChartNote) : List TouchChartNote × List TouchHoldChartNote :=
+    match ts, hs with
+    | [], [] => (accT, accH)
+    | t :: ts', [] => mergeAssign (index + 1) ts' [] ({ t with touchQueueIndex := index } :: accT) accH
+    | [], h :: hs' => mergeAssign (index + 1) [] hs' accT ({ h with touchQueueIndex := index } :: accH)
+    | t :: ts', h :: hs' =>
+      if t.timing ≤ h.timing then
+        mergeAssign (index + 1) ts' (h :: hs') ({ t with touchQueueIndex := index } :: accT) accH
+      else
+        mergeAssign (index + 1) (t :: ts') hs' accT ({ h with touchQueueIndex := index } :: accH)
+  let rec loop (areas : List SensorArea) (accT : List TouchChartNote) (accH : List TouchHoldChartNote) : List TouchChartNote × List TouchHoldChartNote :=
+    match areas with
+    | [] => (accT, accH)
+    | area :: rest =>
+      let ts := sortByTiming (fun note => note.timing) (touches.filter (fun note => note.sensorPos == area))
+      let hs := sortByTiming (fun note => note.timing) (touchHolds.filter (fun note => note.sensorPos == area))
+      let (accT', accH') := mergeAssign 0 ts hs accT accH
+      loop rest accT' accH'
+  let (touches', touchHolds') := loop allAreas [] []
+  (touches'.reverse, touchHolds'.reverse)
+
 private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNote :=
   let judgeQueues :=
     let queues := note.judgeQueues.map (fun queue => queue.map buildSlideArea)
@@ -326,8 +360,14 @@ def buildGameState (chart : ChartSpec) : GameState :=
     ButtonVec.ofFn (fun zone =>
       let notes := (sortByTiming (fun note => note.timing) (chart.holds.filter (fun note => note.slot.toButtonZone == zone))).map buildHold
       { notes := notes })
-  let touchHoldNotes := assignTouchHoldGroups chart.touchHolds
-  let touchNotesGrouped := assignTouchGroups chart.touches
+  let touchNotesGrouped0 := assignTouchGroups chart.touches
+  let touchHoldNotes0 := assignTouchHoldGroups chart.touchHolds
+  let (touchNotesGrouped, touchHoldNotesQueued) := assignSharedTouchQueueIndices touchNotesGrouped0 touchHoldNotes0
+  let touchHoldNotes :=
+    touchHoldNotesQueued.map (fun note =>
+      match touchNotesGrouped.find? (fun touch => touch.touchQueueIndex == note.touchQueueIndex && touch.sensorPos == note.sensorPos) with
+      | some touch => { note with touchGroupId := touch.touchGroupId, touchGroupSize := touch.touchGroupSize }
+      | none => note)
   let touchHoldQueues : SensorQueueVec HoldNote :=
     SensorVec.ofFn (fun area =>
       let notes := (sortByTiming (fun note => note.timing) (touchHoldNotes.filter (fun note => note.sensorPos == area))).map buildTouchHold
@@ -336,10 +376,16 @@ def buildGameState (chart : ChartSpec) : GameState :=
     SensorVec.ofFn (fun area =>
       let notes := (sortByTiming (fun note => note.timing) (touchNotesGrouped.filter (fun note => note.sensorPos == area))).map buildTouch
       { notes := notes })
-  let activeHolds :=
-    (chart.holds.map (fun note => (note.slot.toButtonZone, buildHold note)))
-  let activeTouchHolds :=
-    (touchHoldNotes.map (fun note => (note.sensorPos, buildTouchHold note)))
+  let activeHolds : List (ButtonZone × HoldNote) :=
+    ButtonZone.all.foldr (fun zone acc =>
+      let queue := holdQueues.getD zone { notes := [] }
+      let entries := queue.notes.map (fun note => (zone, note))
+      entries ++ acc) []
+  let activeTouchHolds : List (SensorArea × HoldNote) :=
+    SensorArea.all.foldr (fun area acc =>
+      let queue := touchHoldQueues.getD area { notes := [] }
+      let entries := queue.notes.map (fun note => (area, note))
+      entries ++ acc) []
   {
     currentTime := TimePoint.zero,
     prevButton := ButtonVec.replicate BUTTON_ZONE_COUNT false,

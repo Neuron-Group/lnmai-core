@@ -15,8 +15,49 @@ structure ManualTacticSequence where
   events : List ManualTacticAction := []
 deriving Inhabited, Repr
 
+inductive NoteTimingSkeletonKind where
+  | tap
+  | hold
+  | touch
+  | touchHold
+  | slide
+deriving Inhabited, Repr, DecidableEq
+
+structure SlideTimingSkeleton where
+  noteIndex : Nat
+  headSemanticTime : TimePoint
+  headInputTime : TimePoint
+  startSemanticTime : TimePoint
+  startInputTime : TimePoint
+  endSemanticTime : TimePoint
+  endInputTime : TimePoint
+  headZone : ButtonZone
+  pathSteps : List (List SensorArea) := []
+deriving Inhabited, Repr
+
+inductive NoteTimingSkeleton where
+  | tap (noteIndex : Nat) (semanticTime inputTime : TimePoint) (zone : ButtonZone)
+  | hold (noteIndex : Nat) (semanticTime inputTime releaseInputTime : TimePoint) (zone : ButtonZone)
+  | touch (noteIndex : Nat) (semanticTime inputTime : TimePoint) (area : SensorArea)
+  | touchHold (noteIndex : Nat) (semanticTime inputTime releaseInputTime : TimePoint) (area : SensorArea)
+  | slide (spec : SlideTimingSkeleton)
+deriving Inhabited, Repr
+
+abbrev TimingSkeletonResolver := NoteTimingSkeleton → ManualTacticSequence
+
+structure TimingSkeletonOverride where
+  noteIndex : Nat
+  resolve : TimingSkeletonResolver
+
 structure RuntimeSimulationResult where
   chart : ChartLoader.ChartSpec
+  initialState : InputModel.GameState
+  finalState : InputModel.GameState
+  batches : List TimedInputBatch
+  events : List JudgeEvent
+deriving Repr
+
+structure RuntimeReplayResult where
   initialState : InputModel.GameState
   finalState : InputModel.GameState
   batches : List TimedInputBatch
@@ -36,6 +77,15 @@ private def insertEvent (evt : TimedInputEvent) : List TimedInputEvent → List 
 
 def sortTacticEvents (events : List TimedInputEvent) : List TimedInputEvent :=
   events.foldl (fun acc evt => insertEvent evt acc) []
+
+def mkManualTacticSequence (events : List TimedInputEvent) : ManualTacticSequence :=
+  { events := sortTacticEvents events }
+
+def ManualTacticSequence.append (lhs rhs : ManualTacticSequence) : ManualTacticSequence :=
+  mkManualTacticSequence (lhs.events ++ rhs.events)
+
+instance : Append ManualTacticSequence where
+  append := ManualTacticSequence.append
 
 private def pushEventIntoBatches (evt : TimedInputEvent) : List TimedInputBatch → List TimedInputBatch
   | [] => [{ currentTime := evt.at, events := [evt] }]
@@ -79,8 +129,28 @@ private def expandTimedBatchesFrom (startTime : TimePoint) (batches : List Timed
       fillers ++ (batch :: loop batch.currentTime rest)
   loop startTime batches
 
+def expandReplayBatchesFrom (startTime : TimePoint) (batches : List TimedInputBatch) : List TimedInputBatch :=
+  expandTimedBatchesFrom startTime batches
+
 private def noteCount (chart : ChartLoader.ChartSpec) : Nat :=
   chart.taps.length + chart.holds.length + chart.touches.length + chart.touchHolds.length + chart.slides.length
+
+def chartNoteIndices (chart : ChartLoader.ChartSpec) : List Nat :=
+  (chart.taps.map (fun note => note.noteIndex)) ++
+  (chart.holds.map (fun note => note.noteIndex)) ++
+  (chart.touches.map (fun note => note.noteIndex)) ++
+  (chart.touchHolds.map (fun note => note.noteIndex)) ++
+  (chart.slides.map (fun note => note.noteIndex))
+
+def judgedNoteIndices (result : RuntimeSimulationResult) : List Nat :=
+  result.events.map (fun evt => evt.noteIndex)
+
+def missingJudgedNoteIndices (result : RuntimeSimulationResult) : List Nat :=
+  let judged := judgedNoteIndices result
+  (chartNoteIndices result.chart).filter (fun idx => !(judged.any (fun judgedIdx => judgedIdx = idx)))
+
+def missingJudgedNoteCount (result : RuntimeSimulationResult) : Nat :=
+  (missingJudgedNoteIndices result).length
 
 private def chartEndTime (chart : ChartLoader.ChartSpec) : TimePoint :=
   let tapEnd := chart.taps.foldl (fun acc note => max acc note.timing) TimePoint.zero
@@ -103,17 +173,59 @@ private def settleBatchesFrom (startTime : TimePoint) (chart : ChartLoader.Chart
       { currentTime := next, events := [] } :: loop next (fuel - 1)
   loop startTime 512
 
+def settleReplayBatchesFromChart (startTime : TimePoint) (chart : ChartLoader.ChartSpec) : List TimedInputBatch :=
+  settleBatchesFrom startTime chart
+
+def settleReplayBatchesUntil (startTime targetTime : TimePoint) : List TimedInputBatch :=
+  let frame := Constants.FRAME_LENGTH
+  let rec loop (current : TimePoint) (fuel : Nat) : List TimedInputBatch :=
+    if fuel = 0 then
+      []
+    else if current ≥ targetTime then
+      []
+    else
+      let next := current + frame
+      { currentTime := next, events := [] } :: loop next (fuel - 1)
+  loop startTime 512
+
+def replayBatchesFromState (initialState : InputModel.GameState) (batches : List TimedInputBatch) : RuntimeReplayResult :=
+  let (finalState, events) := batches.foldl foldSimulation (initialState, [])
+  { initialState := initialState
+  , finalState := finalState
+  , batches := batches
+  , events := events }
+
+def simulateStateWithTacticAndBatches
+    (initialState : InputModel.GameState)
+    (seq : ManualTacticSequence)
+    (settleBatches : List TimedInputBatch) : RuntimeReplayResult :=
+  let tactic := expandReplayBatchesFrom initialState.currentTime (tacticBatches seq)
+  replayBatchesFromState initialState (tactic ++ settleBatches)
+
+def simulateStateWithTacticUntil
+    (initialState : InputModel.GameState)
+    (seq : ManualTacticSequence)
+    (targetTime : TimePoint) : RuntimeReplayResult :=
+  let tactic := expandReplayBatchesFrom initialState.currentTime (tacticBatches seq)
+  let tacticResult := replayBatchesFromState initialState tactic
+  let settle := settleReplayBatchesUntil tacticResult.finalState.currentTime targetTime
+  let finalResult := replayBatchesFromState tacticResult.finalState settle
+  { initialState := initialState
+  , finalState := finalResult.finalState
+  , batches := tactic ++ settle
+  , events := tacticResult.events ++ finalResult.events }
+
 def simulateChartSpecWithTactic (chart : ChartLoader.ChartSpec) (seq : ManualTacticSequence) : RuntimeSimulationResult :=
   let initialState := ChartLoader.buildGameState chart
-  let batches := expandTimedBatchesFrom initialState.currentTime (tacticBatches seq)
-  let (stateAfterTactic, tacticEvents) := batches.foldl foldSimulation (initialState, [])
-  let settleBatches := settleBatchesFrom stateAfterTactic.currentTime chart
-  let (finalState, allEvents) := settleBatches.foldl foldSimulation (stateAfterTactic, tacticEvents)
+  let tactic := expandReplayBatchesFrom initialState.currentTime (tacticBatches seq)
+  let tacticResult := replayBatchesFromState initialState tactic
+  let settle := settleReplayBatchesFromChart tacticResult.finalState.currentTime chart
+  let finalResult := replayBatchesFromState tacticResult.finalState settle
   { chart := chart
   , initialState := initialState
-  , finalState := finalState
-  , batches := batches ++ settleBatches
-  , events := allEvents }
+  , finalState := finalResult.finalState
+  , batches := tactic ++ settle
+  , events := tacticResult.events ++ finalResult.events }
 
 def simulateChartSectionWithTactic
     (content : String) (seq : ManualTacticSequence) (levelIndex : Nat := 1) :
@@ -169,6 +281,189 @@ def touchAt (micros : Int) (area : SensorArea) : ManualTacticAction :=
 
 def holdSensorAt (micros : Int) (area : SensorArea) (isDown : Bool := true) : ManualTacticAction :=
   .sensorHold (TimePoint.fromMicros micros) area isDown
+
+def tapAtTime (time : TimePoint) (zone : ButtonZone) : ManualTacticAction :=
+  .buttonClick time zone
+
+def touchAtTime (time : TimePoint) (area : SensorArea) : ManualTacticAction :=
+  .sensorClick time area
+
+def holdButtonAtTime (time : TimePoint) (zone : ButtonZone) (isDown : Bool := true) : ManualTacticAction :=
+  .buttonHold time zone isDown
+
+def holdSensorAtTime (time : TimePoint) (area : SensorArea) (isDown : Bool := true) : ManualTacticAction :=
+  .sensorHold time area isDown
+
+def NoteTimingSkeleton.kind : NoteTimingSkeleton → NoteTimingSkeletonKind
+  | .tap .. => .tap
+  | .hold .. => .hold
+  | .touch .. => .touch
+  | .touchHold .. => .touchHold
+  | .slide _ => .slide
+
+def NoteTimingSkeleton.noteIndex : NoteTimingSkeleton → Nat
+  | .tap noteIndex _ _ _ => noteIndex
+  | .hold noteIndex _ _ _ _ => noteIndex
+  | .touch noteIndex _ _ _ => noteIndex
+  | .touchHold noteIndex _ _ _ _ => noteIndex
+  | .slide spec => spec.noteIndex
+
+def NoteTimingSkeleton.semanticTime : NoteTimingSkeleton → TimePoint
+  | .tap _ semanticTime _ _ => semanticTime
+  | .hold _ semanticTime _ _ _ => semanticTime
+  | .touch _ semanticTime _ _ => semanticTime
+  | .touchHold _ semanticTime _ _ _ => semanticTime
+  | .slide spec => spec.headSemanticTime
+
+private def skeletonLe (lhs rhs : NoteTimingSkeleton) : Bool :=
+  lhs.semanticTime ≤ rhs.semanticTime
+
+private def insertSkeleton (entry : NoteTimingSkeleton) : List NoteTimingSkeleton → List NoteTimingSkeleton
+  | [] => [entry]
+  | head :: rest =>
+    if skeletonLe entry head then entry :: head :: rest else head :: insertSkeleton entry rest
+
+def sortTimingSkeleton (entries : List NoteTimingSkeleton) : List NoteTimingSkeleton :=
+  entries.foldl (fun acc entry => insertSkeleton entry acc) []
+
+private def sensorInputTime (semanticTime : TimePoint) : TimePoint :=
+  semanticTime + Constants.TOUCH_PANEL_OFFSET
+
+private def chooseSlideStepAreas (fallback : SensorArea) (step : ChartLoader.SlideAreaSpec) : List SensorArea :=
+  match step.policy, step.targetAreas with
+  | .And, targets => if targets.isEmpty then [fallback] else targets
+  | .Or, first :: _ => [first]
+  | .Or, [] => [fallback]
+
+private def slideRepresentativePathSteps (note : ChartLoader.SlideChartNote) : List (List SensorArea) :=
+  let fallback := note.slot.toOuterSensorArea
+  match note.judgeQueues with
+  | queue :: _ => queue.map (chooseSlideStepAreas fallback)
+  | [] => []
+
+def chartTimingSkeleton (chart : ChartLoader.ChartSpec) : List NoteTimingSkeleton :=
+  let taps := chart.taps.map (fun note =>
+    NoteTimingSkeleton.tap note.noteIndex note.timing note.timing note.slot.toButtonZone)
+  let holds := chart.holds.map (fun note =>
+    let releaseTime := note.timing + note.length
+    NoteTimingSkeleton.hold note.noteIndex note.timing note.timing releaseTime note.slot.toButtonZone)
+  let touches := chart.touches.map (fun note =>
+    NoteTimingSkeleton.touch note.noteIndex note.timing (sensorInputTime note.timing) note.sensorPos)
+  let touchHolds := chart.touchHolds.map (fun note =>
+    let releaseTime := sensorInputTime (note.timing + note.length)
+    NoteTimingSkeleton.touchHold note.noteIndex note.timing (sensorInputTime note.timing) releaseTime note.sensorPos)
+  let slides := chart.slides.map (fun note =>
+    let judgeSemanticTime := note.judgeAt.getD (note.startTiming + note.length)
+    NoteTimingSkeleton.slide
+      { noteIndex := note.noteIndex
+      , headSemanticTime := note.timing
+      , headInputTime := note.timing
+      , startSemanticTime := note.startTiming
+      , startInputTime := sensorInputTime note.startTiming
+      , endSemanticTime := judgeSemanticTime
+      , endInputTime := sensorInputTime judgeSemanticTime
+      , headZone := note.slot.toButtonZone
+      , pathSteps := slideRepresentativePathSteps note })
+  sortTimingSkeleton (taps ++ holds ++ touches ++ touchHolds ++ slides)
+
+private def evenlySpacedTimesBetween (startTime endTime : TimePoint) (count : Nat) : List TimePoint :=
+  match count with
+  | 0 => []
+  | 1 => [endTime]
+  | count + 1 =>
+      let span := endTime - startTime
+      let stride := Duration.divNat span count
+      (List.range (count + 1)).map (fun index => startTime + Duration.scaleNat stride index)
+
+private def slideStepReleaseTimes (startTimes : List TimePoint) (endTime : TimePoint) : List TimePoint :=
+  let rec loop : List TimePoint → List TimePoint
+    | [] => []
+    | [_last] => [endTime + Constants.FRAME_LENGTH]
+    | _current :: nextStart :: rest =>
+        let releaseTime := nextStart - Duration.fromMicros 1
+        releaseTime :: loop (nextStart :: rest)
+  loop startTimes
+
+private def resolveSlidePathStep (areas : List SensorArea) (startTime endTime : TimePoint) : List TimedInputEvent :=
+  let downs := areas.map (fun area => holdSensorAtTime startTime area true)
+  let ups := areas.map (fun area => holdSensorAtTime endTime area false)
+  downs ++ ups
+
+private def flattenEventLists (lists : List (List TimedInputEvent)) : List TimedInputEvent :=
+  lists.foldr (· ++ ·) []
+
+def resolveSingleTrackSlideWithHeadEvenly (spec : SlideTimingSkeleton) : ManualTacticSequence :=
+  let head := [tapAtTime spec.headInputTime spec.headZone]
+  let startTimes := evenlySpacedTimesBetween spec.startInputTime spec.endInputTime spec.pathSteps.length
+  let endTimes := slideStepReleaseTimes startTimes spec.endInputTime
+  let pathEvents :=
+    flattenEventLists <| (List.zip spec.pathSteps (List.zip startTimes endTimes)).map (fun item =>
+      let (areas, times) := item
+      resolveSlidePathStep areas times.1 times.2)
+  mkManualTacticSequence (head ++ pathEvents)
+
+def resolveDefaultTimingSkeleton : NoteTimingSkeleton → ManualTacticSequence
+  | .tap _ _ inputTime zone =>
+      mkManualTacticSequence [tapAtTime inputTime zone]
+  | .hold _ _ inputTime releaseInputTime zone =>
+      let releaseTime := releaseInputTime + Duration.scaleNat Constants.FRAME_LENGTH 4
+      mkManualTacticSequence [tapAtTime inputTime zone, holdButtonAtTime inputTime zone true, holdButtonAtTime releaseTime zone false]
+  | .touch _ _ inputTime area =>
+      mkManualTacticSequence [touchAtTime inputTime area]
+  | .touchHold _ _ inputTime releaseInputTime area =>
+      let releaseTime := releaseInputTime + Duration.scaleNat Constants.FRAME_LENGTH 4
+      mkManualTacticSequence [touchAtTime inputTime area, holdSensorAtTime inputTime area true, holdSensorAtTime releaseTime area false]
+  | .slide spec =>
+      resolveSingleTrackSlideWithHeadEvenly spec
+
+def resolveDefaultTimingSkeletonList (entries : List NoteTimingSkeleton) : ManualTacticSequence :=
+  mkManualTacticSequence (flattenEventLists <| entries.map (fun entry => (resolveDefaultTimingSkeleton entry).events))
+
+private def findTimingSkeletonOverride
+    (overrides : List TimingSkeletonOverride) (noteIndex : Nat) : Option TimingSkeletonOverride :=
+  match overrides with
+  | [] => none
+  | head :: rest =>
+      if head.noteIndex = noteIndex then some head else findTimingSkeletonOverride rest noteIndex
+
+def fixedTimingSkeletonOverride (noteIndex : Nat) (seq : ManualTacticSequence) : TimingSkeletonOverride :=
+  { noteIndex := noteIndex, resolve := fun _ => seq }
+
+def resolveTimingSkeletonWithOverrides
+    (overrides : List TimingSkeletonOverride) (entry : NoteTimingSkeleton) : ManualTacticSequence :=
+  match findTimingSkeletonOverride overrides entry.noteIndex with
+  | some override => override.resolve entry
+  | none => resolveDefaultTimingSkeleton entry
+
+def resolveTimingSkeletonListWithOverrides
+    (overrides : List TimingSkeletonOverride) (entries : List NoteTimingSkeleton) : ManualTacticSequence :=
+  mkManualTacticSequence <|
+    flattenEventLists <| entries.map (fun entry => (resolveTimingSkeletonWithOverrides overrides entry).events)
+
+def defaultTacticFromChart (chart : ChartLoader.ChartSpec) : ManualTacticSequence :=
+  resolveDefaultTimingSkeletonList (chartTimingSkeleton chart)
+
+def tacticFromChartWithOverrides
+    (chart : ChartLoader.ChartSpec) (overrides : List TimingSkeletonOverride) : ManualTacticSequence :=
+  resolveTimingSkeletonListWithOverrides overrides (chartTimingSkeleton chart)
+
+def timingSkeletonFromChartSection
+    (content : String) (levelIndex : Nat := 1) :
+    Except Simai.ParseError (List NoteTimingSkeleton) := do
+  let chart ← compileRuntimeChartSection content levelIndex
+  return chartTimingSkeleton chart
+
+def defaultTacticFromChartSection
+    (content : String) (levelIndex : Nat := 1) :
+    Except Simai.ParseError ManualTacticSequence := do
+  let chart ← compileRuntimeChartSection content levelIndex
+  return defaultTacticFromChart chart
+
+def tacticFromChartSectionWithOverrides
+    (content : String) (overrides : List TimingSkeletonOverride) (levelIndex : Nat := 1) :
+    Except Simai.ParseError ManualTacticSequence := do
+  let chart ← compileRuntimeChartSection content levelIndex
+  return tacticFromChartWithOverrides chart overrides
 
 theorem compileRuntimeChartSection_eq_compileLowered
     (content : String) (levelIndex : Nat := 1) :

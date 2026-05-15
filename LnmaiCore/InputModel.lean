@@ -46,6 +46,26 @@ structure TimedInputBatch where
   events     : List TimedInputEvent := []
 deriving Inhabited, Repr
 
+structure FrameWindow where
+  prevTime : TimePoint
+  currentTime : TimePoint
+deriving Inhabited, Repr
+
+def FrameWindow.ofDelta (currentTime : TimePoint) (delta : Duration) : FrameWindow :=
+  { prevTime := currentTime - delta, currentTime := currentTime }
+
+/--
+  Frame inclusion policy for timed inputs.
+
+  - zero-duration frame: exact-point inclusion `{currentTime}`
+  - positive-duration frame: left-open, right-closed `(prevTime, currentTime]`
+-/
+def FrameWindow.containsEventTime (window : FrameWindow) (eventTime : TimePoint) : Bool :=
+  if window.prevTime == window.currentTime then
+    eventTime == window.currentTime
+  else
+    eventTime > window.prevTime && eventTime ≤ window.currentTime
+
 def FrameInput.getButtonHeld (fi : FrameInput) (zone : ButtonZone) : Bool :=
   fi.buttonHeld.getD zone false
 
@@ -78,8 +98,9 @@ def prevSensorHeldAt (prevSensor : SensorVec Bool) (area : SensorArea) : Bool :=
 def TimedInputBatch.toFrameInput (batch : TimedInputBatch) (delta : Duration)
     (prevButtonHeld : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false)
     (prevSensorHeld : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false) : FrameInput :=
+  let window := FrameWindow.ofDelta batch.currentTime delta
   let withinFrame (evt : TimedInputEvent) : Bool :=
-    evt.at > batch.currentTime - delta && evt.at ≤ batch.currentTime
+    window.containsEventTime evt.at
   let initial : FrameInput :=
     { buttonHeld := prevButtonHeld
     , sensorHeld := prevSensorHeld

@@ -13,3 +13,7 @@ name = "LnmaiCore"
 [[lean_exe]]
 name = "lnmai-core"
 root = "Main"
+
+[[lean_exe]]
+name = "real-chart-verification"
+root = "RealChartVerification"

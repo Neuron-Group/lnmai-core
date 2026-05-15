@@ -173,3 +173,95 @@ This has already shaped the current wrapper design and should remain a hard requ
 - add pretty-printer support for `ManualTacticSequence`
 - add proof examples for tap, hold, touch, and simple slide sections
 - later, consider a higher-level tactic layer for hand assignment and motion constraints
+
+## Chart-derived timing skeletons
+
+The proof API now also supports a chart-derived timing skeleton layer for reducing timestamp boilerplate in proofs.
+
+Useful functions in `LnmaiCore.RuntimeProofAPI`:
+
+- `chartTimingSkeleton : ChartSpec → List NoteTimingSkeleton`
+- `resolveDefaultTimingSkeleton : NoteTimingSkeleton → ManualTacticSequence`
+- `resolveDefaultTimingSkeletonList : List NoteTimingSkeleton → ManualTacticSequence`
+- `defaultTacticFromChart : ChartSpec → ManualTacticSequence`
+- `resolveTimingSkeletonWithOverrides : List TimingSkeletonOverride → NoteTimingSkeleton → ManualTacticSequence`
+- `resolveTimingSkeletonListWithOverrides : List TimingSkeletonOverride → List NoteTimingSkeleton → ManualTacticSequence`
+- `tacticFromChartWithOverrides : ChartSpec → List TimingSkeletonOverride → ManualTacticSequence`
+
+Intended workflow:
+
+1. lower a real chart section into `ChartSpec`
+2. derive a timing skeleton from the chart
+3. use default resolvers for easy note families
+4. override only the suspicious or hand-sensitive notes when needed
+
+The current default resolvers intentionally stay simple:
+
+- tap → click at note timing
+- hold → press at head timing, release at tail timing
+- touch → sensor click at offset-adjusted timing
+- touch-hold → sensor press at head timing, release at tail timing
+- slide with head → trigger the head, wait for `startTiming`, then walk a representative single-track path with evenly spaced sensor holds until the slide end
+
+So this layer already covers all major runtime note families, not only slides. Slides just need the richest default resolver shape.
+
+This is meant as proof scaffolding, not a full auto-player. The value is that proofs over real charts can start from chart-derived timing structure instead of hand-writing every microsecond.
+
+Example shape:
+
+```lean
+def chart : ChartLoader.ChartSpec :=
+  simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1,\n"
+
+def tactic : ManualTacticSequence :=
+  defaultTacticFromChart chart
+
+#eval chartTimingSkeleton chart
+#eval tactic
+```
+
+For harder charts, a useful pattern is:
+
+- derive `chartTimingSkeleton chart`
+- map over the skeleton
+- keep the default resolver for most notes
+- replace only selected slide or multi-note sections with custom tactics
+
+The current override surface is `noteIndex`-based, so any note family can be replaced selectively while all other notes still use chart-derived defaults.
+
+Example shape:
+
+```lean
+def overrides : List TimingSkeletonOverride :=
+  [ fixedTimingSkeletonOverride 42 (manual_tactic! "1500000 tap K3") ]
+
+def tactic : ManualTacticSequence :=
+  tacticFromChartWithOverrides chart overrides
+```
+
+## Current status on the real chart asset
+
+The repository now wires the chart-derived tactic helpers to the real chart at:
+
+- `tools/assets/11358_インドア系ならトラックメイカー/maidata.txt`
+
+Important caveat:
+
+- the current fully automatic default tactic generator does **not** yet prove a full clear on that chart as-is
+- this means a theorem claiming that `defaultTacticFromChartSection` solves the full real chart would currently be false
+
+Current remaining gap split after recent runtime fixes:
+
+- chart-generated short regular holds are no longer missing entirely, but some still end as miss-style `LateGood`, which points to hold-head judgment/eligibility timing rather than hold-body sustain
+- several following slides are still judged too fast, which points to default slide resolver pacing being early on those shapes
+
+The detailed reproduction ladder and incident history now live in `doc/refactor-conductor.md`.
+
+To support the next tightening step, the proof API now exposes simulation-debug helpers:
+
+- `chartNoteIndices : ChartSpec → List Nat`
+- `judgedNoteIndices : RuntimeSimulationResult → List Nat`
+- `missingJudgedNoteIndices : RuntimeSimulationResult → List Nat`
+- `missingJudgedNoteCount : RuntimeSimulationResult → Nat`
+
+These are intended to help identify the exact remaining `noteIndex` gaps on real charts, so the tactic resolver or note-family defaults can be improved with concrete evidence.

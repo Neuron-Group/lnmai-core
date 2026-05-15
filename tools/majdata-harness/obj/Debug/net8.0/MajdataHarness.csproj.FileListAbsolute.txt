@@ -1,0 +1,15 @@
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/bin/Debug/net8.0/MajdataHarness
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/bin/Debug/net8.0/MajdataHarness.deps.json
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/bin/Debug/net8.0/MajdataHarness.runtimeconfig.json
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/bin/Debug/net8.0/MajdataHarness.dll
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/bin/Debug/net8.0/MajdataHarness.pdb
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.GeneratedMSBuildEditorConfig.editorconfig
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.AssemblyInfoInputs.cache
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.AssemblyInfo.cs
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.csproj.CoreCompileInputs.cache
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.sourcelink.json
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.dll
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/refint/MajdataHarness.dll
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.pdb
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/MajdataHarness.genruntimeconfig.cache
+/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/Debug/net8.0/ref/MajdataHarness.dll
