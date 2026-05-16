@@ -12,7 +12,7 @@ def checkpointAssetPath : String :=
 def checkpointLevel : Nat := 6
 
 def checkpointChart : ChartLoader.ChartSpec :=
-  simai_lowered_chart_file_at! checkpointLevel checkpointAssetPath
+  simai_lowered_chart_file_at! 6 "tools/assets/834_PANDORA PARADOXXX/maidata.txt"
 
 def checkpointResult : RuntimeSimulationResult :=
   simulateChartSpecWithTactic checkpointChart (defaultTacticFromChart checkpointChart)

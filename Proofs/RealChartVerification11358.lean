@@ -12,7 +12,7 @@ def checkpointAssetPath : String :=
 def checkpointLevel : Nat := 5
 
 def checkpointChart : ChartLoader.ChartSpec :=
-  simai_lowered_chart_file_at! checkpointLevel checkpointAssetPath
+  simai_lowered_chart_file_at! 5 "tools/assets/11358_インドア系ならトラックメイカー/maidata.txt"
 
 def checkpointResult : RuntimeSimulationResult :=
   simulateChartSpecWithTactic checkpointChart (defaultTacticFromChart checkpointChart)
