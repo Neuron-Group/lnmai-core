@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icon/icon.svg" alt="Project icon" width="96" height="96" />
+</p>
+
 # `lnmai-core`
 
 `lnmai-core` is a Lean-first gameplay core for maimai-style chart parsing,
