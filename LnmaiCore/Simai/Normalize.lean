@@ -28,7 +28,7 @@ private def applySingleTrackConnRulesNormalized (slide : NormalizedSlide) (queue
     queue
 
 private def attachJudgeQueues (slide : NormalizedSlide) : NormalizedSlide :=
-  let rawQueues := judgeQueuesForShapeKey (shapeKey slide.simaiShape) false |>.getD []
+  let rawQueues := judgeQueuesForShapeKey (shapeKey slide.simaiShape) slide.isClassic |>.getD []
   let placedQueues := rotateJudgeQueues slide.slot.toIndex rawQueues
   let withLen := { slide with totalJudgeQueueLen := totalJudgeQueueLen placedQueues }
   let queues :=
@@ -56,6 +56,7 @@ def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (Normalize
                 , startTiming := token.timing + token.starWait.getD Duration.zero
                 , hSpeed := token.hSpeed
                 , slideKind := if isWifi then LnmaiCore.SlideKind.Wifi else LnmaiCore.SlideKind.Single
+                , isClassic := false
                 , trackCount := if isWifi then 3 else 1
                 , judgeAt := some (token.timing + token.starWait.getD Duration.zero + length)
                 , isBreak := token.isBreak
@@ -182,7 +183,7 @@ def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
       , length := note.length
       , startTiming := note.startTiming
       , slideKind := note.slideKind
-      , isClassic := false
+      , isClassic := note.isClassic
       , isConnSlide := note.isConnSlide
       , parentNoteIndex := note.parentNoteIndex
       , isGroupHead := note.isGroupHead

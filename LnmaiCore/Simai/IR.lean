@@ -55,6 +55,7 @@ structure NormalizedSlide where
   startTiming : TimePoint
   hSpeed : Rat := 1
   slideKind : LnmaiCore.SlideKind := .Single
+  isClassic : Bool := false
   trackCount : Nat := 1
   judgeAt : Option TimePoint := none
   isBreak : Bool := false
