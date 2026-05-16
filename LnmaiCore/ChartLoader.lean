@@ -336,6 +336,7 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   , lane := note.slot
   , state := SlideState.Active waitTime
   , length := note.length
+  , timing := note.timing
   , startTiming := note.startTiming
   , slideKind := note.slideKind
   , isClassic := note.isClassic

@@ -603,6 +603,7 @@ structure SlideNote where
   lane            : OuterSlot
   state           : SlideState
   length          : Duration            -- total slide length
+  timing          : TimePoint           -- slide head timing
   startTiming     : TimePoint           -- when slide started
   slideKind       : SlideKind := .Single
   isClassic       : Bool := false
@@ -675,16 +676,16 @@ private def slideCurrentDiff (note : SlideNote) (currentTime : TimePoint) : Dura
   currentTime - note.params.effectiveTiming
 
 private def slideShouldBeCheckable (note : SlideNote) (currentTime : TimePoint) : Bool :=
-  let startTiming := currentTime - note.startTiming
+  let headTiming := currentTime - note.timing
   if note.isCheckable then
     true
   else if note.isConnSlide then
     if note.isGroupPartHead then
-      startTiming >= Duration.fromMicros (-50000)
+      headTiming >= Duration.fromMicros (-50000)
     else
       note.parentFinished || note.parentPendingFinish
   else
-    startTiming >= Duration.fromMicros (-50000)
+    headTiming >= Duration.fromMicros (-50000)
 
 private def slideUpdatedQueuesWithCmds
     (note : SlideNote) (isCheckable : Bool) (sensorHeld : SensorVec Bool) :

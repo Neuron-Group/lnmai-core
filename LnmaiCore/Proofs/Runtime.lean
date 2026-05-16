@@ -345,14 +345,34 @@ private def sensorInputTime (semanticTime : TimePoint) : TimePoint :=
 private def chooseSlideStepAreas (fallback : SensorArea) (step : ChartLoader.SlideAreaSpec) : List SensorArea :=
   match step.policy, step.targetAreas with
   | .And, targets => if targets.isEmpty then [fallback] else targets
-  | .Or, first :: _ => [first]
-  | .Or, [] => [fallback]
+  | .Or, targets => if targets.isEmpty then [fallback] else targets
+
+private def mergeSensorAreas (lhs rhs : List SensorArea) : List SensorArea :=
+  (lhs ++ rhs).eraseDups
+
+private def nthSlideAreaSpec?
+    (steps : List ChartLoader.SlideAreaSpec) (index : Nat) : Option ChartLoader.SlideAreaSpec :=
+  match steps, index with
+  | [], _ => none
+  | step :: _, 0 => some step
+  | _ :: rest, index + 1 => nthSlideAreaSpec? rest index
 
 private def slideRepresentativePathSteps (note : ChartLoader.SlideChartNote) : List (List SensorArea) :=
   let fallback := note.slot.toOuterSensorArea
-  match note.judgeQueues with
-  | queue :: _ => queue.map (chooseSlideStepAreas fallback)
-  | [] => []
+  match note.slideKind with
+  | SlideKind.Wifi =>
+      let maxLen := note.judgeQueues.foldl (fun acc queue => max acc queue.length) 0
+      (List.range maxLen).map (fun index =>
+        note.judgeQueues.foldl
+          (fun acc queue =>
+            match nthSlideAreaSpec? queue index with
+            | some step => mergeSensorAreas acc (chooseSlideStepAreas fallback step)
+            | none => acc)
+          ([] : List SensorArea))
+  | _ =>
+      match note.judgeQueues with
+      | queue :: _ => queue.map (chooseSlideStepAreas fallback)
+      | [] => []
 
 def chartTimingSkeleton (chart : ChartLoader.ChartSpec) : List NoteTimingSkeleton :=
   let taps := chart.taps.map (fun note =>

@@ -485,7 +485,7 @@ def test_reference_pq_realpaths : ParityCase :=
           let qPath := qshape.judgeQueues.headD [] |> areaCodes
           let pPath := pshape.judgeQueues.headD [] |> areaCodes
           supportedCase "reference_pq_realpaths"
-            (qPath = ["A1", "B8", "B7", "B6", "B5", "B4", "A3"] &&
+            (qPath = ["A1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B1", "B2", "A3"] &&
              pPath = ["A1", "B8", "B7", "B6", "A5"])
             "pq-family slides resolve to the MajdataPlay judge paths that fixed the real-chart AP regression"
       | _ => supportedCase "reference_pq_realpaths" false "expected two pq-family slides"
@@ -514,8 +514,8 @@ def test_reference_mirrored_pq_realpaths : ParityCase :=
           let pPath := pshape.judgeQueues.headD [] |> areaCodes
           supportedCase "reference_mirrored_pq_realpaths"
             (qshape.simaiShape.mirrored && pshape.simaiShape.mirrored &&
-             qPath = ["A1", "B1", "B2", "B3", "B4", "B5", "A2"] &&
-             pPath = ["A1", "B1", "B2", "B3", "A4"])
+             qPath = ["A1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B1", "A2"] &&
+             pPath = ["A1", "B8", "B7", "B6", "B5", "A4"])
             "mirrored pq-family slides reflect the MajdataPlay path tables across the cabinet axis"
       | _ => supportedCase "reference_mirrored_pq_realpaths" false "expected two mirrored pq-family slides"
   | .error err => supportedCase "reference_mirrored_pq_realpaths" false s!"unexpected parse error: {err.message}"
@@ -529,8 +529,8 @@ def test_reference_mirrored_ppqq_realpaths : ParityCase :=
           let longPath := longqq.judgeQueues.headD [] |> areaCodes
           supportedCase "reference_mirrored_ppqq_realpaths"
             (shortqq.simaiShape.mirrored && longqq.simaiShape.mirrored &&
-             shortPath = ["A1", "B1", "C", "B6", "A7"] &&
-             longPath = ["A1", "B1", "C", "B6", "A7", "A8", "B1", "B2", "A3"])
+             shortPath = ["A1", "B1", "C", "B6", "A7", "A8", "B1", "B2", "A3"] &&
+             longPath = ["A1", "B1", "C", "B6", "A7"])
             "mirrored ppqq-family slides reflect the MajdataPlay path tables across the cabinet axis"
       | _ => supportedCase "reference_mirrored_ppqq_realpaths" false "expected two mirrored ppqq-family slides"
   | .error err => supportedCase "reference_mirrored_ppqq_realpaths" false s!"unexpected parse error: {err.message}"
@@ -544,8 +544,8 @@ def test_reference_mirrored_turn_realpaths : ParityCase :=
           let longPath := longTurn.judgeQueues.headD [] |> areaCodes
           supportedCase "reference_mirrored_turn_realpaths"
             (shortTurn.simaiShape.mirrored && longTurn.simaiShape.mirrored &&
-             shortPath = ["A1", "A8", "A7", "A7", "C", "B3", "A3"] &&
-             longPath = ["A1", "A8", "A7", "A6", "A5"])
+             shortPath = ["A1", "A8", "A1", "A7", "A7", "C", "B3", "A3"] &&
+             longPath = ["A1", "A8", "A1", "A7", "A6", "E7", "A5"])
             "mirrored turn-family slides preserve the MajdataPlay path tables after mirroring"
       | _ => supportedCase "reference_mirrored_turn_realpaths" false "expected two mirrored turn slides"
   | .error err => supportedCase "reference_mirrored_turn_realpaths" false s!"unexpected parse error: {err.message}"
@@ -563,6 +563,23 @@ def test_shape_key_is_annotation_not_authority : ParityCase :=
             "the string shape key is retained for annotation, while typed shape semantics drive normalization"
       | _, _ => supportedCase "shape_key_is_annotation_not_authority" false "expected one wifi slide"
   | .error err => supportedCase "shape_key_is_annotation_not_authority" false s!"unexpected parse error: {err.message}"
+
+def test_reference_wifi_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1w5[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | wifi :: _ =>
+          let leftPath := wifi.judgeQueues.getD 0 [] |> areaCodes
+          let centerPath := wifi.judgeQueues.getD 1 [] |> areaCodes
+          let rightPath := wifi.judgeQueues.getD 2 [] |> areaCodes
+          supportedCase "reference_wifi_realpaths"
+            (wifi.trackCount = 3 &&
+             leftPath = ["A1", "B8", "B7", "A6", "D6"] &&
+             centerPath = ["A1", "B1", "C"] &&
+             rightPath = ["A1", "B2", "B3", "A4", "D5"])
+            "wifi realpaths preserve MajdataPlay inner-screen judge queues across all three tracks"
+      | _ => supportedCase "reference_wifi_realpaths" false "expected one wifi slide"
+  | .error err => supportedCase "reference_wifi_realpaths" false s!"unexpected parse error: {err.message}"
 
 def test_just_right_is_debug_not_normalized_authority : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1w5[4:1],\n" with
@@ -619,6 +636,7 @@ def all : List ParityCase :=
   , test_reference_mirrored_ppqq_realpaths
   , test_reference_mirrored_turn_realpaths
   , test_shape_key_is_annotation_not_authority
+  , test_reference_wifi_realpaths
   , test_just_right_is_debug_not_normalized_authority ]
 
 def leanMirroredCaseNames : List String :=

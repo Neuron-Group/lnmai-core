@@ -78,9 +78,9 @@ def judgeQueuesForShapeKey (shapeKey : String) (isClassic : Bool := false) : Opt
   let isMirrored := shapeKey.startsWith "-"
   let key := stripMirrorPrefix shapeKey
   let wifi : WifiTableSpec :=
-    { left := [one' .A1 0 0, one' .A8 2 2, one' .A7 4 4, one [.A6, .E6] 7 7 true true]
-    , center := if isClassic then [one' .A1 0 0, one' .A2 2 2, one' .C 7 7 true false] else [one' .A1 0 0, one' .A2 2 2, one' .C 4 4 true true]
-    , right := [one' .A1 0 0, one' .A3 2 2, one' .A4 4 4, one [.A5, .E5] 7 7 true true] }
+    { left := [one' .A1 0 0, one' .B8 2 2, one' .B7 4 4, one [.A6, .D6] 7 7 true true]
+    , center := if isClassic then [one' .A1 0 0, one' .B1 2 2, one' .C 7 7 true false] else [one' .A1 0 0, one' .B1 2 2, one' .C 4 4 true true]
+    , right := [one' .A1 0 0, one' .B2 2 2, one' .B3 4 4, one [.A4, .D5] 7 7 true true] }
   let ordinary : List (String × List (List SlideAreaSpec)) :=
     [ ("circle2", track [one' .A1 0 3 false false, one' .A2 5 7 true true])
     , ("circle3", track [one' .A1 0 3, one' .A2 7 11 false false, one' .A3 13 15 true true])
