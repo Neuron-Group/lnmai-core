@@ -115,6 +115,14 @@ def judgeQueuesForShapeKey (shapeKey : String) (isClassic : Bool := false) : Opt
     , ("L4", [ [one' .A1 0 3], [one [.A8, .A1] 6 10 false false], [one' .A7 12 19], [one' .A6 21 24], [one' .A5 25 28], [one' .A4 29 32 true true] ])
     , ("L5", [ [one' .A1 0 3], [one [.A8, .A1] 6 10 false false], [one' .A7 12 18], [one [.A6, .E7] 21 24 false false], [one' .A5 27 28 true true] ])
     , ("s", [ [one' .A1 0 4], [one' .B8 7 9], [one' .B7 10 12], [one' .C 14 17], [one' .B3 19 21], [one' .B4 22 25], [one' .A5 27 30 true true] ])
+    , ("pq1", [ [one' .A1 0 4], [one' .B8 5 8], [one' .B7 9 11], [one' .B6 12 14], [one' .B5 15 17], [one' .B4 19 21], [one' .B3 22 24], [one' .B2 25 29], [one' .A1 30 33 true true] ])
+    , ("pq2", [ [one' .A1 0 4], [one' .B8 5 8], [one' .B7 9 11], [one' .B6 12 14], [one' .B5 16 18], [one' .B4 19 21], [one' .B3 22 26], [one' .A2 27 30 true true] ])
+    , ("pq3", [ [one' .A1 0 4], [one' .B8 5 8], [one' .B7 9 11], [one' .B6 12 14], [one' .B5 16 18], [one' .B4 20 23], [one' .A3 25 27 true true] ])
+    , ("pq4", [ [one' .A1 0 4], [one' .B8 5 8], [one' .B7 9 11], [one' .B6 12 14], [one' .B5 16 20], [one' .A4 22 24 true true] ])
+    , ("pq5", [ [one' .A1 0 4], [one' .B8 5 8], [one' .B7 9 12], [one' .B6 14 17], [one' .A5 19 21 true true] ])
+    , ("pq6", [ [one' .A1 0 4], [one' .B8 5 8], [one' .B7 9 11], [one' .B6 13 15], [one' .B5 16 18], [one' .B4 19 21], [one' .B3 22 24], [one' .B2 25 27], [one' .B1 28 30], [one' .B8 31 33], [one' .B7 35 38], [one' .A6 40 42 true true] ])
+    , ("pq7", [ [one' .A1 0 4], [one' .B8 7 9], [one' .B7 10 12], [one' .B6 13 15], [one' .B5 16 18], [one' .B4 20 22], [one' .B3 23 25], [one' .B2 26 28], [one' .B1 30 32], [one' .B8 33 36], [one' .A7 37 40 true true] ])
+    , ("pq8", [ [one' .A1 0 4], [one' .B8 5 8], [one' .B7 9 11], [one' .B6 12 14], [one' .B5 15 17], [one' .B4 19 21], [one' .B3 22 24], [one' .B2 25 27], [one' .B1 28 32], [one' .A8 33 36 true true] ])
     ]
   let base :=
     match ordinary.find? (fun pair => pair.1 == key) with

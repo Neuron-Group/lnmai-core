@@ -70,13 +70,8 @@ def compileRuntimeChartSection (content : String) (levelIndex : Nat := 1) : Exce
 private def eventLe (lhs rhs : TimedInputEvent) : Bool :=
   lhs.at ≤ rhs.at
 
-private def insertEvent (evt : TimedInputEvent) : List TimedInputEvent → List TimedInputEvent
-  | [] => [evt]
-  | head :: rest =>
-    if eventLe evt head then evt :: head :: rest else head :: insertEvent evt rest
-
 def sortTacticEvents (events : List TimedInputEvent) : List TimedInputEvent :=
-  events.foldl (fun acc evt => insertEvent evt acc) []
+  events.mergeSort eventLe
 
 def mkManualTacticSequence (events : List TimedInputEvent) : ManualTacticSequence :=
   { events := sortTacticEvents events }
@@ -87,16 +82,26 @@ def ManualTacticSequence.append (lhs rhs : ManualTacticSequence) : ManualTacticS
 instance : Append ManualTacticSequence where
   append := ManualTacticSequence.append
 
-private def pushEventIntoBatches (evt : TimedInputEvent) : List TimedInputBatch → List TimedInputBatch
-  | [] => [{ currentTime := evt.at, events := [evt] }]
-  | batch :: rest =>
-    if batch.currentTime = evt.at then
-      { batch with events := batch.events ++ [evt] } :: rest
-    else
-      batch :: pushEventIntoBatches evt rest
-
 private def groupSortedEvents (events : List TimedInputEvent) : List TimedInputBatch :=
-  events.foldl (fun acc evt => pushEventIntoBatches evt acc) []
+  let rec loop (currentTime? : Option TimePoint) (currentEventsRev : List TimedInputEvent)
+      (accRev : List TimedInputBatch) (remaining : List TimedInputEvent) : List TimedInputBatch :=
+    match remaining with
+    | [] =>
+        match currentTime? with
+        | none => accRev.reverse
+        | some currentTime =>
+            ({ currentTime := currentTime, events := currentEventsRev.reverse } :: accRev).reverse
+    | evt :: rest =>
+        match currentTime? with
+        | none =>
+            loop (some evt.at) [evt] accRev rest
+        | some currentTime =>
+            if evt.at = currentTime then
+              loop currentTime? (evt :: currentEventsRev) accRev rest
+            else
+              let batch := { currentTime := currentTime, events := currentEventsRev.reverse }
+              loop (some evt.at) [evt] (batch :: accRev) rest
+  loop none [] [] events
 
 def tacticBatches (seq : ManualTacticSequence) : List TimedInputBatch :=
   groupSortedEvents (sortTacticEvents seq.events)
@@ -104,9 +109,9 @@ def tacticBatches (seq : ManualTacticSequence) : List TimedInputBatch :=
 private def foldSimulation
     (state : InputModel.GameState × List JudgeEvent)
     (batch : TimedInputBatch) : InputModel.GameState × List JudgeEvent :=
-  let (st, acc) := state
+  let (st, accRev) := state
   let (nextState, events, _, _) := Scheduler.stepFrameTimed st batch
-  (nextState, acc ++ events)
+  (nextState, events.reverse ++ accRev)
 
 private def frameBatchesBetween (startTime endTime : TimePoint) : List TimedInputBatch :=
   let frame := Constants.FRAME_LENGTH
@@ -133,14 +138,22 @@ def expandReplayBatchesFrom (startTime : TimePoint) (batches : List TimedInputBa
   expandTimedBatchesFrom startTime batches
 
 private def noteCount (chart : ChartLoader.ChartSpec) : Nat :=
-  chart.taps.length + chart.holds.length + chart.touches.length + chart.touchHolds.length + chart.slides.length
+  chart.taps.length +
+  chart.holds.length +
+  chart.touches.length +
+  chart.touchHolds.length +
+  (chart.slides.filter (fun note => !note.isConnSlide || note.isGroupEnd)).length
+
+private def judgedSlideNoteIndices (slides : List ChartLoader.SlideChartNote) : List Nat :=
+  slides.filterMap (fun note =>
+    if note.isConnSlide && !note.isGroupEnd then none else some note.noteIndex)
 
 def chartNoteIndices (chart : ChartLoader.ChartSpec) : List Nat :=
   (chart.taps.map (fun note => note.noteIndex)) ++
   (chart.holds.map (fun note => note.noteIndex)) ++
   (chart.touches.map (fun note => note.noteIndex)) ++
   (chart.touchHolds.map (fun note => note.noteIndex)) ++
-  (chart.slides.map (fun note => note.noteIndex))
+  judgedSlideNoteIndices chart.slides
 
 def judgedNoteIndices (result : RuntimeSimulationResult) : List Nat :=
   result.events.map (fun evt => evt.noteIndex)
@@ -189,11 +202,11 @@ def settleReplayBatchesUntil (startTime targetTime : TimePoint) : List TimedInpu
   loop startTime 512
 
 def replayBatchesFromState (initialState : InputModel.GameState) (batches : List TimedInputBatch) : RuntimeReplayResult :=
-  let (finalState, events) := batches.foldl foldSimulation (initialState, [])
+  let (finalState, eventsRev) := batches.foldl foldSimulation (initialState, [])
   { initialState := initialState
   , finalState := finalState
   , batches := batches
-  , events := events }
+  , events := eventsRev.reverse }
 
 def simulateStateWithTacticAndBatches
     (initialState : InputModel.GameState)

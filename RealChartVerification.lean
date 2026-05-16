@@ -10,10 +10,10 @@ structure RealChartCheckpoint where
 def realChartCheckpoints : List RealChartCheckpoint :=
   [ { name := "11358_インドア系ならトラックメイカー"
     , assetPath := "tools/assets/11358_インドア系ならトラックメイカー/maidata.txt"
-    , level := 2 }
+    , level := 5 }
   , { name := "834_PANDORA PARADOXXX"
     , assetPath := "tools/assets/834_PANDORA PARADOXXX/maidata.txt"
-    , level := 2 } ]
+    , level := 6 } ]
 
 def summarizeGrades (events : List JudgeEvent) : List (JudgeGrade × Nat) :=
   let grades := events.map (fun evt => evt.grade)
@@ -59,3 +59,5 @@ def main : IO Unit := do
     IO.println "real-chart verification completed with no missing judged notes"
   else
     throw <| IO.userError "real-chart verification failed"
+
+-- #eval main

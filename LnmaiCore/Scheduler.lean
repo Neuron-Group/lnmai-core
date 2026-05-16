@@ -92,42 +92,47 @@ private def listSetAt : List α → Nat → α → List α
   | _ :: rest, 0, value => value :: rest
   | head :: rest, index + 1, value => head :: listSetAt rest index value
 
-private def slideHasNoteIndex (slide : SlideNote) (noteIndex : Nat) : Bool :=
-  slide.params.noteIndex == noteIndex
-
-private def slideParentMatches (slide parent : SlideNote) : Bool :=
-  match slide.parentNoteIndex with
-  | some parentIndex => slideHasNoteIndex parent parentIndex
-  | none => false
-
-private def findParentSlide? (slides : List SlideNote) (slide : SlideNote) : Option SlideNote :=
-  match slide.parentNoteIndex with
-  | some parentIndex => slides.find? (fun parent => slideHasNoteIndex parent parentIndex)
-  | none => none
-
 private def slideRemaining (slide : SlideNote) : Nat :=
   Lifecycle.slideQueueRemaining slide.judgeQueues
 
 private def emptySlideQueues (slide : SlideNote) : SlideNote :=
   { slide with judgeQueues := slide.judgeQueues.map (fun _ => []) }
 
-private def resolveSlideLinks (slides : List SlideNote) : List SlideNote :=
-  slides.map (fun slide =>
-    match findParentSlide? slides slide with
-    | none => slide
-    | some parent =>
-      let remaining := slideRemaining parent
-      { slide with parentFinished := remaining == 0, parentPendingFinish := remaining == 1 })
-
 private def shouldForceFinishParent (parent child : SlideNote) : Bool :=
   parent.isConnSlide && !parent.isGroupPartEnd && !child.parentFinished &&
   slideRemaining child < child.initialQueueRemaining
 
-private def forceFinishParentPass (baseSlides : List SlideNote) (slides : List SlideNote) : List SlideNote :=
+private def updateSlideParentFlags (slides : List SlideNote) : List SlideNote :=
+  let statuses := slides.map (fun slide => (slide.params.noteIndex, slideRemaining slide))
+  let findRemaining? (noteIndex : Nat) : Option Nat :=
+    statuses.findSome? (fun entry => if entry.1 = noteIndex then some entry.2 else none)
   slides.map (fun slide =>
-    let hasActiveChild := baseSlides.any (fun child =>
-      slideParentMatches child slide && shouldForceFinishParent slide child)
-    if hasActiveChild then emptySlideQueues slide else slide)
+    match slide.parentNoteIndex with
+    | none => { slide with parentFinished := false, parentPendingFinish := false }
+    | some parentIndex =>
+        match findRemaining? parentIndex with
+        | none => { slide with parentFinished := false, parentPendingFinish := false }
+        | some remaining =>
+            { slide with parentFinished := remaining == 0, parentPendingFinish := remaining == 1 })
+
+private theorem updateSlideParentFlags_length (slides : List SlideNote) :
+    (updateSlideParentFlags slides).length = slides.length := by
+  simp [updateSlideParentFlags]
+
+private def forceFinishParentSlides (slides : List SlideNote) : List SlideNote :=
+  let childRequests := slides.foldl (fun acc child =>
+    match child.parentNoteIndex with
+    | none => acc
+    | some parentIndex =>
+        if slideRemaining child < child.initialQueueRemaining && !child.parentFinished then
+          parentIndex :: acc
+        else
+          acc) []
+  slides.map (fun slide =>
+    if slide.isConnSlide && !slide.isGroupPartEnd && childRequests.contains slide.params.noteIndex then
+      emptySlideQueues slide
+    else
+      slide)
 
 private def hideSlideRenderCmds (slide : SlideNote) : List RenderCommand :=
   match slide.slideKind with
@@ -146,12 +151,6 @@ private def forceFinishRenderCmds (before after : List SlideNote) : List RenderC
       else
         rest
   go before after
-
-private def iterateForceFinishParents : Nat → List SlideNote → List SlideNote
-  | 0, slides => slides
-  | n+1, slides =>
-      let updated := forceFinishParentPass slides slides
-      iterateForceFinishParents n updated
 
 ----------------------------------------------------------------------------
 -- Active Notes (all types pooled together for one frame)
@@ -417,17 +416,27 @@ private def processTouchNotes (queues : SensorQueueVec TouchNote) (input : Frame
 -- Process slide notes
 ----------------------------------------------------------------------------
 
-private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (currentTime : TimePoint) (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
-  match slides with
-  | [] => ([], [], [], [])
+partial def processSlideNotesCore (processedRev pending : List SlideNote)
+    (input : FrameInput) (currentTime : TimePoint) (touchPanelOffset : Duration) (delta : Duration)
+    (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool)
+    (eventsRev : List JudgeEvent) (audioRev : List AudioCommand) (renderRev : List RenderCommand) :
+    List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
+  match pending with
+  | [] => (processedRev.reverse, eventsRev.reverse, audioRev.reverse, renderRev.reverse)
   | note :: rest =>
-    match slideStep note currentTime input.sensorHeld touchPanelOffset delta style subdivideSlideJudgeGrade with
-    | (newNote, some evt, audioCmds, renderCmds) =>
-      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade
-      (newNote :: restSlides, evt :: restEvs, audioCmds ++ restAudio, renderCmds ++ restRender)
-    | (newNote, none, audioCmds, renderCmds) =>
-      let (restSlides, restEvs, restAudio, restRender) := processSlideNotes rest input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade
-      (newNote :: restSlides, restEvs, audioCmds ++ restAudio, renderCmds ++ restRender)
+      match slideStep note currentTime input.sensorHeld touchPanelOffset delta style subdivideSlideJudgeGrade with
+      | (newNote, evt?, audioCmds, renderCmds) =>
+          let updatedPending : List SlideNote :=
+            match updateSlideParentFlags (newNote :: rest) with
+            | [] => []
+            | _current :: updatedRest => updatedRest
+          let processedRev := newNote :: processedRev
+          let eventsRev := match evt? with | some evt => evt :: eventsRev | none => eventsRev
+          let audioRev := audioCmds.reverse ++ audioRev
+          let renderRev := renderCmds.reverse ++ renderRev
+          processSlideNotesCore processedRev updatedPending input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade eventsRev audioRev renderRev
+private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (currentTime : TimePoint) (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
+  processSlideNotesCore [] slides input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade [] [] []
 
 ----------------------------------------------------------------------------
 -- Score Accumulation from Events
@@ -478,7 +487,7 @@ private def eventsToRenderCommands (events : List JudgeEvent) : List RenderComma
 def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEvent × List AudioCommand × List RenderCommand :=
   let newTime := st.currentTime + input.delta
   let cursor : ClickCursor := {}
-  let resolvedSlides := resolveSlideLinks st.slides
+  let resolvedSlides := updateSlideParentFlags st.slides
 
   -- Semantic order is deliberate; see module comment above.
   let (tapNotes, tapEvents, cursorTap) :=
@@ -491,8 +500,8 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     processTouchHoldNotes touchNotes st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.useButtonRingForTouch cursor2 touchGroupStates
   let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
     processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
-  let slideNotes := iterateForceFinishParents slideNotes.length slideNotes
-  let slideNotes := resolveSlideLinks slideNotes
+  let slideNotes := forceFinishParentSlides slideNotes
+  let slideNotes := updateSlideParentFlags slideNotes
   let forceFinishCommands := forceFinishRenderCmds resolvedSlides slideNotes
 
   let allEvents := tapEvents ++ holdEvents ++ touchHoldEvents ++ touchEvents ++ slideEvents

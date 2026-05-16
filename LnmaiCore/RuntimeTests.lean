@@ -533,6 +533,34 @@ def test_chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish : Runtime
       && endsWithNoActiveRuntimeNotes result)
     "future same-lane taps must not pre-consume clicks needed by short hold heads"
 
+private def chartBuiltSameHeadConnPair : ChartLoader.ChartSpec :=
+  simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1],\n"
+
+private def chartBuiltSameHeadConnThreePartChain : ChartLoader.ChartSpec :=
+  simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]*<7[4:1],\n"
+
+def test_chart_wrapper_same_head_conn_pair_achieves_ap : RuntimeCase :=
+  let tactic := defaultTacticFromChart chartBuiltSameHeadConnPair
+  let result := simulateChartSpecWithTactic chartBuiltSameHeadConnPair tactic
+  passCase "chart_wrapper_same_head_conn_pair_achieves_ap"
+    (missingJudgedNoteIndices result = []
+      && result.events.length = 1
+      && eventNoteIndices result.events = [2]
+      && eventGrades result.events = [.Perfect]
+      && achievesAP result)
+    "MajdataPlay-style same-head connected slides judge only the group end and should AP under default replay"
+
+def test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap : RuntimeCase :=
+  let tactic := defaultTacticFromChart chartBuiltSameHeadConnThreePartChain
+  let result := simulateChartSpecWithTactic chartBuiltSameHeadConnThreePartChain tactic
+  passCase "chart_wrapper_same_head_conn_three_part_chain_achieves_ap"
+    (missingJudgedNoteIndices result = []
+      && result.events.length = 1
+      && eventNoteIndices result.events = [3]
+      && eventGrades result.events = [.Perfect]
+      && achievesAP result)
+    "3-part connected-slide chains should propagate parent progress through immediate links and judge only the final part"
+
 private def activeConnSlidesState : InputModel.GameState :=
   let parentArea : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true }
@@ -814,6 +842,210 @@ def test_conn_parent_not_force_finished_without_child_progress : RuntimeCase :=
         "parent stays unfinished when child merely becomes checkable without consuming"
   | _ => passCase "conn_parent_not_force_finished_without_child_progress" false "expected parent and child slides"
 
+private def chainedConnSlidesState : InputModel.GameState :=
+  let mkArea (area : SensorArea) : Lifecycle.SlideArea :=
+    { targetAreas := [area], isLast := true }
+  let grandparent : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 60 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := tp 600000
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , isGroupPartHead := true
+    , isGroupPartEnd := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[mkArea .A1]] }
+  let parent : Lifecycle.SlideNote :=
+    { params := { judgeTiming := tp 1400000, judgeOffset := Duration.zero, noteIndex := 61 }
+    , lane := .S2
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := secs 1
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , parentNoteIndex := some 60
+    , isGroupPartHead := false
+    , isGroupPartEnd := false
+    , parentPendingFinish := true
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := false
+    , judgeQueues := [[mkArea .A2]] }
+  let child : Lifecycle.SlideNote :=
+    { params := { judgeTiming := tp 1800000, judgeOffset := Duration.zero, noteIndex := 62 }
+    , lane := .S3
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := tp 1400000
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , parentNoteIndex := some 61
+    , isGroupPartHead := false
+    , isGroupPartEnd := true
+    , parentPendingFinish := true
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := false
+    , judgeQueues := [[mkArea .A3]] }
+  { currentTime := tp 1384000
+  , slides := [grandparent, parent, child] }
+
+def test_conn_child_progress_only_force_finishes_direct_parent : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [.A3] (dur 16000)
+  let (nextState, _, _, _) := Scheduler.stepFrame chainedConnSlidesState input
+  match nextState.slides with
+  | grandparent :: parent :: child :: _ =>
+      passCase "conn_child_progress_only_force_finishes_direct_parent"
+        (!grandparent.judgeQueues.all List.isEmpty && parent.judgeQueues.all List.isEmpty && child.isCheckable)
+        "MajdataPlay force-finishes only the direct parent when a conn child first progresses"
+  | _ =>
+      passCase "conn_child_progress_only_force_finishes_direct_parent" false
+        "expected grandparent, parent, and child slides"
+
+private def nonEndConnSlideFinishedState : InputModel.GameState :=
+  let parent : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 70 }
+    , lane := .S1
+    , state := .Active Duration.zero
+    , length := dur 400000
+    , startTiming := tp 600000
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , isGroupPartHead := true
+    , isGroupPartEnd := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[]] }
+  let child : Lifecycle.SlideNote :=
+    { params := { judgeTiming := tp 1400000, judgeOffset := Duration.zero, noteIndex := 71 }
+    , lane := .S2
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := secs 1
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , parentNoteIndex := some 70
+    , isGroupPartHead := false
+    , isGroupPartEnd := true
+    , parentFinished := true
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := false
+    , judgeQueues := [[{ targetAreas := [.A2], isLast := true }]] }
+  { currentTime := tp 1384000
+  , slides := [parent, child]
+  , touchPanelOffset := dur 16000 }
+
+def test_conn_non_end_part_does_not_judge_when_finished : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame nonEndConnSlideFinishedState input
+  match nextState.slides with
+  | parent :: child :: _ =>
+      passCase "conn_non_end_part_does_not_judge_when_finished"
+        (events.all (fun evt => evt.noteIndex != 70) &&
+          match parent.state with
+          | .Active _ => true
+          | _ => false &&
+          child.isCheckable)
+        "MajdataPlay only judges conn slides at group end; finished non-end parts stay non-judged"
+  | _ =>
+      passCase "conn_non_end_part_does_not_judge_when_finished" false
+        "expected parent and child slides"
+
+private def tooLateNonEndConnSlideState : InputModel.GameState :=
+  let parent : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 72 }
+    , lane := .S1
+    , state := .Active Duration.zero
+    , length := dur 400000
+    , startTiming := tp 600000
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , isGroupPartHead := true
+    , isGroupPartEnd := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[{ targetAreas := [.A1], isLast := true }]] }
+  { currentTime := tp 2500000
+  , slides := [parent]
+  , touchPanelOffset := dur 16000 }
+
+def test_conn_non_end_part_does_not_too_late_judge : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame tooLateNonEndConnSlideState input
+  match nextState.slides with
+  | parent :: _ =>
+      passCase "conn_non_end_part_does_not_too_late_judge"
+        (events.all (fun evt => evt.noteIndex != 72) &&
+          match parent.state with
+          | .Active _ => true
+          | _ => false)
+        "MajdataPlay skips too-late judging for non-end conn parts because only group-end parts are judgable"
+  | _ =>
+      passCase "conn_non_end_part_does_not_too_late_judge" false
+        "expected parent slide"
+
+private def progressedConnSlidesState : InputModel.GameState :=
+  let parent : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 73 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := tp 600000
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , isGroupPartHead := true
+    , isGroupPartEnd := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[]] }
+  let child : Lifecycle.SlideNote :=
+    { params := { judgeTiming := tp 1400000, judgeOffset := Duration.zero, noteIndex := 74 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , startTiming := secs 1
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , parentNoteIndex := some 73
+    , isGroupPartHead := false
+    , isGroupPartEnd := true
+    , parentFinished := true
+    , trackCount := 1
+    , initialQueueRemaining := 2
+    , totalJudgeQueueLen := 2
+    , isCheckable := false
+    , judgeQueues := [[{ targetAreas := [.A2], isLast := false, wasOn := true, wasOff := true }, { targetAreas := [.A3], isLast := true }]] }
+  { currentTime := tp 1384000
+  , slides := [parent, child] }
+
+def test_conn_already_progressed_child_does_not_re_force_finish_parent : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, _, _, _) := Scheduler.stepFrame progressedConnSlidesState input
+  match nextState.slides with
+  | parent :: child :: _ =>
+      passCase "conn_already_progressed_child_does_not_re_force_finish_parent"
+        (parent.judgeQueues.all List.isEmpty && child.isCheckable)
+        "reference force-finish is one-shot after first progress; replaying later frames keeps the parent finished without extra semantic change"
+  | _ =>
+      passCase "conn_already_progressed_child_does_not_re_force_finish_parent" false
+        "expected parent and child slides"
+
+
 private def activeWifiClassicTailState : InputModel.GameState :=
   let mkLast (progress : Nat) : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true, arrowProgressWhenFinished := progress }
@@ -1039,6 +1271,100 @@ def test_wifi_too_late_one_remaining_becomes_lategood : RuntimeCase :=
         (evt.kind = .Slide && evt.grade = .LateGood)
         "wifi too-late grade is LateGood when exactly one queue segment remains"
   | _ => passCase "wifi_too_late_one_remaining_becomes_lategood" false "expected one wifi event"
+
+private def wifiPreCheckableState : InputModel.GameState :=
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 57 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , startTiming := tp 1200000
+    , slideKind := .Wifi
+    , isClassic := false
+    , trackCount := 3
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := false
+    , judgeQueues := [[{ targetAreas := [.A1], isLast := true }], [], []] }
+  { currentTime := tp 1133000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_wifi_not_checkable_before_minus_50ms : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
+  let (nextState, events, _, renderCmds) := Scheduler.stepFrame wifiPreCheckableState input
+  match nextState.slides with
+  | [slide] =>
+      passCase "wifi_not_checkable_before_minus_50ms"
+        (!slide.isCheckable && events = [] && renderCmds = [])
+        "MajdataPlay wifi only becomes checkable once startTiming >= -50ms"
+  | _ =>
+      passCase "wifi_not_checkable_before_minus_50ms" false "expected one wifi slide"
+
+private def wifiAtCheckableBoundaryState : InputModel.GameState :=
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 58 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , startTiming := tp 1200000
+    , slideKind := .Wifi
+    , isClassic := false
+    , trackCount := 3
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := false
+    , judgeQueues := [[{ targetAreas := [.A1], isLast := true }], [], []] }
+  { currentTime := tp 1134000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_wifi_exact_minus_50ms_becomes_checkable : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [.A1] [.A1] (dur 16000)
+  let (nextState, _, _, renderCmds) := Scheduler.stepFrame wifiAtCheckableBoundaryState input
+  match nextState.slides with
+  | [slide] =>
+      let progressed :=
+        hasTrackProgress renderCmds 58 0 9 && hasTrackProgress renderCmds 58 1 9 && hasTrackProgress renderCmds 58 2 9
+      passCase "wifi_exact_minus_50ms_becomes_checkable"
+        (slide.isCheckable && progressed)
+        "MajdataPlay wifi checkability boundary is inclusive at -50ms"
+  | _ =>
+      passCase "wifi_exact_minus_50ms_becomes_checkable" false "expected one wifi slide"
+
+private def wifiExactTooLateBoundaryState : InputModel.GameState :=
+  let unfinished : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 59 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , startTiming := tp 800000
+    , slideKind := .Wifi
+    , isClassic := false
+    , trackCount := 3
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[unfinished], [], []] }
+  { currentTime := tp 1550000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_wifi_exact_too_late_boundary_does_not_judge : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame wifiExactTooLateBoundaryState input
+  match nextState.slides with
+  | [slide] =>
+      passCase "wifi_exact_too_late_boundary_does_not_judge"
+        (events = [] &&
+          match slide.state with
+          | .Active _ => true
+          | _ => false)
+        "MajdataPlay uses a strict `>` too-late check for wifi slides; equality is not too-late yet"
+  | _ =>
+      passCase "wifi_exact_too_late_boundary_does_not_judge" false "expected one wifi slide"
 
 private def frameZeroTapState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
@@ -1849,12 +2175,18 @@ def all : List RuntimeCase :=
   , test_overlapping_slides_can_both_progress_from_one_sensor_hold
   , test_simultaneous_short_regular_holds_can_both_finish
   , test_chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish
+  , test_chart_wrapper_same_head_conn_pair_achieves_ap
+  , test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap
   , test_conn_child_progress_force_finishes_parent
   , test_slide_judge_uses_touch_panel_offset
   , test_touch_group_majority_shares_result_same_frame
   , test_conn_child_pending_finish_becomes_checkable
   , test_conn_child_finished_parent_becomes_checkable
   , test_conn_parent_not_force_finished_without_child_progress
+  , test_conn_child_progress_only_force_finishes_direct_parent
+  , test_conn_non_end_part_does_not_judge_when_finished
+  , test_conn_non_end_part_does_not_too_late_judge
+  , test_conn_already_progressed_child_does_not_re_force_finish_parent
   , test_wifi_classic_tail_progress_uses_special_marker
   , test_wifi_center_cleared_progress_uses_special_marker
   , test_wifi_center_cleared_without_both_tails_uses_max_queue_marker
@@ -1862,6 +2194,9 @@ def all : List RuntimeCase :=
   , test_wifi_judged_wait_before_expiry_emits_nothing
   , test_wifi_too_late_ends_immediately
   , test_wifi_too_late_one_remaining_becomes_lategood
+  , test_wifi_not_checkable_before_minus_50ms
+  , test_wifi_exact_minus_50ms_becomes_checkable
+  , test_wifi_exact_too_late_boundary_does_not_judge
   , test_frame_zero_tap_judges_same_frame
   , test_frame_zero_hold_head_judges_same_frame
   , test_frame_zero_touch_judges_same_frame
@@ -1941,6 +2276,12 @@ theorem test_simultaneous_short_regular_holds_can_both_finish_proof :
 theorem test_chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish_proof :
     test_chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish.passed = true := by native_decide
 
+theorem test_chart_wrapper_same_head_conn_pair_achieves_ap_proof :
+    test_chart_wrapper_same_head_conn_pair_achieves_ap.passed = true := by native_decide
+
+theorem test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap_proof :
+    test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap.passed = true := by native_decide
+
 theorem test_conn_child_progress_force_finishes_parent_proof :
     test_conn_child_progress_force_finishes_parent.passed = true := by native_decide
 
@@ -1988,6 +2329,27 @@ theorem test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all_proof
 
 theorem test_wifi_too_late_one_remaining_becomes_lategood_proof :
     test_wifi_too_late_one_remaining_becomes_lategood.passed = true := by native_decide
+
+theorem test_conn_child_progress_only_force_finishes_direct_parent_proof :
+    test_conn_child_progress_only_force_finishes_direct_parent.passed = true := by native_decide
+
+theorem test_conn_non_end_part_does_not_judge_when_finished_proof :
+    test_conn_non_end_part_does_not_judge_when_finished.passed = true := by native_decide
+
+theorem test_conn_non_end_part_does_not_too_late_judge_proof :
+    test_conn_non_end_part_does_not_too_late_judge.passed = true := by native_decide
+
+theorem test_conn_already_progressed_child_does_not_re_force_finish_parent_proof :
+    test_conn_already_progressed_child_does_not_re_force_finish_parent.passed = true := by native_decide
+
+theorem test_wifi_not_checkable_before_minus_50ms_proof :
+    test_wifi_not_checkable_before_minus_50ms.passed = true := by native_decide
+
+theorem test_wifi_exact_minus_50ms_becomes_checkable_proof :
+    test_wifi_exact_minus_50ms_becomes_checkable.passed = true := by native_decide
+
+theorem test_wifi_exact_too_late_boundary_does_not_judge_proof :
+    test_wifi_exact_too_late_boundary_does_not_judge.passed = true := by native_decide
 
 theorem test_frame_zero_tap_judges_same_frame_proof :
     test_frame_zero_tap_judges_same_frame.passed = true := by native_decide

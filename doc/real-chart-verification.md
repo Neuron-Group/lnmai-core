@@ -15,6 +15,9 @@ The current intent is not to claim full MajdataPlay parity for all charts, but t
 Current executable entrypoint:
 
 - `lake exe real-chart-verification`
+- focused runners:
+- `lake exe real-chart-11358`
+- `lake exe real-chart-pandora`
 
 ## Verification snapshot — `11358_インドア系ならトラックメイカー`
 
@@ -24,25 +27,25 @@ Current executable entrypoint:
 
 ### Level
 
-- `2`
+- `5`
 
 ### Current replay status
 
-- total chart notes: `108`
-- judged events: `108`
+- total chart notes: `625`
+- judged events: `625`
 - missing judged note count: `0`
 - missing judged notes: `[]`
 - `achievesAP = true`
 
 ### Current grade summary
 
-- `Perfect`: `108`
+- `Perfect`: `625`
 
 ### Interpretation
 
-- the earlier missing-note failure is gone
-- the earlier short-hold and slide-quality gaps are also resolved for this checkpoint
-- this chart currently serves as a clean regression checkpoint for hold and slide parity work
+- the default replay now APs this level-5 chart
+- the root cause was missing Lean slide-table coverage for `pq1` through `pq8`
+- this checkpoint now specifically guards parser/runtime parity for `pq` slides against `MajdataPlay`
 
 ## Verification snapshot — `834_PANDORA PARADOXXX`
 
@@ -87,7 +90,15 @@ The real-chart checkpoints above are now backed by reduced reference-style check
 
 - `lake build LnmaiCore`
 - `lake exe real-chart-verification`
-- use a small `lake env lean --run` script when deeper note-level tracing is needed
+- `lake exe real-chart-11358`
+- `lake exe real-chart-pandora`
+- use a small `lake env lean` script when deeper note-level tracing is needed
+
+### Focused trace helper
+
+- `lake env lean tools/trace_conn_three_part.lean`
+- this prints the lowered 3-part connected-slide chain, the default replay input events, and the final judged result
+- use it as a reference probe when connected-slide parent linkage or end-part judgment regresses
 
 ## Rule
 

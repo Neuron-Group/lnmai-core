@@ -17,3 +17,11 @@ root = "Main"
 [[lean_exe]]
 name = "real-chart-verification"
 root = "RealChartVerification"
+
+[[lean_exe]]
+name = "real-chart-11358"
+root = "RealChartVerification11358"
+
+[[lean_exe]]
+name = "real-chart-pandora"
+root = "RealChartVerificationPandora"

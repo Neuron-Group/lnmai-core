@@ -319,6 +319,27 @@ def test_same_head_wifi_group_lowering : ParityCase :=
       | _ => supportedCase "same_head_wifi_group_lowering" false "expected two lowered slides"
   | .error err => supportedCase "same_head_wifi_group_lowering" false s!"unexpected parse error: {err.message}"
 
+def test_same_head_conn_child_start_inherits_parent_end : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1<5[4:1]*1>5[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides, chart.semantic.lowered.slides with
+      | first :: second :: _, loweredFirst :: loweredSecond :: _ =>
+          let normalizedChildStartsAtParentEnd := second.startTiming = first.startTiming + first.length
+          let loweredChildStartsAtParentEnd := loweredSecond.startTiming = loweredFirst.startTiming + loweredFirst.length
+          let childJudgeAtTracksShiftedStart :=
+            second.judgeAt = some (second.startTiming + second.length) &&
+            loweredSecond.judgeAt = some (loweredSecond.startTiming + loweredSecond.length)
+          supportedCase "same_head_conn_child_start_inherits_parent_end"
+            (first.isConnSlide && second.isConnSlide &&
+             first.isGroupHead && second.isGroupEnd &&
+             second.parentNoteIndex = some first.noteIndex &&
+             normalizedChildStartsAtParentEnd &&
+             loweredChildStartsAtParentEnd &&
+             childJudgeAtTracksShiftedStart)
+            "connected child timing inherits the parent end, matching MajdataPlay group initialization"
+      | _, _ => supportedCase "same_head_conn_child_start_inherits_parent_end" false "expected two grouped slides"
+  | .error err => supportedCase "same_head_conn_child_start_inherits_parent_end" false s!"unexpected parse error: {err.message}"
+
 def test_normalized_slide_topology_attached : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1],\n" with
   | .ok chart =>
@@ -342,6 +363,33 @@ def test_normalized_short_conn_skip_rule : ParityCase :=
             "short connected-slide topology is attached during normalization"
       | _ => supportedCase "normalized_short_conn_skip_rule" false "expected grouped slides"
   | .error err => supportedCase "normalized_short_conn_skip_rule" false s!"unexpected parse error: {err.message}"
+
+def test_same_head_conn_three_part_parent_chain : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]*<7[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides, chart.semantic.lowered.slides with
+      | first :: second :: third :: _, loweredFirst :: loweredSecond :: loweredThird :: _ =>
+          let normalizedImmediateParentChain :=
+            second.parentNoteIndex = some first.noteIndex &&
+            third.parentNoteIndex = some second.noteIndex
+          let loweredImmediateParentChain :=
+            loweredSecond.parentNoteIndex = some loweredFirst.noteIndex &&
+            loweredThird.parentNoteIndex = some loweredSecond.noteIndex
+          let inheritedTimingChain :=
+            second.startTiming = first.startTiming + first.length &&
+            third.startTiming = second.startTiming + second.length &&
+            loweredSecond.startTiming = loweredFirst.startTiming + loweredFirst.length &&
+            loweredThird.startTiming = loweredSecond.startTiming + loweredSecond.length
+          supportedCase "same_head_conn_three_part_parent_chain"
+            (first.isGroupHead && !first.isGroupEnd && first.parentNoteIndex = none &&
+             !second.isGroupHead && !second.isGroupEnd &&
+             !third.isGroupHead && third.isGroupEnd &&
+             normalizedImmediateParentChain &&
+             loweredImmediateParentChain &&
+             inheritedTimingChain)
+            "3-part connected-slide groups link each child to the immediate previous part, matching MajdataPlay"
+      | _, _ => supportedCase "same_head_conn_three_part_parent_chain" false "expected three grouped slides"
+  | .error err => supportedCase "same_head_conn_three_part_parent_chain" false s!"unexpected parse error: {err.message}"
 
 def test_same_head_with_tap_head_matches_python_flattening : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1*>2[4:1]*-3[4:1],\n" with
@@ -429,6 +477,79 @@ def test_reference_other_shape_realpaths : ParityCase :=
       | _ => supportedCase "reference_other_shape_realpaths" false "expected five slides"
   | .error err => supportedCase "reference_other_shape_realpaths" false s!"unexpected parse error: {err.message}"
 
+def test_reference_pq_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1q3[4:1],1p5[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | qshape :: pshape :: _ =>
+          let qPath := qshape.judgeQueues.headD [] |> areaCodes
+          let pPath := pshape.judgeQueues.headD [] |> areaCodes
+          supportedCase "reference_pq_realpaths"
+            (qPath = ["A1", "B8", "B7", "B6", "B5", "B4", "A3"] &&
+             pPath = ["A1", "B8", "B7", "B6", "A5"])
+            "pq-family slides resolve to the MajdataPlay judge paths that fixed the real-chart AP regression"
+      | _ => supportedCase "reference_pq_realpaths" false "expected two pq-family slides"
+  | .error err => supportedCase "reference_pq_realpaths" false s!"unexpected parse error: {err.message}"
+
+def test_reference_ppqq_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1pp3[4:1],1pp7[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | shortpp :: longpp :: _ =>
+          let shortPath := shortpp.judgeQueues.headD [] |> areaCodes
+          let longPath := longpp.judgeQueues.headD [] |> areaCodes
+          supportedCase "reference_ppqq_realpaths"
+            (shortPath = ["A1", "B1", "C", "B4", "A3"] &&
+             longPath = ["A1", "B1", "C", "B4", "A3", "A2", "B1", "B8", "A7"])
+            "ppqq-family slides resolve to the MajdataPlay single-track judge paths for both short and long variants"
+      | _ => supportedCase "reference_ppqq_realpaths" false "expected two ppqq-family slides"
+  | .error err => supportedCase "reference_ppqq_realpaths" false s!"unexpected parse error: {err.message}"
+
+def test_reference_mirrored_pq_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1q2[4:1],1p4[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | qshape :: pshape :: _ =>
+          let qPath := qshape.judgeQueues.headD [] |> areaCodes
+          let pPath := pshape.judgeQueues.headD [] |> areaCodes
+          supportedCase "reference_mirrored_pq_realpaths"
+            (qshape.simaiShape.mirrored && pshape.simaiShape.mirrored &&
+             qPath = ["A1", "B1", "B2", "B3", "B4", "B5", "A2"] &&
+             pPath = ["A1", "B1", "B2", "B3", "A4"])
+            "mirrored pq-family slides reflect the MajdataPlay path tables across the cabinet axis"
+      | _ => supportedCase "reference_mirrored_pq_realpaths" false "expected two mirrored pq-family slides"
+  | .error err => supportedCase "reference_mirrored_pq_realpaths" false s!"unexpected parse error: {err.message}"
+
+def test_reference_mirrored_ppqq_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1qq3[4:1],1qq7[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | shortqq :: longqq :: _ =>
+          let shortPath := shortqq.judgeQueues.headD [] |> areaCodes
+          let longPath := longqq.judgeQueues.headD [] |> areaCodes
+          supportedCase "reference_mirrored_ppqq_realpaths"
+            (shortqq.simaiShape.mirrored && longqq.simaiShape.mirrored &&
+             shortPath = ["A1", "B1", "C", "B6", "A7"] &&
+             longPath = ["A1", "B1", "C", "B6", "A7", "A8", "B1", "B2", "A3"])
+            "mirrored ppqq-family slides reflect the MajdataPlay path tables across the cabinet axis"
+      | _ => supportedCase "reference_mirrored_ppqq_realpaths" false "expected two mirrored ppqq-family slides"
+  | .error err => supportedCase "reference_mirrored_ppqq_realpaths" false s!"unexpected parse error: {err.message}"
+
+def test_reference_mirrored_turn_realpaths : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1V73[4:1],1V75[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | shortTurn :: longTurn :: _ =>
+          let shortPath := shortTurn.judgeQueues.headD [] |> areaCodes
+          let longPath := longTurn.judgeQueues.headD [] |> areaCodes
+          supportedCase "reference_mirrored_turn_realpaths"
+            (shortTurn.simaiShape.mirrored && longTurn.simaiShape.mirrored &&
+             shortPath = ["A1", "A8", "A7", "A7", "C", "B3", "A3"] &&
+             longPath = ["A1", "A8", "A7", "A6", "A5"])
+            "mirrored turn-family slides preserve the MajdataPlay path tables after mirroring"
+      | _ => supportedCase "reference_mirrored_turn_realpaths" false "expected two mirrored turn slides"
+  | .error err => supportedCase "reference_mirrored_turn_realpaths" false s!"unexpected parse error: {err.message}"
+
 def test_shape_key_is_annotation_not_authority : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1w5[4:1],\n" with
   | .ok chart =>
@@ -482,14 +603,21 @@ def all : List ParityCase :=
   , test_rational_inspection_json_is_stable
   , test_same_head_slide_group_lowering
   , test_same_head_wifi_group_lowering
+  , test_same_head_conn_child_start_inherits_parent_end
   , test_normalized_slide_topology_attached
   , test_normalized_short_conn_skip_rule
+  , test_same_head_conn_three_part_parent_chain
   , test_same_head_with_tap_head_matches_python_flattening
   , test_same_head_subsequent_parts_are_headless
   , test_normalized_topology_comes_from_typed_shape
   , test_reference_circle_mirror_semantics
   , test_reference_circle_realpaths
   , test_reference_other_shape_realpaths
+  , test_reference_pq_realpaths
+  , test_reference_ppqq_realpaths
+  , test_reference_mirrored_pq_realpaths
+  , test_reference_mirrored_ppqq_realpaths
+  , test_reference_mirrored_turn_realpaths
   , test_shape_key_is_annotation_not_authority
   , test_just_right_is_debug_not_normalized_authority ]
 
@@ -531,14 +659,21 @@ theorem test_unfit_bpm_quantizes_consistently_proof : test_unfit_bpm_quantizes_c
 theorem test_rational_inspection_json_is_stable_proof : test_rational_inspection_json_is_stable.passed = true := by native_decide
 theorem test_same_head_slide_group_lowering_proof : test_same_head_slide_group_lowering.passed = true := by native_decide
 theorem test_same_head_wifi_group_lowering_proof : test_same_head_wifi_group_lowering.passed = true := by native_decide
+theorem test_same_head_conn_child_start_inherits_parent_end_proof : test_same_head_conn_child_start_inherits_parent_end.passed = true := by native_decide
 theorem test_normalized_slide_topology_attached_proof : test_normalized_slide_topology_attached.passed = true := by native_decide
 theorem test_normalized_short_conn_skip_rule_proof : test_normalized_short_conn_skip_rule.passed = true := by native_decide
+theorem test_same_head_conn_three_part_parent_chain_proof : test_same_head_conn_three_part_parent_chain.passed = true := by native_decide
 theorem test_same_head_with_tap_head_matches_python_flattening_proof : test_same_head_with_tap_head_matches_python_flattening.passed = true := by native_decide
 theorem test_same_head_subsequent_parts_are_headless_proof : test_same_head_subsequent_parts_are_headless.passed = true := by native_decide
 theorem test_normalized_topology_comes_from_typed_shape_proof : test_normalized_topology_comes_from_typed_shape.passed = true := by native_decide
 theorem test_reference_circle_mirror_semantics_proof : test_reference_circle_mirror_semantics.passed = true := by native_decide
 theorem test_reference_circle_realpaths_proof : test_reference_circle_realpaths.passed = true := by native_decide
 theorem test_reference_other_shape_realpaths_proof : test_reference_other_shape_realpaths.passed = true := by native_decide
+theorem test_reference_pq_realpaths_proof : test_reference_pq_realpaths.passed = true := by native_decide
+theorem test_reference_ppqq_realpaths_proof : test_reference_ppqq_realpaths.passed = true := by native_decide
+theorem test_reference_mirrored_pq_realpaths_proof : test_reference_mirrored_pq_realpaths.passed = true := by native_decide
+theorem test_reference_mirrored_ppqq_realpaths_proof : test_reference_mirrored_ppqq_realpaths.passed = true := by native_decide
+theorem test_reference_mirrored_turn_realpaths_proof : test_reference_mirrored_turn_realpaths.passed = true := by native_decide
 theorem test_shape_key_is_annotation_not_authority_proof : test_shape_key_is_annotation_not_authority.passed = true := by native_decide
 theorem test_just_right_is_debug_not_normalized_authority_proof : test_just_right_is_debug_not_normalized_authority.passed = true := by native_decide
 
