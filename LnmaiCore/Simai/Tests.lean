@@ -309,35 +309,21 @@ def test_same_head_slide_group_lowering : ParityCase :=
       | _, _, _ => supportedCase "same_head_slide_group_lowering" false "expected grouped slide tokens"
   | .error err => supportedCase "same_head_slide_group_lowering" false s!"unexpected parse error: {err.message}"
 
-def test_same_head_wifi_group_lowering : ParityCase :=
+def test_same_head_wifi_group_rejected : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1w5[4:1]*-3[4:1],\n" with
-  | .ok chart =>
-      match chart.semantic.normalized.slides with
-      | first :: second :: _ =>
-          supportedCase "same_head_wifi_group_lowering"
-            (first.trackCount = 3 && first.isConnSlide && first.isGroupHead &&
-             first.slideKind = LnmaiCore.SlideKind.Wifi &&
-             second.slideKind = LnmaiCore.SlideKind.ConnPart &&
-             second.parentNoteIndex = some first.noteIndex)
-            "wifi heads keep wifi kind while grouped children become conn parts"
-      | _ => supportedCase "same_head_wifi_group_lowering" false "expected two lowered slides"
-  | .error err => supportedCase "same_head_wifi_group_lowering" false s!"unexpected parse error: {err.message}"
+  | .ok _ => supportedCase "same_head_wifi_group_rejected" false "expected wifi connection group to be rejected"
+  | .error err =>
+      supportedCase "same_head_wifi_group_rejected"
+        (err.message.contains "wifi slide cannot be part of a connection slide group")
+        "wifi connection groups are rejected during typed Simai validation, matching MajdataPlay"
 
 def test_same_head_conn_child_start_inherits_parent_end : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1<5[4:1]*1>5[4:1],\n" with
-  | .ok chart =>
-      match chart.semantic.normalized.slides, chart.semantic.lowered.slides with
-      | first :: _, loweredFirst :: _ =>
-          supportedCase "same_head_conn_child_start_inherits_parent_end"
-            (chart.semantic.normalized.slides.length = 1 &&
-             chart.semantic.lowered.slides.length = 1 &&
-             first.isConnSlide && loweredFirst.isConnSlide &&
-             first.isGroupHead && !first.isGroupEnd &&
-             loweredFirst.isGroupHead && !loweredFirst.isGroupEnd &&
-             first.parentNoteIndex = none && loweredFirst.parentNoteIndex = none)
-            "same-head `<...>*...>` currently lowers to a single connected slide in both normalized and lowered forms"
-      | _, _ => supportedCase "same_head_conn_child_start_inherits_parent_end" false "expected one lowered connected slide"
-  | .error err => supportedCase "same_head_conn_child_start_inherits_parent_end" false s!"unexpected parse error: {err.message}"
+  | .ok _ => supportedCase "same_head_conn_child_start_inherits_parent_end" false "expected malformed same-head group to be rejected"
+  | .error err =>
+      supportedCase "same_head_conn_child_start_inherits_parent_end"
+        (err.message.contains "expected digit at 2")
+        "typed validation preserves rejection of malformed same-head connection syntax before lowering"
 
 def test_normalized_slide_topology_attached : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1],\n" with
@@ -641,7 +627,7 @@ def all : List ParityCase :=
   , test_unfit_bpm_quantizes_consistently
   , test_rational_inspection_json_is_stable
   , test_same_head_slide_group_lowering
-  , test_same_head_wifi_group_lowering
+  , test_same_head_wifi_group_rejected
   , test_same_head_conn_child_start_inherits_parent_end
   , test_normalized_slide_topology_attached
   , test_normalized_short_conn_skip_rule
@@ -700,7 +686,7 @@ theorem test_hspeed_change_proof : test_hspeed_change.passed = true := by native
 theorem test_unfit_bpm_quantizes_consistently_proof : test_unfit_bpm_quantizes_consistently.passed = true := by native_decide
 theorem test_rational_inspection_json_is_stable_proof : test_rational_inspection_json_is_stable.passed = true := by native_decide
 theorem test_same_head_slide_group_lowering_proof : test_same_head_slide_group_lowering.passed = true := by native_decide
-theorem test_same_head_wifi_group_lowering_proof : test_same_head_wifi_group_lowering.passed = true := by native_decide
+theorem test_same_head_wifi_group_rejected_proof : test_same_head_wifi_group_rejected.passed = true := by native_decide
 theorem test_same_head_conn_child_start_inherits_parent_end_proof : test_same_head_conn_child_start_inherits_parent_end.passed = true := by native_decide
 theorem test_normalized_slide_topology_attached_proof : test_normalized_slide_topology_attached.passed = true := by native_decide
 theorem test_normalized_short_conn_skip_rule_proof : test_normalized_short_conn_skip_rule.passed = true := by native_decide
