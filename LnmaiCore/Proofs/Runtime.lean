@@ -1,4 +1,4 @@
-import LnmaiCore.Simai.ProofAPI
+import LnmaiCore.Proofs.Simai
 import LnmaiCore.Simai.DSL
 import LnmaiCore.ChartLoader
 import LnmaiCore.Scheduler
@@ -569,7 +569,6 @@ def exampleDelayedSingleTapSection : ChartLoader.ChartSpec :=
   , slides := []
   , slideSkipping := true }
 
-#eval simai_normalized_chart! "&first=0\n&inote_1=\n(120)\n1,\n"
 syntax "manual_tactic!" str : term
 
 private def getStringLiteral? (stx : Syntax) : Option String :=
@@ -591,14 +590,8 @@ elab_rules : term
 def exampleDelayedSingleTapButtonTactic : ManualTacticSequence :=
   manual_tactic! "500000 tap K1"
 
-#eval manual_tactic! "500000 tap K1"
-
 def exampleDelayedSingleTapSensorTactic : ManualTacticSequence :=
   manual_tactic! "516000 touch A1"
-
-#eval manual_tactic! "516000 touch A1"
-
-#print exampleDelayedSingleTapSection
 
 theorem exampleDelayedSingleTapButtonTactic_achievesAP :
     achievesAP (

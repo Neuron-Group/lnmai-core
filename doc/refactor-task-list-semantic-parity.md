@@ -103,7 +103,7 @@ Status: complete
 **Target files**
 
 - `LnmaiCore/RuntimeTests.lean`
-- possibly `LnmaiCore/RuntimeProofAPI.lean`
+- possibly `LnmaiCore/Proofs/Runtime.lean`
 
 **Actions**
 
@@ -459,7 +459,7 @@ Status: complete
 **Target files**
 
 - `LnmaiCore/RuntimeTests.lean`
-- `LnmaiCore/RuntimeProofAPI.lean`
+- `LnmaiCore/Proofs/Runtime.lean`
 
 **Actions**
 

@@ -1,1 +1,3 @@
 /.lake
+/tools/**/bin/
+/tools/**/obj/

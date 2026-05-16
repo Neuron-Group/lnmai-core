@@ -25,6 +25,17 @@ Important modules:
 - `LnmaiCore.Simai.Normalize` — normalized chart IR construction
 - `LnmaiCore.ChartLoader` — adapter from normalized IR into runtime note state
 - `LnmaiCore.Lifecycle` — runtime note stepping and judgment transitions
+- `LnmaiCore.Proofs.Simai` — proof-oriented parser/normalizer helpers
+- `LnmaiCore.Proofs.Runtime` — replay-style simulation and manual tactic helpers
+- `Proofs.RealChartVerification11358` — theorem-backed proof for the 11358 level-5 chart
+- `Proofs.RealChartVerificationPandora` — theorem-backed proof for the Pandora level-6 chart
+
+Repository layout highlights:
+
+- `LnmaiCore/` — library source
+- `Proofs/` — proof modules and verification entrypoints
+- `Scratch/` — ad hoc investigation scripts and experiments
+- `tools/` — helper scripts and external tooling assets
 
 ## Simai DSL
 
@@ -38,6 +49,12 @@ Available forms include:
 - `simai_inspection_chart! "..."`
 - `simai_normalized_chart! "..."`
 - `simai_lowered_chart! "..."`
+- `simai_chart_file! "path/to/maidata.txt"`
+- `simai_chart_file_at! 2 "path/to/maidata.txt"`
+- `simai_semantic_chart_file! "path/to/maidata.txt"`
+- `simai_inspection_chart_file! "path/to/maidata.txt"`
+- `simai_normalized_chart_file! "path/to/maidata.txt"`
+- `simai_lowered_chart_file_at! 6 "path/to/maidata.txt"`
 - `simai_note! "1-3[4:1]"`
 - `simai_slide! "1V35"`
 - `simai_normalized_slide! "1w5[4:1]"`
@@ -54,6 +71,7 @@ Recent work includes:
 - shared Simai-spec to runtime-queue interop helpers
 - Ghost Tokyo proofs rewritten around parser-derived full queues and exact replay
 - removal of older reduced Ghost Tokyo proof scaffolding
+- real-chart proof modules backed by file-loaded Simai literals and `native_decide`
 
 ## Runtime Boundary
 
@@ -101,6 +119,6 @@ Summary:
 This repository uses Lean 4 and Lake.
 
 - Toolchain: `leanprover/lean4:v4.29.0`
-- Build library: `lake build LnmaiCore`
-
-Some repo-local executable/demo code may lag behind the library target; the Lean library is the authoritative target for current architecture work.
+- Build library and executables: `lake build`
+- Build aggregate verification executable: `lake build real-chart-verification`
+- Build theorem-backed chart proofs: `lake build Proofs.RealChartVerification11358 Proofs.RealChartVerificationPandora`

@@ -212,7 +212,7 @@ Reference-first reduction result:
 
 Fix:
 
-- in `LnmaiCore/RuntimeProofAPI.lean`, keep the last generated slide step held through the judge frame and release one frame later
+- in `LnmaiCore/Proofs/Runtime.lean`, keep the last generated slide step held through the judge frame and release one frame later
 
 Result:
 
@@ -288,7 +288,7 @@ The following items are already in good shape for this incident and should not b
 - manual simultaneous-short-hold Lean regression
 - chart-built hold activation
 - wrapper settle sequencing
-- missing-note debug helpers in `RuntimeProofAPI`
+- missing-note debug helpers in `LnmaiCore.Proofs.Runtime`
 - reduced slide-skip harness scenarios
 - real-chart verification executable
 - overlap-sharing slide regressions

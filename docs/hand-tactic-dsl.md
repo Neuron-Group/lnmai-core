@@ -178,7 +178,7 @@ This has already shaped the current wrapper design and should remain a hard requ
 
 The proof API now also supports a chart-derived timing skeleton layer for reducing timestamp boilerplate in proofs.
 
-Useful functions in `LnmaiCore.RuntimeProofAPI`:
+Useful functions in `LnmaiCore.Proofs.Runtime`:
 
 - `chartTimingSkeleton : ChartSpec → List NoteTimingSkeleton`
 - `resolveDefaultTimingSkeleton : NoteTimingSkeleton → ManualTacticSequence`

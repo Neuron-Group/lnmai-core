@@ -71,7 +71,7 @@ The current runtime has a solid semantics-oriented architecture:
 - `LnmaiCore/InputModel.lean` models per-frame inputs and per-zone note queues
 - `LnmaiCore/Lifecycle.lean` models per-note state transitions
 - `LnmaiCore/Scheduler.lean` applies one frame step over the whole state
-- `LnmaiCore/RuntimeProofAPI.lean` provides replay-style simulation over timed inputs
+- `LnmaiCore/Proofs/Runtime.lean` provides replay-style simulation over timed inputs
 - `LnmaiCore/RuntimeTests.lean` gives focused regression coverage
 
 This architecture is already better than the reference implementation for:
@@ -522,7 +522,7 @@ Validate that end-to-end replay yields the right cumulative gameplay results.
 
 ### Suggested method
 
-Use `RuntimeProofAPI` for chart replay tests and compare against expected event lists and final state summaries.
+Use `LnmaiCore.Proofs.Runtime` for chart replay tests and compare against expected event lists and final state summaries.
 
 
 ## Objective G: Clarify Semantic Layers in the Codebase

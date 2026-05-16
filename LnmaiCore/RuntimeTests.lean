@@ -1,6 +1,6 @@
 import LnmaiCore.Basic
 import LnmaiCore.Storage
-import LnmaiCore.RuntimeProofAPI
+import LnmaiCore.Proofs.Runtime
 import Lean.Data.Json
 
 namespace LnmaiCore.RuntimeTests

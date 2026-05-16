@@ -1,5 +1,5 @@
 import LnmaiCore.Simai
-import LnmaiCore.Simai.ProofAPI
+import LnmaiCore.Proofs.Simai
 import Lean.Data.Json
 
 namespace LnmaiCore.Simai.Tests
