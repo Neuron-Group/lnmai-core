@@ -19,8 +19,8 @@ root = "Main"
 
 [[lean_exe]]
 name = "real-chart-verification"
-root = "Proofs.RealChartVerification"
+root = "Apps.RealChartVerification"
 
 [[lean_exe]]
 name = "real-chart-benchmark"
-root = "Proofs.RealChartBenchmark"
+root = "Apps.RealChartBenchmark"

@@ -36,11 +36,14 @@ Important modules:
   level-5 chart
 - `Proofs.RealChartVerificationPandora` — theorem-backed proof for the Pandora
   level-6 chart
+- `Apps.RealChartVerification` — executable runner for aggregate real-chart checks
+- `Apps.RealChartBenchmark` — executable benchmark runner for chart simulation
 
 Repository layout highlights:
 
 - `LnmaiCore/` — library source
-- `Proofs/` — proof modules and verification entrypoints
+- `Proofs/` — theorem modules and proof experiments
+- `Apps/` — executable runners and benchmarks
 - `Scratch/` — ad hoc investigation scripts and experiments
 - `tools/` — helper scripts and external tooling assets
 
