@@ -28,7 +28,7 @@ private def applySingleTrackConnRulesNormalized (slide : NormalizedSlide) (queue
     queue
 
 private def attachJudgeQueues (slide : NormalizedSlide) : NormalizedSlide :=
-  let rawQueues := judgeQueuesForShapeKey (shapeKey slide.simaiShape) slide.isClassic |>.getD []
+  let rawQueues := judgeQueuesForShape slide.simaiShape slide.isClassic |>.getD []
   let placedQueues := rotateJudgeQueues slide.slot.toIndex rawQueues
   let withLen := { slide with totalJudgeQueueLen := totalJudgeQueueLen placedQueues }
   let queues :=
@@ -45,7 +45,9 @@ def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (Normalize
   | some slot =>
       match parseTerminalEndArea token.rawText with
       | .ok endArea =>
-          match parseSlideNote token.rawText slot endArea with
+          match (match token.slideBody with
+                 | some body => parseSlideNoteFromBody token.rawText body endArea
+                 | none => parseSlideNote token.rawText slot endArea) with
           | .ok parsed =>
               let isWifi := parsed.shape.kind = SlideKind.wifi
               let length := token.length.getD (noteTimingIncrement token.bpm (max token.divisor 1))

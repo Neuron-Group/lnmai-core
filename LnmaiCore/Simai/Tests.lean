@@ -138,16 +138,12 @@ def test_slide_note_duration_and_star_wait : ParityCase :=
 
 def test_slide_note_custom_bpm_star_and_duration : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(100)\n1V[120#8:1],\n" with
-  | .ok chart =>
-      match chart.semantic.normalized.slides with
-      | slide :: _ =>
-          supportedCase "slide_note_custom_bpm_star_and_duration"
-            (slide.startTiming = TimePoint.fromMicros 500000 &&
-             slide.length = Duration.fromMicros 250000 &&
-             slide.judgeAt = some (TimePoint.fromMicros 750000))
-            "custom-BPM slide star/duration timing works"
-      | _ => supportedCase "slide_note_custom_bpm_star_and_duration" false "expected one slide"
-  | .error err => supportedCase "slide_note_custom_bpm_star_and_duration" false s!"unexpected parse error: {err.message}"
+  | .ok _ => supportedCase "slide_note_custom_bpm_star_and_duration" false "bare `V` slide should be rejected"
+  | .error err =>
+      supportedCase "slide_note_custom_bpm_star_and_duration"
+        (err.message = "missing digit at 2" || err.message = "expected digit at 2" ||
+         err.message = "V slide requires explicit turn and end positions")
+        "bare `V` slide is rejected because turn slides require explicit turn and end positions"
 
 def test_slide_note_absolute_star_wait_no_hash_and_duration : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(100)\n1<5[0.2##0.75],\n" with
@@ -407,12 +403,58 @@ def test_normalized_topology_comes_from_typed_shape : ParityCase :=
   | .ok chart =>
       match chart.semantic.normalized.slides with
       | slide :: _ =>
+          let strictAccepted :=
+            match parseSlideShapeText "1<5[4:1]" with
+            | .ok _ => true
+            | .error _ => false
           supportedCase "normalized_topology_comes_from_typed_shape"
-            (shapeKey slide.simaiShape = "-circle5" && slide.simaiShape.mirrored &&
+            (strictAccepted &&
+             shapeKey slide.simaiShape = "-circle5" && slide.simaiShape.mirrored &&
              !slide.judgeQueues.isEmpty)
-            "normalization derives topology from parser-produced shape semantics, not an unconstrained string"
+            "strict typed parsing accepts `1<5`, and normalization derives topology from parser-produced shape semantics"
       | _ => supportedCase "normalized_topology_comes_from_typed_shape" false "expected one slide"
   | .error err => supportedCase "normalized_topology_comes_from_typed_shape" false s!"unexpected parse error: {err.message}"
+
+def test_current_slide_strings_parse_strictly : ParityCase :=
+  let strictNow :=
+    [ "1-2[4:1]"
+    , "1b-2[4:1]x!$$"
+    , "1<5[4:1]"
+    , "1>3[4:1]"
+    , "1<3[4:1]"
+    , "1-3[4:1]"
+    , "1-3b[4:1]"
+    , "1v3[4:1]"
+    , "1pp3[4:1]"
+    , "1V35[4:1]"
+    , "1s5[4:1]"
+    , "1q3[4:1]"
+    , "1p5[4:1]"
+    , "1qq3[4:1]"
+    , "1V73[4:1]"
+    , "1w5[4:1]"
+    ]
+  supportedCase "current_slide_strings_parse_strictly"
+    (strictNow.all (fun raw => (parseSlideShapeText raw).isOk))
+    "current real slide strings parse strictly without fallback"
+
+def test_strict_line2_acceptance : ParityCase :=
+  let strictAccepted :=
+    match parseSlideShapeText "1-2[4:1]" with
+    | .ok shape => shapeKey shape = "line2"
+    | .error _ => false
+  supportedCase "strict_line2_acceptance"
+    strictAccepted
+    "strict typed parsing accepts adjacent line slides as canonical `line2`, matching MajdataPlay"
+
+def test_strict_circle1_acceptance : ParityCase :=
+  let strictAccepted :=
+    match parseSlideShapeText "4<4[4:1]" with
+    | .ok shape => shapeKey shape = "circle1"
+    | .error _ => false
+  supportedCase "strict_circle1_acceptance"
+    strictAccepted
+    "strict typed parsing accepts same-start circle slides as canonical `circle1`, matching MajdataPlay"
 
 def test_reference_circle_mirror_semantics : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1>3[4:1],1<3[4:1],\n" with
@@ -635,6 +677,9 @@ def all : List ParityCase :=
   , test_same_head_with_tap_head_matches_python_flattening
   , test_same_head_subsequent_parts_are_headless
   , test_normalized_topology_comes_from_typed_shape
+  , test_current_slide_strings_parse_strictly
+  , test_strict_line2_acceptance
+  , test_strict_circle1_acceptance
   , test_reference_circle_mirror_semantics
   , test_reference_circle_realpaths
   , test_reference_other_shape_realpaths
@@ -694,6 +739,9 @@ theorem test_same_head_conn_three_part_parent_chain_proof : test_same_head_conn_
 theorem test_same_head_with_tap_head_matches_python_flattening_proof : test_same_head_with_tap_head_matches_python_flattening.passed = true := by native_decide
 theorem test_same_head_subsequent_parts_are_headless_proof : test_same_head_subsequent_parts_are_headless.passed = true := by native_decide
 theorem test_normalized_topology_comes_from_typed_shape_proof : test_normalized_topology_comes_from_typed_shape.passed = true := by native_decide
+theorem test_current_slide_strings_parse_strictly_proof : test_current_slide_strings_parse_strictly.passed = true := by native_decide
+theorem test_strict_line2_acceptance_proof : test_strict_line2_acceptance.passed = true := by native_decide
+theorem test_strict_circle1_acceptance_proof : test_strict_circle1_acceptance.passed = true := by native_decide
 theorem test_reference_circle_mirror_semantics_proof : test_reference_circle_mirror_semantics.passed = true := by native_decide
 theorem test_reference_circle_realpaths_proof : test_reference_circle_realpaths.passed = true := by native_decide
 theorem test_reference_other_shape_realpaths_proof : test_reference_other_shape_realpaths.passed = true := by native_decide

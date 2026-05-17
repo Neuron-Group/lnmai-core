@@ -2173,6 +2173,35 @@ def test_frame_window_positive_delta_excludes_outside_window : RuntimeCase :=
     (input.getSensorClickCount .A1 = 0)
     "positive-duration frames exclude events outside the left-open interval"
 
+def test_manual_tactic_hold_interval_sugar : RuntimeCase :=
+  let parsed := parseManualTacticSequence "hold button K2 from 1000000 to 1220000\nhold sensor A4 from 2000000 to 2220000"
+  let expected : ManualTacticSequence :=
+    mkManualTacticSequence
+      [ holdButtonAtTime (TimePoint.fromMicros 1000000) .K2 true
+      , holdButtonAtTime (TimePoint.fromMicros 1220000) .K2 false
+      , holdSensorAtTime (TimePoint.fromMicros 2000000) .A4 true
+      , holdSensorAtTime (TimePoint.fromMicros 2220000) .A4 false ]
+  passCase "manual_tactic_hold_interval_sugar"
+    (match parsed with
+    | .ok seq => reprStr seq.events == reprStr expected.events
+    | .error _ => false)
+    "manual tactic parser expands hold intervals into down/up events"
+
+def test_manual_tactic_chord_sugar : RuntimeCase :=
+  let parsed := parseManualTacticSequence "500000 tap K1 K2 K3\n516000 touch A1 A2"
+  let expected : ManualTacticSequence :=
+    mkManualTacticSequence
+      [ tapAtTime (TimePoint.fromMicros 500000) .K1
+      , tapAtTime (TimePoint.fromMicros 500000) .K2
+      , tapAtTime (TimePoint.fromMicros 500000) .K3
+      , touchAtTime (TimePoint.fromMicros 516000) .A1
+      , touchAtTime (TimePoint.fromMicros 516000) .A2 ]
+  passCase "manual_tactic_chord_sugar"
+    (match parsed with
+    | .ok seq => reprStr seq.events == reprStr expected.events
+    | .error _ => false)
+    "manual tactic parser expands same-timestamp tap and touch chords"
+
 def test_typed_json_boundary_symbolic_only : RuntimeCase :=
   let sensorFromSymbolic : Except String SensorArea := fromJson? (Json.str "B1")
   let buttonFromSymbolic : Except String ButtonZone := fromJson? (Json.str "K1")
@@ -2256,6 +2285,8 @@ def all : List RuntimeCase :=
   , test_frame_window_positive_delta_excludes_left_boundary
   , test_frame_window_positive_delta_includes_inside_and_right_boundary
   , test_frame_window_positive_delta_excludes_outside_window
+  , test_manual_tactic_hold_interval_sugar
+  , test_manual_tactic_chord_sugar
   , test_typed_json_boundary_symbolic_only
   ]
 
@@ -2444,6 +2475,12 @@ theorem test_frame_window_positive_delta_includes_inside_and_right_boundary_proo
 
 theorem test_frame_window_positive_delta_excludes_outside_window_proof :
     test_frame_window_positive_delta_excludes_outside_window.passed = true := by native_decide
+
+theorem test_manual_tactic_hold_interval_sugar_proof :
+    test_manual_tactic_hold_interval_sugar.passed = true := by native_decide
+
+theorem test_manual_tactic_chord_sugar_proof :
+    test_manual_tactic_chord_sugar.passed = true := by native_decide
 
 theorem test_typed_json_boundary_symbolic_only_proof :
     test_typed_json_boundary_symbolic_only.passed = true := by native_decide

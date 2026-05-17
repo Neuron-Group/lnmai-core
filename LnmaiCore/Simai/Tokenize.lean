@@ -167,6 +167,7 @@ def mkRawToken (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (
   let parsedText := if kind = .slide then sanitizeSlideToken t else t
   let slot := leadingDigit? parsedText >>= (fun n => OuterSlot.ofIndex? (n - 1))
   let sensorPos := touchAreaToSensorArea? t
+  let slideBody := if kind = .slide then parseSlideBodyFromText parsedText |>.toOption else none
   let length := parseDurationSpec bpm t
   let starWait := if kind = .slide then parseStarWaitSpec bpm t else none
   let isBreak := parseHeadBreak t
@@ -184,6 +185,7 @@ def mkRawToken (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (
   , divisor := divisor
   , slot := slot
   , sensorPos := sensorPos
+  , slideBody := slideBody
   , length := length
   , starWait := starWait
   , isBreak := isBreak

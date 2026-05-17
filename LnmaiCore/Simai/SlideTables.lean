@@ -2,6 +2,8 @@ import Mathlib
 import LnmaiCore.Areas
 import LnmaiCore.Types
 import LnmaiCore.Simai.Syntax
+import LnmaiCore.Simai.Symmetry
+import LnmaiCore.Simai.Shape
 import Lean.Data.Json
 
 open Lean
@@ -49,23 +51,18 @@ def rotateAreaSpec (steps : Nat) (spec : SlideAreaSpec) : SlideAreaSpec :=
   let rotated := spec.targetAreas.map (rotateAreaSteps steps)
   { spec with targetAreas := rotated }
 
-private def mirrorArea : ExactArea → ExactArea
-  | .C => .C
-  | .A1 => .A1 | .A2 => .A8 | .A3 => .A7 | .A4 => .A6
-  | .A5 => .A5 | .A6 => .A4 | .A7 => .A3 | .A8 => .A2
-  | .B1 => .B1 | .B2 => .B8 | .B3 => .B7 | .B4 => .B6
-  | .B5 => .B5 | .B6 => .B4 | .B7 => .B3 | .B8 => .B2
-  | .D1 => .D1 | .D2 => .D8 | .D3 => .D7 | .D4 => .D6
-  | .D5 => .D5 | .D6 => .D4 | .D7 => .D3 | .D8 => .D2
-  | .E1 => .E1 | .E2 => .E8 | .E3 => .E7 | .E4 => .E6
-  | .E5 => .E5 | .E6 => .E4 | .E7 => .E3 | .E8 => .E2
+def transformAreaSpec (g : SlideSymmetry) (spec : SlideAreaSpec) : SlideAreaSpec :=
+  let transformed := spec.targetAreas.map (actOnSensorArea g)
+  { spec with targetAreas := transformed }
 
 def mirrorAreaSpec (spec : SlideAreaSpec) : SlideAreaSpec :=
-  let mirrored := spec.targetAreas.map mirrorArea
-  { spec with targetAreas := mirrored }
+  transformAreaSpec SlideSymmetry.mirror spec
 
 def mirrorJudgeQueues (queues : List (List SlideAreaSpec)) : List (List SlideAreaSpec) :=
   queues.map (fun queue => queue.map mirrorAreaSpec)
+
+def transformJudgeQueues (g : SlideSymmetry) (queues : List (List SlideAreaSpec)) : List (List SlideAreaSpec) :=
+  queues.map (fun queue => queue.map (transformAreaSpec g))
 
 def rotateJudgeQueues (steps : Nat) (queues : List (List SlideAreaSpec)) : List (List SlideAreaSpec) :=
   queues.map (fun queue => queue.map (rotateAreaSpec steps))
@@ -74,9 +71,12 @@ def stripMirrorPrefix : String → String
   | "" => ""
   | s => if s.front = '-' then s.drop 1 |>.toString else s
 
+def parseShapeKeySymmetry (shapeKey : String) : SlideSymmetry :=
+  if shapeKey.startsWith "-" then SlideSymmetry.mirror else SlideSymmetry.direct
+
 def judgeQueuesForShapeKey (shapeKey : String) (isClassic : Bool := false) : Option (List (List SlideAreaSpec)) :=
-  let isMirrored := shapeKey.startsWith "-"
   let key := stripMirrorPrefix shapeKey
+  let sym := parseShapeKeySymmetry shapeKey
   let wifi : WifiTableSpec :=
     { left := [one' .A1 0 0, one' .B8 2 2, one' .B7 4 4, one [.A6, .D6] 7 7 true true]
     , center := if isClassic then [one' .A1 0 0, one' .B1 2 2, one' .C 7 7 true false] else [one' .A1 0 0, one' .B1 2 2, one' .C 4 4, one [.A5, .B5] 7 7 true true]
@@ -90,11 +90,13 @@ def judgeQueuesForShapeKey (shapeKey : String) (isClassic : Bool := false) : Opt
     , ("circle7", track [one' .A1 0 3, one' .A2 7 11, one' .A3 14 19, one' .A4 23 27, one' .A5 31 35, one' .A6 39 43, one' .A7 45 47 true true])
     , ("circle8", track [one' .A1 0 3, one' .A2 7 11, one' .A3 14 19, one' .A4 23 27, one' .A5 31 35, one' .A6 39 43, one' .A7 46 51, one' .A8 53 55 true true])
     , ("circle1", track [one' .A1 0 3, one' .A2 7 11, one' .A3 14 19, one' .A4 23 27, one' .A5 31 35, one' .A6 39 43, one' .A7 46 51, one' .A8 54 59, one' .A1 61 63 true true])
+    , ("line2", [ [one' .A1 0 3], [one' .A2 6 9 true true] ])
     , ("line3", [ [one' .A1 0 3], [one [.A2, .B2] 6 9 false false], [one' .A3 10 13 true true] ])
     , ("line4", [ [one' .A1 0 4], [one' .B2 6 9], [one' .B3 11 14], [one' .A4 15 18 true true] ])
     , ("line5", [ [one' .A1 0 4], [one' .B1 5 7], [one' .C 10 12], [one' .B5 13 16], [one' .A5 17 19 true true] ])
     , ("line6", [ [one' .A1 0 4], [one' .B8 6 9], [one' .B7 11 14], [one' .A6 15 18 true true] ])
     , ("line7", [ [one' .A1 0 3], [one [.A8, .B8] 6 9 false false], [one' .A7 10 13 true true] ])
+    , ("line8", [ [one' .A1 0 3], [one' .A1 6 9 true true] ])
     , ("v1", [ [one' .A1 0 3], [one' .B1 4 7], [one' .C 8 13], [one' .B1 14 16], [one' .A1 17 19 true true] ])
     , ("v2", [ [one' .A1 0 3], [one' .B1 4 7], [one' .C 8 13], [one' .B2 14 16], [one' .A2 17 19 true true] ])
     , ("v3", [ [one' .A1 0 3], [one' .B1 4 7], [one' .C 8 13], [one' .B3 14 16], [one' .A3 17 19 true true] ])
@@ -132,6 +134,13 @@ def judgeQueuesForShapeKey (shapeKey : String) (isClassic : Bool := false) : Opt
           some [wifi.left, wifi.center, wifi.right]
         else
           none
-  base.map (fun queues => if isMirrored then mirrorJudgeQueues queues else queues)
+  base.map (transformJudgeQueues sym)
+
+def judgeQueuesForShape (shape : SlideShape) (isClassic : Bool := false) : Option (List (List SlideAreaSpec)) :=
+  let base :=
+    match judgeQueuesForShapeKey (canonicalShapeKey shape) isClassic with
+    | some queues => some queues
+    | none => none
+  base.map (transformJudgeQueues shape.symmetry)
 
 end LnmaiCore.Simai

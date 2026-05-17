@@ -1,4 +1,5 @@
 import LnmaiCore.Simai.Syntax
+import LnmaiCore.Simai.Symmetry
 import LnmaiCore.Simai.Timing
 import LnmaiCore.Simai.Tokenize
 import LnmaiCore.Simai.Shape

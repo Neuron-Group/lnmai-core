@@ -19,7 +19,10 @@ private def typedSlidePart? (token : RawNoteToken) : Except ParseError TypedSlid
     | some slot => pure slot
     | none => Except.error { kind := .invalidSyntax, rawText := token.rawText, message := "slide token is missing a start slot" }
   let endArea ← parseTerminalEndArea token.rawText
-  let semantics ← parseSlideNote token.rawText slot endArea
+  let semantics ←
+    match token.slideBody with
+    | some body => parseSlideNoteFromBody token.rawText body endArea
+    | none => parseSlideNote token.rawText slot endArea
   pure { token := token, semantics := semantics }
 
 private def wifiConnError (parts : List TypedSlidePart) : ParseError :=

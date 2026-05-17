@@ -3,6 +3,66 @@ import LnmaiCore.Areas
 
 namespace LnmaiCore.Simai
 
+def SlideShape.kind (shape : SlideShape) : SlideKind :=
+  match shape.canonical with
+  | .line _ => .line
+  | .circle _ => .circle
+  | .v _ => .v
+  | .turn _ => .turn
+  | .pq _ => .pq
+  | .ppqq _ => .ppqq
+  | .s => .s
+  | .wifi => .wifi
+
+def SlideShape.relEnd (shape : SlideShape) : Option Nat :=
+  match shape.canonical with
+  | .line n | .circle n | .v n | .turn n | .pq n | .ppqq n => some n
+  | .s | .wifi => none
+
+def SlideShape.mirrored (shape : SlideShape) : Bool :=
+  SlideSymmetry.isMirrored shape.symmetry
+
+private def directShapeSymmetry : SlideSymmetry := SlideSymmetry.direct
+
+private def mirroredShapeSymmetry : SlideSymmetry := SlideSymmetry.mirror
+
+def mkCanonicalSlideShape? (kind : SlideKind) (relEnd : Option Nat) : Option CanonicalSlideShape :=
+  match kind, relEnd with
+  | .line, some n => if 2 ≤ n && n ≤ 8 then some (.line n) else none
+  | .circle, some n => some (.circle n)
+  | .v, some n => if n ≠ 5 then some (.v n) else none
+  | .turn, some n => if 2 ≤ n && n ≤ 8 then some (.turn n) else none
+  | .pq, some n => some (.pq n)
+  | .ppqq, some n => some (.ppqq n)
+  | .s, none => some .s
+  | .wifi, none => some .wifi
+  | _, _ => none
+
+def mkCanonicalSlideShape (kind : SlideKind) (relEnd : Option Nat) (rawText : String) (message : String) : Except ParseError CanonicalSlideShape :=
+  match mkCanonicalSlideShape? kind relEnd with
+  | some shape => pure shape
+  | none => Except.error { kind := .invalidEndPosition, rawText := rawText, message := message }
+
+def mkCanonicalSlideShapeUnchecked (kind : SlideKind) (relEnd : Option Nat) : CanonicalSlideShape :=
+  match kind, relEnd with
+  | .line, some n => .line n
+  | .circle, some n => .circle n
+  | .v, some n => .v n
+  | .turn, some n => .turn n
+  | .pq, some n => .pq n
+  | .ppqq, some n => .ppqq n
+  | .s, _ => .s
+  | .wifi, _ => .wifi
+  | .line, none => .line 3
+  | .circle, none => .circle 2
+  | .v, none => .v 1
+  | .turn, none => .turn 2
+  | .pq, none => .pq 1
+  | .ppqq, none => .ppqq 1
+
+def mkSlideShape (canonical : CanonicalSlideShape) (symmetry : SlideSymmetry := SlideSymmetry.direct) : SlideShape :=
+  { canonical := canonical, symmetry := symmetry }
+
 def getAt? (xs : List Char) : Nat → Option Char
   | 0 => xs.head?
   | n + 1 => xs.tail?.bind (fun tail => getAt? tail n)
@@ -24,6 +84,26 @@ private def mirrorKey : Nat → Nat
   | n => n
 
 private def mirrorRelEnd : Nat → Nat := mirrorKey
+
+def canonicalRelEnd (sym : SlideSymmetry) (relEnd : Nat) : Nat :=
+  if SlideSymmetry.isMirrored sym then mirrorRelEnd relEnd else relEnd
+
+def baseRelEnd (sym : SlideSymmetry) (relEnd : Nat) : Nat :=
+  canonicalRelEnd sym relEnd
+
+def canonicalShapeKey : SlideShape → String
+  | { canonical := .line n, .. } => s!"line{n}"
+  | { canonical := .circle n, symmetry := sym } => s!"circle{baseRelEnd sym n}"
+  | { canonical := .v n, .. } => s!"v{n}"
+  | { canonical := .turn n, symmetry := sym } => s!"L{baseRelEnd sym n}"
+  | { canonical := .pq n, symmetry := sym } => s!"pq{baseRelEnd sym n}"
+  | { canonical := .ppqq n, symmetry := sym } => s!"ppqq{baseRelEnd sym n}"
+  | { canonical := .s, .. } => "s"
+  | { canonical := .wifi, .. } => "wifi"
+
+def displayShapeKey (shape : SlideShape) : String :=
+  let base := canonicalShapeKey shape
+  if base = "wifi" || base = "" || !SlideSymmetry.isMirrored shape.symmetry then base else s!"-{base}"
 
 private def relativeEndPos (startPos endPos : Nat) : Nat :=
   (((endPos - 1) + 8 - (startPos - 1)) % 8) + 1
@@ -61,114 +141,146 @@ private def readEndAreaAt (content : List Char) (index : Nat) : Except ParseErro
   | some area => pure area
   | none => Except.error { kind := .invalidSyntax, rawText := String.ofList content, message := s!"invalid end area at {index}" }
 
-def detectShapeFromText (content : String) : Except ParseError SlideShape := do
+def parseSlideBodyFromText (content : String) : Except ParseError ParsedSlideBody := do
   let cs := content.toList
+  let startLane ← readStartLaneAt cs 0
   if content.contains '-' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if relEnd < 3 || relEnd > 7 then
-      Except.error { kind := .invalidEndPosition, rawText := content, message := "- slide end must be 3..7" }
-    else
-      pure { kind := .line, relEnd := some relEnd, mirrored := false }
+    pure { rawText := content, startLane := startLane, kind := .line, endArea := some endArea }
   else if content.contains '>' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if outerSlotIsUpperHalf startLane then
-      pure { kind := .circle, relEnd := some relEnd, mirrored := false }
-    else
-      pure { kind := .circle, relEnd := some (mirrorRelEnd relEnd), mirrored := true }
+    pure { rawText := content, startLane := startLane, kind := .circleRight, endArea := some endArea }
   else if content.contains '<' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if !outerSlotIsUpperHalf startLane then
-      pure { kind := .circle, relEnd := some relEnd, mirrored := false }
-    else
-      pure { kind := .circle, relEnd := some (mirrorRelEnd relEnd), mirrored := true }
+    pure { rawText := content, startLane := startLane, kind := .circleLeft, endArea := some endArea }
   else if content.contains '^' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if relEnd == 1 || relEnd == 5 then
-      Except.error { kind := .invalidEndPosition, rawText := content, message := "^ slide end is invalid" }
-    else if relEnd < 5 then
-      pure { kind := .circle, relEnd := some relEnd, mirrored := false }
-    else
-      pure { kind := .circle, relEnd := some (mirrorRelEnd relEnd), mirrored := true }
+    pure { rawText := content, startLane := startLane, kind := .circleUp, endArea := some endArea }
   else if content.contains 'v' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if relEnd == 5 then
-      Except.error { kind := .invalidEndPosition, rawText := content, message := "v slide end is invalid" }
-    else
-      pure { kind := .v, relEnd := some relEnd, mirrored := false }
+    pure { rawText := content, startLane := startLane, kind := .v, endArea := some endArea }
   else if content.contains "pp" then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 3
-    let relEnd ← relativeEndFromTyped startLane endArea
-    pure { kind := .ppqq, relEnd := some relEnd, mirrored := false }
+    pure { rawText := content, startLane := startLane, kind := .pp, endArea := some endArea }
   else if content.contains "qq" then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 3
-    let relEnd ← relativeEndFromTyped startLane endArea
-    pure { kind := .ppqq, relEnd := some (mirrorRelEnd relEnd), mirrored := true }
+    pure { rawText := content, startLane := startLane, kind := .qq, endArea := some endArea }
   else if content.contains 'p' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    pure { kind := .pq, relEnd := some relEnd, mirrored := false }
+    pure { rawText := content, startLane := startLane, kind := .p, endArea := some endArea }
   else if content.contains 'q' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    pure { kind := .pq, relEnd := some (mirrorRelEnd relEnd), mirrored := true }
+    pure { rawText := content, startLane := startLane, kind := .q, endArea := some endArea }
   else if content.contains 's' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if relEnd != 5 then
-      Except.error { kind := .invalidEndPosition, rawText := content, message := "s slide end must be 5" }
-    else
-      pure { kind := .s, relEnd := none, mirrored := false }
+    pure { rawText := content, startLane := startLane, kind := .s, endArea := some endArea }
   else if content.contains 'z' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if relEnd != 5 then
-      Except.error { kind := .invalidEndPosition, rawText := content, message := "z slide end must be 5" }
-    else
-      pure { kind := .s, relEnd := none, mirrored := true }
+    pure { rawText := content, startLane := startLane, kind := .z, endArea := some endArea }
   else if content.contains 'V' then
-    let startLane ← readStartLaneAt cs 0
     let turnArea ← readEndAreaAt cs 2
     let endArea ← readEndAreaAt cs 3
-    let turnRel ← relativeEndFromTyped startLane turnArea
-    let endRel ← relativeEndFromTyped startLane endArea
-    if turnRel == 7 then
-      if endRel < 2 || endRel > 5 then
-        Except.error { kind := .invalidTurnPosition, rawText := content, message := "V slide end invalid" }
-      else
-        pure { kind := .turn, relEnd := some endRel, mirrored := false }
-    else if turnRel == 3 then
-      if endRel < 5 then
-        Except.error { kind := .invalidTurnPosition, rawText := content, message := "V slide end invalid" }
-      else
-        pure { kind := .turn, relEnd := some (mirrorRelEnd endRel), mirrored := true }
-    else
-      Except.error { kind := .invalidTurnPosition, rawText := content, message := "V turn must be one key apart" }
+    pure { rawText := content, startLane := startLane, kind := .turn, turnArea := some turnArea, endArea := some endArea }
   else if content.contains 'w' then
-    let startLane ← readStartLaneAt cs 0
     let endArea ← readEndAreaAt cs 2
-    let relEnd ← relativeEndFromTyped startLane endArea
-    if relEnd != 5 then
-      Except.error { kind := .invalidEndPosition, rawText := content, message := "wifi end must be 5" }
-    else
-      pure { kind := .wifi, relEnd := none, mirrored := false }
+    pure { rawText := content, startLane := startLane, kind := .wifi, endArea := some endArea }
   else
     Except.error { kind := .invalidShape, rawText := content, message := "unrecognized Simai slide shape" }
+
+def solveSlideShape (body : ParsedSlideBody) : Except ParseError SlideShape := do
+  match body.kind with
+  | .line =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .line (some relEnd) body.rawText "- slide end must be 3..7"
+      pure <| mkSlideShape canonical directShapeSymmetry
+  | .circleRight =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "> slide end is invalid"
+      pure <| mkSlideShape canonical (if outerSlotIsUpperHalf body.startLane then directShapeSymmetry else mirroredShapeSymmetry)
+  | .circleLeft =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "< slide end is invalid"
+      pure <| mkSlideShape canonical (if !outerSlotIsUpperHalf body.startLane then directShapeSymmetry else mirroredShapeSymmetry)
+  | .circleUp =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "^ slide end is invalid"
+      pure <| mkSlideShape canonical (if relEnd < 5 then directShapeSymmetry else mirroredShapeSymmetry)
+  | .v =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .v (some relEnd) body.rawText "v slide end is invalid"
+      pure <| mkSlideShape canonical directShapeSymmetry
+  | .pp =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .ppqq (some relEnd) body.rawText "pp slide end is invalid"
+      pure <| mkSlideShape canonical directShapeSymmetry
+  | .qq =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .ppqq (some relEnd) body.rawText "qq slide end is invalid"
+      pure <| mkSlideShape canonical mirroredShapeSymmetry
+  | .p =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .pq (some relEnd) body.rawText "p slide end is invalid"
+      pure <| mkSlideShape canonical directShapeSymmetry
+  | .q =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      let canonical ← mkCanonicalSlideShape .pq (some relEnd) body.rawText "q slide end is invalid"
+      pure <| mkSlideShape canonical mirroredShapeSymmetry
+  | .s =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      if relEnd != 5 then
+        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "s slide end must be 5" }
+      else
+        let canonical ← mkCanonicalSlideShape .s none body.rawText "s slide end must be 5"
+        pure <| mkSlideShape canonical directShapeSymmetry
+  | .z =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      if relEnd != 5 then
+        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "z slide end must be 5" }
+      else
+        let canonical ← mkCanonicalSlideShape .s none body.rawText "z slide end must be 5"
+        pure <| mkSlideShape canonical mirroredShapeSymmetry
+  | .turn =>
+      let turnArea := body.turnArea.getD .A1
+      let endArea := body.endArea.getD .A1
+      let turnRel ← relativeEndFromTyped body.startLane turnArea
+      let endRel ← relativeEndFromTyped body.startLane endArea
+      if turnRel == 7 then
+        if endRel < 2 || endRel > 5 then
+          Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "V slide end invalid" }
+        else
+          let canonical ← mkCanonicalSlideShape .turn (some endRel) body.rawText "V slide end invalid"
+          pure <| mkSlideShape canonical directShapeSymmetry
+      else if turnRel == 3 then
+        if endRel < 5 then
+          Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "V slide end invalid" }
+        else
+          let canonical ← mkCanonicalSlideShape .turn (some endRel) body.rawText "V slide end invalid"
+          pure <| mkSlideShape canonical mirroredShapeSymmetry
+      else
+        Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "V turn must be one key apart" }
+  | .wifi =>
+      let endArea := body.endArea.getD .A1
+      let relEnd ← relativeEndFromTyped body.startLane endArea
+      if relEnd != 5 then
+        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "wifi end must be 5" }
+      else
+        let canonical ← mkCanonicalSlideShape .wifi none body.rawText "wifi end must be 5"
+        pure <| mkSlideShape canonical directShapeSymmetry
+
+def detectShapeFromText (content : String) : Except ParseError SlideShape := do
+  let body ← parseSlideBodyFromText content
+  solveSlideShape body
 
 def detectJustType (content : String) : Except ParseError Bool := do
   let cs := content.toList
@@ -212,20 +324,7 @@ def parseStartLaneAt (content : List Char) (index : Nat) : Except ParseError Out
 def parseEndAreaAt (content : List Char) (index : Nat) : Except ParseError SensorArea :=
   readEndAreaAt content index
 
-def shapeKey : SlideShape → String
-  | { kind := .line, relEnd := some n, mirrored := false } => s!"line{n}"
-  | { kind := .circle, relEnd := some n, mirrored := false } => s!"circle{n}"
-  | { kind := .circle, relEnd := some n, mirrored := true } => s!"-circle{n}"
-  | { kind := .v, relEnd := some n, mirrored := false } => s!"v{n}"
-  | { kind := .turn, relEnd := some n, mirrored := false } => s!"L{n}"
-  | { kind := .turn, relEnd := some n, mirrored := true } => s!"-L{n}"
-  | { kind := .pq, relEnd := some n, mirrored := false } => s!"pq{n}"
-  | { kind := .pq, relEnd := some n, mirrored := true } => s!"-pq{n}"
-  | { kind := .ppqq, relEnd := some n, mirrored := false } => s!"ppqq{n}"
-  | { kind := .ppqq, relEnd := some n, mirrored := true } => s!"-ppqq{n}"
-  | { kind := .s, mirrored := false, .. } => "s"
-  | { kind := .s, mirrored := true, .. } => "-s"
-  | { kind := .wifi, .. } => "wifi"
-  | _ => ""
+def shapeKey (shape : SlideShape) : String :=
+  displayShapeKey shape
 
 end LnmaiCore.Simai

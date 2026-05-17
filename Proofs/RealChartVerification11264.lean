@@ -42,56 +42,53 @@ private def local261Chart : ChartLoader.ChartSpec :=
   , slides := checkpointChart.slides.filter (fun n => local261Window n.noteIndex)
   , slideSkipping := checkpointChart.slideSkipping }
 
-private def stripCriticalButtonEvents (events : List TimedInputEvent) : List TimedInputEvent :=
-  events.filter (fun evt =>
-    let t := evt.at.toMicros
-    match evt with
-    | .buttonClick _ zone =>
-        !((t = 64112899 && zone = .K1) ||
-          (t = 64596769 && zone = .K5) ||
-          (t = 64838704 && zone = .K6) ||
-          (t = 65927412 && zone = .K5))
-    | _ => true)
-
-private def strip261BodyEvents (events : List TimedInputEvent) : List TimedInputEvent :=
-  events.filter (fun evt =>
-    let t := evt.at.toMicros
-    !(t = 64596770 || t = 64677415 || t = 64758059 || t = 64758060 || t = 64838705 ||
-      t = 64919349 || t = 64919350 || t = 64999994 || t = 64999995 || t = 65080639 ||
-      t = 65080640 || t = 65097308))
-
 private def local261NonPerfects (result : RuntimeSimulationResult) : List (Nat × JudgeGrade) :=
   result.events.filterMap (fun evt =>
     if evt.grade = .Perfect then none else some (evt.noteIndex, evt.grade))
 
-private def immediateRelease261Actions : List TimedInputEvent :=
-  [ touchAt 64112899 SensorArea.A1
-  , holdSensorAt 64112899 SensorArea.A1 true
-  , holdSensorAt (64112899 + Constants.FRAME_LENGTH.toMicros) SensorArea.A1 false
-  , touchAt 64596769 SensorArea.A5
-  , touchAt 64838704 SensorArea.A6
-  , touchAt 65927412 SensorArea.A5
-  ]
+private def local261TouchReplacementModule
+    (noteIndex : Nat) (timeMicros : Int) (area : SensorArea) : TimingSkeletonModule :=
+  fixedNoteIndexModule noteIndex
+    (mkManualTacticSequence [touchAt timeMicros area])
 
-private def holdThroughStart261Actions : List TimedInputEvent :=
-  [ touchAt 64112899 SensorArea.A1
-  , holdSensorAt 64112899 SensorArea.A1 true
-  , holdSensorAt 64354837 SensorArea.A1 false
-  , touchAt 64596769 SensorArea.A5
-  , touchAt 64838704 SensorArea.A6
-  , touchAt 65927412 SensorArea.A5
-  ]
+private def local261ImmediateReleaseModule : TimingSkeletonModule :=
+  noteIndexModule 261 (fun _ =>
+    mkManualTacticSequence
+      [ touchAt 64112899 SensorArea.A1
+      , holdSensorAt 64112899 SensorArea.A1 true
+      , holdSensorAt (64112899 + Constants.FRAME_LENGTH.toMicros) SensorArea.A1 false ])
+
+private def local261DefaultBodyOnly (entry : NoteTimingSkeleton) : ManualTacticSequence :=
+  match entry with
+  | .slide spec =>
+      mkManualTacticSequence <|
+        (resolveSingleTrackSlideWithHeadEvenly spec).events.filter (fun evt =>
+          match evt with
+          | .buttonClick _ _ => false
+          | _ => true)
+  | _ => mkManualTacticSequence []
+
+private def local261HoldThroughStartModule : TimingSkeletonModule :=
+  noteIndexModule 261 (fun entry =>
+    mkManualTacticSequence
+      [ touchAt 64112899 SensorArea.A1
+      , holdSensorAt 64112899 SensorArea.A1 true
+      , holdSensorAt 64354837 SensorArea.A1 false ]
+    ++ local261DefaultBodyOnly entry)
+
+private def local261SharedTapReplacementModules : List TimingSkeletonModule :=
+  [ local261TouchReplacementModule 262 64596769 SensorArea.A5
+  , local261TouchReplacementModule 263 64838704 SensorArea.A6
+  , local261TouchReplacementModule 266 65927412 SensorArea.A5 ]
 
 private def local261ImmediateReleaseResult : RuntimeSimulationResult :=
-  let base := defaultTacticFromChart local261Chart
-  let seq := mkManualTacticSequence
-    (stripCriticalButtonEvents (strip261BodyEvents base.events) ++ immediateRelease261Actions)
+  let seq := tacticFromChartWithModules local261Chart
+    (local261ImmediateReleaseModule :: local261SharedTapReplacementModules)
   simulateChartSpecWithTactic local261Chart seq
 
 private def local261HoldThroughStartResult : RuntimeSimulationResult :=
-  let base := defaultTacticFromChart local261Chart
-  let seq := mkManualTacticSequence
-    (stripCriticalButtonEvents base.events ++ holdThroughStart261Actions)
+  let seq := tacticFromChartWithModules local261Chart
+    (local261HoldThroughStartModule :: local261SharedTapReplacementModules)
   simulateChartSpecWithTactic local261Chart seq
 
 theorem local_1xs5_immediate_release_fails :

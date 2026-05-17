@@ -49,6 +49,10 @@ structure TimingSkeletonOverride where
   noteIndex : Nat
   resolve : TimingSkeletonResolver
 
+structure TimingSkeletonModule where
+  applies : NoteTimingSkeleton → Bool
+  resolve : TimingSkeletonResolver
+
 structure RuntimeSimulationResult where
   chart : ChartLoader.ChartSpec
   initialState : InputModel.GameState
@@ -462,10 +466,34 @@ private def findTimingSkeletonOverride
 def fixedTimingSkeletonOverride (noteIndex : Nat) (seq : ManualTacticSequence) : TimingSkeletonOverride :=
   { noteIndex := noteIndex, resolve := fun _ => seq }
 
+def noteIndexModule (noteIndex : Nat) (resolve : TimingSkeletonResolver) : TimingSkeletonModule :=
+  { applies := fun entry => entry.noteIndex = noteIndex
+  , resolve := resolve }
+
+def fixedNoteIndexModule (noteIndex : Nat) (seq : ManualTacticSequence) : TimingSkeletonModule :=
+  noteIndexModule noteIndex (fun _ => seq)
+
+def noteKindModule (kind : NoteTimingSkeletonKind) (resolve : TimingSkeletonResolver) : TimingSkeletonModule :=
+  { applies := fun entry => entry.kind = kind
+  , resolve := resolve }
+
+private def findTimingSkeletonModule
+    (modules : List TimingSkeletonModule) (entry : NoteTimingSkeleton) : Option TimingSkeletonModule :=
+  match modules with
+  | [] => none
+  | head :: rest =>
+      if head.applies entry then some head else findTimingSkeletonModule rest entry
+
 def resolveTimingSkeletonWithOverrides
     (overrides : List TimingSkeletonOverride) (entry : NoteTimingSkeleton) : ManualTacticSequence :=
   match findTimingSkeletonOverride overrides entry.noteIndex with
   | some override => override.resolve entry
+  | none => resolveDefaultTimingSkeleton entry
+
+def resolveTimingSkeletonWithModules
+    (modules : List TimingSkeletonModule) (entry : NoteTimingSkeleton) : ManualTacticSequence :=
+  match findTimingSkeletonModule modules entry with
+  | some module => module.resolve entry
   | none => resolveDefaultTimingSkeleton entry
 
 def resolveTimingSkeletonListWithOverrides
@@ -473,12 +501,21 @@ def resolveTimingSkeletonListWithOverrides
   mkManualTacticSequence <|
     flattenEventLists <| entries.map (fun entry => (resolveTimingSkeletonWithOverrides overrides entry).events)
 
+def resolveTimingSkeletonListWithModules
+    (modules : List TimingSkeletonModule) (entries : List NoteTimingSkeleton) : ManualTacticSequence :=
+  mkManualTacticSequence <|
+    flattenEventLists <| entries.map (fun entry => (resolveTimingSkeletonWithModules modules entry).events)
+
 def defaultTacticFromChart (chart : ChartLoader.ChartSpec) : ManualTacticSequence :=
   resolveDefaultTimingSkeletonList (chartTimingSkeleton chart)
 
 def tacticFromChartWithOverrides
     (chart : ChartLoader.ChartSpec) (overrides : List TimingSkeletonOverride) : ManualTacticSequence :=
   resolveTimingSkeletonListWithOverrides overrides (chartTimingSkeleton chart)
+
+def tacticFromChartWithModules
+    (chart : ChartLoader.ChartSpec) (modules : List TimingSkeletonModule) : ManualTacticSequence :=
+  resolveTimingSkeletonListWithModules modules (chartTimingSkeleton chart)
 
 def timingSkeletonFromChartSection
     (content : String) (levelIndex : Nat := 1) :
@@ -521,13 +558,55 @@ private def parseSensorAreaToken? (text : String) : Option SensorArea :=
   | .ok area => some area
   | .error _ => none
 
-private def parseManualTacticLine? (line : String) : Except String (Option ManualTacticAction) :=
+private def collectTapChord
+    (time : TimePoint) (items : List String) : Except String (List ManualTacticAction) := do
+  let rec loop (remaining : List String) (acc : List ManualTacticAction) : Except String (List ManualTacticAction) := do
+    match remaining with
+    | [] => return acc.reverse
+    | item :: rest =>
+        match parseButtonZoneToken? item with
+        | some zone => loop rest ((.buttonClick time zone) :: acc)
+        | none => .error s!"invalid button zone {repr item}"
+  loop items []
+
+private def collectTouchChord
+    (time : TimePoint) (items : List String) : Except String (List ManualTacticAction) := do
+  let rec loop (remaining : List String) (acc : List ManualTacticAction) : Except String (List ManualTacticAction) := do
+    match remaining with
+    | [] => return acc.reverse
+    | item :: rest =>
+        match parseSensorAreaToken? item with
+        | some area => loop rest ((.sensorClick time area) :: acc)
+        | none => .error s!"invalid sensor area {repr item}"
+  loop items []
+
+private def parseManualTacticLine? (line : String) : Except String (Option (List ManualTacticAction)) :=
   let trimmed := line.trimAscii.toString
   if trimmed.isEmpty || trimmed.startsWith "--" || trimmed.startsWith "#" then
     return none
   else
     let parts := trimmed.splitOn " " |>.filter (fun item => !item.trimAscii.isEmpty)
     match parts with
+    | ["hold", targetKind, targetText, "from", startText, "to", endText] =>
+        match parseIntToken? startText, parseIntToken? endText with
+        | some startMicros, some endMicros =>
+            let startTime := TimePoint.fromMicros startMicros
+            let endTime := TimePoint.fromMicros endMicros
+            if endMicros < startMicros then
+              .error s!"hold interval end precedes start in {repr trimmed}"
+            else
+              match targetKind.trimAscii.toString with
+              | "button" =>
+                  match parseButtonZoneToken? targetText with
+                  | some zone => return some [(.buttonHold startTime zone true), (.buttonHold endTime zone false)]
+                  | none => .error s!"invalid button zone {repr targetText}"
+              | "sensor" =>
+                  match parseSensorAreaToken? targetText with
+                  | some area => return some [(.sensorHold startTime area true), (.sensorHold endTime area false)]
+                  | none => .error s!"invalid sensor area {repr targetText}"
+              | _ => .error s!"invalid hold target kind {repr targetKind}; expected button/sensor"
+        | none, _ => .error s!"invalid hold interval start {repr startText}"
+        | _, none => .error s!"invalid hold interval end {repr endText}"
     | [timeText, kindText, targetText] =>
         match parseIntToken? timeText with
         | none => .error s!"invalid time token {repr timeText}"
@@ -535,28 +614,46 @@ private def parseManualTacticLine? (line : String) : Except String (Option Manua
         match kindText.trimAscii.toString with
         | "tap" =>
             match parseButtonZoneToken? targetText with
-            | some zone => return some (.buttonClick (TimePoint.fromMicros micros) zone)
+            | some zone => return some [(.buttonClick (TimePoint.fromMicros micros) zone)]
             | none => .error s!"invalid button zone {repr targetText}"
         | "touch" =>
             match parseSensorAreaToken? targetText with
-            | some area => return some (.sensorClick (TimePoint.fromMicros micros) area)
+            | some area => return some [(.sensorClick (TimePoint.fromMicros micros) area)]
             | none => .error s!"invalid sensor area {repr targetText}"
         | _ => .error s!"unknown action kind {repr kindText}"
-    | [timeText, kindText, targetText, stateText] =>
-        match parseIntToken? timeText, parseBoolToken? stateText with
-        | none, _ => .error s!"invalid time token {repr timeText}"
-        | _, none => .error s!"invalid hold state {repr stateText}; expected down/up"
-        | some micros, some isDown =>
+    | timeText :: kindText :: targets =>
+        match parseIntToken? timeText with
+        | none => .error s!"invalid time token {repr timeText}"
+        | some micros =>
+          let time := TimePoint.fromMicros micros
           match kindText.trimAscii.toString with
-          | "button" | "holdButton" =>
-              match parseButtonZoneToken? targetText with
-              | some zone => return some (.buttonHold (TimePoint.fromMicros micros) zone isDown)
-              | none => .error s!"invalid button zone {repr targetText}"
-          | "sensor" | "holdSensor" =>
-              match parseSensorAreaToken? targetText with
-              | some area => return some (.sensorHold (TimePoint.fromMicros micros) area isDown)
-              | none => .error s!"invalid sensor area {repr targetText}"
-          | _ => .error s!"unknown hold action kind {repr kindText}"
+          | "tap" =>
+              if targets.isEmpty then
+                .error "tap requires at least one button zone"
+              else
+                return some (← collectTapChord time targets)
+          | "touch" =>
+              if targets.isEmpty then
+                .error "touch requires at least one sensor area"
+              else
+                return some (← collectTouchChord time targets)
+          | _ =>
+              match targets with
+              | [targetText, stateText] =>
+                  match parseBoolToken? stateText with
+                  | none => .error s!"invalid hold state {repr stateText}; expected down/up"
+                  | some isDown =>
+                    match kindText.trimAscii.toString with
+                    | "button" | "holdButton" =>
+                        match parseButtonZoneToken? targetText with
+                        | some zone => return some [(.buttonHold time zone isDown)]
+                        | none => .error s!"invalid button zone {repr targetText}"
+                    | "sensor" | "holdSensor" =>
+                        match parseSensorAreaToken? targetText with
+                        | some area => return some [(.sensorHold time area isDown)]
+                        | none => .error s!"invalid sensor area {repr targetText}"
+                    | _ => .error s!"unknown hold action kind {repr kindText}"
+              | _ => .error s!"invalid tactic line {repr trimmed}"
     | _ => .error s!"invalid tactic line {repr trimmed}"
 
 def parseManualTacticSequence (content : String) : Except String ManualTacticSequence := do
@@ -564,9 +661,9 @@ def parseManualTacticSequence (content : String) : Except String ManualTacticSeq
   let mut events : List ManualTacticAction := []
   for line in lines do
     match (← parseManualTacticLine? line) with
-    | some evt => events := events ++ [evt]
+    | some evts => events := events ++ evts
     | none => pure ()
-  return { events := events }
+  return mkManualTacticSequence events
 
 def manualTacticLiteral (content : String) : ManualTacticSequence :=
   match parseManualTacticSequence content with

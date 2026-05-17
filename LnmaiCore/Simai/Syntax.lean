@@ -2,6 +2,7 @@ import Mathlib
 import Lean.Data.Json
 import LnmaiCore.Areas
 import LnmaiCore.Time
+import LnmaiCore.Simai.Symmetry
 
 open Lean
 
@@ -91,10 +92,44 @@ inductive SlideKind where
   | wifi
 deriving DecidableEq, Repr, Inhabited, BEq
 
+inductive CanonicalSlideShape where
+  | line (relEnd : Nat)
+  | circle (relEnd : Nat)
+  | v (relEnd : Nat)
+  | turn (relEnd : Nat)
+  | pq (relEnd : Nat)
+  | ppqq (relEnd : Nat)
+  | s
+  | wifi
+deriving DecidableEq, Repr, Inhabited, BEq
+
 structure SlideShape where
-  kind : SlideKind
-  relEnd : Option Nat := none
-  mirrored : Bool := false
+  canonical : CanonicalSlideShape
+  symmetry : SlideSymmetry := SlideSymmetry.direct
+deriving DecidableEq, Repr, Inhabited, BEq
+
+inductive SlideBodyKind where
+  | line
+  | circleRight
+  | circleLeft
+  | circleUp
+  | v
+  | pp
+  | qq
+  | p
+  | q
+  | s
+  | z
+  | turn
+  | wifi
+deriving DecidableEq, Repr, Inhabited, BEq
+
+structure ParsedSlideBody where
+  rawText : String
+  startLane : OuterSlot
+  kind : SlideBodyKind
+  endArea : Option SensorArea := none
+  turnArea : Option SensorArea := none
 deriving DecidableEq, Repr, Inhabited, BEq
 
 structure SlideNoteSemantics where
@@ -153,6 +188,7 @@ structure RawNoteToken where
   divisor : Nat
   slot : Option OuterSlot := none
   sensorPos : Option SensorArea := none
+  slideBody : Option ParsedSlideBody := none
   length : Option Duration := none
   starWait : Option Duration := none
   isBreak : Bool := false
