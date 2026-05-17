@@ -263,3 +263,5 @@ elab_rules : term
       | .error err => throwDslError "simai_normalized_slide!" content err
 
 end LnmaiCore.Simai
+
+-- #eval simai_normalized_slide! "2xs6"

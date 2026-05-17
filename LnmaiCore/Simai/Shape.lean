@@ -192,63 +192,63 @@ def solveSlideShape (body : ParsedSlideBody) : Except ParseError SlideShape := d
   | .line =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .line (some relEnd) body.rawText "- slide end must be 3..7"
+      let canonical ← mkCanonicalSlideShape .line (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical directShapeSymmetry
   | .circleRight =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "> slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical (if outerSlotIsUpperHalf body.startLane then directShapeSymmetry else mirroredShapeSymmetry)
   | .circleLeft =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "< slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical (if !outerSlotIsUpperHalf body.startLane then directShapeSymmetry else mirroredShapeSymmetry)
   | .circleUp =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "^ slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .circle (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical (if relEnd < 5 then directShapeSymmetry else mirroredShapeSymmetry)
   | .v =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .v (some relEnd) body.rawText "v slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .v (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical directShapeSymmetry
   | .pp =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .ppqq (some relEnd) body.rawText "pp slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .ppqq (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical directShapeSymmetry
   | .qq =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .ppqq (some relEnd) body.rawText "qq slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .ppqq (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical mirroredShapeSymmetry
   | .p =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .pq (some relEnd) body.rawText "p slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .pq (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical directShapeSymmetry
   | .q =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
-      let canonical ← mkCanonicalSlideShape .pq (some relEnd) body.rawText "q slide end is invalid"
+      let canonical ← mkCanonicalSlideShape .pq (some relEnd) body.rawText "invalid end"
       pure <| mkSlideShape canonical mirroredShapeSymmetry
   | .s =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
       if relEnd != 5 then
-        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "s slide end must be 5" }
+        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "invalid end" }
       else
-        let canonical ← mkCanonicalSlideShape .s none body.rawText "s slide end must be 5"
+        let canonical ← mkCanonicalSlideShape .s none body.rawText "invalid end"
         pure <| mkSlideShape canonical directShapeSymmetry
   | .z =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
       if relEnd != 5 then
-        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "z slide end must be 5" }
+        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "invalid end" }
       else
-        let canonical ← mkCanonicalSlideShape .s none body.rawText "z slide end must be 5"
+        let canonical ← mkCanonicalSlideShape .s none body.rawText "invalid end"
         pure <| mkSlideShape canonical mirroredShapeSymmetry
   | .turn =>
       let turnArea := body.turnArea.getD .A1
@@ -257,25 +257,25 @@ def solveSlideShape (body : ParsedSlideBody) : Except ParseError SlideShape := d
       let endRel ← relativeEndFromTyped body.startLane endArea
       if turnRel == 7 then
         if endRel < 2 || endRel > 5 then
-          Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "V slide end invalid" }
+          Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "invalid end" }
         else
-          let canonical ← mkCanonicalSlideShape .turn (some endRel) body.rawText "V slide end invalid"
+          let canonical ← mkCanonicalSlideShape .turn (some endRel) body.rawText "invalid end"
           pure <| mkSlideShape canonical directShapeSymmetry
       else if turnRel == 3 then
         if endRel < 5 then
-          Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "V slide end invalid" }
+          Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "invalid end" }
         else
-          let canonical ← mkCanonicalSlideShape .turn (some endRel) body.rawText "V slide end invalid"
+          let canonical ← mkCanonicalSlideShape .turn (some endRel) body.rawText "invalid end"
           pure <| mkSlideShape canonical mirroredShapeSymmetry
       else
-        Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "V turn must be one key apart" }
+        Except.error { kind := .invalidTurnPosition, rawText := body.rawText, message := "invalid turn" }
   | .wifi =>
       let endArea := body.endArea.getD .A1
       let relEnd ← relativeEndFromTyped body.startLane endArea
       if relEnd != 5 then
-        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "wifi end must be 5" }
+        Except.error { kind := .invalidEndPosition, rawText := body.rawText, message := "invalid end" }
       else
-        let canonical ← mkCanonicalSlideShape .wifi none body.rawText "wifi end must be 5"
+        let canonical ← mkCanonicalSlideShape .wifi none body.rawText "invalid end"
         pure <| mkSlideShape canonical directShapeSymmetry
 
 def detectShapeFromText (content : String) : Except ParseError SlideShape := do
