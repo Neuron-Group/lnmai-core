@@ -36,6 +36,9 @@ private def areaCodes (queue : List SlideAreaSpec) : List String :=
 private def areaGroups (queue : List SlideAreaSpec) : List (List String) :=
   queue.map (fun spec => spec.targetAreas.map ExactArea.label)
 
+private def queueSkippableFlags (queue : List SlideAreaSpec) : List Bool :=
+  queue.map (fun spec => spec.isSkippable)
+
 def test_simai_chart_dsl_smoke : ParityCase :=
   let chart : FrontendChartResult := simai_chart! "&first=0\n&inote_1=\n(120)\n1,\n"
   supportedCase "simai_chart_dsl_smoke"
@@ -157,6 +160,12 @@ def test_slide_note_absolute_star_wait_no_hash_and_duration : ParityCase :=
             "absolute star-wait and duration work"
       | _ => supportedCase "slide_note_absolute_star_wait_no_hash_and_duration" false "expected one slide"
   | .error err => supportedCase "slide_note_absolute_star_wait_no_hash_and_duration" false s!"unexpected parse error: {err.message}"
+
+theorem slide_body_start_is_later_than_head_for_44pace_reference_case :
+    test_slide_note_duration_and_star_wait.passed = true := by native_decide
+
+theorem slide_body_start_supports_explicit_absolute_star_wait :
+    test_slide_note_absolute_star_wait_no_hash_and_duration.passed = true := by native_decide
 
 def test_touch_note : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\nA1/C,E4h[4:1],\n" with
@@ -332,6 +341,29 @@ def test_normalized_slide_topology_attached : ParityCase :=
             "normalization attaches authoritative slide queues before runtime build"
       | _, _ => supportedCase "normalized_slide_topology_attached" false "expected one lowered slide"
   | .error err => supportedCase "normalized_slide_topology_attached" false s!"unexpected parse error: {err.message}"
+
+def test_normalized_line3_has_protected_middle_segment : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides, chart.semantic.lowered.slides with
+      | slide :: _, lowered :: _ =>
+          let normalizedQueue := slide.judgeQueues.headD []
+          let loweredQueue := lowered.judgeQueues.headD []
+          let normalizedProtected :=
+            areaGroups normalizedQueue = [["Sensor A1"], ["Sensor A2", "Sensor B2"], ["Sensor A3"]] &&
+            queueSkippableFlags normalizedQueue = [true, false, true]
+          let loweredProtected :=
+            areaGroups loweredQueue = [["Sensor A1"], ["Sensor A2", "Sensor B2"], ["Sensor A3"]] &&
+            queueSkippableFlags loweredQueue = [true, false, true]
+          supportedCase "normalized_line3_has_protected_middle_segment"
+            (slide.totalJudgeQueueLen = 3 && lowered.totalJudgeQueueLen = 3 &&
+             normalizedProtected && loweredProtected)
+            "normalized and lowered line3 retain the protected middle A2/B2 segment, matching the short-slide jump-protection rule"
+      | _, _ => supportedCase "normalized_line3_has_protected_middle_segment" false "expected one normalized and one lowered slide"
+  | .error err => supportedCase "normalized_line3_has_protected_middle_segment" false s!"unexpected parse error: {err.message}"
+
+theorem test_normalized_line3_has_protected_middle_segment_proof :
+    test_normalized_line3_has_protected_middle_segment.passed = true := by native_decide
 
 def test_normalized_short_conn_skip_rule : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>2[4:1],\n" with

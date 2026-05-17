@@ -57,6 +57,9 @@ private def hasHideAllSlideBars (cmds : List RenderCommand) (noteIndex : Nat) : 
 private def sensorHeldVec (held : List SensorArea) : SensorVec Bool :=
   SensorVec.ofFn (fun area => held.any (fun item => item == area))
 
+private def queueAreaGroups (queue : Lifecycle.SlideQueue) : List (List SensorArea) :=
+  queue.map (fun area => area.targetAreas)
+
 private def buttonFlagVec (pressed : List ButtonZone) : ButtonVec Bool :=
   ButtonVec.ofFn (fun zone => pressed.any (fun item => item == zone))
 
@@ -926,6 +929,22 @@ def test_conn_child_progress_only_force_finishes_direct_parent : RuntimeCase :=
       passCase "conn_child_progress_only_force_finishes_direct_parent" false
         "expected grandparent, parent, and child slides"
 
+theorem conn_child_becomes_checkable_at_parent_pending_finish :
+    test_conn_child_pending_finish_becomes_checkable.passed = true := by
+  native_decide
+
+theorem conn_child_becomes_checkable_at_parent_finished :
+    test_conn_child_finished_parent_becomes_checkable.passed = true := by
+  native_decide
+
+theorem conn_parent_not_force_finished_without_child_progress :
+    test_conn_parent_not_force_finished_without_child_progress.passed = true := by
+  native_decide
+
+theorem conn_child_progress_only_force_finishes_direct_parent :
+    test_conn_child_progress_only_force_finishes_direct_parent.passed = true := by
+  native_decide
+
 private def nonEndConnSlideFinishedState : InputModel.GameState :=
   let parent : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 70 }
@@ -1301,6 +1320,90 @@ def test_wifi_too_late_one_remaining_becomes_lategood : RuntimeCase :=
         "wifi too-late grade is LateGood when exactly one queue segment remains"
   | _ => passCase "wifi_too_late_one_remaining_becomes_lategood" false "expected one wifi event"
 
+private def activeSingleSlideTooLateState : InputModel.GameState :=
+  let unfinishedHead : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := false }
+  let unfinishedTail : Lifecycle.SlideArea :=
+    { targetAreas := [.A2], isLast := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 156 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , timing := tp 800000
+    , startTiming := tp 800000
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 2
+    , totalJudgeQueueLen := 2
+    , isCheckable := true
+    , judgeQueues := [[unfinishedHead, unfinishedTail]] }
+  { currentTime := tp 1600000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_single_slide_too_late_two_segments_remaining_stays_miss : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame activeSingleSlideTooLateState input
+  match nextState.slides, events with
+  | [slide], [evt] =>
+      let ended :=
+        match slide.state with
+        | .Ended => true
+        | _ => false
+      passCase "single_slide_too_late_two_segments_remaining_stays_miss"
+        (ended && evt.kind = .Slide && evt.grade = .Miss)
+        "ordinary slide too-late path emits Miss and ends immediately when at least two queue segments remain"
+  | _, _ => passCase "single_slide_too_late_two_segments_remaining_stays_miss" false "expected one ended ordinary slide and one event"
+
+private def activeSingleSlideTooLateOneRemainingState : InputModel.GameState :=
+  let unfinished : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 157 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , timing := tp 800000
+    , startTiming := tp 800000
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[unfinished]] }
+  { currentTime := tp 1600000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_single_slide_too_late_last_segment_remaining_becomes_lategood : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (_, events, _, _) := Scheduler.stepFrame activeSingleSlideTooLateOneRemainingState input
+  match events with
+  | [evt] =>
+      passCase "single_slide_too_late_last_segment_remaining_becomes_lategood"
+        (evt.kind = .Slide && evt.grade = .LateGood)
+        "ordinary slide too-late grade is LateGood when exactly the last queue segment remains"
+  | _ => passCase "single_slide_too_late_last_segment_remaining_becomes_lategood" false "expected one ordinary slide event"
+
+theorem slide_too_late_last_segment_remaining_becomes_lategood_in_reduced_wifi_case :
+    test_wifi_too_late_one_remaining_becomes_lategood.passed = true := by
+  native_decide
+
+theorem slide_too_late_two_or_more_segments_remaining_stays_miss_in_reduced_wifi_case :
+    test_wifi_too_late_ends_immediately.passed = true := by
+  native_decide
+
+theorem slide_too_late_last_segment_remaining_becomes_lategood :
+    test_single_slide_too_late_last_segment_remaining_becomes_lategood.passed = true := by
+  native_decide
+
+theorem slide_too_late_two_or_more_segments_remaining_stays_miss :
+    test_single_slide_too_late_two_segments_remaining_stays_miss.passed = true := by
+  native_decide
+
 private def wifiPreCheckableState : InputModel.GameState :=
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 57 }
@@ -1397,6 +1500,69 @@ def test_wifi_exact_too_late_boundary_does_not_judge : RuntimeCase :=
         "MajdataPlay uses a strict `>` too-late check for wifi slides; equality is not too-late yet"
   | _ =>
       passCase "wifi_exact_too_late_boundary_does_not_judge" false "expected one wifi slide"
+
+private def singleSlideExactTooLateBoundaryState : InputModel.GameState :=
+  let unfinished : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 159 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , timing := tp 800000
+    , startTiming := tp 800000
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[unfinished]] }
+  { currentTime := tp 1550000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_single_slide_exact_too_late_boundary_does_not_judge : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame singleSlideExactTooLateBoundaryState input
+  match nextState.slides with
+  | [slide] =>
+      passCase "single_slide_exact_too_late_boundary_does_not_judge"
+        (events = [] &&
+          match slide.state with
+          | .Active _ => true
+          | _ => false)
+        "ordinary slide too-late uses a strict `>` boundary; equality is not too-late yet"
+  | _ =>
+      passCase "single_slide_exact_too_late_boundary_does_not_judge" false "expected one ordinary slide"
+
+theorem wifi_center_cleared_uses_special_progress_marker :
+    test_wifi_center_cleared_progress_uses_special_marker.passed = true := by
+  native_decide
+
+theorem wifi_center_cleared_without_both_tails_uses_max_remaining_progress :
+    test_wifi_center_cleared_without_both_tails_uses_max_queue_marker.passed = true := by
+  native_decide
+
+theorem wifi_max_remaining_one_implies_lategood :
+    test_wifi_too_late_one_remaining_becomes_lategood.passed = true := by
+  native_decide
+
+theorem wifi_head_checkability_boundary_excludes_before_minus_50ms :
+    test_wifi_not_checkable_before_minus_50ms.passed = true := by
+  native_decide
+
+theorem wifi_head_checkability_boundary_includes_exact_minus_50ms :
+    test_wifi_exact_minus_50ms_becomes_checkable.passed = true := by
+  native_decide
+
+theorem wifi_exact_too_late_boundary_preserved :
+    test_wifi_exact_too_late_boundary_does_not_judge.passed = true := by
+  native_decide
+
+theorem slide_exact_too_late_boundary_preserved :
+    test_single_slide_exact_too_late_boundary_does_not_judge.passed = true := by
+  native_decide
 
 private def frameZeroTapState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
@@ -1553,6 +1719,10 @@ def test_frame_zero_slide_can_start_progress_same_frame : RuntimeCase :=
         (checkable && cleared && judged && events.isEmpty && hasProgress && hidesTrack && audioCmds.isEmpty)
         "slide becomes checkable and consumes frame-zero sensor hold immediately"
   | _ => passCase "frame_zero_slide_can_start_progress_same_frame" false "expected one slide after frame-zero step"
+
+theorem slide_frame_zero_becomes_checkable_and_progresses_same_frame :
+    test_frame_zero_slide_can_start_progress_same_frame.passed = true := by
+  native_decide
 
 def test_replay_slide_delays_final_event_after_internal_judged : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
@@ -2031,6 +2201,41 @@ def test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all : Runtime
   passCase "reference_like_slide_skip_chain_c_off_only_does_not_clear_all"
     (queue2.length = 2)
     "after C turns on and then off, the reference-like skip chain should leave B4 and the last A4 area pending"
+
+theorem slide_skip_forbidden_preserves_current_segment :
+    let queue0 := [reducedSlide61Area1, reducedSlide61Area2, reducedSlide61Area3]
+    let heldC := SensorVec.ofFn (fun area => area == .C)
+    let queue1 := Lifecycle.replaySlideQueue queue0 heldC
+    queue1.length = 3 := by
+  native_decide
+
+theorem slide_skip_allowed_advances_exact_prefix :
+    let queue0 := [reducedSlide61Area1, reducedSlide61Area2, reducedSlide61Area3]
+    let heldC := SensorVec.ofFn (fun area => area == .C)
+    let heldNone := SensorVec.ofFn (fun _ => false)
+    let queue1 := Lifecycle.replaySlideQueue queue0 heldC
+    let queue2 := Lifecycle.replaySlideQueue queue1 heldNone
+    queue2.length = 2 := by
+  native_decide
+
+theorem slide_queue_last_area_not_cleared_early :
+    let queue0 := [reducedSlide61Area1, reducedSlide61Area2, reducedSlide61Area3]
+    let heldC := SensorVec.ofFn (fun area => area == .C)
+    let heldNone := SensorVec.ofFn (fun _ => false)
+    let heldB4 := SensorVec.ofFn (fun area => area == .B4)
+    let queue1 := Lifecycle.replaySlideQueue queue0 heldC
+    let queue2 := Lifecycle.replaySlideQueue queue1 heldNone
+    let queue3 := Lifecycle.replaySlideQueue queue2 heldB4
+    queue3.length = 2 := by
+  native_decide
+
+theorem short_conn_child_becomes_checkable_with_short_queue_rule :
+    test_conn_child_pending_finish_becomes_checkable.passed = true := by
+  native_decide
+
+theorem short_conn_child_waits_without_progress_but_does_not_force_finish_parent :
+    test_conn_parent_not_force_finished_without_child_progress.passed = true := by
+  native_decide
 
 private def mixedGoldenInitialState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
