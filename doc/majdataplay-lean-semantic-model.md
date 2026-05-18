@@ -589,6 +589,34 @@ Lean currently models the same semantic shape with `SlideNote.queueTracks`,
 `slideShouldBeCheckable`, `slideStepSemantic`, `updateSlideParentFlags`, and
 `forceFinishParentSlides`.
 
+Current Lean slide semantics, clarified from today's audit:
+
+- scheduler traversal is explicitly recursive over the active slide list in
+  `LnmaiCore/Scheduler.lean:442`; after stepping one slide, Lean recomputes
+  parent-finish and parent-pending-finish flags for the remaining family before
+  processing the tail
+- connected child slides become checkable from
+  `parentFinished || parentPendingFinish` in `LnmaiCore/Lifecycle.lean:698`,
+  so parent progress can unlock child progress within the same frame when the
+  scheduler reaches the child later in the recursive pass
+- per-slide queue consumption is also recursive: `slideQueueCore` in
+  `LnmaiCore/Lifecycle.lean:571` updates the first area, may immediately update
+  the second area, and may recurse again into the tail in the same frame
+- therefore Lean is not limited to one slide area per frame; a single track may
+  consume multiple sequential areas in one frame when the current sensor-held
+  state satisfies the queue law
+- for multi-track slides, each queue is updated structurally in one semantic
+  step through `SlideNote.queueTracks` and `slideUpdatedQueuesWithCmds` in
+  `LnmaiCore/Lifecycle.lean:646` and `LnmaiCore/Lifecycle.lean:710`, so several
+  tracks may progress in the same frame as well
+- for connected multi-segment slides, the two layers compose cleanly: family
+  gating decides when a later connected segment may start, and once unlocked,
+  that segment's own queue may still cascade through multiple legal areas in
+  the same frame
+- single-track connected slides intentionally receive special skippable-area
+  lowering in `LnmaiCore/ChartLoader.lean:191`, which can make same-frame
+  recursive consumption more permissive after family unlocking
+
 Important audit note:
 
 - Lean also uses a more semantic recursive update structure for slide segment

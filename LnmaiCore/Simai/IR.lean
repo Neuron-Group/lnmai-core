@@ -2,13 +2,16 @@ import LnmaiCore.ChartLoader
 import LnmaiCore.Simai.Syntax
 import LnmaiCore.Areas
 import LnmaiCore.Time
+import Lean.Data.Json
+
+open Lean
 
 namespace LnmaiCore.Simai
 
 structure NormalizedSlideDebug where
   noteIndex : Nat
   rawText : String
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure NormalizedTap where
   timing : TimePoint
@@ -18,7 +21,7 @@ structure NormalizedTap where
   isHanabi : Bool := false
   isForceStar : Bool := false
   noteIndex : Nat
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure NormalizedHold where
   timing : TimePoint
@@ -28,7 +31,7 @@ structure NormalizedHold where
   isEX : Bool := false
   isHanabi : Bool := false
   noteIndex : Nat
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure NormalizedTouchHold where
   timing : TimePoint
@@ -38,7 +41,7 @@ structure NormalizedTouchHold where
   isEX : Bool := false
   isHanabi : Bool := false
   noteIndex : Nat
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure NormalizedTouch where
   timing : TimePoint
@@ -46,7 +49,7 @@ structure NormalizedTouch where
   isBreak : Bool := false
   isHanabi : Bool := false
   noteIndex : Nat
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure NormalizedSlide where
   timing : TimePoint
@@ -76,7 +79,7 @@ structure NormalizedSlide where
   sourceGroupSize : Option Nat := none
   noteIndex : Nat
   simaiShape : SlideShape
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure NormalizedChart where
   taps : List NormalizedTap := []
@@ -86,7 +89,7 @@ structure NormalizedChart where
   slides : List NormalizedSlide := []
   slideDebug : List NormalizedSlideDebug := []
   slideSkipping : Bool := true
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure FrontendChartInspection where
   metadata : MaidataMetadata
@@ -94,16 +97,16 @@ structure FrontendChartInspection where
   source : SourceChart := {}
   tokens : List RawNoteToken
   slideNotes : List SlideNoteSemantics
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure FrontendSemanticChart where
   normalized : NormalizedChart
   lowered : ChartLoader.ChartSpec
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure FrontendChartResult where
   semantic : FrontendSemanticChart
   inspection : FrontendChartInspection
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 end LnmaiCore.Simai

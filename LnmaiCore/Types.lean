@@ -227,7 +227,7 @@ structure NoteJudgeResult where
   diff     : Duration
   isBreak  : Bool := false
   isEX     : Bool := false
-deriving Repr, Inhabited
+deriving Repr, Inhabited, ToJson, FromJson
 
 structure GroupState where
   groupId : Nat
@@ -235,7 +235,7 @@ structure GroupState where
   size    : Nat
   grade   : JudgeGrade
   diff    : Duration
-deriving Repr, Inhabited
+deriving Repr, Inhabited, ToJson, FromJson
 
 namespace NoteJudgeResult
 
@@ -273,6 +273,58 @@ def emptyNoteTypeJudgeCounts : NoteTypeJudgeCounts where
   touchCount := emptyJudgeCounts
   breakCount := emptyJudgeCounts
 
+private def judgeCountsGrades : List JudgeGrade :=
+  [ .Miss
+  , .LateGood
+  , .LateGreat3rd
+  , .LateGreat2nd
+  , .LateGreat
+  , .LatePerfect3rd
+  , .LatePerfect2nd
+  , .Perfect
+  , .FastPerfect2nd
+  , .FastPerfect3rd
+  , .FastGreat
+  , .FastGreat2nd
+  , .FastGreat3rd
+  , .FastGood
+  , .TooFast ]
+
+private def judgeCountsToJson (counts : JudgeCounts) : Json :=
+  Json.mkObj <| judgeCountsGrades.map (fun grade => (toString grade, toJson (counts grade)))
+
+private def judgeCountsFromJson? (json : Json) : Except String JudgeCounts := do
+  let fields ← judgeCountsGrades.mapM (fun grade => do
+    let value ← json.getObjValAs? Nat (toString grade)
+    pure (grade, value))
+  pure <| fun grade =>
+    match fields.find? (fun entry => entry.1 == grade) with
+    | some (_, value) => value
+    | none => 0
+
+instance : ToJson NoteTypeJudgeCounts where
+  toJson counts :=
+    Json.mkObj
+      [ ("tapCount", judgeCountsToJson counts.tapCount)
+      , ("holdCount", judgeCountsToJson counts.holdCount)
+      , ("slideCount", judgeCountsToJson counts.slideCount)
+      , ("touchCount", judgeCountsToJson counts.touchCount)
+      , ("breakCount", judgeCountsToJson counts.breakCount) ]
+
+instance : FromJson NoteTypeJudgeCounts where
+  fromJson? json := do
+    let tapCount ← judgeCountsFromJson? (← json.getObjVal? "tapCount")
+    let holdCount ← judgeCountsFromJson? (← json.getObjVal? "holdCount")
+    let slideCount ← judgeCountsFromJson? (← json.getObjVal? "slideCount")
+    let touchCount ← judgeCountsFromJson? (← json.getObjVal? "touchCount")
+    let breakCount ← judgeCountsFromJson? (← json.getObjVal? "breakCount")
+    pure
+      { tapCount := tapCount
+      , holdCount := holdCount
+      , slideCount := slideCount
+      , touchCount := touchCount
+      , breakCount := breakCount }
+
 ----------------------------------------------------------------------------
 -- Score accumulation state
 ----------------------------------------------------------------------------
@@ -292,7 +344,7 @@ structure ScoreState where
   fastCount   : Nat := 0
   lateCount   : Nat := 0
   counts      : NoteTypeJudgeCounts := emptyNoteTypeJudgeCounts
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 ----------------------------------------------------------------------------
 -- Combo display result
@@ -324,7 +376,7 @@ deriving Repr, Inhabited, ToJson, FromJson
 inductive AudioCommand where
   | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (atTime : TimePoint) (noteIndex : Nat)
   | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (atTime : TimePoint)
-deriving Repr, Inhabited
+deriving Repr, Inhabited, ToJson, FromJson
 
 inductive RenderCommand where
   | ShowJudgeResult (kind : JudgeEventKind) (grade : JudgeGrade) (diff : Duration) (noteIndex : Nat)
@@ -333,6 +385,6 @@ inductive RenderCommand where
   | HideAllSlideBars (noteIndex : Nat)
   | HideSlideBars (noteIndex : Nat) (endIndex : Nat)
   | HideSlideTrackBars (noteIndex : Nat) (trackIndex : Nat) (endIndex : Nat)
-deriving Repr, Inhabited
+deriving Repr, Inhabited, ToJson, FromJson
 
 end LnmaiCore

@@ -4,5 +4,6 @@ import LnmaiCore.Basic
 import LnmaiCore.Areas
 import LnmaiCore.Time
 import LnmaiCore.Simai
+import LnmaiCore.FFI
 import LnmaiCore.Proofs.Runtime
 import LnmaiCore.RuntimeTests

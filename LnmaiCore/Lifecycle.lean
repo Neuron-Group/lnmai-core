@@ -14,6 +14,9 @@ import LnmaiCore.Constants
 import LnmaiCore.Judge
 import LnmaiCore.Convert
 import LnmaiCore.Time
+import Lean.Data.Json
+
+open Lean
 
 set_option linter.unusedVariables false
 
@@ -33,7 +36,7 @@ structure CommonNoteParams where
   isBreak        : Bool := false
   isEX           : Bool := false
   noteIndex      : Nat             -- unique id in chart
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 /-- Effective judge timing with user offset -/
 def CommonNoteParams.effectiveTiming (p : CommonNoteParams) : TimePoint :=
@@ -42,7 +45,7 @@ def CommonNoteParams.effectiveTiming (p : CommonNoteParams) : TimePoint :=
 inductive HoldStart where
   | button (zone : ButtonZone)
   | sensor (area : SensorArea)
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 def HoldStart.toRuntimePos : HoldStart → RuntimePos
   | .button zone => .button zone
@@ -57,14 +60,14 @@ inductive TapState where
   | Judgeable                          -- within judgeable window, awaiting input
   | Judged (grade : JudgeGrade)        -- judged (by input or too-late)
   | Ended                              -- terminal
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure TapNote where
   params : CommonNoteParams
   lane   : OuterSlot
   state  : TapState
   buttonQueueIndex : Nat := 0
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 def TapNote.position (note : TapNote) : RuntimePos :=
   .button note.lane.toButtonZone
@@ -135,7 +138,7 @@ inductive HoldSubState where
   | BodyHeld                           -- holding actively
   | BodyReleased                       -- released, accumulating release time
   | Ended (grade : JudgeGrade)        -- terminal
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure HoldNote where
   params     : CommonNoteParams
@@ -154,7 +157,7 @@ structure HoldNote where
   touchHoldGroupId : Option Nat := none
   touchHoldGroupSize : Nat := 1
   touchHoldGroupTriggered : Bool := false
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 def HoldNote.position (note : HoldNote) : RuntimePos :=
   note.start.toRuntimePos
@@ -372,7 +375,7 @@ inductive TouchState where
   | Judgeable
   | Judged (grade : JudgeGrade)
   | Ended
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure TouchNote where
   params       : CommonNoteParams
@@ -381,7 +384,7 @@ structure TouchNote where
   touchQueueIndex : Nat := 0
   touchGroupId : Option Nat := none
   touchGroupSize : Nat := 1
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 private def touchMissEvent (note : TouchNote) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
@@ -455,7 +458,7 @@ inductive SlideState where
   | Active  (waitTime : Duration)          -- star traveling, wait time for end window
   | Judged  (grade : JudgeGrade) (waitTime : Duration) (judgeDiff : Duration)
   | Ended
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure SlideArea where
   targetAreas : List SensorArea
@@ -466,7 +469,7 @@ structure SlideArea where
   arrowProgressWhenFinished : Nat := 0
   wasOn       : Bool := false
   wasOff      : Bool := false
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 def SlideArea.on (area : SlideArea) : Bool :=
   area.wasOn
@@ -638,7 +641,7 @@ structure SlideNote where
   trackCount      : Nat := 1
   isCheckable     : Bool := false
   judgeQueues     : List SlideQueue := []
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 def SlideNote.position (note : SlideNote) : RuntimePos :=
   .button note.lane.toButtonZone

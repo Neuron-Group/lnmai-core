@@ -1,5 +1,8 @@
 import Mathlib.GroupTheory.SpecificGroups.Dihedral
+import Lean.Data.Json
 import LnmaiCore.Areas
+
+open Lean
 
 namespace LnmaiCore.Simai
 
@@ -34,6 +37,19 @@ def rotationSteps : SlideSymmetry → Nat
   | DihedralGroup.sr k => k.val
 
 end SlideSymmetry
+
+instance : ToJson SlideSymmetry where
+  toJson g :=
+    Json.mkObj
+      [ ("rotationSteps", toJson <| SlideSymmetry.rotationSteps g)
+      , ("mirrored", toJson <| SlideSymmetry.isMirrored g) ]
+
+instance : FromJson SlideSymmetry where
+  fromJson? json := do
+    let rotationSteps ← json.getObjValAs? Nat "rotationSteps"
+    let mirrored ← json.getObjValAs? Bool "mirrored"
+    let k : Fin 8 := ⟨rotationSteps % 8, by omega⟩
+    pure <| if mirrored then DihedralGroup.sr k else DihedralGroup.r k
 
 def actOnSensorArea (g : SlideSymmetry) : SensorArea → SensorArea :=
   let reflect : SensorArea → SensorArea

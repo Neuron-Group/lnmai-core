@@ -1,4 +1,7 @@
 import LnmaiCore.Areas
+import Lean.Data.Json
+
+open Lean
 
 namespace LnmaiCore
 
@@ -9,6 +12,18 @@ deriving Inhabited, Repr
 structure SensorVec (α : Type) where
   data : List α
 deriving Inhabited, Repr
+
+instance {α : Type} [ToJson α] : ToJson (ButtonVec α) where
+  toJson vec := toJson vec.data
+
+instance {α : Type} [FromJson α] : FromJson (ButtonVec α) where
+  fromJson? json := ButtonVec.mk <$> fromJson? json
+
+instance {α : Type} [ToJson α] : ToJson (SensorVec α) where
+  toJson vec := toJson vec.data
+
+instance {α : Type} [FromJson α] : FromJson (SensorVec α) where
+  fromJson? json := SensorVec.mk <$> fromJson? json
 
 def ButtonVec.replicate (n : Nat) (value : α) : ButtonVec α :=
   { data := List.replicate n value }

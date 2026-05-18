@@ -59,12 +59,12 @@ instance : FromJson Rat where
 structure SourcePos where
   line : Nat
   column : Nat
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 structure SourceSpan where
   start : SourcePos
   stop : SourcePos
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 inductive ParseErrorKind where
   | invalidSyntax
@@ -72,14 +72,14 @@ inductive ParseErrorKind where
   | invalidEndPosition
   | invalidTurnPosition
   | invalidChainTiming
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 structure ParseError where
   kind : ParseErrorKind
   rawText : String
   message : String
   span : Option SourceSpan := none
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 inductive SlideKind where
   | line
@@ -90,7 +90,7 @@ inductive SlideKind where
   | ppqq
   | s
   | wifi
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 inductive CanonicalSlideShape where
   | line (relEnd : Nat)
@@ -101,12 +101,12 @@ inductive CanonicalSlideShape where
   | ppqq (relEnd : Nat)
   | s
   | wifi
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 structure SlideShape where
   canonical : CanonicalSlideShape
   symmetry : SlideSymmetry := SlideSymmetry.direct
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 inductive SlideBodyKind where
   | line
@@ -122,7 +122,7 @@ inductive SlideBodyKind where
   | z
   | turn
   | wifi
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 structure ParsedSlideBody where
   rawText : String
@@ -130,7 +130,7 @@ structure ParsedSlideBody where
   kind : SlideBodyKind
   endArea : Option SensorArea := none
   turnArea : Option SensorArea := none
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 structure SlideNoteSemantics where
   rawText : String
@@ -138,14 +138,14 @@ structure SlideNoteSemantics where
   endArea : SensorArea
   shape : SlideShape
   isJustRight : Bool := false
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 structure TimingPointSemantics where
   timing : TimePoint
   bpm : Rat
   hSpeed : Rat
   notes : List SlideNoteSemantics := []
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure SimaiChartSemantics where
   timingPoints : List TimingPointSemantics := []
@@ -153,7 +153,7 @@ structure SimaiChartSemantics where
   title : String := ""
   designer : String := ""
   level : String := ""
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 inductive RawNoteKind where
   | tap
@@ -163,21 +163,21 @@ inductive RawNoteKind where
   | touchHold
   | rest
   | unknown
-deriving DecidableEq, Repr, Inhabited, BEq
+deriving DecidableEq, Repr, Inhabited, BEq, ToJson, FromJson
 
 structure MaidataMetadata where
   fields : List (String × String) := []
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure MaidataChartBlock where
   levelIndex : Nat
   rawBody : String
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure MaidataFile where
   metadata : MaidataMetadata := {}
   charts : List MaidataChartBlock := []
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure RawNoteToken where
   rawText : String
@@ -202,12 +202,12 @@ structure RawNoteToken where
   sourceGroupIndex : Option Nat := none
   sourceGroupSize : Option Nat := none
   sourcePos : Option SourceSpan := none
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure SourceNote where
   token : RawNoteToken
   sourcePos : Option SourceSpan := none
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure SourceEvent where
   timing : TimePoint
@@ -216,10 +216,10 @@ structure SourceEvent where
   divisor : Nat := 4
   notes : List SourceNote := []
   sourcePos : Option SourceSpan := none
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure SourceChart where
   events : List SourceEvent := []
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 end LnmaiCore.Simai

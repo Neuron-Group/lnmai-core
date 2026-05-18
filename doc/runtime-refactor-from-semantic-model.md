@@ -27,7 +27,7 @@ across several note-specific implementations.
 
 Useful current anchors:
 
-- frame scheduler entrypoint: `LnmaiCore/Scheduler.lean:502`
+- frame scheduler entrypoint: `LnmaiCore/Scheduler.lean:510`
 - note lifecycles: `LnmaiCore/Lifecycle.lean:55`
 - runtime state and frontiers: `LnmaiCore/InputModel.lean:135`
 - chart-loaded queue construction: `LnmaiCore/ChartLoader.lean:302`
@@ -43,6 +43,30 @@ pattern:
 6. persist into a later state or emit a final event
 
 Today, these steps appear repeatedly in note-specific forms.
+
+## 1.1 Why This Is More Plausible Now
+
+After the latest parity audits, the runtime is in a better position for this
+refactor than it was when this proposal was first drafted.
+
+Important audited improvements now already present in the code:
+
+- explicit shared button and touch frontiers in
+  `LnmaiCore/InputModel.lean:179` and `LnmaiCore/InputModel.lean:180`
+- explicit runtime touch shared indices in `LnmaiCore/Lifecycle.lean:364`
+- reference-aligned unlockedness law `index <= currentIndex` reflected in the
+  scheduler for both button and touch families in `LnmaiCore/Scheduler.lean:170`
+  and `LnmaiCore/Scheduler.lean:283`
+- centralized touch-group accumulator behavior in
+  `LnmaiCore/Scheduler.lean:269`
+- audited short modern hold body-window disabling in
+  `LnmaiCore/Lifecycle.lean:270`
+- audited touch waiting-state too-late handling under large frame jumps in
+  `LnmaiCore/Lifecycle.lean:399`
+
+These changes mean the runtime already has the semantic resource split that a
+small kernel would need. So the refactor is now plausible as a controlled
+reorganization rather than a speculative redesign.
 
 ## 2. Refactor Objective
 
@@ -91,7 +115,7 @@ Candidate contents:
 - touch-hold-group accumulators
 
 This is mostly present already in `LnmaiCore/InputModel.lean:173` and threaded
-through `LnmaiCore/Scheduler.lean:502`.
+through `LnmaiCore/Scheduler.lean:510`.
 
 Refactor direction:
 
@@ -146,7 +170,7 @@ Refactor direction:
 - avoid mixing queue/state mutation with render-command formatting when possible
 
 This is already partly visible in `LnmaiCore/Scheduler.lean:473` and
-`LnmaiCore/Scheduler.lean:486`.
+`LnmaiCore/Scheduler.lean:490`.
 
 ## 5. Generic Semantic Skeleton
 
@@ -161,6 +185,21 @@ For a note `n`, one frame step should conceptually compute:
 5. `Advance(localResult, resources, queueCtx)`
 6. `SharedOut(localResult, resources)`
 7. `Emit(localResult)`
+
+This skeleton is now more realistic because the current runtime already exposes
+most of the needed axes separately:
+
+- frontiers as first-class fields
+- family-local queues as separate structures
+- click budgets as explicit cursor-threaded resources
+- group-share behavior as explicit accumulator operations
+
+What is still species-specific and should remain explicit in early refactors:
+
+- timing windows and too-late boundaries
+- button versus sensor fallback order
+- hold/touch-hold body continuation semantics
+- slide queue progression and delayed emission
 
 This skeleton already covers most of:
 
@@ -211,6 +250,12 @@ Refactor idea:
 - one generic touch-head transition kernel
 - one species-specific continuation for touch versus touch-hold
 
+Constraint from current audits:
+
+- do not try to unify touch-hold body semantics into that first kernel
+- keep touch-group result import/export explicit until the new abstraction has a
+  reduced witness for strict-majority preservation and same-frame order
+
 ## 7. Slides Should Be Refactored Last
 
 Slides are semantically richer than the other families.
@@ -246,11 +291,19 @@ A small abstraction for:
 
 - current frontier value
 - note shared index
-- match predicate
+- unlocked predicate
 - advance rule
 
-This would reduce repeated “if current frontier matches note index then
-advance” logic in `LnmaiCore/Scheduler.lean`.
+This would reduce repeated unlockedness/advance logic currently spread across
+`LnmaiCore/Scheduler.lean:170`, `LnmaiCore/Scheduler.lean:173`,
+`LnmaiCore/Scheduler.lean:283`, and `LnmaiCore/Scheduler.lean:286`.
+
+Important design constraint:
+
+- this abstraction must preserve the distinction between
+  - shared unlockedness, and
+  - family-local queue headness
+- it must not collapse those two checks into one predicate
 
 ### 8.2 Consumable click resource
 
@@ -273,6 +326,13 @@ A small abstraction for:
 - lookup rule
 
 This would simplify touch and touch-hold group-share handling.
+
+Important design constraint from the current audited behavior:
+
+- once strict majority is already reached, the stored shared result/diff should
+  no longer be overwritten, matching
+  `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/Misc/Notes/Touch/TouchGroup.cs`
+- any accumulator abstraction must keep that law explicit
 
 ### 8.4 Transition result type
 
@@ -315,6 +375,15 @@ it will become harder to reason about parity.
 Trying to force slides into the same abstraction too early may make the design
 worse instead of better.
 
+There is an additional nuance here from the current codebase:
+
+- Lean already uses a recursive semantic update structure for slide
+  segmentation/address propagation that is more plausible than a literal Unity
+  mutation order in some cases
+- this proposal should not treat every slide implementation difference from
+  `MajdataPlay` as a bug candidate
+- only reduced observational mismatches should justify slide-path changes
+
 ### 10.4 Proof-oriented distortion
 
 An implementation can become convenient for proofs but inconvenient for runtime
@@ -328,15 +397,34 @@ parity work if it stops reflecting the operational structure that matters.
 - preserve current tests and regressions
 - do not alter slide code
 
+Recommended concrete scope:
+
+- extract only head-like unlock/consume/advance structure
+- do not fold hold body semantics into the first kernel
+- preserve the existing same-frame scheduler order in visible code
+
 ### Phase 2
 
 - extract shared touch-head kernel for touch + touch-hold-head
 - centralize touch-group accumulator operations
 
+Recommended concrete scope:
+
+- keep touch-hold body continuation separate
+- make strict-majority result preservation and same-frame group-share ordering
+  explicit acceptance checks
+
 ### Phase 3
 
 - introduce a normalized scheduler resource record
 - simplify scheduler threading around uniform transition outputs
+
+Recommended concrete scope:
+
+- start as a façade over existing `GameState`/`FrameInput`-derived fields rather
+  than replacing all state threading at once
+- do not hide subsystem order inside higher-order combinators that are hard to
+  review against `MajdataPlay`
 
 ### Phase 4
 
@@ -346,6 +434,12 @@ parity work if it stops reflecting the operational structure that matters.
 
 - revisit slide refactor only after the previous layers are stable and parity is
   re-checked against `MajdataPlay`
+
+Recommended concrete scope:
+
+- treat slide refactor as optional until a concrete benefit is shown
+- preserve the possibility that Lean's recursive segmentation/update structure
+  is the better design unless an observational mismatch is demonstrated
 
 ## 12. Acceptance Criteria
 
@@ -358,6 +452,10 @@ true:
 - scheduler order remains explicit and reviewable
 - frontier/resource invariants become easier, not harder, to state
 - the code becomes shorter or clearer in the hot paths it touches
+- the refactor does not erase the audited distinction between shared-frontier
+  unlockedness and family-local queue-head blocking
+- the refactor does not weaken the newly checked edge cases around short modern
+  holds, large-delta touch misses, or strict-majority result preservation
 
 ## 13. Verification Rule
 

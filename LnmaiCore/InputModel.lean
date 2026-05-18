@@ -9,8 +9,11 @@ import LnmaiCore.Storage
 import LnmaiCore.Constants
 import LnmaiCore.Lifecycle
 import LnmaiCore.Time
+import Lean.Data.Json
 
 namespace LnmaiCore.InputModel
+
+open Lean
 
 open Constants
 
@@ -26,14 +29,14 @@ structure FrameInput where
   buttonClickCount : ButtonVec Nat := ButtonVec.replicate BUTTON_ZONE_COUNT 0
   sensorClickCount : SensorVec Nat := SensorVec.replicate SENSOR_AREA_COUNT 0
   delta         : Duration := Duration.zero
-deriving Inhabited
+deriving Inhabited, Repr, ToJson, FromJson
 
 inductive TimedInputEvent where
   | buttonClick (tp : TimePoint) (zone : ButtonZone)
   | buttonHold (tp : TimePoint) (zone : ButtonZone) (isDown : Bool := true)
   | sensorClick (tp : TimePoint) (area : SensorArea)
   | sensorHold (tp : TimePoint) (area : SensorArea) (isDown : Bool := true)
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 def TimedInputEvent.at : TimedInputEvent → TimePoint
   | .buttonClick tp _ => tp
@@ -44,7 +47,7 @@ def TimedInputEvent.at : TimedInputEvent → TimePoint
 structure TimedInputBatch where
   currentTime : TimePoint := TimePoint.zero
   events     : List TimedInputEvent := []
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 structure FrameWindow where
   prevTime : TimePoint
@@ -137,6 +140,15 @@ structure ZoneQueue (α : Type) where
   currentIndex : Nat := 0
 deriving Inhabited, Repr
 
+instance {α : Type} [ToJson α] : ToJson (ZoneQueue α) where
+  toJson q := Json.mkObj [("notes", toJson q.notes), ("currentIndex", toJson q.currentIndex)]
+
+instance {α : Type} [FromJson α] : FromJson (ZoneQueue α) where
+  fromJson? json := do
+    let notes ← json.getObjValAs? (List α) "notes"
+    let currentIndex ← json.getObjValAs? Nat "currentIndex"
+    pure { notes := notes, currentIndex := currentIndex }
+
 def ZoneQueue.isEmpty (q : ZoneQueue α) : Bool :=
   q.currentIndex ≥ q.notes.length
 
@@ -193,6 +205,6 @@ structure GameState where
   touchPanelOffset : Duration := Duration.zero
   useButtonRingForTouch : Bool := Constants.USE_BUTTON_RING_FOR_TOUCH
   subdivideSlideJudgeGrade : Bool := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 end LnmaiCore.InputModel

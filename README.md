@@ -124,6 +124,9 @@ used to describe those manual actions precisely.
 
 The proposal lives in `docs/hand-tactic-dsl.md`.
 
+The current concrete FFI boundary and recommended host API are documented in
+`docs/ffi-api.md`.
+
 Summary:
 
 - represent a hand tactic as timestamped button and sensor trigger actions
