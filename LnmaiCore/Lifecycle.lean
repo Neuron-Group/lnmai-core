@@ -267,6 +267,7 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
   let diff := currentTime - timing
   let bodyCheckStart := timing + headIgnore
   let bodyCheckEnd   := timing + note.length - tailIgnore
+  let bodyWindowDisabled := !note.isClassic && note.length ≤ headIgnore + tailIgnore
   let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC)
   let releaseOffset := if prevSensorPressed && !currentButtonPressed then Duration.zero else touchPanelOffset
   let endHold (note : HoldNote) (headGrade : JudgeGrade) (classicReleaseTiming : TimePoint) (releaseTime : Duration) : HoldNote × Option JudgeEvent :=
@@ -301,6 +302,11 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
         ({ note with state := HoldSubState.BodyHeld, touchHoldGroupTriggered := note.isTouchHold }, none)
       else
         endHold note headGrade (currentTime - releaseOffset) note.playerReleaseTime
+    else if bodyWindowDisabled then
+      if diff >= note.length then
+        endHold note headGrade currentTime note.playerReleaseTime
+      else
+        (note, none)
     else if currentTime > bodyCheckEnd then
       -- past body check window → force end
       endHold note headGrade currentTime note.playerReleaseTime
@@ -327,6 +333,11 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
         ({ note with touchHoldGroupTriggered := note.isTouchHold }, none)
       else
         endHold note note.headGrade (currentTime - releaseOffset) note.playerReleaseTime
+    else if bodyWindowDisabled then
+      if diff >= note.length then
+        endHold note note.headGrade currentTime note.playerReleaseTime
+      else
+        (note, none)
     else if currentTime > bodyCheckEnd || diff >= note.length then
       endHold note note.headGrade currentTime note.playerReleaseTime
     else if inputPressed then
@@ -335,7 +346,13 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
       ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := note.playerReleaseTime + delta, touchHoldGroupTriggered := false }, none)
   | .BodyReleased =>
     -- released body can recover back to held if input/majority returns before force-end
-    if currentTime > bodyCheckEnd || diff >= note.length then
+    if bodyWindowDisabled then
+      if diff >= note.length then
+        let newRT := note.playerReleaseTime + delta
+        endHold note note.headGrade currentTime newRT
+      else
+        (note, none)
+    else if currentTime > bodyCheckEnd || diff >= note.length then
       let newRT := note.playerReleaseTime + delta
       endHold note note.headGrade currentTime newRT
     else if inputPressed then
@@ -361,6 +378,7 @@ structure TouchNote where
   params       : CommonNoteParams
   state        : TouchState
   sensorPos    : SensorArea
+  touchQueueIndex : Nat := 0
   touchGroupId : Option Nat := none
   touchGroupSize : Nat := 1
 deriving Inhabited, Repr
@@ -400,7 +418,7 @@ def touchStep (note : TouchNote) (currentTime : TimePoint) (judgeDiff : Duration
     | some (grade, sharedDiff) =>
       ({ note with state := TouchState.Ended }, some (touchJudgeEvent note (Convert.convertGrade style grade) sharedDiff))
     | none =>
-    if currentTime ≥ judgeableRange.2 then
+    if currentTime > timing + touchGoodMs then
       ({ note with state := TouchState.Ended }, some (touchMissEvent note judgeDiff))
     else if canEnterJudgeable currentTime judgeableRange.1 then
       if inputClicked then

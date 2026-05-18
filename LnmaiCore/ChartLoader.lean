@@ -163,6 +163,7 @@ private def buildTouch (note : TouchChartNote) : TouchNote :=
   { params := { judgeTiming := note.timing, judgeOffset := Constants.JUDGE_OFFSET, isBreak := note.isBreak, isEX := false, noteIndex := note.noteIndex }
   , state := TouchState.Waiting
   , sensorPos := note.sensorPos
+  , touchQueueIndex := note.touchQueueIndex
   , touchGroupId := note.touchGroupId
   , touchGroupSize := note.touchGroupSize.getD 1 }
 
@@ -421,6 +422,8 @@ def buildGameState (chart : ChartSpec) : GameState :=
     currentTime := TimePoint.zero,
     prevButton := ButtonVec.replicate BUTTON_ZONE_COUNT false,
     prevSensor := SensorVec.replicate SENSOR_AREA_COUNT false,
+    buttonQueueFrontiers := ButtonVec.replicate BUTTON_ZONE_COUNT 0,
+    touchQueueFrontiers := SensorVec.replicate SENSOR_AREA_COUNT 0,
     tapQueues := tapQueues,
     holdQueues := holdQueues,
     touchHoldQueues := touchHoldQueues,

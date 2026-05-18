@@ -200,7 +200,9 @@ In `MajdataPlay`, this appears as:
 In Lean, this is represented by:
 
 - `buttonQueueFrontiers` in `LnmaiCore/InputModel.lean:179`
-- touch frontier via `touchQueues.currentIndex` within each sensor area queue
+- `touchQueueFrontiers` in `LnmaiCore/InputModel.lean:180`
+- family-local touch queue position through `touchQueues.currentIndex` within each
+  sensor area queue
 
 ## 6. Concrete Interpretation of MajdataPlay
 
@@ -254,16 +256,20 @@ consumption order, not just note-local timing windows.
 Lean now uses:
 
 - shared button frontiers in `LnmaiCore/InputModel.lean:179`
-- shared touch frontier through `touchQueues.currentIndex`
+- shared touch frontiers in `LnmaiCore/InputModel.lean:180`
 
 Shared button frontier assignment is constructed in
-`LnmaiCore/ChartLoader.lean:325` and applied in
-`LnmaiCore/ChartLoader.lean:384` by interleaving taps and holds per lane.
+`LnmaiCore/ChartLoader.lean:326` and applied in
+`LnmaiCore/ChartLoader.lean:385` by interleaving taps and holds per lane.
 
 Shared touch frontier assignment is constructed in
 `LnmaiCore/ChartLoader.lean:302` and applied in
-`LnmaiCore/ChartLoader.lean:396` by interleaving touches and touch-holds per
+`LnmaiCore/ChartLoader.lean:397` by interleaving touches and touch-holds per
 sensor area.
+
+Lean now also stores runtime touch notes with their own shared queue index in
+`LnmaiCore/Lifecycle.lean:364` so that shared unlockedness and family-local
+queue headness remain separate.
 
 ### 7.2 Family-local queues are still present
 
@@ -277,14 +283,14 @@ This is a semantic decomposition, not duplication.
 
 ### 7.3 Lean step entrypoint
 
-The concrete Lean runtime step is `LnmaiCore/Scheduler.lean:502`.
+The concrete Lean runtime step is `LnmaiCore/Scheduler.lean:510`.
 
 Relevant subsystem processors:
 
-- tap: `LnmaiCore/Scheduler.lean:187`
-- hold: `LnmaiCore/Scheduler.lean:293`
-- touch: `LnmaiCore/Scheduler.lean:382`
-- touch-hold: `LnmaiCore/Scheduler.lean:324`
+- tap: `LnmaiCore/Scheduler.lean:184`
+- hold: `LnmaiCore/Scheduler.lean:292`
+- touch: `LnmaiCore/Scheduler.lean:381`
+- touch-hold: `LnmaiCore/Scheduler.lean:323`
 
 ## 8. Abstract Semantic Model
 
@@ -310,9 +316,17 @@ We define a frame click budget:
 Then an abstract note is eligible for direct head judgment only if:
 
 1. it is within its family timing gate
-2. its shared frontier index is current for its shared family
+2. its shared frontier index is unlocked for its shared family
 3. its family-local head object is the one being stepped
 4. a click budget remains in the relevant input source
+
+For the concrete runtimes checked here, "unlocked" is not exact equality.
+`MajdataPlay` uses `index <= currentIndex` for both button and touch frontiers
+in `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs:381`
+and `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs:395`.
+Lean now matches that unlockedness law while still enforcing family-local head
+checks separately in `LnmaiCore/Scheduler.lean:170` and
+`LnmaiCore/Scheduler.lean:283`.
 
 The exact family timing gate differs by note kind.
 
@@ -463,11 +477,23 @@ Concrete gap found:
 - Lean originally advanced only `touchHoldQueues`
 
 This is now fixed in `LnmaiCore/Scheduler.lean:324`,
-`LnmaiCore/Scheduler.lean:370`, and `LnmaiCore/Scheduler.lean:515`.
+`LnmaiCore/Scheduler.lean:356`, and `LnmaiCore/Scheduler.lean:522`.
 
 Concrete regression:
 
-- `LnmaiCore/RuntimeTests.lean:2221`
+- `LnmaiCore/RuntimeTests.lean:2295`
+
+Related refinement completed later:
+
+- Lean now represents shared touch unlockedness explicitly with
+  `touchQueueFrontiers`
+- Lean now matches the reference unlock law `index <= currentIndex` while still
+  requiring the local touch-hold queue head for direct input consumption
+
+Concrete regressions:
+
+- `LnmaiCore/RuntimeTests.lean:2295`
+- `LnmaiCore/RuntimeTests.lean:2340`
 
 ### 10.2 Tap/hold shared frontier
 
@@ -478,10 +504,69 @@ Concrete gap found:
 
 This is now modeled by shared button indices and `buttonQueueFrontiers`.
 
+Related refinement completed later:
+
+- Lean now matches the reference unlockedness law `index <= currentIndex` for
+  the shared button frontier while still requiring the local hold queue head for
+  direct hold-head input consumption
+
 Concrete regressions live around:
 
-- `LnmaiCore/RuntimeTests.lean:2070`
-- `LnmaiCore/RuntimeTests.lean:2090`
+- `LnmaiCore/RuntimeTests.lean:2174`
+- `LnmaiCore/RuntimeTests.lean:2206`
+
+### 10.4 Touch-group stored result after strict majority
+
+Concrete reference fact:
+
+- `MajdataPlay` stops overwriting `TouchGroup.JudgeResult` and
+  `TouchGroup.JudgeDiff` once `Percent > 0.5` in
+  `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/Misc/Notes/Touch/TouchGroup.cs:14`
+
+Lean now preserves the stored shared group result after strict majority is
+already reached while still increasing the group result count.
+
+Concrete interpreter site:
+
+- `LnmaiCore/Scheduler.lean:269`
+
+### 10.5 Touch waiting-state too-late boundary under large frame jumps
+
+Concrete gap found:
+
+- `MajdataPlay` uses the strict touch good-boundary `timing > TOUCH_JUDGE_GOOD`
+  even if a touch note remains in its waiting state
+- Lean previously used the wider waiting-state judgeable range endpoint in a way
+  that could defer a miss across a large frame jump
+
+This is now fixed in:
+
+- `LnmaiCore/Lifecycle.lean:399`
+
+Concrete regression:
+
+- `LnmaiCore/RuntimeTests.lean:1668`
+
+### 10.6 Short modern hold body window disabling
+
+Concrete reference facts:
+
+- `MajdataPlay` sets `_bodyCheckRange = DEFAULT_HOLD_BODY_CHECK_RANGE` for short
+  regular holds when `Length <= HOLD_HEAD_IGNORE_LENGTH_SEC + HOLD_TAIL_IGNORE_LENGTH_SEC` in
+  `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/HoldDrop.cs:257`
+- the default range is the disabled sentinel in
+  `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/NoteLongDrop.cs:58`
+
+Lean now mirrors that semantic effect by disabling body-phase transitions for
+short non-classic holds and letting them persist until the actual end boundary.
+
+Concrete interpreter site:
+
+- `LnmaiCore/Lifecycle.lean:265`
+
+Concrete regression:
+
+- `LnmaiCore/RuntimeTests.lean:214`
 
 ### 10.3 Slide queue and finish propagation
 
@@ -503,6 +588,15 @@ Concrete reference facts:
 Lean currently models the same semantic shape with `SlideNote.queueTracks`,
 `slideShouldBeCheckable`, `slideStepSemantic`, `updateSlideParentFlags`, and
 `forceFinishParentSlides`.
+
+Important audit note:
+
+- Lean also uses a more semantic recursive update structure for slide segment
+  progression and parent-address propagation than the exact Unity realization
+- this document does not classify that alone as a bug or parity gap
+- unless a reduced witness shows an observational mismatch against
+  `MajdataPlay`, treat that recursive slide-segmentation model as an intentional
+  improvement rather than something to "fix"
 
 Concrete regressions and proof-facing witnesses for the slide path live around:
 
@@ -535,6 +629,15 @@ checked.
   (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteLoader.cs`,
   `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs`,
   `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/HoldDrop.cs`)
+- older shared-frontier indices remain unlocked under `index <= currentIndex`
+  for both button and touch families, while family-local queue-head checks still
+  control direct consumption
+  (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs`,
+  `LnmaiCore/Scheduler.lean`, `LnmaiCore/RuntimeTests.lean`)
+- short regular holds do not force-end early just because their synthetic body
+  window would be empty; they persist until actual remaining time reaches zero
+  (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/HoldDrop.cs`,
+  `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/NoteLongDrop.cs`)
 
 ## 12. Still Unverified or Only Partially Verified
 
@@ -550,6 +653,10 @@ These regions still need more careful parity work:
   sets
   (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchDrop.cs`,
   `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchHoldDrop.cs`)
+- observational equivalence of Lean's recursive slide-segmentation update
+  strategy against Unity's queue mutation order for all connected-slide shapes
+  (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/SlideDrop.cs`,
+  `LnmaiCore/Lifecycle.lean`, `LnmaiCore/Scheduler.lean`)
 - full slide interaction ordering against Unity updater structure
   (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs`,
   `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/SlideUpdater.cs`,
@@ -576,7 +683,8 @@ Status vocabulary:
 - judgeable entry and early-window semantics: `Modeled`, `Open`
 - button-vs-sensor fallback click choice: `Modeled`, `Open`
 - same-lane shared-frontier blocking against hold: `Modeled`, `Checked`, `Regressed`
-- too-late miss boundary under all frame timings: `Modeled`, `Open`
+- unlockedness under advanced shared button frontier: `Modeled`, `Checked`, `Regressed`
+- too-late miss boundary under all frame timings: `Modeled`, `Checked`, `Open`
 
 ### 13.2 Hold
 
@@ -584,16 +692,18 @@ Status vocabulary:
 - head judgment timing: `Modeled`, `Open`
 - head miss and frontier advance: `Modeled`, `Checked`, `Open`
 - classic-vs-deluxe body evolution: `Modeled`, `Open`
-- release-ignore and re-press behavior: `Modeled`, `Open`
+- release-ignore and re-press behavior: `Modeled`, `Checked`, `Regressed`, `Open`
+- short modern hold disabled-body-window behavior: `Modeled`, `Checked`, `Regressed`
 - final event grading after body phase: `Modeled`, `Open`
 
 ### 13.3 Touch
 
-- shared touch-frontier unlock: `Modeled`, `Checked`
+- shared touch-frontier unlock: `Modeled`, `Checked`, `Regressed`
 - late-only judgment region: `Modeled`, `Checked`, `Regressed`
 - button-ring priority over sensor path: `Modeled`, `Checked`, `Regressed`
 - same-frame group-share publication: `Modeled`, `Checked`, `Regressed`
-- too-late miss boundary under replay/frame-window variations: `Modeled`, `Open`
+- stored group result/diff after strict majority: `Modeled`, `Checked`, `Regressed`
+- too-late miss boundary under replay/frame-window variations: `Modeled`, `Checked`, `Regressed`, `Open`
 
 ### 13.4 Touch-Hold
 
@@ -612,6 +722,7 @@ Status vocabulary:
 - parent-child finish propagation: `Modeled`, `Checked`, `Regressed`, `Open`
 - delayed final event emission: `Modeled`, `Checked`, `Regressed`, `Open`
 - ordering against other families in reference runtime: `Modeled`, `Checked`, `Open`
+- recursive segmentation/update structure vs Unity realization order: `Modeled`, `Checked`, `Open`
 
 ### 13.6 Cross-cutting
 
@@ -676,9 +787,10 @@ similarity.
 
 Useful entrypoints:
 
-- Lean scheduler: `LnmaiCore/Scheduler.lean:502`
+- Lean scheduler: `LnmaiCore/Scheduler.lean:510`
 - Lean runtime states: `LnmaiCore/Lifecycle.lean:62`
 - Lean queue state: `LnmaiCore/InputModel.lean:135`
+- Lean shared frontiers: `LnmaiCore/InputModel.lean:179` and `LnmaiCore/InputModel.lean:180`
 - Lean constants: `LnmaiCore/Constants.lean:14`
 - MajdataPlay note manager: `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs:124`
 - MajdataPlay tap behavior: `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TapDrop.cs:321`

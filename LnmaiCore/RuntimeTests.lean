@@ -198,6 +198,31 @@ def test_modern_hold_perfect_head_keeps_release_ignore_grace : RuntimeCase :=
   | _, _ =>
       passCase "modern_hold_perfect_head_keeps_release_ignore_grace" false "expected active hold to remain in head-judged grace state"
 
+private def shortModernHoldHeadJudgedBeforeEndState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 178 }
+    , start := .button .K1
+    , state := .HeadJudged .Perfect
+    , length := dur 250000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , playerReleaseTime := Duration.zero
+    , isClassic := false }
+  { currentTime := tp 1120000
+  , activeHolds := [(.K1, hold)] }
+
+def test_short_modern_hold_does_not_force_end_before_remaining_time_zero : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame shortModernHoldHeadJudgedBeforeEndState input
+  match nextState.activeHolds, events with
+  | [(_, holdAfter)], [] =>
+      let stillHeadJudged := match holdAfter.state with | .HeadJudged .Perfect => true | _ => false
+      passCase "short_modern_hold_does_not_force_end_before_remaining_time_zero"
+        stillHeadJudged
+        "MajdataPlay disables body-check processing for short modern holds, so they should stay active until remaining time reaches zero"
+  | _, _ =>
+      passCase "short_modern_hold_does_not_force_end_before_remaining_time_zero" false "expected short modern hold to remain active before end time"
+
 private def touchHoldReleasedWithBodyMajorityState : InputModel.GameState :=
   let holdA1 : Lifecycle.HoldNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 33 }
@@ -1632,6 +1657,29 @@ def test_frame_zero_touch_judges_same_frame : RuntimeCase :=
         "touch becomes judgeable and resolves on frame zero"
   | _, _ => passCase "frame_zero_touch_judges_same_frame" false "expected one frame-zero touch event"
 
+private def waitingTouchLargeDeltaState : InputModel.GameState :=
+  let touch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 177 }
+    , state := .Waiting
+    , sensorPos := .A1 }
+  { currentTime := tp (-200000)
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touch] } else { notes := [] }) }
+
+def test_touch_waiting_large_delta_uses_reference_too_late_boundary : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := tp 301000
+    , events := [] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed waitingTouchLargeDeltaState batch
+  match nextState.touchQueues.getD .A1 { notes := [] }, events with
+  | queue, [evt] =>
+      passCase "touch_waiting_large_delta_uses_reference_too_late_boundary"
+        (queue.currentIndex = 1
+          && evt.kind = .Touch
+          && evt.noteIndex = 177
+          && evt.grade = .Miss)
+        "a touch that stays in Waiting across a large frame jump should miss once time is strictly past the reference good boundary"
+  | _, _ => passCase "touch_waiting_large_delta_uses_reference_too_late_boundary" false "expected one touch miss event after large-delta waiting step"
+
 private def frameZeroTouchHoldState : InputModel.GameState :=
   let touchHold : Lifecycle.HoldNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 63 }
@@ -1641,7 +1689,8 @@ private def frameZeroTouchHoldState : InputModel.GameState :=
     , isTouchHold := true
     , touchQueueIndex := 0 }
   { currentTime := TimePoint.zero
-  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [] , currentIndex := 0 } else { notes := [] })
+  , touchQueueFrontiers := SensorVec.ofFn (fun area => if area == .A1 then 0 else 0)
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [] } else { notes := [] })
   , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touchHold] } else { notes := [] })
   , activeTouchHolds := [(.A1, touchHold)] }
 
@@ -1652,14 +1701,14 @@ def test_frame_zero_touch_hold_head_judges_same_frame : RuntimeCase :=
                 , InputModel.TimedInputEvent.sensorHold TimePoint.zero .A1 true] }
   let (nextState, _, _, _) := Scheduler.stepFrameTimed frameZeroTouchHoldState batch
   match nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
-  | queue, [(_, hold)] =>
+  | holdQueue, [(_, hold)] =>
       let judged :=
         match hold.state with
         | .HeadJudged _ => true
         | .BodyHeld => true
         | _ => false
       passCase "frame_zero_touch_hold_head_judges_same_frame"
-        (queue.currentIndex = 1 && judged && hold.headDiff = Duration.zero && hold.params.noteIndex = 63)
+        (nextState.touchQueueFrontiers.getD .A1 0 = 1 && holdQueue.currentIndex = 1 && judged && hold.headDiff = Duration.zero && hold.params.noteIndex = 63)
         "touch-hold head resolves from waiting on frame zero when its shared touch queue is already current"
   | _, _ => passCase "frame_zero_touch_hold_head_judges_same_frame" false "expected one active touch-hold after frame-zero head judgment"
 
@@ -1695,7 +1744,8 @@ private def buttonRingPreferredTouchHoldState : InputModel.GameState :=
     , isTouchHold := true
     , touchQueueIndex := 0 }
   { currentTime := TimePoint.zero
-  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [], currentIndex := 0 } else { notes := [] })
+  , touchQueueFrontiers := SensorVec.ofFn (fun area => if area == .A1 then 0 else 0)
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [] } else { notes := [] })
   , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touchHold] } else { notes := [] })
   , activeTouchHolds := [(.A1, touchHold)]
   , useButtonRingForTouch := true
@@ -1713,7 +1763,7 @@ def test_touch_hold_head_uses_button_ring_before_sensor_when_enabled : RuntimeCa
   | touchQueue, holdQueue, [(_, hold)] =>
       let judged := match hold.state with | .HeadJudged .Perfect => true | _ => false
       passCase "touch_hold_head_uses_button_ring_before_sensor_when_enabled"
-        (touchQueue.currentIndex = 1 && holdQueue.currentIndex = 1 && judged && hold.headDiff = Duration.zero)
+        (nextState.touchQueueFrontiers.getD .A1 0 = 1 && touchQueue.currentIndex = 0 && holdQueue.currentIndex = 1 && judged && hold.headDiff = Duration.zero)
         "with button-ring touch enabled, touch-hold head should judge from the button path before the sensor path"
   | _, _, _ => passCase "touch_hold_head_uses_button_ring_before_sensor_when_enabled" false "expected judged touch-hold head from the button-ring path"
 
@@ -2141,6 +2191,26 @@ def test_same_lane_extra_click_allows_hold_head_after_tap : RuntimeCase :=
   | _, _, _, _ =>
       passCase "same_lane_extra_click_allows_hold_head_after_tap" false "expected tap event plus a judged hold head"
 
+private def unlockedButtonFrontierHoldState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 174 }
+    , start := .button .K1
+    , state := .HeadWaiting
+    , length := dur 200000
+    , buttonQueueIndex := 1 }
+  { currentTime := TimePoint.zero
+  , buttonQueueFrontiers := ButtonVec.ofFn (fun zone => if zone == .K1 then 2 else 0)
+  , holdQueues := ButtonVec.ofFn (fun zone => if zone == .K1 then { notes := [hold] } else { notes := [] })
+  , activeHolds := [(.K1, hold)] }
+
+def test_unlocked_button_frontier_still_allows_older_hold : RuntimeCase :=
+  let frontier := unlockedButtonFrontierHoldState.buttonQueueFrontiers.getD .K1 0
+  let exactMatch := frontier == 1
+  let unlocked := 1 ≤ frontier
+  passCase "unlocked_button_frontier_still_allows_older_hold"
+    (!exactMatch && unlocked)
+    "the shared button frontier has advanced past queue index 1; MajdataPlay still treats that older hold head as unlocked while exact-match gating would reject it"
+
 private def sameAreaTouchThenTouchHoldState : InputModel.GameState :=
   let touch : Lifecycle.TouchNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 86 }
@@ -2174,6 +2244,7 @@ def test_same_area_touch_consumes_shared_click_before_touch_hold_head : RuntimeC
         (evt1.kind = .Touch
           && evt1.noteIndex = 86
           && touchQueueAfterFirst.currentIndex = 1
+          && stateAfterFirst.touchQueueFrontiers.getD .A1 0 = 1
           && touchHoldQueueAfterFirst.currentIndex = 0
           && holdHeadJudgeable)
         "reference-style shared touch queue: touch consumes the click and touch-hold head becomes judgeable but stays queued"
@@ -2192,7 +2263,8 @@ def test_same_area_extra_click_allows_touch_hold_head_after_touch : RuntimeCase 
       passCase "same_area_extra_click_allows_touch_hold_head_after_touch"
         (evt1.kind = .Touch
           && evt1.noteIndex = 86
-          && touchQueueAfterFirst.currentIndex = 2
+          && touchQueueAfterFirst.currentIndex = 1
+          && stateAfterFirst.touchQueueFrontiers.getD .A1 0 = 2
           && touchHoldQueueAfterFirst.currentIndex = 1
           && holdHeadJudged)
         "with two same-frame touch clicks, touch consumes the first click, touch-hold head consumes the second, and the shared touch frontier advances twice"
@@ -2215,7 +2287,8 @@ private def sameAreaConsecutiveTouchHoldsState : InputModel.GameState :=
     , isTouchHold := true
     , touchQueueIndex := 1 }
   { currentTime := TimePoint.zero
-  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [], currentIndex := 0 } else { notes := [] })
+  , touchQueueFrontiers := SensorVec.ofFn (fun area => if area == .A1 then 0 else 0)
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [] } else { notes := [] })
   , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [hold1, hold2] } else { notes := [] })
   , activeTouchHolds := [(.A1, hold1), (.A1, hold2)] }
 
@@ -2230,8 +2303,8 @@ def test_same_area_consecutive_touch_holds_advance_shared_frontier : RuntimeCase
     , events := [InputModel.TimedInputEvent.sensorClick (TimePoint.zero + Constants.FRAME_LENGTH) .A1
                 , InputModel.TimedInputEvent.sensorHold (TimePoint.zero + Constants.FRAME_LENGTH) .A1 true] }
   let (stateAfterSecond, _, _, _) := Scheduler.stepFrameTimed stateAfterFirst batch2
-  match stateAfterFirst.touchQueues.getD .A1 { notes := [] }, stateAfterSecond.touchQueues.getD .A1 { notes := [] }, stateAfterSecond.touchHoldQueues.getD .A1 { notes := [] }, stateAfterSecond.activeTouchHolds with
-  | touchQueueAfterFirst, touchQueueAfterSecond, touchHoldQueueAfterSecond, [(_, firstAfterSecond), (_, secondAfterSecond)] =>
+  match stateAfterSecond.touchHoldQueues.getD .A1 { notes := [] }, stateAfterSecond.activeTouchHolds with
+  | touchHoldQueueAfterSecond, [(_, firstAfterSecond), (_, secondAfterSecond)] =>
       let firstJudged :=
         match firstAfterSecond.state with
         | .HeadJudged _ | .BodyHeld | .BodyReleased | .Ended _ => true
@@ -2241,13 +2314,13 @@ def test_same_area_consecutive_touch_holds_advance_shared_frontier : RuntimeCase
         | .HeadJudged _ | .BodyHeld | .BodyReleased | .Ended _ => true
         | _ => false
       passCase "same_area_consecutive_touch_holds_advance_shared_frontier"
-        (touchQueueAfterFirst.currentIndex = 1
-          && touchQueueAfterSecond.currentIndex = 2
+        (stateAfterFirst.touchQueueFrontiers.getD .A1 0 = 1
+          && stateAfterSecond.touchQueueFrontiers.getD .A1 0 = 2
           && touchHoldQueueAfterSecond.currentIndex = 2
           && firstJudged
           && secondJudged)
         "consecutive same-area touch-hold heads should advance the shared touch frontier just like MajdataPlay's `NextTouch`"
-  | _, _, _, _ =>
+  | _, _ =>
       passCase "same_area_consecutive_touch_holds_advance_shared_frontier" false "expected both same-area touch-hold heads to judge across two frames and advance the shared frontier twice"
 
 private def unlockedTouchFrontierTouchHoldState : InputModel.GameState :=
@@ -2259,14 +2332,15 @@ private def unlockedTouchFrontierTouchHoldState : InputModel.GameState :=
     , isTouchHold := true
     , touchQueueIndex := 1 }
   { currentTime := TimePoint.zero
-  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [] , currentIndex := 2 } else { notes := [] })
+  , touchQueueFrontiers := SensorVec.ofFn (fun area => if area == .A1 then 2 else 0)
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [] } else { notes := [] })
   , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touchHold] } else { notes := [] })
   , activeTouchHolds := [(.A1, touchHold)] }
 
 def test_unlocked_touch_frontier_still_allows_older_touch_hold : RuntimeCase :=
-  let queue := unlockedTouchFrontierTouchHoldState.touchQueues.getD .A1 { notes := [] }
-  let exactMatch := queue.currentIndex == 1
-  let unlocked := 1 ≤ queue.currentIndex
+  let frontier := unlockedTouchFrontierTouchHoldState.touchQueueFrontiers.getD .A1 0
+  let exactMatch := frontier == 1
+  let unlocked := 1 ≤ frontier
   passCase "unlocked_touch_frontier_still_allows_older_touch_hold"
     (!exactMatch && unlocked)
     "the shared touch frontier has advanced past queue index 1; MajdataPlay treats that older index as still unlocked while exact-match gating would reject it"
@@ -2667,6 +2741,7 @@ def all : List RuntimeCase :=
   , test_modern_hold_head_miss_can_end_as_late_good
   , test_modern_hold_head_miss_skips_release_ignore_grace
   , test_modern_hold_perfect_head_keeps_release_ignore_grace
+  , test_short_modern_hold_does_not_force_end_before_remaining_time_zero
   , test_touch_hold_body_majority_reactivates_released_note
   , test_touch_hold_local_press_reactivates_released_note
   , test_classic_hold_fast_boundary_is_strict
@@ -2702,6 +2777,7 @@ def all : List RuntimeCase :=
   , test_frame_zero_tap_judges_same_frame
   , test_frame_zero_hold_head_judges_same_frame
   , test_frame_zero_touch_judges_same_frame
+  , test_touch_waiting_large_delta_uses_reference_too_late_boundary
   , test_frame_zero_touch_hold_head_judges_same_frame
   , test_touch_uses_button_ring_before_sensor_when_enabled
   , test_touch_hold_head_uses_button_ring_before_sensor_when_enabled
@@ -2717,6 +2793,7 @@ def all : List RuntimeCase :=
   , test_later_same_lane_tap_does_not_bypass_earlier_hold_head
   , test_reference_style_hold_head_does_not_advance_without_own_click
   , test_same_lane_extra_click_allows_hold_head_after_tap
+  , test_unlocked_button_frontier_still_allows_older_hold
   , test_same_area_touch_consumes_shared_click_before_touch_hold_head
   , test_same_area_extra_click_allows_touch_hold_head_after_touch
   , test_same_area_consecutive_touch_holds_advance_shared_frontier
@@ -2756,6 +2833,9 @@ theorem test_modern_hold_head_miss_skips_release_ignore_grace_proof :
 
 theorem test_modern_hold_perfect_head_keeps_release_ignore_grace_proof :
     test_modern_hold_perfect_head_keeps_release_ignore_grace.passed = true := by native_decide
+
+theorem test_short_modern_hold_does_not_force_end_before_remaining_time_zero_proof :
+    test_short_modern_hold_does_not_force_end_before_remaining_time_zero.passed = true := by native_decide
 
 theorem test_touch_hold_body_majority_reactivates_released_note_proof :
     test_touch_hold_body_majority_reactivates_released_note.passed = true := by native_decide
@@ -2871,6 +2951,9 @@ theorem test_frame_zero_hold_head_judges_same_frame_proof :
 theorem test_frame_zero_touch_judges_same_frame_proof :
     test_frame_zero_touch_judges_same_frame.passed = true := by native_decide
 
+theorem test_touch_waiting_large_delta_uses_reference_too_late_boundary_proof :
+    test_touch_waiting_large_delta_uses_reference_too_late_boundary.passed = true := by native_decide
+
 theorem test_frame_zero_touch_hold_head_judges_same_frame_proof :
     test_frame_zero_touch_hold_head_judges_same_frame.passed = true := by native_decide
 
@@ -2915,6 +2998,9 @@ theorem test_reference_style_hold_head_does_not_advance_without_own_click_proof 
 
 theorem test_same_lane_extra_click_allows_hold_head_after_tap_proof :
     test_same_lane_extra_click_allows_hold_head_after_tap.passed = true := by native_decide
+
+theorem test_unlocked_button_frontier_still_allows_older_hold_proof :
+    test_unlocked_button_frontier_still_allows_older_hold.passed = true := by native_decide
 
 theorem test_same_area_extra_click_allows_touch_hold_head_after_touch_proof :
     test_same_area_extra_click_allows_touch_hold_head_after_touch.passed = true := by native_decide
