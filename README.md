@@ -143,3 +143,56 @@ This repository uses Lean 4 and Lake.
 - Build library and executables: `lake build`
 - Build aggregate verification executable: `lake build real-chart-verification`
 - Try to inspect the running efficiency using `lake exe real-chart-benchmark`
+
+## Parser Socket Server
+
+The repo now includes a parser-only socket server built from two small pieces:
+
+- `Apps/SimaiParserCli.lean` — persistent parser process over stdin/stdout
+- `tools/simai_parser_server.py` — TCP wrapper for that parser process
+
+Usage:
+
+- Build Lean artifacts first: `lake build simai-parser-cli`
+- Run on the default port: `python3 tools/simai_parser_server.py`
+- Run on a custom port: `python3 tools/simai_parser_server.py 9000`
+
+It listens on `127.0.0.1` and accepts newline-delimited JSON requests, one per
+line. Each response is also a single JSON line.
+
+## Parser Web UI
+
+There is also a very small browser frontend for manual parser testing.
+
+- Easiest start: `./tools/run_parser_web.sh`
+- Custom port: `./tools/run_parser_web.sh 9000`
+- Manual start: `lake build simai-parser-cli && python3 tools/parser_web_server.py`
+- Open: `http://127.0.0.1:8080`
+
+Files:
+
+- `tools/parser_web/index.html`
+- `tools/parser_web_server.py`
+- `tools/run_parser_web.sh`
+
+The page sends JSON to `POST /api/parse`, and the Python bridge forwards each
+request into the persistent Lean parser process.
+
+Request shape:
+
+```json
+{"mode":"lowered","levelIndex":1,"content":"&inote_1=\n(120)\n1,\n"}
+```
+
+Supported `mode` values:
+
+- `frontend`
+- `semantic`
+- `inspection`
+- `normalized`
+- `lowered`
+
+The response format matches the existing parser JSON helpers in `LnmaiCore.FFI`:
+
+- success: `{"ok":true,"result":...}`
+- failure: `{"ok":false,"error":{"code":"...","message":"..."},...}`

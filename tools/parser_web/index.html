@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simai Parser Tester</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #17202a;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --error: #b91c1c;
+      --error-soft: #fee2e2;
+      --success: #166534;
+      --success-soft: #dcfce7;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .hero { margin-bottom: 24px; }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-head h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .card-body { padding: 20px; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 120px auto;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    select, input, textarea, button { font: inherit; }
+
+    select, input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text);
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    select:focus, input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    textarea {
+      min-height: 420px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.08s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+      transform: none;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .secondary {
+      background: #f3f4f6;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .status {
+      margin-bottom: 16px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.5;
+      border: 1px solid var(--line);
+      background: #f9fafb;
+      color: var(--muted);
+    }
+
+    .status.success {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: #bbf7d0;
+    }
+
+    .status.error {
+      background: var(--error-soft);
+      color: var(--error);
+      border-color: #fecaca;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 520px;
+      max-height: 640px;
+      overflow: auto;
+      border-radius: 14px;
+      background: #fbfdff;
+      border: 1px solid var(--line);
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .mini {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+      .controls { grid-template-columns: 1fr; }
+      .actions { align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <h1>Simai Parser Tester</h1>
+      <p class="subtitle">A small clean browser frontend for testing the Lean parser server. Paste chart text, choose a parse mode, and inspect the JSON response.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="card-head">
+          <h2>Request</h2>
+          <span class="mini">POSTs to <code>/api/parse</code></span>
+        </div>
+        <div class="card-body">
+          <div class="controls">
+            <div>
+              <label for="mode">Mode</label>
+              <select id="mode">
+                <option value="lowered">lowered</option>
+                <option value="semantic">semantic</option>
+                <option value="normalized">normalized</option>
+                <option value="inspection">inspection</option>
+                <option value="frontend">frontend</option>
+              </select>
+            </div>
+            <div>
+              <label for="levelIndex">Level</label>
+              <input id="levelIndex" type="number" min="1" step="1" value="1">
+            </div>
+            <div class="actions">
+              <button id="parseButton" class="primary">Parse</button>
+              <button id="sampleButton" class="secondary" type="button">Sample</button>
+            </div>
+          </div>
+
+          <label for="content">Chart Content</label>
+          <textarea id="content" spellcheck="false">&title=Browser Test
+&first=0
+&inote_1=
+(120)
+1,
+</textarea>
+
+          <p class="hint">Use <code>Ctrl/Cmd + Enter</code> to parse quickly.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Response</h2>
+          <span class="mini" id="timingLabel">Idle</span>
+        </div>
+        <div class="card-body">
+          <div id="status" class="status">Ready.</div>
+          <pre id="output">Run a parse to see JSON output.</pre>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const modeEl = document.getElementById('mode');
+    const levelEl = document.getElementById('levelIndex');
+    const contentEl = document.getElementById('content');
+    const parseButton = document.getElementById('parseButton');
+    const sampleButton = document.getElementById('sampleButton');
+    const outputEl = document.getElementById('output');
+    const statusEl = document.getElementById('status');
+    const timingLabel = document.getElementById('timingLabel');
+
+    const sampleChart = `&title=Browser Test
+&first=0
+&inote_1=
+(120)
+1,
+2,
+3,
+`;
+
+    function setStatus(text, kind = '') {
+      statusEl.textContent = text;
+      statusEl.className = `status ${kind}`.trim();
+    }
+
+    function prettyJson(value) {
+      try {
+        return JSON.stringify(typeof value === 'string' ? JSON.parse(value) : value, null, 2);
+      } catch {
+        return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+      }
+    }
+
+    async function runParse() {
+      const payload = {
+        mode: modeEl.value,
+        levelIndex: Number(levelEl.value || 1),
+        content: contentEl.value,
+      };
+
+      parseButton.disabled = true;
+      timingLabel.textContent = 'Parsing…';
+      setStatus('Sending request to local parser bridge…');
+
+      const started = performance.now();
+      try {
+        const response = await fetch('/api/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+        const elapsed = Math.round(performance.now() - started);
+        timingLabel.textContent = `${elapsed} ms`;
+        outputEl.textContent = prettyJson(data);
+
+        if (data && data.ok === true) {
+          setStatus('Parse succeeded.', 'success');
+        } else {
+          setStatus('Parser returned an error response.', 'error');
+        }
+      } catch (error) {
+        const elapsed = Math.round(performance.now() - started);
+        timingLabel.textContent = `${elapsed} ms`;
+        outputEl.textContent = prettyJson({ ok: false, error: { code: 'browser_request_failed', message: String(error) } });
+        setStatus('Could not reach the local parser web server.', 'error');
+      } finally {
+        parseButton.disabled = false;
+      }
+    }
+
+    parseButton.addEventListener('click', runParse);
+
+    sampleButton.addEventListener('click', () => {
+      contentEl.value = sampleChart;
+      modeEl.value = 'lowered';
+      levelEl.value = '1';
+      setStatus('Loaded sample chart.');
+      outputEl.textContent = 'Run a parse to see JSON output.';
+      timingLabel.textContent = 'Idle';
+    });
+
+    contentEl.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        runParse();
+      }
+    });
+  </script>
+</body>
+</html>

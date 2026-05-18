@@ -7,6 +7,7 @@ name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
 rev = "v4.29.0"
 
+
 [[lean_lib]]
 name = "LnmaiCore"
 
@@ -28,3 +29,7 @@ root = "Apps.RealChartBenchmark"
 [[lean_exe]]
 name = "real-chart-verification-100524"
 root = "Apps.RealChartVerification100524"
+
+[[lean_exe]]
+name = "simai-parser-cli"
+root = "Apps.SimaiParserCli"
