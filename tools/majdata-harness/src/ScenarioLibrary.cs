@@ -104,6 +104,16 @@ public static class ScenarioLibrary
         {
             Name = "Reference-like slide skip chain does not clear last area early",
             Run = RunReferenceLikeSlideSkipChain
+        },
+        new Scenario
+        {
+            Name = "Reference-like touch-hold stays judgeable after touch frontier advances past it",
+            Run = RunTouchHoldRemainsJudgeableAfterFrontierAdvance
+        },
+        new Scenario
+        {
+            Name = "Reference-like older touch remains judgeable once unlocked frontier moves ahead",
+            Run = RunOlderTouchRemainsJudgeableOnceUnlocked
         }
     ];
 
@@ -255,6 +265,53 @@ public static class ScenarioLibrary
             Hold = new HoldHeadResult { IsJudged = false },
             Touch = touch,
             TouchHold = touchHold
+        };
+    }
+
+    private static ScenarioResult RunTouchHoldRemainsJudgeableAfterFrontierAdvance()
+    {
+        var noteManager = new NoteManagerStub();
+        noteManager.SetCurrentTouchIndex(0, 2);
+        noteManager.SetSensorClicked(0);
+
+        var touchHold = ReferenceLikeLogic.RunTouchHoldHeadCheck(
+            noteManager,
+            new TouchQueueInfo { Index = 1, SensorArea = 0 },
+            sensorArea: 0,
+            buttonZone: 0,
+            inJudgeableRange: true,
+            groupShareAvailable: false);
+
+        return new ScenarioResult
+        {
+            Name = "touch-hold-remains-judgeable-after-frontier-advance",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false, QueueAdvanced = false },
+            TouchHold = touchHold,
+            Note = "MajdataPlay-style `index <= currentIndex` lets touch-hold index 1 still judge when frontier already advanced to 2; Lean exact-equality gating would block this."
+        };
+    }
+
+    private static ScenarioResult RunOlderTouchRemainsJudgeableOnceUnlocked()
+    {
+        var noteManager = new NoteManagerStub();
+        noteManager.SetCurrentTouchIndex(0, 3);
+        noteManager.SetSensorClicked(0);
+
+        var touch = ReferenceLikeLogic.RunTouchCheck(
+            noteManager,
+            new TouchQueueInfo { Index = 1, SensorArea = 0 },
+            buttonZone: 0,
+            sensorArea: 0,
+            inJudgeableRange: true);
+
+        return new ScenarioResult
+        {
+            Name = "older-touch-remains-judgeable-once-unlocked",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false, QueueAdvanced = false },
+            Touch = touch,
+            Note = "Reference queue cursor behaves like an unlock frontier; an older touch index remains judgeable when current frontier is ahead."
         };
     }
 

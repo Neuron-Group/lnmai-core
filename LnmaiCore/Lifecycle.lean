@@ -63,6 +63,7 @@ structure TapNote where
   params : CommonNoteParams
   lane   : OuterSlot
   state  : TapState
+  buttonQueueIndex : Nat := 0
 deriving Inhabited, Repr
 
 def TapNote.position (note : TapNote) : RuntimePos :=
@@ -141,6 +142,7 @@ structure HoldNote where
   start      : HoldStart
   state      : HoldSubState
   length     : Duration                       -- total hold length
+  buttonQueueIndex : Nat := 0
   headDiff   : Duration := Duration.zero      -- head timing diff
   headGrade  : JudgeGrade := JudgeGrade.Miss
   playerReleaseTime : Duration := Duration.zero -- accumulated release time

@@ -149,6 +149,7 @@ public sealed class ScenarioResult
     public HoldBodyResult? HoldBody { get; init; }
     public ConnSlideResult? ConnSlide { get; init; }
     public WifiResult? Wifi { get; init; }
+    public string? Note { get; init; }
 
     public string Format() =>
         $"tap: judged={Tap.IsJudged}, grade={Tap.Grade?.ToString() ?? "none"}\n" +
@@ -157,7 +158,8 @@ public sealed class ScenarioResult
         (TouchHold is null ? string.Empty : $"\ntouchHoldHead: judged={TouchHold.IsJudged}, grade={TouchHold.Grade?.ToString() ?? "none"}, queueAdvanced={TouchHold.QueueAdvanced}, usedGroupShare={TouchHold.UsedGroupShare}") +
         (HoldBody is null ? string.Empty : $"\nholdBody: state={HoldBody.State}, grade={HoldBody.Grade}, ended={HoldBody.IsEnded}, holdingEffectActive={HoldBody.IsHoldingEffectActive}") +
         (ConnSlide is null ? string.Empty : $"\n{ConnSlide.Format()}") +
-        (Wifi is null ? string.Empty : $"\n{Wifi.Format()}");
+        (Wifi is null ? string.Empty : $"\n{Wifi.Format()}") +
+        (string.IsNullOrEmpty(Note) ? string.Empty : $"\nnote: {Note}");
 }
 
 public sealed class ConnSlideState

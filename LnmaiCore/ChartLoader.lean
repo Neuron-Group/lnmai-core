@@ -34,6 +34,7 @@ structure TapChartNote where
   slot      : OuterSlot
   isBreak   : Bool := false
   isEX      : Bool := false
+  buttonQueueIndex : Nat := 0
   noteIndex : Nat := 0
 deriving Inhabited, Repr, ToJson, FromJson
 
@@ -45,6 +46,7 @@ structure HoldChartNote where
   isEX      : Bool := false
   isTouch   : Bool := false
   isClassic : Option Bool := none
+  buttonQueueIndex : Nat := 0
   touchHoldGroupId : Option Nat := none
   touchHoldGroupSize : Option Nat := none
   noteIndex : Nat := 0
@@ -122,13 +124,15 @@ private def sortByTiming {α : Type} (getTiming : α → TimePoint) (items : Lis
 private def buildTap (note : TapChartNote) : TapNote :=
   { params := { judgeTiming := note.timing, judgeOffset := Constants.JUDGE_OFFSET, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
   , lane := note.slot
-  , state := TapState.Waiting }
+  , state := TapState.Waiting
+  , buttonQueueIndex := note.buttonQueueIndex }
 
 private def buildHold (note : HoldChartNote) : HoldNote :=
   { params := { judgeTiming := note.timing, judgeOffset := Constants.JUDGE_OFFSET, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
   , start := .button note.slot.toButtonZone
   , state := HoldSubState.HeadWaiting
   , length := note.length
+  , buttonQueueIndex := note.buttonQueueIndex
   , headDiff := Duration.zero
   , headGrade := .Miss
   , playerReleaseTime := Duration.zero
@@ -318,6 +322,31 @@ private def assignSharedTouchQueueIndices (touches : List TouchChartNote) (touch
   let (touches', touchHolds') := loop allAreas [] []
   (touches'.reverse, touchHolds'.reverse)
 
+private def assignSharedButtonQueueIndices (taps : List TapChartNote) (holds : List HoldChartNote) : List TapChartNote × List HoldChartNote :=
+  let allZones :=
+    let fromTaps := taps.foldl (fun acc note => if acc.contains note.slot.toButtonZone then acc else note.slot.toButtonZone :: acc) []
+    holds.foldl (fun acc note => if acc.contains note.slot.toButtonZone then acc else note.slot.toButtonZone :: acc) fromTaps
+  let rec mergeAssign (index : Nat) (ts : List TapChartNote) (hs : List HoldChartNote) (accT : List TapChartNote) (accH : List HoldChartNote) : List TapChartNote × List HoldChartNote :=
+    match ts, hs with
+    | [], [] => (accT, accH)
+    | t :: ts', [] => mergeAssign (index + 1) ts' [] ({ t with buttonQueueIndex := index } :: accT) accH
+    | [], h :: hs' => mergeAssign (index + 1) [] hs' accT ({ h with buttonQueueIndex := index } :: accH)
+    | t :: ts', h :: hs' =>
+      if t.timing ≤ h.timing then
+        mergeAssign (index + 1) ts' (h :: hs') ({ t with buttonQueueIndex := index } :: accT) accH
+      else
+        mergeAssign (index + 1) (t :: ts') hs' accT ({ h with buttonQueueIndex := index } :: accH)
+  let rec loop (zones : List ButtonZone) (accT : List TapChartNote) (accH : List HoldChartNote) : List TapChartNote × List HoldChartNote :=
+    match zones with
+    | [] => (accT, accH)
+    | zone :: rest =>
+      let ts := sortByTiming (fun note => note.timing) (taps.filter (fun note => note.slot.toButtonZone == zone))
+      let hs := sortByTiming (fun note => note.timing) (holds.filter (fun note => note.slot.toButtonZone == zone))
+      let (accT', accH') := mergeAssign 0 ts hs accT accH
+      loop rest accT' accH'
+  let (taps', holds') := loop allZones [] []
+  (taps'.reverse, holds'.reverse)
+
 private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNote :=
   let judgeQueues :=
     let queues := note.judgeQueues.map (fun queue => queue.map buildSlideArea)
@@ -353,13 +382,14 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   , judgeQueues := judgeQueues }
 
 def buildGameState (chart : ChartSpec) : GameState :=
+  let (tapsWithIndices, holdsWithIndices) := assignSharedButtonQueueIndices chart.taps chart.holds
   let tapQueues : ButtonQueueVec TapNote :=
     ButtonVec.ofFn (fun zone =>
-      let notes := (sortByTiming (fun note => note.timing) (chart.taps.filter (fun note => note.slot.toButtonZone == zone))).map buildTap
+      let notes := (sortByTiming (fun note => note.timing) (tapsWithIndices.filter (fun note => note.slot.toButtonZone == zone))).map buildTap
       { notes := notes })
   let holdQueues : ButtonQueueVec HoldNote :=
     ButtonVec.ofFn (fun zone =>
-      let notes := (sortByTiming (fun note => note.timing) (chart.holds.filter (fun note => note.slot.toButtonZone == zone))).map buildHold
+      let notes := (sortByTiming (fun note => note.timing) (holdsWithIndices.filter (fun note => note.slot.toButtonZone == zone))).map buildHold
       { notes := notes })
   let touchNotesGrouped0 := assignTouchGroups chart.touches
   let touchHoldNotes0 := assignTouchHoldGroups chart.touchHolds
