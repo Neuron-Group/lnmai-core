@@ -8,7 +8,10 @@ structure RealChartCheckpoint where
   level : Nat
 
 def realChartCheckpoints : List RealChartCheckpoint :=
-  [ { name := "11358_インドア系ならトラックメイカー"
+  [ { name := "100524_[協]Hand in Hand"
+    , assetPath := "tools/assets/100524_[協]Hand in Hand/maidata.txt"
+    , level := 7 }
+  , { name := "11358_インドア系ならトラックメイカー"
     , assetPath := "tools/assets/11358_インドア系ならトラックメイカー/maidata.txt"
     , level := 5 }
   , { name := "11264_幽霊東京"

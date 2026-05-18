@@ -24,3 +24,7 @@ root = "Apps.RealChartVerification"
 [[lean_exe]]
 name = "real-chart-benchmark"
 root = "Apps.RealChartBenchmark"
+
+[[lean_exe]]
+name = "real-chart-verification-100524"
+root = "Apps.RealChartVerification100524"

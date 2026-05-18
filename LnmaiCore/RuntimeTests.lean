@@ -1840,6 +1840,57 @@ def test_replay_frame_zero_touch_hold_head_judges_same_frame : RuntimeCase :=
         "replay path preserves frame-zero touch-hold head judgment"
   | _ => passCase "replay_frame_zero_touch_hold_head_judges_same_frame" false "expected one replay touch-hold event"
 
+private def sameSlotBriefGapHoldChainChart : ChartLoader.ChartSpec :=
+  { taps := []
+  , holds :=
+      [ { timing := tp 1000000, slot := .S1, length := dur 400000, noteIndex := 300 }
+      , { timing := tp 1401000, slot := .S1, length := dur 400000, noteIndex := 301 }
+      , { timing := tp 1802000, slot := .S1, length := dur 400000, noteIndex := 302 } ]
+  , touches := []
+  , touchHolds := []
+  , slides := []
+  , slideSkipping := true }
+
+private def sameSlotBriefGapHoldChainButtonHeldSensorClicks : ManualTacticSequence :=
+  mkManualTacticSequence
+    [ holdButtonAt 1000000 .K1 true
+    , touchAt 1000000 .A1
+    , touchAt 1401000 .A1
+    , touchAt 1802000 .A1
+    , holdButtonAt 2202000 .K1 false ]
+
+private def sameSlotBriefGapHoldChainSensorHeldButtonClicks : ManualTacticSequence :=
+  mkManualTacticSequence
+    [ holdSensorAt 1000000 .A1 true
+    , tapAt 1000000 .K1
+    , tapAt 1401000 .K1
+    , tapAt 1802000 .K1
+    , holdSensorAt 2202000 .A1 false ]
+
+def test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap : RuntimeCase :=
+  let result :=
+    simulateChartSpecWithTactic
+      sameSlotBriefGapHoldChainChart
+      sameSlotBriefGapHoldChainButtonHeldSensorClicks
+  passCase "same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap"
+    (missingJudgedNoteIndices result = []
+      && eventNoteIndices result.events = [300, 301, 302]
+      && eventGrades result.events = [.Perfect, .Perfect, .Perfect]
+      && achievesAP result)
+    "for a same-slot hold chain with 1ms gaps, holding the outer button continuously and clicking the matching inner sensor at each head should AP"
+
+def test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap : RuntimeCase :=
+  let result :=
+    simulateChartSpecWithTactic
+      sameSlotBriefGapHoldChainChart
+      sameSlotBriefGapHoldChainSensorHeldButtonClicks
+  passCase "same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap"
+    (missingJudgedNoteIndices result = []
+      && eventNoteIndices result.events = [300, 301, 302]
+      && eventGrades result.events = [.Perfect, .Perfect, .Perfect]
+      && achievesAP result)
+    "the swapped assignment also APs: hold the inner sensor continuously and click the matching outer button at each hold head"
+
 def test_frame_zero_slide_can_start_progress_same_frame : RuntimeCase :=
   let area : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }
@@ -2784,6 +2835,8 @@ def all : List RuntimeCase :=
   , test_replay_frame_zero_tap_judges_same_frame
   , test_replay_frame_zero_touch_judges_same_frame
   , test_replay_frame_zero_touch_hold_head_judges_same_frame
+  , test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap
+  , test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap
   , test_frame_zero_slide_can_start_progress_same_frame
   , test_replay_slide_delays_final_event_after_internal_judged
   , test_same_lane_tap_queue_blocks_second_note_until_first_advances
@@ -2971,6 +3024,12 @@ theorem test_replay_frame_zero_touch_judges_same_frame_proof :
 
 theorem test_replay_frame_zero_touch_hold_head_judges_same_frame_proof :
     test_replay_frame_zero_touch_hold_head_judges_same_frame.passed = true := by native_decide
+
+theorem test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap_proof :
+    test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap.passed = true := by native_decide
+
+theorem test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap_proof :
+    test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap.passed = true := by native_decide
 
 theorem test_frame_zero_slide_can_start_progress_same_frame_proof :
     test_frame_zero_slide_can_start_progress_same_frame.passed = true := by native_decide
