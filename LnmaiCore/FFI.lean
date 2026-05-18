@@ -61,9 +61,22 @@ structure RuntimeStepLightResult where
   currentTime : TimePoint
 deriving Inhabited, Repr, ToJson, FromJson
 
+structure LoadedChartSummary where
+  tapCount : Nat
+  holdCount : Nat
+  touchCount : Nat
+  touchHoldCount : Nat
+  slideCount : Nat
+deriving Inhabited, Repr, ToJson, FromJson
+
+inductive RuntimeSession where
+  | empty
+  | loaded (chartSpec : ChartLoader.ChartSpec) (state : InputModel.GameState)
+deriving Inhabited
+
 structure RuntimeRegistry where
   nextHandle : UInt64 := 1
-  states : HashMap UInt64 InputModel.GameState := {}
+  sessions : HashMap UInt64 RuntimeSession := {}
 deriving Inhabited
 
 initialize runtimeRegistryMutex : Std.Mutex RuntimeRegistry ← Std.Mutex.new {}
@@ -71,31 +84,118 @@ initialize runtimeRegistryMutex : Std.Mutex RuntimeRegistry ← Std.Mutex.new {}
 private def makeHandleJson (handle : UInt64) : Json :=
   Json.mkObj [("handle", toJson handle)]
 
+private def makeLoadedChartSummary (chartSpec : ChartLoader.ChartSpec) : LoadedChartSummary :=
+  { tapCount := chartSpec.taps.length
+  , holdCount := chartSpec.holds.length
+  , touchCount := chartSpec.touches.length
+  , touchHoldCount := chartSpec.touchHolds.length
+  , slideCount := chartSpec.slides.length }
+
+private def makeLoadedChartJson (handle : UInt64) (chartSpec : ChartLoader.ChartSpec) : Json :=
+  Json.mkObj
+    [ ("handle", toJson handle)
+    , ("summary", toJson (makeLoadedChartSummary chartSpec)) ]
+
+private def makeSessionStateJson (state : String) : Json :=
+  Json.mkObj [("state", Json.str state)]
+
+private def makeLoadedSessionStateJson (handle : UInt64) (chartSpec : ChartLoader.ChartSpec) : Json :=
+  Json.mkObj
+    [ ("handle", toJson handle)
+    , ("state", Json.str "loaded")
+    , ("summary", toJson (makeLoadedChartSummary chartSpec)) ]
+
+private def makeUnloadedSessionStateJson (handle : UInt64) : Json :=
+  Json.mkObj
+    [ ("handle", toJson handle)
+    , ("state", Json.str "empty") ]
+
 private def getHandleState (handle : UInt64) : IO (Except String InputModel.GameState) := do
   runtimeRegistryMutex.atomically do
     let registry ← get
-    pure <| match registry.states.get? handle with
-      | some state => .ok state
+    pure <| match registry.sessions.get? handle with
+      | some (.loaded _ state) => .ok state
+      | some .empty => .error s!"runtime handle {handle} has no loaded chart"
       | none => .error s!"unknown runtime handle: {handle}"
+
+private def getHandleChartSpec (handle : UInt64) : IO (Except String ChartLoader.ChartSpec) := do
+  runtimeRegistryMutex.atomically do
+    let registry ← get
+    pure <| match registry.sessions.get? handle with
+      | some (.loaded chartSpec _) => .ok chartSpec
+      | some .empty => .error s!"runtime handle {handle} has no loaded chart"
+      | none => .error s!"unknown runtime handle: {handle}"
+
+private def createEmptyHandle : IO UInt64 := do
+  runtimeRegistryMutex.atomically do
+    let registry ← get
+    let handle := registry.nextHandle
+    let nextHandle := handle + 1
+    let sessions := registry.sessions.insert handle .empty
+    let nextRegistry : RuntimeRegistry := { nextHandle := nextHandle, sessions := sessions }
+    set nextRegistry
+    pure handle
 
 private def insertHandleState (state : InputModel.GameState) : IO UInt64 := do
   runtimeRegistryMutex.atomically do
     let registry ← get
     let handle := registry.nextHandle
     let nextHandle := handle + 1
-    let states := registry.states.insert handle state
-    let nextRegistry : RuntimeRegistry := { nextHandle := nextHandle, states := states }
+    let sessions := registry.sessions.insert handle (.loaded { } state)
+    let nextRegistry : RuntimeRegistry := { nextHandle := nextHandle, sessions := sessions }
+    set nextRegistry
+    pure handle
+
+private def insertLoadedHandle (chartSpec : ChartLoader.ChartSpec) : IO UInt64 := do
+  runtimeRegistryMutex.atomically do
+    let registry ← get
+    let handle := registry.nextHandle
+    let nextHandle := handle + 1
+    let state := ChartLoader.buildGameState chartSpec
+    let sessions := registry.sessions.insert handle (.loaded chartSpec state)
+    let nextRegistry : RuntimeRegistry := { nextHandle := nextHandle, sessions := sessions }
     set nextRegistry
     pure handle
 
 private def updateHandleState (handle : UInt64) (state : InputModel.GameState) : IO (Except String PUnit) := do
   runtimeRegistryMutex.atomically do
     let registry ← get
-    match registry.states.get? handle with
+    match registry.sessions.get? handle with
     | none =>
         pure <| .error s!"unknown runtime handle: {handle}"
-    | some _ =>
-        let nextRegistry : RuntimeRegistry := { registry with states := registry.states.insert handle state }
+    | some .empty =>
+        pure <| .error s!"runtime handle {handle} has no loaded chart"
+    | some (.loaded chartSpec _) =>
+        let nextRegistry : RuntimeRegistry := { registry with sessions := registry.sessions.insert handle (.loaded chartSpec state) }
+        set nextRegistry
+        pure <| .ok PUnit.unit
+
+private def loadHandleChart (handle : UInt64) (chartSpec : ChartLoader.ChartSpec) : IO (Except String PUnit) := do
+  runtimeRegistryMutex.atomically do
+    let registry ← get
+    match registry.sessions.get? handle with
+    | none =>
+        pure <| .error s!"unknown runtime handle: {handle}"
+    | some (.loaded _ _) =>
+        pure <| .error s!"runtime handle {handle} already has a loaded chart"
+    | some .empty =>
+        let state := ChartLoader.buildGameState chartSpec
+        let nextRegistry : RuntimeRegistry :=
+          { registry with sessions := registry.sessions.insert handle (.loaded chartSpec state) }
+        set nextRegistry
+        pure <| .ok PUnit.unit
+
+private def unloadHandleChart (handle : UInt64) : IO (Except String PUnit) := do
+  runtimeRegistryMutex.atomically do
+    let registry ← get
+    match registry.sessions.get? handle with
+    | none =>
+        pure <| .error s!"unknown runtime handle: {handle}"
+    | some .empty =>
+        pure <| .error s!"runtime handle {handle} already has no loaded chart"
+    | some (.loaded _ _) =>
+        let nextRegistry : RuntimeRegistry :=
+          { registry with sessions := registry.sessions.insert handle .empty }
         set nextRegistry
         pure <| .ok PUnit.unit
 
@@ -105,22 +205,24 @@ private def stepHandleState
     : IO (Except String (InputModel.GameState × List JudgeEvent × List AudioCommand × List RenderCommand)) := do
   runtimeRegistryMutex.atomically do
     let registry ← get
-    match registry.states.get? handle with
+    match registry.sessions.get? handle with
     | none =>
         pure <| .error s!"unknown runtime handle: {handle}"
-    | some state =>
+    | some .empty =>
+        pure <| .error s!"runtime handle {handle} has no loaded chart"
+    | some (.loaded chartSpec state) =>
         let (nextState, events, audioCommands, renderCommands) := Scheduler.stepFrameTimed state batch
-        let states := registry.states.insert handle nextState
-        let nextRegistry : RuntimeRegistry := { registry with states := states }
+        let sessions := registry.sessions.insert handle (.loaded chartSpec nextState)
+        let nextRegistry : RuntimeRegistry := { registry with sessions := sessions }
         set nextRegistry
         pure <| .ok (nextState, events, audioCommands, renderCommands)
 
 private def eraseHandleState (handle : UInt64) : IO Bool := do
   runtimeRegistryMutex.atomically do
     let registry ← get
-    let present := registry.states.contains handle
+    let present := registry.sessions.contains handle
     if present then
-      let nextRegistry : RuntimeRegistry := { registry with states := registry.states.erase handle }
+      let nextRegistry : RuntimeRegistry := { registry with sessions := registry.sessions.erase handle }
       set nextRegistry
     pure present
 
@@ -169,8 +271,57 @@ def createGameStateHandle (chartSpecJson : @& String) : IO String := do
   | .error err =>
       pure <| jsonString <| errorJson "invalid_chart_spec_json" err
   | .ok chartSpec =>
-      let handle ← insertHandleState <| ChartLoader.buildGameState chartSpec
+      let handle ← insertLoadedHandle chartSpec
       pure <| jsonString <| okJson (makeHandleJson handle)
+
+@[export lnmai_create_empty_session_handle]
+def createEmptySessionHandle : IO String := do
+  let handle ← createEmptyHandle
+  pure <| jsonString <| okJson (Json.mkObj [("handle", toJson handle), ("state", Json.str "empty")])
+
+@[export lnmai_load_chart_into_session_from_text]
+def loadChartIntoSessionFromText (handle : UInt64) (content : @& String) (levelIndex : UInt32) : IO String := do
+  match Simai.frontendLoweredChart content levelIndex.toNat with
+  | .error err =>
+      pure <| jsonString <| errorJson "parse_error" err.message (some (toJson err))
+  | .ok chartSpec =>
+      let loaded ← loadHandleChart handle chartSpec
+      match loaded with
+      | .error err =>
+          pure <| jsonString <| errorJson "invalid_session_state" err
+      | .ok _ =>
+          pure <| jsonString <| okJson (makeLoadedSessionStateJson handle chartSpec)
+
+@[export lnmai_load_chart_into_session_from_json]
+def loadChartIntoSessionFromJson (handle : UInt64) (chartSpecJson : @& String) : IO String := do
+  match decodeValueFromString (α := ChartLoader.ChartSpec) chartSpecJson with
+  | .error err =>
+      pure <| jsonString <| errorJson "invalid_chart_spec_json" err
+  | .ok chartSpec =>
+      let loaded ← loadHandleChart handle chartSpec
+      match loaded with
+      | .error err =>
+          pure <| jsonString <| errorJson "invalid_session_state" err
+      | .ok _ =>
+          pure <| jsonString <| okJson (makeLoadedSessionStateJson handle chartSpec)
+
+@[export lnmai_unload_chart_from_session]
+def unloadChartFromSession (handle : UInt64) : IO String := do
+  let unloaded ← unloadHandleChart handle
+  match unloaded with
+  | .error err =>
+      pure <| jsonString <| errorJson "invalid_session_state" err
+  | .ok _ =>
+      pure <| jsonString <| okJson (makeUnloadedSessionStateJson handle)
+
+@[export lnmai_get_lowered_chart_json_by_handle]
+def getLoweredChartJsonByHandle (handle : UInt64) : IO String := do
+  let result ← getHandleChartSpec handle
+  match result with
+  | .error err =>
+      pure <| jsonString <| errorJson "invalid_session_state" err
+  | .ok chartSpec =>
+      pure <| jsonString <| okJson (toJson chartSpec)
 
 @[export lnmai_free_game_state_handle]
 def freeGameStateHandle (handle : UInt64) : IO String := do

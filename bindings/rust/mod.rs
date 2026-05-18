@@ -26,6 +26,12 @@ unsafe extern "C" {
     pub fn lnmai_build_game_state_json(chart_spec_json: *mut lean_object) -> *mut lean_object;
     pub fn lnmai_step_game_state_json(state_json: *mut lean_object, batch_json: *mut lean_object) -> *mut lean_object;
 
+    pub fn lnmai_create_empty_session_handle() -> *mut lean_object;
+    pub fn lnmai_load_chart_into_session_from_text(handle: u64, content: *mut lean_object, level_index: u32) -> *mut lean_object;
+    pub fn lnmai_load_chart_into_session_from_json(handle: u64, chart_spec_json: *mut lean_object) -> *mut lean_object;
+    pub fn lnmai_unload_chart_from_session(handle: u64) -> *mut lean_object;
+    pub fn lnmai_get_lowered_chart_json_by_handle(handle: u64) -> *mut lean_object;
+
     pub fn lnmai_create_game_state_handle(chart_spec_json: *mut lean_object) -> *mut lean_object;
     pub fn lnmai_free_game_state_handle(handle: u64) -> *mut lean_object;
     pub fn lnmai_get_game_state_json_by_handle(handle: u64) -> *mut lean_object;

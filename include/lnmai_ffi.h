@@ -20,6 +20,12 @@ lean_object * lnmai_parse_lowered_chart_json(lean_object * content, uint32_t lev
 lean_object * lnmai_build_game_state_json(lean_object * chart_spec_json);
 lean_object * lnmai_step_game_state_json(lean_object * state_json, lean_object * batch_json);
 
+lean_object * lnmai_create_empty_session_handle(void);
+lean_object * lnmai_load_chart_into_session_from_text(uint64_t handle, lean_object * content, uint32_t level_index);
+lean_object * lnmai_load_chart_into_session_from_json(uint64_t handle, lean_object * chart_spec_json);
+lean_object * lnmai_unload_chart_from_session(uint64_t handle);
+lean_object * lnmai_get_lowered_chart_json_by_handle(uint64_t handle);
+
 lean_object * lnmai_create_game_state_handle(lean_object * chart_spec_json);
 lean_object * lnmai_free_game_state_handle(uint64_t handle);
 lean_object * lnmai_get_game_state_json_by_handle(uint64_t handle);
