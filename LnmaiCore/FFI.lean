@@ -1,3 +1,4 @@
+
 import Lean.Data.Json
 import LnmaiCore.Simai.Frontend
 import LnmaiCore.ChartLoader
@@ -5,6 +6,8 @@ import LnmaiCore.Scheduler
 import LnmaiCore.InputModel
 import Std.Data.HashMap
 import Std.Sync.Mutex
+
+set_option compiler.ignoreBorrowAnnotation true
 
 open Lean
 
