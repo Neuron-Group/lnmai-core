@@ -2,8 +2,12 @@
 
 This document describes the currently implemented Lean-side FFI of `lnmai-core`.
 
-It is an API reference for the exported symbols that exist today, their input and
-output contracts, and the intended host-side calling pattern.
+It focuses on exported symbols, host calling patterns, state transitions, and how
+those APIs connect to the parser/runtime IR.
+
+For payload schemas and transformation-stage data structures, see:
+
+- `docs/ffi-ir.md`
 
 ## Scope
 
@@ -16,6 +20,7 @@ Core runtime logic behind the FFI lives in:
 - `LnmaiCore/Simai/Frontend.lean`
 - `LnmaiCore/ChartLoader.lean`
 - `LnmaiCore/Scheduler.lean`
+- `LnmaiCore/InputModel.lean`
 
 Public host-side declarations added in this repo:
 
@@ -28,11 +33,28 @@ Public host-side declarations added in this repo:
 
 The implemented FFI has three layers:
 
-- parse/lower APIs that operate on chart text and JSON payloads
-- legacy runtime APIs that operate on JSON state snapshots or direct loaded handles
-- session APIs that operate on stateful process-local handles with typestate-like transitions
+- parse/lower APIs that operate on chart text and return parser IR as JSON
+- legacy runtime APIs that operate on `ChartSpec`, `GameState`, or direct loaded handles
+- session APIs that operate on process-local stateful handles with `empty` / `loaded` transitions
 
-The preferred gameplay API is now the session API.
+The preferred gameplay API is the session API.
+
+## Transformation Pipeline
+
+The exported parser functions expose multiple points in the internal pipeline:
+
+```text
+maidata / Simai text
+  -> source tokens + source positions
+  -> semantic slide interpretation
+  -> normalized chart IR
+  -> lowered runtime chart IR (`ChartSpec`)
+  -> loaded runtime state (`GameState` in Lean handle registry)
+  -> stepped frame results (`JudgeEvent`, `AudioCommand`, `RenderCommand`, score)
+```
+
+The parser-side APIs are intentionally layered so hosts can stop at whichever IR
+boundary they need.
 
 ## Threading
 
@@ -60,12 +82,36 @@ Recommended rule:
 
 ### Time values
 
-- `Duration` is a signed integer microsecond count
-- `TimePoint` is a signed integer microsecond count
+Defined in `LnmaiCore/Time.lean`.
+
+Encoding:
+
+- `TimeTick` serializes as a signed JSON integer
+- `Duration` serializes as a signed JSON integer in microseconds
+- `TimePoint` serializes as a signed JSON integer in microseconds
 
 Host rule:
 
 - treat all FFI time values as `int64` microseconds
+
+### Rational values
+
+Lean `Rat` values do not serialize as plain numbers.
+
+They encode as:
+
+```json
+{
+  "num": 3,
+  "den": 2,
+  "decimal": "1.5"
+}
+```
+
+Host rule:
+
+- use `num` and `den` as the authoritative machine-readable value
+- treat `decimal` as a convenience string for debugging/display
 
 ### Area and slot enums
 
@@ -76,6 +122,22 @@ Encoding:
 - `SensorArea`: strings like `"A1"`, `"B4"`, `"C"`, `"E8"`
 - `ButtonZone`: strings like `"K1"` .. `"K8"`
 - `OuterSlot`: strings like `"S1"` .. `"S8"`
+
+### Algebraic data types
+
+Many Lean sum types are derived with `ToJson` / `FromJson`.
+
+Practical host guidance:
+
+- product types (`structure`) appear as JSON objects with named fields
+- optional values appear as either the encoded value or `null`
+- enum / constructor types appear in Lean-derived tagged JSON form
+
+Because the exact constructor encoding is produced by Lean derivation, hosts should:
+
+- prefer treating parse/runtime outputs as data to deserialize with generated bindings
+- avoid hard-coding assumptions about constructor JSON beyond tested payload examples
+- use the same library-level schema across the integration if possible
 
 ## Common Response Envelope
 
@@ -103,25 +165,94 @@ Encoding:
 
 ## Parse APIs
 
+These APIs parse chart text and stop at different IR boundaries.
+
 ### `lnmai_parse_frontend_chart_json`
-- input: chart text `String`, level index `UInt32`
-- success payload: `FrontendChartResult`
+
+Input:
+
+- chart text `String`
+- level index `UInt32`
+
+Success payload:
+
+- `FrontendChartResult`
+
+Meaning:
+
+- full parser-side result bundle
+- includes both semantic/lowered data and inspection/source-oriented data
 
 ### `lnmai_parse_frontend_semantic_chart_json`
-- success payload: `FrontendSemanticChart`
+
+Input:
+
+- chart text `String`
+- level index `UInt32`
+
+Success payload:
+
+- `FrontendSemanticChart`
+
+Meaning:
+
+- normalized chart IR plus lowered runtime `ChartSpec`
 
 ### `lnmai_parse_frontend_inspection_chart_json`
-- success payload: `FrontendChartInspection`
+
+Input:
+
+- chart text `String`
+- level index `UInt32`
+
+Success payload:
+
+- `FrontendChartInspection`
+
+Meaning:
+
+- source-oriented parser artifacts for tooling and debugging
+- includes raw tokens, source spans, maidata metadata, and interpreted slide notes
 
 ### `lnmai_parse_normalized_chart_json`
-- success payload: `NormalizedChart`
+
+Input:
+
+- chart text `String`
+- level index `UInt32`
+
+Success payload:
+
+- `NormalizedChart`
+
+Meaning:
+
+- gameplay-relevant normalized IR before lowering into runtime queues and note states
 
 ### `lnmai_parse_lowered_chart_json`
-- success payload: `ChartSpec`
+
+Input:
+
+- chart text `String`
+- level index `UInt32`
+
+Success payload:
+
+- `ChartSpec`
+
+Meaning:
+
+- runtime-ready declarative note specification used to build `GameState`
 
 ### Parse errors
-- code: `parse_error`
-- `details`: structured `ParseError`
+
+Error code:
+
+- `parse_error`
+
+Error details payload:
+
+- `ParseError`
 
 ## Session Runtime APIs
 
@@ -202,6 +333,10 @@ Behavior:
 - builds runtime state internally
 - transitions `empty -> loaded`
 
+Success payload:
+
+- same shape as `lnmai_load_chart_into_session_from_text`
+
 Error codes:
 
 - `invalid_chart_spec_json`
@@ -255,12 +390,13 @@ Success payload:
 
 - `RuntimeStepLightResult`
 
-This is the recommended per-frame gameplay API.
+Use this for per-frame gameplay integration when the host does not need the full
+internal `GameState` snapshot back every frame.
 
 Error codes:
 
 - `invalid_runtime_json`
-- `invalid_runtime_handle` for unknown handle ids
+- `invalid_runtime_handle`
 
 A loaded-state violation currently also returns a handle-related runtime error from
 Lean’s handle stepping path.
@@ -276,99 +412,515 @@ Success payload:
 
 - `RuntimeStepResult`
 
-Use this when you need full `GameState` snapshots.
+Use this when the host needs the complete `GameState` after every step.
+
+### `lnmai_get_game_state_json_by_handle`
+
+Input:
+
+- `UInt64` handle
+
+Success payload:
+
+- `GameState`
+
+Error code:
+
+- `invalid_runtime_handle`
+
+### `lnmai_free_game_state_handle`
+
+Input:
+
+- `UInt64` handle
+
+Success payload:
+
+```json
+{
+  "freed": true
+}
+```
+
+Error code:
+
+- `invalid_runtime_handle`
 
 ## Legacy Runtime APIs
 
 These remain useful for debugging, tooling, and bring-up.
 
 ### `lnmai_build_game_state_json`
-- input: `ChartSpec` JSON string
-- success payload: `GameState`
-- error code: `invalid_chart_spec_json`
+
+Input:
+
+- `ChartSpec` JSON string
+
+Success payload:
+
+- `GameState`
+
+Error code:
+
+- `invalid_chart_spec_json`
 
 ### `lnmai_step_game_state_json`
-- input: `GameState` JSON string and `TimedInputBatch` JSON string
-- success payload: `RuntimeStepResult`
-- error code: `invalid_runtime_json`
+
+Input:
+
+- `GameState` JSON string
+- `TimedInputBatch` JSON string
+
+Success payload:
+
+- `RuntimeStepResult`
+
+Error code:
+
+- `invalid_runtime_json`
 
 ### `lnmai_create_game_state_handle`
-- input: `ChartSpec` JSON string
-- success payload: `{ "handle": N }`
+
+Input:
+
+- `ChartSpec` JSON string
+
+Success payload:
+
+```json
+{
+  "handle": 1
+}
+```
 
 This is the older direct-loaded-handle entrypoint. New gameplay integrations should
 prefer `lnmai_create_empty_session_handle` plus `lnmai_load_chart_into_session_*`.
 
-### `lnmai_free_game_state_handle`
-- input: `UInt64` handle
-- success payload: `{ "freed": true }`
-- error code: `invalid_runtime_handle`
+## Key Payload Families
 
-### `lnmai_get_game_state_json_by_handle`
-- input: `UInt64` handle
-- success payload: `GameState`
-- error code: `invalid_runtime_handle`
+The full schema reference lives in `docs/ffi-ir.md`.
 
-## Payload Types
+Most hosts will primarily interact with:
 
-## `ChartSpec`
+- parser-side IR: `FrontendChartResult`, `FrontendSemanticChart`, `FrontendChartInspection`
+- normalized IR: `NormalizedChart`
+- lowered runtime IR: `ChartSpec`
+- runtime input: `TimedInputBatch`
+- runtime output: `RuntimeStepResult`, `RuntimeStepLightResult`
+- debugging state: `GameState`
 
-Defined in `LnmaiCore/ChartLoader.lean`.
+### Boundary comparison
 
-Fields:
+| Boundary | Main type | Best for | Includes | Avoid when |
+| --- | --- | --- | --- | --- |
+| Inspection | `FrontendChartInspection` | editors, diagnostics, parser tooling | raw tokens, source spans, maidata metadata, interpreted slide semantics | you only need gameplay-ready notes |
+| Normalized | `NormalizedChart` | semantic chart tooling, analysis, content transforms | normalized timing, note flags, slide semantics, note indices | you need exact runtime queue layout |
+| Lowered | `ChartSpec` | runtime-oriented interchange, deterministic host-side inspection | runtime-ready note lists, queue indices, slide judge queues | you want Lean to own live state transitions |
+| Runtime | `RuntimeStepLightResult` | gameplay stepping | judgments, audio/render commands, score, current time | you need deep parser/source provenance |
+| Full state | `GameState` | debugging, replay inspection, internal verification | entire loaded mutable runtime state | you want a stable, minimal host contract |
 
-- `taps`
-- `holds`
-- `touches`
-- `touchHolds`
-- `slides`
-- `slideSkipping`
+Quick selection guide:
 
-## `TimedInputBatch`
+- choose `inspection` to understand how source text was parsed
+- choose `normalized` to work with semantically cleaned chart content
+- choose `lowered` to inspect the exact runtime-ready chart IR
+- choose `RuntimeStepLightResult` for the main gameplay loop
+- choose `GameState` only when full internal state visibility is necessary
 
-Defined in `LnmaiCore/InputModel.lean`.
+## Example Payloads
 
-Fields:
+These examples are illustrative and intentionally minimal. Actual parse/runtime
+responses often include more fields depending on chart content and current state.
 
-- `currentTime : TimePoint`
-- `events : List TimedInputEvent`
+### Example parse request context
 
-### `TimedInputEvent`
+Input chart text:
 
-Constructors:
+```text
+&inote_1=
+(120)
+1,
+```
 
-- `buttonClick(tp, zone)`
-- `buttonHold(tp, zone, isDown)`
-- `sensorClick(tp, area)`
-- `sensorHold(tp, area, isDown)`
+Level index:
 
-Event inclusion policy:
+```json
+1
+```
 
-- zero-duration frame includes exactly `currentTime`
-- positive-duration frame includes `(prevTime, currentTime]`
+### Example parse response
 
-## `RuntimeStepResult`
+Example success response for `lnmai_parse_lowered_chart_json`:
 
-Fields:
+```json
+{
+  "ok": true,
+  "result": {
+    "taps": [
+      {
+        "timing": 0,
+        "slot": "S1",
+        "isBreak": false,
+        "isEX": false,
+        "buttonQueueIndex": 0,
+        "noteIndex": 0
+      }
+    ],
+    "holds": [],
+    "touches": [],
+    "touchHolds": [],
+    "slides": [],
+    "slideSkipping": true
+  }
+}
+```
 
-- `state : GameState`
-- `events : List JudgeEvent`
-- `audioCommands : List AudioCommand`
-- `renderCommands : List RenderCommand`
+Example success response for `lnmai_parse_frontend_chart_json`:
 
-## `RuntimeStepLightResult`
+```json
+{
+  "ok": true,
+  "result": {
+    "semantic": {
+      "normalized": {
+        "taps": [
+          {
+            "timing": 0,
+            "slot": "S1",
+            "isBreak": false,
+            "isEX": false,
+            "isHanabi": false,
+            "isForceStar": false,
+            "noteIndex": 0
+          }
+        ],
+        "holds": [],
+        "touches": [],
+        "touchHolds": [],
+        "slides": [],
+        "slideDebug": [],
+        "slideSkipping": true
+      },
+      "lowered": {
+        "taps": [
+          {
+            "timing": 0,
+            "slot": "S1",
+            "isBreak": false,
+            "isEX": false,
+            "buttonQueueIndex": 0,
+            "noteIndex": 0
+          }
+        ],
+        "holds": [],
+        "touches": [],
+        "touchHolds": [],
+        "slides": [],
+        "slideSkipping": true
+      }
+    },
+    "inspection": {
+      "metadata": {
+        "fields": []
+      },
+      "chart": {
+        "levelIndex": 1,
+        "rawBody": "(120)\n1,\n"
+      },
+      "source": {
+        "events": [
+          {
+            "timing": 0,
+            "bpm": {
+              "num": 120,
+              "den": 1,
+              "decimal": "120"
+            },
+            "hSpeed": {
+              "num": 1,
+              "den": 1,
+              "decimal": "1"
+            },
+            "divisor": 4,
+            "notes": [
+              {
+                "token": {
+                  "rawText": "1",
+                  "kind": "tap",
+                  "timing": 0,
+                  "bpm": {
+                    "num": 120,
+                    "den": 1,
+                    "decimal": "120"
+                  },
+                  "hSpeed": {
+                    "num": 1,
+                    "den": 1,
+                    "decimal": "1"
+                  },
+                  "divisor": 4,
+                  "slot": "S1",
+                  "sensorPos": null,
+                  "slideBody": null,
+                  "length": null,
+                  "starWait": null,
+                  "isBreak": false,
+                  "isEX": false,
+                  "isHanabi": false,
+                  "isSlideNoHead": false,
+                  "isForceStar": false,
+                  "isFakeRotate": false,
+                  "isSlideBreak": false,
+                  "sourceGroupId": null,
+                  "sourceGroupIndex": null,
+                  "sourceGroupSize": null,
+                  "sourcePos": null
+                },
+                "sourcePos": null
+              }
+            ],
+            "sourcePos": null
+          }
+        ]
+      },
+      "tokens": [
+        {
+          "rawText": "1",
+          "kind": "tap",
+          "timing": 0,
+          "bpm": {
+            "num": 120,
+            "den": 1,
+            "decimal": "120"
+          },
+          "hSpeed": {
+            "num": 1,
+            "den": 1,
+            "decimal": "1"
+          },
+          "divisor": 4,
+          "slot": "S1",
+          "sensorPos": null,
+          "slideBody": null,
+          "length": null,
+          "starWait": null,
+          "isBreak": false,
+          "isEX": false,
+          "isHanabi": false,
+          "isSlideNoHead": false,
+          "isForceStar": false,
+          "isFakeRotate": false,
+          "isSlideBreak": false,
+          "sourceGroupId": null,
+          "sourceGroupIndex": null,
+          "sourceGroupSize": null,
+          "sourcePos": null
+        }
+      ],
+      "slideNotes": []
+    }
+  }
+}
+```
 
-Fields:
+This bundled response is the broadest parser-facing payload:
 
-- `events : List JudgeEvent`
-- `audioCommands : List AudioCommand`
-- `renderCommands : List RenderCommand`
-- `score : ScoreState`
-- `currentTime : TimePoint`
+- `semantic.normalized` gives the semantically normalized note IR
+- `semantic.lowered` gives the runtime-ready `ChartSpec`
+- `inspection` preserves parser/source-oriented artifacts for tooling and diagnostics
+
+Example error response for any parse API:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "parse_error",
+    "message": "unexpected token"
+  },
+  "details": {
+    "kind": "invalidSyntax",
+    "rawText": "?",
+    "message": "unexpected token",
+    "span": {
+      "start": { "line": 2, "column": 1 },
+      "stop": { "line": 2, "column": 2 }
+    }
+  }
+}
+```
+
+### Example frame-step request
+
+Example request payload for `lnmai_step_game_state_handle_light`:
+
+```json
+{
+  "currentTime": 0,
+  "events": [
+    {
+      "tag": "buttonClick",
+      "tp": 0,
+      "zone": "K1"
+    }
+  ]
+}
+```
+
+Practical note:
+
+- constructor-shaped values such as `TimedInputEvent` use Lean-derived tagged JSON
+- field naming for constructor payloads should be treated as schema-driven and verified against the binding you use
+- the example above shows the intended semantic shape: one `buttonClick` at time `0` on `K1`
+
+### Example frame-step response
+
+Example success response for `lnmai_step_game_state_handle_light`:
+
+```json
+{
+  "ok": true,
+  "result": {
+    "events": [
+      {
+        "kind": "Tap",
+        "grade": "Perfect",
+        "diff": 0,
+        "position": {
+          "tag": "button",
+          "value": "K1"
+        },
+        "noteIndex": 0
+      }
+    ],
+    "audioCommands": [
+      {
+        "tag": "PlayJudgeSfx",
+        "kind": "Tap",
+        "grade": "Perfect",
+        "atTime": 0,
+        "noteIndex": 0
+      }
+    ],
+    "renderCommands": [
+      {
+        "tag": "ShowJudgeResult",
+        "kind": "Tap",
+        "grade": "Perfect",
+        "diff": 0,
+        "noteIndex": 0
+      }
+    ],
+    "score": {
+      "combo": 1,
+      "pCombo": 1,
+      "cPCombo": 1,
+      "totalBase": 0,
+      "totalExtra": 0,
+      "earnedBase": 500,
+      "earnedExtra": 0,
+      "lostBase": 0,
+      "lostExtra": 0,
+      "dxScore": 3,
+      "maxDxScore": 3,
+      "fastCount": 0,
+      "lateCount": 0,
+      "counts": {
+        "tapCount": {
+          "Miss": 0,
+          "LateGood": 0,
+          "LateGreat3rd": 0,
+          "LateGreat2nd": 0,
+          "LateGreat": 0,
+          "LatePerfect3rd": 0,
+          "LatePerfect2nd": 0,
+          "Perfect": 1,
+          "FastPerfect2nd": 0,
+          "FastPerfect3rd": 0,
+          "FastGreat": 0,
+          "FastGreat2nd": 0,
+          "FastGreat3rd": 0,
+          "FastGood": 0,
+          "TooFast": 0
+        },
+        "holdCount": {
+          "Miss": 0,
+          "LateGood": 0,
+          "LateGreat3rd": 0,
+          "LateGreat2nd": 0,
+          "LateGreat": 0,
+          "LatePerfect3rd": 0,
+          "LatePerfect2nd": 0,
+          "Perfect": 0,
+          "FastPerfect2nd": 0,
+          "FastPerfect3rd": 0,
+          "FastGreat": 0,
+          "FastGreat2nd": 0,
+          "FastGreat3rd": 0,
+          "FastGood": 0,
+          "TooFast": 0
+        },
+        "slideCount": {
+          "Miss": 0,
+          "LateGood": 0,
+          "LateGreat3rd": 0,
+          "LateGreat2nd": 0,
+          "LateGreat": 0,
+          "LatePerfect3rd": 0,
+          "LatePerfect2nd": 0,
+          "Perfect": 0,
+          "FastPerfect2nd": 0,
+          "FastPerfect3rd": 0,
+          "FastGreat": 0,
+          "FastGreat2nd": 0,
+          "FastGreat3rd": 0,
+          "FastGood": 0,
+          "TooFast": 0
+        },
+        "touchCount": {
+          "Miss": 0,
+          "LateGood": 0,
+          "LateGreat3rd": 0,
+          "LateGreat2nd": 0,
+          "LateGreat": 0,
+          "LatePerfect3rd": 0,
+          "LatePerfect2nd": 0,
+          "Perfect": 0,
+          "FastPerfect2nd": 0,
+          "FastPerfect3rd": 0,
+          "FastGreat": 0,
+          "FastGreat2nd": 0,
+          "FastGreat3rd": 0,
+          "FastGood": 0,
+          "TooFast": 0
+        },
+        "breakCount": {
+          "Miss": 0,
+          "LateGood": 0,
+          "LateGreat3rd": 0,
+          "LateGreat2nd": 0,
+          "LateGreat": 0,
+          "LatePerfect3rd": 0,
+          "LatePerfect2nd": 0,
+          "Perfect": 0,
+          "FastPerfect2nd": 0,
+          "FastPerfect3rd": 0,
+          "FastGreat": 0,
+          "FastGreat2nd": 0,
+          "FastGreat3rd": 0,
+          "FastGood": 0,
+          "TooFast": 0
+        }
+      }
+    },
+    "currentTime": 0
+  }
+}
+```
 
 ## Host Workflow
 
-## Recommended gameplay loop
+### Recommended gameplay loop
 
 1. create an empty session with `lnmai_create_empty_session_handle`
 2. load chart text with `lnmai_load_chart_into_session_from_text`
@@ -381,23 +933,12 @@ Fields:
 9. consume `events`, `audioCommands`, `renderCommands`, `score`, and `currentTime`
 10. free the session handle with `lnmai_free_game_state_handle`
 
-## Summary
+### When to use each parser boundary
 
-The currently implemented FFI supports:
-
-- parsing maidata/Simai chart text
-- loading chart text directly into a stateful session handle
-- retrieving lowered chart JSON from a loaded session
-- stepping runtime state from timed per-frame input
-- receiving judge, audio, and render commands
-- operating through a dedicated-thread-friendly handle API
-
-For gameplay hosts, the primary API is:
-
-- `lnmai_create_empty_session_handle`
-- `lnmai_load_chart_into_session_from_text`
-- `lnmai_step_game_state_handle_light`
-- `lnmai_free_game_state_handle`
+- use `inspection` when building editors, diagnostics, or parser-debug tools
+- use `normalized` when you need semantically-stable chart content before runtime lowering
+- use `lowered` when you need the exact runtime-ready note specification
+- use the session runtime when you want Lean to own the authoritative live state
 
 ## Wrapper Layers
 
@@ -416,8 +957,12 @@ This header provides:
 - `lnmai_session_load_chart_from_text`
 - `lnmai_session_load_chart_from_json`
 - `lnmai_session_advance_frame_light`
+- `lnmai_session_advance_frame_full`
 - `lnmai_session_get_lowered_chart_json`
+- `lnmai_session_get_state_json`
 - `lnmai_session_unload_chart`
+- `lnmai_session_free_empty`
+- `lnmai_session_free_loaded`
 
 The wrapper is header-only and keeps the typestate split at the C API level,
 while still using the underlying `UInt64` Lean handle internally.
@@ -440,3 +985,22 @@ with transitions like:
 - `empty.load_chart_text(...) -> Session<Loaded>`
 - `loaded.advance_frame_light(...)`
 - `loaded.unload_chart() -> Session<Empty>`
+
+## Summary
+
+The currently implemented FFI supports:
+
+- parsing maidata / Simai chart text at multiple IR boundaries
+- exposing source inspection, normalized IR, and lowered runtime IR
+- loading chart text directly into a stateful session handle
+- retrieving lowered chart JSON from a loaded session
+- stepping runtime state from timed per-frame input
+- receiving judge, audio, and render commands
+- operating through a dedicated-thread-friendly handle API
+
+For gameplay hosts, the primary API is:
+
+- `lnmai_create_empty_session_handle`
+- `lnmai_load_chart_into_session_from_text`
+- `lnmai_step_game_state_handle_light`
+- `lnmai_free_game_state_handle`

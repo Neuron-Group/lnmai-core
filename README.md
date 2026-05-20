@@ -127,6 +127,9 @@ The proposal lives in `docs/hand-tactic-dsl.md`.
 The current concrete FFI boundary and recommended host API are documented in
 `docs/ffi-api.md`.
 
+The JSON-visible parser/runtime payload structures and IR transformation stages are
+documented in `docs/ffi-ir.md`.
+
 Summary:
 
 - represent a hand tactic as timestamped button and sensor trigger actions
