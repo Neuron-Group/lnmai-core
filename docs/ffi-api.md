@@ -27,7 +27,15 @@ Public host-side declarations added in this repo:
 - `include/lnmai_ffi.h`
 - `include/lnmai_session.h`
 - `bindings/rust/mod.rs`
+- `bindings/rust/types.rs`
 - `bindings/rust/session.rs`
+
+Rust implementation note:
+
+- these Rust binding entrypoints are thin wrappers over shared sources in `shared/`
+- `shared/rust_ffi_raw.rs` contains raw symbol declarations and runtime init
+- `shared/rust_ffi_session.rs` contains the typestate session wrapper
+- `shared/rust_ffi_types.rs` contains typed JSON payload mirrors
 
 ## Runtime Model
 
@@ -972,6 +980,7 @@ while still using the underlying `UInt64` Lean handle internally.
 For Rust hosts, use:
 
 - `bindings/rust/mod.rs`
+- `bindings/rust/types.rs`
 - `bindings/rust/session.rs`
 
 The wrapper exposes:

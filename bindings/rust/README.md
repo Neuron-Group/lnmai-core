@@ -6,7 +6,16 @@ implemented `lnmai-core` Lean FFI.
 Files:
 
 - `bindings/rust/mod.rs` — raw symbol declarations and a minimal init helper
+- `bindings/rust/types.rs` — typed JSON-visible Lean payload mirrors
 - `bindings/rust/session.rs` — safe-ish typestate session wrapper over the raw FFI
+
+Implementation note:
+
+- `bindings/rust/types.rs` is sourced from the shared schema file at `shared/rust_ffi_types.rs`
+- `bindings/rust/mod.rs` is sourced from the shared raw FFI file at `shared/rust_ffi_raw.rs`
+- `bindings/rust/session.rs` is sourced from the shared session wrapper file at `shared/rust_ffi_session.rs`
+- the root crate `src/types.rs` uses that same shared file to keep both Rust surfaces aligned
+- the root crate `src/raw.rs` and `src/session.rs` use those same shared files too
 
 Notes:
 
@@ -20,6 +29,7 @@ Recommended next step for real host integration:
 
 - wire these files into a small Rust crate layout, for example:
   - `pub mod raw;` using `bindings/rust/mod.rs`
+  - `pub mod types;` using `bindings/rust/types.rs`
   - `pub mod session;` using `bindings/rust/session.rs`
 - optionally replace the current lightweight JSON-envelope inspection with full
   `serde_json` decoding into typed host structs
