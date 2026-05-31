@@ -572,6 +572,9 @@ private def chartBuiltSameHeadConnPair : ChartLoader.ChartSpec :=
 private def chartBuiltSameHeadConnThreePartChain : ChartLoader.ChartSpec :=
   simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]*<7[4:1],\n"
 
+private def fallbackDemoChartLevel6 : String :=
+  "&title=Fallback Demo Chart\n&artist=\n&first=0\n&wholebpm=180\n&lv_6=?\n&inote_6=(180){16},,,,,,,,,\n{64}3qq7qq5[192#30:109],,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,{1},,,,,\nE"
+
 def test_chart_wrapper_same_head_conn_pair_achieves_ap : RuntimeCase :=
   let tactic := defaultTacticFromChart chartBuiltSameHeadConnPair
   let result := simulateChartSpecWithTactic chartBuiltSameHeadConnPair tactic
@@ -593,6 +596,23 @@ def test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap : RuntimeCase
       && eventGrades result.events = [.Perfect]
       && achievesAP result)
     "3-part connected-slide chains should propagate parent progress through immediate links and judge only the final part"
+
+def test_chart_wrapper_fallback_demo_level6_achieves_ap : RuntimeCase :=
+  match defaultTacticFromChartSection fallbackDemoChartLevel6 6 with
+  | .ok tactic =>
+      match simulateChartSectionWithTactic fallbackDemoChartLevel6 tactic 6 with
+      | .ok result =>
+          passCase "chart_wrapper_fallback_demo_level6_achieves_ap"
+            (missingJudgedNoteIndices result = []
+              && eventKinds result.events = [.Slide]
+              && eventNoteIndices result.events = [2]
+              && eventGrades result.events = [.Perfect]
+              && achievesAP result)
+            "level-6 maidata fallback demo chart should parse as a connected slide chain and AP under default replay, judging only the group end"
+      | .error err =>
+          passCase "chart_wrapper_fallback_demo_level6_achieves_ap" false s!"unexpected simulation error: {err.message}"
+  | .error err =>
+      passCase "chart_wrapper_fallback_demo_level6_achieves_ap" false s!"unexpected tactic build error: {err.message}"
 
 private def activeConnSlidesState : InputModel.GameState :=
   let parentArea : Lifecycle.SlideArea :=
@@ -2805,6 +2825,7 @@ def all : List RuntimeCase :=
   , test_chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish
   , test_chart_wrapper_same_head_conn_pair_achieves_ap
   , test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap
+  , test_chart_wrapper_fallback_demo_level6_achieves_ap
   , test_conn_child_progress_force_finishes_parent
   , test_slide_judge_uses_touch_panel_offset
   , test_touch_group_majority_shares_result_same_frame
@@ -2925,6 +2946,9 @@ theorem test_chart_wrapper_same_head_conn_pair_achieves_ap_proof :
 
 theorem test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap_proof :
     test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap.passed = true := by native_decide
+
+theorem test_chart_wrapper_fallback_demo_level6_achieves_ap_proof :
+    test_chart_wrapper_fallback_demo_level6_achieves_ap.passed = true := by native_decide
 
 theorem test_conn_child_progress_force_finishes_parent_proof :
     test_conn_child_progress_force_finishes_parent.passed = true := by native_decide

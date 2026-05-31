@@ -79,7 +79,7 @@ def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Exc
     | none => TimePoint.zero
   let cleanedBody := stripComments block.rawBody
   let segments := cleanedBody.splitOn ","
-  let tokens := parseSegments segments firstOffset baseBpm 1 4 []
+  let tokens ← parseSegments segments firstOffset baseBpm 1 4 []
   let _ ← typecheckSlides tokens
   let source := sourceChartFromTokens tokens
   let (normalized, slideNotes) := lowerRawTokens (fun bpm => Time.durationFromRatMicros (Time.bpmMeasureMicrosRat bpm)) tokens

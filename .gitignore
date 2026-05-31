@@ -1,4 +1,5 @@
 /.lake
+/reference
 /tools/**/bin/
 /tools/**/obj/
 /tools/MaiMuriDX/

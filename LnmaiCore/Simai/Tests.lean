@@ -145,7 +145,8 @@ def test_slide_note_custom_bpm_star_and_duration : ParityCase :=
   | .error err =>
       supportedCase "slide_note_custom_bpm_star_and_duration"
         (err.message = "missing digit at 2" || err.message = "expected digit at 2" ||
-         err.message = "V slide requires explicit turn and end positions")
+         err.message = "V slide requires explicit turn and end positions" ||
+         err.message = "invalid connected slide syntax")
         "bare `V` slide is rejected because turn slides require explicit turn and end positions"
 
 def test_slide_note_absolute_star_wait_no_hash_and_duration : ParityCase :=
@@ -430,6 +431,29 @@ def test_same_head_subsequent_parts_are_headless : ParityCase :=
       | _ => supportedCase "same_head_subsequent_parts_are_headless" false "expected grouped slide tokens"
   | .error err => supportedCase "same_head_subsequent_parts_are_headless" false s!"unexpected parse error: {err.message}"
 
+def test_continuous_conn_qq_chain_matches_majdataplay : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(180){64}\n3qq7qq5[192#30:109],\n" with
+  | .ok chart =>
+      match chart.inspection.tokens, chart.semantic.normalized.slides, chart.semantic.lowered.slides with
+      | firstTok :: secondTok :: _, first :: second :: _, loweredFirst :: loweredSecond :: _ =>
+          supportedCase "continuous_conn_qq_chain_matches_majdataplay"
+            (chart.inspection.tokens.length = 2 &&
+             firstTok.rawText = "3qq7" && secondTok.rawText = "7qq5[192#30:109]" &&
+             first.slot = .S3 && second.slot = .S7 &&
+             first.isConnSlide && second.isConnSlide &&
+             first.isGroupHead && !first.isGroupEnd &&
+             !second.isGroupHead && second.isGroupEnd &&
+             second.parentNoteIndex = some first.noteIndex &&
+             second.startTiming = first.startTiming + first.length &&
+             first.length = Duration.fromMicros 3027778 &&
+             second.length = Duration.fromMicros 1513889 &&
+             loweredSecond.startTiming = loweredFirst.startTiming + loweredFirst.length)
+            "MajdataPlay-style continuous qq chains split into connected slide parts and preserve proportional whole-chain timing"
+      | _, _, _ =>
+          supportedCase "continuous_conn_qq_chain_matches_majdataplay" false "expected two connected qq slide parts"
+  | .error err =>
+      supportedCase "continuous_conn_qq_chain_matches_majdataplay" false s!"unexpected parse error: {err.message}"
+
 def test_normalized_topology_comes_from_typed_shape : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1<5[4:1],\n" with
   | .ok chart =>
@@ -708,6 +732,7 @@ def all : List ParityCase :=
   , test_same_head_conn_three_part_parent_chain
   , test_same_head_with_tap_head_matches_python_flattening
   , test_same_head_subsequent_parts_are_headless
+  , test_continuous_conn_qq_chain_matches_majdataplay
   , test_normalized_topology_comes_from_typed_shape
   , test_current_slide_strings_parse_strictly
   , test_strict_line2_acceptance
@@ -770,6 +795,7 @@ theorem test_normalized_short_conn_skip_rule_proof : test_normalized_short_conn_
 theorem test_same_head_conn_three_part_parent_chain_proof : test_same_head_conn_three_part_parent_chain.passed = true := by native_decide
 theorem test_same_head_with_tap_head_matches_python_flattening_proof : test_same_head_with_tap_head_matches_python_flattening.passed = true := by native_decide
 theorem test_same_head_subsequent_parts_are_headless_proof : test_same_head_subsequent_parts_are_headless.passed = true := by native_decide
+theorem test_continuous_conn_qq_chain_matches_majdataplay_proof : test_continuous_conn_qq_chain_matches_majdataplay.passed = true := by native_decide
 theorem test_normalized_topology_comes_from_typed_shape_proof : test_normalized_topology_comes_from_typed_shape.passed = true := by native_decide
 theorem test_current_slide_strings_parse_strictly_proof : test_current_slide_strings_parse_strictly.passed = true := by native_decide
 theorem test_strict_line2_acceptance_proof : test_strict_line2_acceptance.passed = true := by native_decide

@@ -264,4 +264,4 @@ elab_rules : term
 
 end LnmaiCore.Simai
 
--- #eval simai_normalized_slide! "2xs6"
+#eval (simai_normalized_chart! "&first=0\n&inote_1=\n(180){64}\n3qq7qq5[192#30:109],\n").slides.length
