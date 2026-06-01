@@ -186,6 +186,7 @@ def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
       , startTiming := note.startTiming
       , slideKind := note.slideKind
       , isClassic := note.isClassic
+      , isSlideNoHead := note.isSlideNoHead
       , isConnSlide := note.isConnSlide
       , parentNoteIndex := note.parentNoteIndex
       , isGroupHead := note.isGroupHead

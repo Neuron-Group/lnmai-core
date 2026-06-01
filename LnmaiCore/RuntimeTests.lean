@@ -614,6 +614,19 @@ def test_chart_wrapper_fallback_demo_level6_achieves_ap : RuntimeCase :=
   | .error err =>
       passCase "chart_wrapper_fallback_demo_level6_achieves_ap" false s!"unexpected tactic build error: {err.message}"
 
+def test_chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap : RuntimeCase :=
+  match defaultTacticFromChartSection fallbackDemoChartLevel6 6 with
+  | .ok tactic =>
+      let headClicks := tactic.events.filterMap (fun evt =>
+        match evt with
+        | .buttonClick _ zone => some zone
+        | _ => none)
+      passCase "chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap"
+        (headClicks = [.K3])
+        "MajdataPlay-style connected slide children remain headless in the default replay tactic and do not emit their own button click"
+  | .error err =>
+      passCase "chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap" false s!"unexpected tactic build error: {err.message}"
+
 private def activeConnSlidesState : InputModel.GameState :=
   let parentArea : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true }
@@ -2826,6 +2839,7 @@ def all : List RuntimeCase :=
   , test_chart_wrapper_same_head_conn_pair_achieves_ap
   , test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap
   , test_chart_wrapper_fallback_demo_level6_achieves_ap
+  , test_chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap
   , test_conn_child_progress_force_finishes_parent
   , test_slide_judge_uses_touch_panel_offset
   , test_touch_group_majority_shares_result_same_frame
@@ -2949,6 +2963,9 @@ theorem test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap_proof :
 
 theorem test_chart_wrapper_fallback_demo_level6_achieves_ap_proof :
     test_chart_wrapper_fallback_demo_level6_achieves_ap.passed = true := by native_decide
+
+theorem test_chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap_proof :
+    test_chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap.passed = true := by native_decide
 
 theorem test_conn_child_progress_force_finishes_parent_proof :
     test_conn_child_progress_force_finishes_parent.passed = true := by native_decide

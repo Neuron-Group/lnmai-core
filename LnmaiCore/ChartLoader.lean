@@ -85,6 +85,7 @@ structure SlideChartNote where
   startTiming   : TimePoint := TimePoint.zero
   slideKind     : SlideKind := .Single
   isClassic     : Bool := false
+  isSlideNoHead : Bool := false
   isConnSlide   : Bool := false
   parentNoteIndex : Option Nat := none
   isGroupHead   : Bool := false

@@ -27,6 +27,7 @@ structure SlideTimingSkeleton where
   noteIndex : Nat
   headSemanticTime : TimePoint
   headInputTime : TimePoint
+  hasHeadInput : Bool := true
   startSemanticTime : TimePoint
   startInputTime : TimePoint
   endSemanticTime : TimePoint
@@ -395,6 +396,7 @@ def chartTimingSkeleton (chart : ChartLoader.ChartSpec) : List NoteTimingSkeleto
       { noteIndex := note.noteIndex
       , headSemanticTime := note.timing
       , headInputTime := note.timing
+      , hasHeadInput := !note.isSlideNoHead
       , startSemanticTime := note.startTiming
       , startInputTime := sensorInputTime note.startTiming
       , endSemanticTime := judgeSemanticTime
@@ -430,7 +432,7 @@ private def flattenEventLists (lists : List (List TimedInputEvent)) : List Timed
   lists.foldr (· ++ ·) []
 
 def resolveSingleTrackSlideWithHeadEvenly (spec : SlideTimingSkeleton) : ManualTacticSequence :=
-  let head := [tapAtTime spec.headInputTime spec.headZone]
+  let head := if spec.hasHeadInput then [tapAtTime spec.headInputTime spec.headZone] else []
   let startTimes := evenlySpacedTimesBetween spec.startInputTime spec.endInputTime spec.pathSteps.length
   let endTimes := slideStepReleaseTimes startTimes spec.endInputTime
   let pathEvents :=
