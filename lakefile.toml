@@ -1,6 +1,6 @@
 name = "lnmai-core"
 version = "0.1.0"
-defaultTargets = ["lnmai-core", "Proofs"]
+defaultTargets = ["lnmai-core"]
 
 [[require]]
 name = "mathlib"
@@ -33,3 +33,15 @@ root = "Apps.RealChartVerification100524"
 [[lean_exe]]
 name = "simai-parser-cli"
 root = "Apps.SimaiParserCli"
+
+[[lean_exe]]
+name = "probe-koishi-touch54"
+root = "Apps.ProbeKoishiTouch54"
+
+[[lean_exe]]
+name = "dump-koishi-non-perfects"
+root = "Apps.DumpKoishiNonPerfects"
+
+[[lean_exe]]
+name = "probe-koishi-touchhold-cluster"
+root = "Apps.ProbeKoishiTouchHoldCluster"

@@ -6,7 +6,7 @@ private def onlyTargetBad (result : RuntimeSimulationResult) (target : Nat) : Bo
   let bad := result.events.filter (fun evt => evt.grade != JudgeGrade.Perfect)
   bad.length = 1 && bad.head?.map JudgeEvent.noteIndex = some target
 
-private def seqForTimes (t1 t2 t3 t4 : Int) : ManualTacticSequence :=
+private def seqForTimes (t1 t2 t3 t4 : ℤ) : ManualTacticSequence :=
   mkManualTacticSequence
     [ tapAt 81774171 ButtonZone.K1
     , holdSensorAt 82258042 SensorArea.A1 true
@@ -29,10 +29,10 @@ private def keepEvent (evt : TimedInputEvent) : Bool :=
   | .ok chart =>
       let baseTactic := defaultTacticFromChart chart
       let preserved : List TimedInputEvent := baseTactic.events.filter keepEvent
-      let t1s : List Int := [82258042, 82274708, 82291375, 82308042, 82324708, 82341375]
-      let t2s : List Int := [82358042, 82374675, 82391342, 82408008, 82424675]
-      let t3s : List Int := [82418042, 82434708, 82451375, 82468042]
-      let t4s : List Int := [82499977, 82516643, 82533310]
+      let t1s : List ℤ := [82258042, 82274708, 82291375, 82308042, 82324708, 82341375]
+      let t2s : List ℤ := [82358042, 82374675, 82391342, 82408008, 82424675]
+      let t3s : List ℤ := [82418042, 82434708, 82451375, 82468042]
+      let t4s : List ℤ := [82499977, 82516643, 82533310]
       for t1 in t1s do
         for t2 in t2s do
           for t3 in t3s do

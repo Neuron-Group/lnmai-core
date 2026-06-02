@@ -147,6 +147,7 @@ private def noteCount (chart : ChartLoader.ChartSpec) : Nat :=
   chart.holds.length +
   chart.touches.length +
   chart.touchHolds.length +
+  chart.slideHeads.length +
   (chart.slides.filter (fun note => !note.isConnSlide || note.isGroupEnd)).length
 
 private def judgedSlideNoteIndices (slides : List ChartLoader.SlideChartNote) : List Nat :=
@@ -158,6 +159,7 @@ def chartNoteIndices (chart : ChartLoader.ChartSpec) : List Nat :=
   (chart.holds.map (fun note => note.noteIndex)) ++
   (chart.touches.map (fun note => note.noteIndex)) ++
   (chart.touchHolds.map (fun note => note.noteIndex)) ++
+  (chart.slideHeads.map (fun note => note.noteIndex)) ++
   judgedSlideNoteIndices chart.slides
 
 def judgedNoteIndices (result : RuntimeSimulationResult) : List Nat :=
@@ -288,16 +290,16 @@ def chartSectionAchievesAPPlus
   | .ok result => achievesAPPlus result
   | .error _ => false
 
-def tapAt (micros : Int) (zone : ButtonZone) : ManualTacticAction :=
+def tapAt (micros : ℤ) (zone : ButtonZone) : ManualTacticAction :=
   .buttonClick (TimePoint.fromMicros micros) zone
 
-def holdButtonAt (micros : Int) (zone : ButtonZone) (isDown : Bool := true) : ManualTacticAction :=
+def holdButtonAt (micros : ℤ) (zone : ButtonZone) (isDown : Bool := true) : ManualTacticAction :=
   .buttonHold (TimePoint.fromMicros micros) zone isDown
 
-def touchAt (micros : Int) (area : SensorArea) : ManualTacticAction :=
+def touchAt (micros : ℤ) (area : SensorArea) : ManualTacticAction :=
   .sensorClick (TimePoint.fromMicros micros) area
 
-def holdSensorAt (micros : Int) (area : SensorArea) (isDown : Bool := true) : ManualTacticAction :=
+def holdSensorAt (micros : ℤ) (area : SensorArea) (isDown : Bool := true) : ManualTacticAction :=
   .sensorHold (TimePoint.fromMicros micros) area isDown
 
 def tapAtTime (time : TimePoint) (zone : ButtonZone) : ManualTacticAction :=
@@ -362,6 +364,15 @@ private def nthSlideAreaSpec?
   | step :: _, 0 => some step
   | _ :: rest, index + 1 => nthSlideAreaSpec? rest index
 
+private def findSlideHeadByLogicalSlideId
+    (slideHeads : List ChartLoader.SlideHeadChartNote) (logicalSlideId : Nat)
+    : Option ChartLoader.SlideHeadChartNote :=
+  slideHeads.find? (fun head => head.logicalSlideId = logicalSlideId)
+
+private def slideBodyExistsForLogicalSlideId
+    (slides : List ChartLoader.SlideChartNote) (logicalSlideId : Nat) : Bool :=
+  slides.any (fun note => note.logicalSlideId = logicalSlideId)
+
 private def slideRepresentativePathSteps (note : ChartLoader.SlideChartNote) : List (List SensorArea) :=
   let fallback := note.slot.toOuterSensorArea
   match note.slideKind with
@@ -382,6 +393,10 @@ private def slideRepresentativePathSteps (note : ChartLoader.SlideChartNote) : L
 def chartTimingSkeleton (chart : ChartLoader.ChartSpec) : List NoteTimingSkeleton :=
   let taps := chart.taps.map (fun note =>
     NoteTimingSkeleton.tap note.noteIndex note.timing note.timing note.slot.toButtonZone)
+  let standaloneSlideHeads := chart.slideHeads.filter (fun head =>
+    !(slideBodyExistsForLogicalSlideId chart.slides head.logicalSlideId))
+  let standaloneSlideHeadTaps := standaloneSlideHeads.map (fun note =>
+    NoteTimingSkeleton.tap note.noteIndex note.timing note.timing note.slot.toButtonZone)
   let holds := chart.holds.map (fun note =>
     let releaseTime := note.timing + note.length
     NoteTimingSkeleton.hold note.noteIndex note.timing note.timing releaseTime note.slot.toButtonZone)
@@ -391,19 +406,20 @@ def chartTimingSkeleton (chart : ChartLoader.ChartSpec) : List NoteTimingSkeleto
     let releaseTime := sensorInputTime (note.timing + note.length)
     NoteTimingSkeleton.touchHold note.noteIndex note.timing (sensorInputTime note.timing) releaseTime note.sensorPos)
   let slides := chart.slides.map (fun note =>
+    let head? := findSlideHeadByLogicalSlideId chart.slideHeads note.logicalSlideId
     let judgeSemanticTime := note.judgeAt.getD (note.startTiming + note.length)
     NoteTimingSkeleton.slide
       { noteIndex := note.noteIndex
-      , headSemanticTime := note.timing
-      , headInputTime := note.timing
-      , hasHeadInput := !note.isSlideNoHead
+      , headSemanticTime := head?.map (fun head => head.timing) |>.getD note.headTiming
+      , headInputTime := head?.map (fun head => head.timing) |>.getD note.headTiming
+      , hasHeadInput := head?.isSome
       , startSemanticTime := note.startTiming
       , startInputTime := sensorInputTime note.startTiming
       , endSemanticTime := judgeSemanticTime
       , endInputTime := sensorInputTime judgeSemanticTime
-      , headZone := note.slot.toButtonZone
+      , headZone := head?.map (fun head => head.slot.toButtonZone) |>.getD note.slot.toButtonZone
       , pathSteps := slideRepresentativePathSteps note })
-  sortTimingSkeleton (taps ++ holds ++ touches ++ touchHolds ++ slides)
+  sortTimingSkeleton (taps ++ standaloneSlideHeadTaps ++ holds ++ touches ++ touchHolds ++ slides)
 
 private def evenlySpacedTimesBetween (startTime endTime : TimePoint) (count : Nat) : List TimePoint :=
   match count with
@@ -541,7 +557,7 @@ theorem compileRuntimeChartSection_eq_compileLowered
     (content : String) (levelIndex : Nat := 1) :
     compileRuntimeChartSection content levelIndex = Simai.compileLowered content levelIndex := rfl
 
-private def parseIntToken? (text : String) : Option Int :=
+private def parseIntToken? (text : String) : Option ℤ :=
   text.toInt?
 
 private def parseBoolToken? (text : String) : Option Bool :=

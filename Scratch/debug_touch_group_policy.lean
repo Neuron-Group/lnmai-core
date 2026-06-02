@@ -2,8 +2,8 @@ import LnmaiCore.Basic
 import LnmaiCore.Storage
 import LnmaiCore.Proofs.Runtime
 open LnmaiCore
-private def tp (secondsMicros : Int) : TimePoint := TimePoint.fromMicros secondsMicros
-private def dur (micros : Int) : Duration := Duration.fromMicros micros
+private def tp (secondsMicros : ℤ) : TimePoint := TimePoint.fromMicros secondsMicros
+private def dur (micros : ℤ) : Duration := Duration.fromMicros micros
 #eval let touch : Lifecycle.TouchNote :=
     { params := { judgeTiming := tp 1000000, judgeOffset := Duration.zero, noteIndex := 91 }
     , state := .Judgeable

@@ -16,13 +16,13 @@ deriving Repr
 private def passCase (name : String) (passed : Bool) (note : String := "") : RuntimeCase :=
   { name := name, passed := passed, note := note }
 
-private def tp (secondsMicros : Int) : TimePoint :=
+private def tp (secondsMicros : ℤ) : TimePoint :=
   TimePoint.fromMicros secondsMicros
 
-private def dur (micros : Int) : Duration :=
+private def dur (micros : ℤ) : Duration :=
   Duration.fromMicros micros
 
-private def secs (whole : Int) : TimePoint :=
+private def secs (whole : ℤ) : TimePoint :=
   tp (whole * 1000000)
 
 private def runtimePosJsonEq (lhs rhs : RuntimePos) : Bool :=
@@ -348,7 +348,7 @@ private def wifiParentPendingFinishState : InputModel.GameState :=
     , lane := .S1
     , state := .Active Duration.zero
     , length := dur 500000
-    , timing := tp 900000
+    , headTiming := tp 900000
     , startTiming := tp 900000
     , slideKind := .Wifi
     , isConnSlide := true
@@ -369,7 +369,7 @@ private def wifiParentPendingFinishState : InputModel.GameState :=
     , lane := .S2
     , state := .Active Duration.zero
     , length := dur 500000
-    , timing := tp 900000
+    , headTiming := tp 900000
     , startTiming := tp 900000
     , slideKind := .Single
     , isConnSlide := true
@@ -402,7 +402,7 @@ private def wifiTooLateTwoSingleTailsState : InputModel.GameState :=
     , lane := .S1
     , state := .Active Duration.zero
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Wifi
     , isClassic := true
@@ -437,7 +437,7 @@ private def overlappingSlideSharedSensorState : InputModel.GameState :=
     , lane := .S1
     , state := .Active Duration.zero
     , length := dur 300000
-    , timing := tp 900000
+    , headTiming := tp 900000
     , startTiming := tp 900000
     , slideKind := .Single
     , initialQueueRemaining := 1
@@ -449,7 +449,7 @@ private def overlappingSlideSharedSensorState : InputModel.GameState :=
     , lane := .S8
     , state := .Active Duration.zero
     , length := dur 300000
-    , timing := tp 900000
+    , headTiming := tp 900000
     , startTiming := tp 900000
     , slideKind := .Single
     , initialQueueRemaining := 1
@@ -580,22 +580,22 @@ def test_chart_wrapper_same_head_conn_pair_achieves_ap : RuntimeCase :=
   let result := simulateChartSpecWithTactic chartBuiltSameHeadConnPair tactic
   passCase "chart_wrapper_same_head_conn_pair_achieves_ap"
     (missingJudgedNoteIndices result = []
-      && result.events.length = 1
-      && eventNoteIndices result.events = [2]
-      && eventGrades result.events = [.Perfect]
+      && eventKinds result.events = [.Tap, .Slide]
+      && eventNoteIndices result.events = [3, 2]
+      && eventGrades result.events = [.Perfect, .Perfect]
       && achievesAP result)
-    "MajdataPlay-style same-head connected slides judge only the group end and should AP under default replay"
+    "MajdataPlay-style same-head connected slides still judge only the group end on the body side, but default replay now also includes the explicit lowered slide-head tap"
 
 def test_chart_wrapper_same_head_conn_three_part_chain_achieves_ap : RuntimeCase :=
   let tactic := defaultTacticFromChart chartBuiltSameHeadConnThreePartChain
   let result := simulateChartSpecWithTactic chartBuiltSameHeadConnThreePartChain tactic
   passCase "chart_wrapper_same_head_conn_three_part_chain_achieves_ap"
     (missingJudgedNoteIndices result = []
-      && result.events.length = 1
-      && eventNoteIndices result.events = [3]
-      && eventGrades result.events = [.Perfect]
+      && eventKinds result.events = [.Tap, .Slide]
+      && eventNoteIndices result.events = [4, 3]
+      && eventGrades result.events = [.Perfect, .Perfect]
       && achievesAP result)
-    "3-part connected-slide chains should propagate parent progress through immediate links and judge only the final part"
+    "3-part connected-slide chains should propagate parent progress through immediate links, with one explicit lowered slide-head tap plus only the final body judgment"
 
 def test_chart_wrapper_fallback_demo_level6_achieves_ap : RuntimeCase :=
   match defaultTacticFromChartSection fallbackDemoChartLevel6 6 with
@@ -604,11 +604,11 @@ def test_chart_wrapper_fallback_demo_level6_achieves_ap : RuntimeCase :=
       | .ok result =>
           passCase "chart_wrapper_fallback_demo_level6_achieves_ap"
             (missingJudgedNoteIndices result = []
-              && eventKinds result.events = [.Slide]
-              && eventNoteIndices result.events = [2]
-              && eventGrades result.events = [.Perfect]
+              && eventKinds result.events = [.Tap, .Slide]
+              && eventNoteIndices result.events = [3, 2]
+              && eventGrades result.events = [.Perfect, .Perfect]
               && achievesAP result)
-            "level-6 maidata fallback demo chart should parse as a connected slide chain and AP under default replay, judging only the group end"
+            "level-6 maidata fallback demo chart should parse as a connected slide chain and AP under default replay, with one explicit lowered slide-head tap plus the final body judgment"
       | .error err =>
           passCase "chart_wrapper_fallback_demo_level6_achieves_ap" false s!"unexpected simulation error: {err.message}"
   | .error err =>
@@ -627,6 +627,67 @@ def test_chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap : R
   | .error err =>
       passCase "chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap" false s!"unexpected tactic build error: {err.message}"
 
+def test_default_tactic_does_not_infer_slide_head_from_body_metadata_alone : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := []
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , isSlideNoHead := false
+         , logicalSlideId := 620
+         , noteIndex := 620
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let tactic := defaultTacticFromChart chart
+  let headClicks := tactic.events.filterMap (fun evt =>
+    match evt with
+    | .buttonClick _ zone => some zone
+    | _ => none)
+  passCase "default_tactic_does_not_infer_slide_head_from_body_metadata_alone"
+    (headClicks = [])
+    "default replay must derive slide-head taps from explicit lowered head objects, not from body-side legacy flags"
+
+def test_default_tactic_uses_explicit_slide_head_even_if_body_compat_flag_is_headless : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 621, noteIndex := 721 }]
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , isSlideNoHead := true
+         , logicalSlideId := 621
+         , noteIndex := 621
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let tactic := defaultTacticFromChart chart
+  let headClicks := tactic.events.filterMap (fun evt =>
+    match evt with
+    | .buttonClick _ zone => some zone
+    | _ => none)
+  passCase "default_tactic_uses_explicit_slide_head_even_if_body_compat_flag_is_headless"
+    (headClicks = [.K1])
+    "explicit lowered slide-head objects remain the replay authority even if a body-side compatibility flag says headless"
+
+def test_default_tactic_replays_head_only_lowered_slide_chart : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 622, noteIndex := 722 }]
+    , slides := [] }
+  let tactic := defaultTacticFromChart chart
+  let headClicks := tactic.events.filterMap (fun evt =>
+    match evt with
+    | .buttonClick _ zone => some zone
+    | _ => none)
+  let result := simulateChartSpecWithTactic chart tactic
+  passCase "default_tactic_replays_head_only_lowered_slide_chart"
+    (headClicks = [.K1]
+      && eventKinds result.events = [.Tap]
+      && eventNoteIndices result.events = [722]
+      && eventGrades result.events = [.Perfect]
+      && missingJudgedNoteIndices result = []
+      && achievesAP result)
+    "head-only lowered slide artifacts still need an explicit replayed tap from the standalone slide-head object"
+
 private def activeConnSlidesState : InputModel.GameState :=
   let parentArea : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true }
@@ -637,7 +698,7 @@ private def activeConnSlidesState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -653,7 +714,7 @@ private def activeConnSlidesState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := secs 1
+    , headTiming := secs 1
     , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -686,7 +747,7 @@ private def activeFinishedSlideState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 50000)
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Single
     , isClassic := true
@@ -772,7 +833,7 @@ private def pendingConnChildState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -788,7 +849,7 @@ private def pendingConnChildState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := secs 1
+    , headTiming := secs 1
     , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -820,7 +881,7 @@ private def finishedConnChildState : InputModel.GameState :=
     , lane := .S1
     , state := .Ended
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -839,7 +900,7 @@ private def finishedConnChildState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := secs 1
+    , headTiming := secs 1
     , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -875,7 +936,7 @@ private def noProgressConnSlidesState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -891,7 +952,7 @@ private def noProgressConnSlidesState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := secs 1
+    , headTiming := secs 1
     , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -925,7 +986,7 @@ private def chainedConnSlidesState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -941,7 +1002,7 @@ private def chainedConnSlidesState : InputModel.GameState :=
     , lane := .S2
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := secs 1
+    , headTiming := secs 1
     , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -959,7 +1020,7 @@ private def chainedConnSlidesState : InputModel.GameState :=
     , lane := .S3
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := tp 1400000
+    , headTiming := tp 1400000
     , startTiming := tp 1400000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -1009,7 +1070,7 @@ private def nonEndConnSlideFinishedState : InputModel.GameState :=
     , lane := .S1
     , state := .Active Duration.zero
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -1025,7 +1086,7 @@ private def nonEndConnSlideFinishedState : InputModel.GameState :=
     , lane := .S2
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := secs 1
+    , headTiming := secs 1
     , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -1064,7 +1125,7 @@ private def tooLateNonEndConnSlideState : InputModel.GameState :=
     , lane := .S1
     , state := .Active Duration.zero
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -1100,7 +1161,7 @@ private def progressedConnSlidesState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := tp 600000
+    , headTiming := tp 600000
     , startTiming := tp 600000
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -1116,7 +1177,7 @@ private def progressedConnSlidesState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 400000
-    , timing := secs 1
+    , headTiming := secs 1
     , startTiming := secs 1
     , slideKind := .ConnPart
     , isConnSlide := true
@@ -1153,7 +1214,7 @@ private def activeWifiClassicTailState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 500000
-    , timing := tp 500000
+    , headTiming := tp 500000
     , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := true
@@ -1184,7 +1245,7 @@ private def activeWifiCenterClearedState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 500000
-    , timing := tp 500000
+    , headTiming := tp 500000
     , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := false
@@ -1221,7 +1282,7 @@ private def activeWifiCenterClearedNonTailState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 500000
-    , timing := tp 500000
+    , headTiming := tp 500000
     , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := false
@@ -1254,7 +1315,7 @@ private def activeWifiJudgedWaitState : InputModel.GameState :=
     , lane := .S1
     , state := .Judged .Perfect (dur 10000) (dur 123000)
     , length := dur 500000
-    , timing := tp 500000
+    , headTiming := tp 500000
     , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := false
@@ -1284,7 +1345,7 @@ private def activeWifiJudgedWaitNotExpiredState : InputModel.GameState :=
     , lane := .S1
     , state := .Judged .Perfect (dur 30000) (dur 123000)
     , length := dur 500000
-    , timing := tp 500000
+    , headTiming := tp 500000
     , startTiming := tp 500000
     , slideKind := .Wifi
     , isClassic := false
@@ -1320,7 +1381,7 @@ private def activeWifiTooLateState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Wifi
     , isClassic := false
@@ -1355,7 +1416,7 @@ private def activeWifiTooLateOneRemainingState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Wifi
     , isClassic := false
@@ -1388,7 +1449,7 @@ private def activeSingleSlideTooLateState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Single
     , isClassic := false
@@ -1423,7 +1484,7 @@ private def activeSingleSlideTooLateOneRemainingState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Single
     , isClassic := false
@@ -1468,7 +1529,7 @@ private def wifiPreCheckableState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 1200000
+    , headTiming := tp 1200000
     , startTiming := tp 1200000
     , slideKind := .Wifi
     , isClassic := false
@@ -1498,7 +1559,7 @@ private def wifiAtCheckableBoundaryState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 1200000
+    , headTiming := tp 1200000
     , startTiming := tp 1200000
     , slideKind := .Wifi
     , isClassic := false
@@ -1532,7 +1593,7 @@ private def wifiExactTooLateBoundaryState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Wifi
     , isClassic := false
@@ -1567,7 +1628,7 @@ private def singleSlideExactTooLateBoundaryState : InputModel.GameState :=
     , lane := .S1
     , state := .Active (dur 100000)
     , length := dur 200000
-    , timing := tp 800000
+    , headTiming := tp 800000
     , startTiming := tp 800000
     , slideKind := .Single
     , isClassic := false
@@ -1826,7 +1887,7 @@ def test_replay_frame_zero_touch_judges_same_frame : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
     { taps := []
     , holds := []
-    , touches := [ { timing := TimePoint.zero, sensorPos := .A1, isBreak := false, touchGroupId := none, touchGroupSize := none, noteIndex := 71 } ]
+    , touches := [ { timing := TimePoint.zero, sensorPos := .A1, isBreak := false, sourceGroupId := none, sourceGroupIndex := none, sourceGroupSize := none, touchGroupId := none, touchGroupSize := none, noteIndex := 71 } ]
     , touchHolds := []
     , slides := []
     , slideSkipping := true }
@@ -1850,6 +1911,9 @@ def test_replay_frame_zero_touch_hold_head_judges_same_frame : RuntimeCase :=
                       , length := dur 200000
                       , isBreak := false
                       , isEX := false
+                      , sourceGroupId := none
+                      , sourceGroupIndex := none
+                      , sourceGroupSize := none
                       , touchQueueIndex := 0
                       , touchGroupId := none
                       , touchGroupSize := none
@@ -1872,6 +1936,61 @@ def test_replay_frame_zero_touch_hold_head_judges_same_frame : RuntimeCase :=
         (firstBatchAtZero && evt.kind = .Hold && evt.noteIndex = 72 && evt.grade = .Perfect)
         "replay path preserves frame-zero touch-hold head judgment"
   | _ => passCase "replay_frame_zero_touch_hold_head_judges_same_frame" false "expected one replay touch-hold event"
+
+def test_build_game_state_groups_touch_each_batch_locally : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { taps := []
+    , holds := []
+    , touches :=
+        [ { timing := TimePoint.zero, sensorPos := .A1, isBreak := false, sourceGroupId := some 10, sourceGroupIndex := some 0, sourceGroupSize := some 2, noteIndex := 301 }
+        , { timing := TimePoint.zero, sensorPos := .A2, isBreak := false, sourceGroupId := some 10, sourceGroupIndex := some 1, sourceGroupSize := some 2, noteIndex := 302 }
+        , { timing := secs 2, sensorPos := .A5, isBreak := false, sourceGroupId := none, sourceGroupIndex := none, sourceGroupSize := none, noteIndex := 303 } ]
+    , touchHolds := []
+    , slides := []
+    , slideSkipping := true }
+  let state := ChartLoader.buildGameState chart
+  match state.touchQueues.getD .A1 { notes := [] }, state.touchQueues.getD .A2 { notes := [] }, state.touchQueues.getD .A5 { notes := [] } with
+  | qA1, qA2, qA5 =>
+      match qA1.peek, qA2.peek, qA5.peek with
+      | some a1, some a2, some a5 =>
+          passCase "build_game_state_groups_touch_each_batch_locally"
+            (a1.touchGroupId.isSome
+              && a1.touchGroupId = a2.touchGroupId
+              && a1.touchGroupSize = 2
+              && a5.touchGroupId = none
+              && a5.touchGroupSize = 1)
+            "only timing-local each touches should receive a shared touch group"
+      | _, _, _ =>
+          passCase "build_game_state_groups_touch_each_batch_locally" false "expected A1, A2, and A5 touch queue heads"
+
+def test_build_game_state_groups_touch_hold_body_locally : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { taps := []
+    , holds := []
+    , touches := []
+    , touchHolds :=
+        [ { timing := TimePoint.zero, sensorPos := .A1, length := dur 200000, isBreak := false, isEX := false, sourceGroupId := some 20, sourceGroupIndex := some 0, sourceGroupSize := some 2, noteIndex := 311 }
+        , { timing := TimePoint.zero, sensorPos := .A2, length := dur 200000, isBreak := false, isEX := false, sourceGroupId := some 20, sourceGroupIndex := some 1, sourceGroupSize := some 2, noteIndex := 312 }
+        , { timing := secs 2, sensorPos := .A5, length := dur 200000, isBreak := false, isEX := false, sourceGroupId := none, sourceGroupIndex := none, sourceGroupSize := none, noteIndex := 313 } ]
+    , slides := []
+    , slideSkipping := true }
+  let state := ChartLoader.buildGameState chart
+  match state.touchHoldQueues.getD .A1 { notes := [] }, state.touchHoldQueues.getD .A2 { notes := [] }, state.touchHoldQueues.getD .A5 { notes := [] } with
+  | qA1, qA2, qA5 =>
+      match qA1.peek, qA2.peek, qA5.peek with
+      | some a1, some a2, some a5 =>
+          passCase "build_game_state_groups_touch_hold_body_locally"
+            (a1.touchGroupId.isSome
+              && a1.touchGroupId = a2.touchGroupId
+              && a1.touchGroupSize = 2
+              && a1.touchHoldGroupId.isSome
+              && a1.touchHoldGroupId = a2.touchHoldGroupId
+              && a1.touchHoldGroupSize = 2
+              && a5.touchGroupId = none
+              && a5.touchHoldGroupId = none)
+            "touch-hold each batches should get timing-local touch share and timing-local body-share groups only"
+      | _, _, _ =>
+          passCase "build_game_state_groups_touch_hold_body_locally" false "expected A1, A2, and A5 touch-hold queue heads"
 
 private def sameSlotBriefGapHoldChainChart : ChartLoader.ChartSpec :=
   { taps := []
@@ -1932,7 +2051,7 @@ def test_frame_zero_slide_can_start_progress_same_frame : RuntimeCase :=
     , lane := .S1
     , state := .Active Duration.zero
     , length := dur 200000
-    , timing := TimePoint.zero
+    , headTiming := TimePoint.zero
     , startTiming := TimePoint.zero
     , slideKind := .Single
     , isClassic := false
@@ -1983,7 +2102,7 @@ def test_replay_slide_delays_final_event_after_internal_judged : RuntimeCase :=
     , touches := []
     , touchHolds := []
     , slides :=
-        [ { timing := TimePoint.zero
+        [ { headTiming := TimePoint.zero
           , slot := .S1
           , length := dur 200000
           , startTiming := TimePoint.zero
@@ -2093,6 +2212,122 @@ def test_same_lane_tap_queue_blocks_second_note_until_first_advances : RuntimeCa
   | _, _, _, _ =>
       passCase "same_lane_tap_queue_blocks_second_note_until_first_advances" false "expected two ordered tap events across two frames"
 
+def test_build_game_state_routes_slide_head_into_tap_queue : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 410, noteIndex := 510 }]
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , logicalSlideId := 410
+         , noteIndex := 410
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let state := ChartLoader.buildGameState chart
+  match state.tapQueues.getD .K1 { notes := [] } with
+  | queue =>
+      match queue.notes with
+      | [.slideHead note] =>
+          passCase "build_game_state_routes_slide_head_into_tap_queue"
+            (note.params.noteIndex = 510 && note.lane = .S1 && queue.currentIndex = 0)
+            "explicit lowered slide heads load through the shared tap-family button queue as dedicated slide-head runtime notes"
+      | _ =>
+          passCase "build_game_state_routes_slide_head_into_tap_queue" false "expected one tap-family queue entry for the slide head"
+
+def test_game_state_json_preserves_tap_family_kind_for_slide_head : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 410, noteIndex := 510 }]
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , logicalSlideId := 410
+         , noteIndex := 410
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let state := ChartLoader.buildGameState chart
+  let encoded := toJson state
+  let decoded : Except String InputModel.GameState :=
+    match fromJson? (α := InputModel.GameState) encoded with
+    | .ok value => .ok value
+    | .error err => .error err
+  passCase "game_state_json_preserves_tap_family_kind_for_slide_head"
+    (match decoded with
+     | .ok roundtrip =>
+         match roundtrip.tapQueues.getD .K1 { notes := [] } with
+         | { notes := [.slideHead note], currentIndex := 0 } =>
+             note.params.noteIndex = 510 && note.logicalSlideId = 410
+         | _ => false
+     | .error _ => false)
+    "runtime state JSON preserves slide-head queue entries as tagged tap-family notes"
+
+def test_build_game_state_keeps_body_only_slide_out_of_tap_queue : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := []
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , isSlideNoHead := true
+         , logicalSlideId := 411
+         , noteIndex := 411
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let state := ChartLoader.buildGameState chart
+  let tapQueue := state.tapQueues.getD .K1 { notes := [] }
+  passCase "build_game_state_keeps_body_only_slide_out_of_tap_queue"
+    tapQueue.notes.isEmpty
+    "body-only slides do not synthesize a tap-family head from slide-body metadata"
+
+def test_build_game_state_accepts_head_only_lowered_slide_chart : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 413, noteIndex := 513 }]
+    , slides := [] }
+  let state := ChartLoader.buildGameState chart
+  match state.tapQueues.getD .K1 { notes := [] } with
+  | { notes := [.slideHead note], currentIndex := 0 } =>
+      passCase "build_game_state_accepts_head_only_lowered_slide_chart"
+        (note.params.noteIndex = 513 && note.logicalSlideId = 413 && state.slides.isEmpty)
+        "lowered charts can represent a head-only slide artifact without fabricating an empty slide body"
+  | _ =>
+      passCase "build_game_state_accepts_head_only_lowered_slide_chart" false
+        "expected one slide-head queue entry and no slide bodies"
+
+def test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { holds :=
+        [ { timing := TimePoint.zero
+          , slot := .S4
+          , length := dur 200000
+          , noteIndex := 43 }
+        , { timing := TimePoint.zero
+          , slot := .S4
+          , length := dur 200000
+          , noteIndex := 44 } ] }
+  let state := ChartLoader.buildGameState chart
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [ InputModel.TimedInputEvent.buttonClick TimePoint.zero .K4
+                , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K4
+                , InputModel.TimedInputEvent.buttonHold TimePoint.zero .K4 true ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed state batch
+  let holdQueue := nextState.holdQueues.getD .K4 { notes := [] }
+  let headsJudged :=
+    nextState.activeHolds.all (fun item =>
+      match item with
+      | (.K4, hold) =>
+          match hold.state with
+          | .HeadJudged .Perfect => true
+          | _ => false
+      | _ => false)
+  passCase "same_lane_equal_time_holds_consume_shared_clicks_in_queue_order"
+    (events.isEmpty
+      && nextState.buttonQueueFrontiers.getD .K4 99 = 2
+      && holdQueue.currentIndex = 2
+      && nextState.activeHolds.length = 2
+      && headsJudged)
+    "equal-time same-lane hold queues preserve shared button-queue order, so two same-frame clicks can judge both heads"
+
 private def sameAreaTouchQueueState : InputModel.GameState :=
   let touch1 : Lifecycle.TouchNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 82 }
@@ -2201,6 +2436,80 @@ def test_future_same_lane_tap_head_does_not_steal_hold_click : RuntimeCase :=
   | _, _, _, _ =>
       passCase "future_same_lane_tap_head_does_not_steal_hold_click" false "expected head judgment state advance for the current hold while the future tap stayed queued"
 
+private def futureHoldMustNotStealTouchState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero + dur 5640000, judgeOffset := Duration.zero, noteIndex := 73 }
+    , start := .button .K5
+    , state := .HeadWaiting
+    , length := dur 200000
+    , buttonQueueIndex := 5 }
+  let touch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 54 }
+    , state := .Judgeable
+    , sensorPos := .A5
+    , touchQueueIndex := 0 }
+  { currentTime := TimePoint.zero
+  , buttonQueueFrontiers := ButtonVec.ofFn (fun zone => if zone == .K5 then 5 else 0)
+  , holdQueues := ButtonVec.ofFn (fun zone => if zone == .K5 then { notes := [hold] } else { notes := [] })
+  , activeHolds := [(.K5, hold)]
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A5 then { notes := [touch] } else { notes := [] })
+  , touchQueueFrontiers := SensorVec.ofFn (fun area => if area == .A5 then 0 else 0) }
+
+def test_future_hold_head_does_not_steal_touch_sensor_click : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.sensorClick TimePoint.zero .A5] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed futureHoldMustNotStealTouchState batch
+  match events, nextState.holdQueues.getD .K5 { notes := [] }, nextState.touchQueues.getD .A5 { notes := [] }, nextState.activeHolds with
+  | [evt], holdQueueAfter, touchQueueAfter, [(_, holdAfter)] =>
+      let holdStillWaiting := match holdAfter.state with | .HeadWaiting => true | _ => false
+      passCase "future_hold_head_does_not_steal_touch_sensor_click"
+        (evt.kind = .Touch
+          && evt.noteIndex = 54
+          && holdQueueAfter.currentIndex = 0
+          && touchQueueAfter.currentIndex = 1
+          && holdStillWaiting)
+        "reference-style gating: a far-future hold head must not consume the matching A-sensor click before it reaches its head judgeable range"
+  | _, _, _, _ =>
+      passCase "future_hold_head_does_not_steal_touch_sensor_click" false "expected the touch to judge while the far-future hold head stayed untouched"
+
+private def futureTouchHoldMustNotStealTouchState : InputModel.GameState :=
+  let touchHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero + dur 5640000, judgeOffset := Duration.zero, noteIndex := 74 }
+    , start := .sensor .A5
+    , state := .HeadWaiting
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0 }
+  let touch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 75 }
+    , state := .Judgeable
+    , sensorPos := .A5
+    , touchQueueIndex := 0 }
+  { currentTime := TimePoint.zero
+  , touchQueueFrontiers := SensorVec.ofFn (fun area => if area == .A5 then 0 else 0)
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A5 then { notes := [touch] } else { notes := [] })
+  , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A5 then { notes := [touchHold] } else { notes := [] })
+  , activeTouchHolds := [(.A5, touchHold)] }
+
+def test_future_touch_hold_head_does_not_steal_touch_sensor_click : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.sensorClick TimePoint.zero .A5] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed futureTouchHoldMustNotStealTouchState batch
+  match events, nextState.touchQueues.getD .A5 { notes := [] }, nextState.touchHoldQueues.getD .A5 { notes := [] }, nextState.activeTouchHolds with
+  | [evt], touchQueueAfter, touchHoldQueueAfter, [(_, touchHoldAfter)] =>
+      let holdStillWaiting := match touchHoldAfter.state with | .HeadWaiting => true | _ => false
+      passCase "future_touch_hold_head_does_not_steal_touch_sensor_click"
+        (evt.kind = .Touch
+          && evt.noteIndex = 75
+          && touchQueueAfter.currentIndex = 1
+          && touchHoldQueueAfter.currentIndex = 0
+          && holdStillWaiting)
+        "reference-style gating: a far-future touch-hold head must not consume same-area sensor input before its head judgeable range"
+  | _, _, _, _ =>
+      passCase "future_touch_hold_head_does_not_steal_touch_sensor_click" false "expected the touch to judge while the far-future touch-hold head stayed untouched"
+
 def test_later_same_lane_tap_does_not_bypass_earlier_hold_head : RuntimeCase :=
   let batch : InputModel.TimedInputBatch :=
     { currentTime := TimePoint.zero + dur 100000
@@ -2236,6 +2545,37 @@ def test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click : R
         "same-frame tap consumes the shared click; the hold head stays queued but becomes judgeable"
   | _, _, _, _ =>
       passCase "same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click" false "expected one tap event and a non-advanced hold head"
+
+def test_same_lane_slide_head_consumes_shared_click_before_hold_head : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 412, noteIndex := 512 }]
+    , holds := [{ timing := TimePoint.zero, slot := .S1, length := dur 200000, noteIndex := 413 }]
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , logicalSlideId := 412
+         , noteIndex := 412
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let state := ChartLoader.buildGameState chart
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+                , InputModel.TimedInputEvent.buttonHold TimePoint.zero .K1 true] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed state batch
+  match events, nextState.tapQueues.getD .K1 { notes := [] }, nextState.holdQueues.getD .K1 { notes := [] }, nextState.activeHolds with
+  | [evt], tapQueue, holdQueue, [(_, holdAfter)] =>
+      let holdHeadJudgeable := match holdAfter.state with | .HeadJudgeable => true | _ => false
+      passCase "same_lane_slide_head_consumes_shared_click_before_hold_head"
+        (evt.kind = .Tap
+          && evt.noteIndex = 512
+          && tapQueue.currentIndex = 1
+          && holdQueue.currentIndex = 0
+          && holdHeadJudgeable)
+        "ordinary slide heads now compete in the tap-family queue and consume the shared click before the hold head"
+  | _, _, _, _ =>
+      passCase "same_lane_slide_head_consumes_shared_click_before_hold_head" false "expected one slide-head tap event and a non-advanced hold head"
 
 def test_reference_style_hold_head_does_not_advance_without_own_click : RuntimeCase :=
   let batch1 : InputModel.TimedInputBatch :=
@@ -2655,7 +2995,7 @@ private def mixedGoldenInitialState : InputModel.GameState :=
     , lane := .S5
     , state := .Active Duration.zero
     , length := dur 200000
-    , timing := tp 2300000
+    , headTiming := tp 2300000
     , startTiming := tp 2300000
     , slideKind := .Single
     , trackCount := 1
@@ -2681,7 +3021,7 @@ private structure MixedGoldenExpectation where
   combo : Nat
   pCombo : Nat
   cPCombo : Nat
-  dxScore : Int
+  dxScore : ℤ
   comboState : ComboState
 
 private def mixedGoldenEventsMatchBaseShape (events : List JudgeEvent) : Bool :=
@@ -2819,6 +3159,34 @@ def test_typed_json_boundary_symbolic_only : RuntimeCase :=
       && toJson runtimePos == Json.mkObj [("sensor", Json.str "B1")])
     "typed JSON input and output are symbolic only"
 
+def test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing : RuntimeCase :=
+  let expectedQueues : List (List ChartLoader.SlideAreaSpec) :=
+    [[{ targetAreas := [.A1], policy := .Or, isLast := true, isSkippable := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]]
+  let chartWithHeadTiming :=
+    "{\"taps\":[],\"holds\":[],\"touches\":[],\"touchHolds\":[],\"slideHeads\":[],\"slides\":[{\"headTiming\":0,\"slot\":\"S1\",\"length\":1,\"startTiming\":0,\"slideKind\":\"Single\",\"logicalSlideId\":91,\"noteIndex\":91,\"judgeQueues\":[[{\"targetAreas\":[\"A1\"],\"policy\":\"Or\",\"isLast\":true,\"isSkippable\":true,\"arrowProgressWhenOn\":0,\"arrowProgressWhenFinished\":0}]]}],\"slideSkipping\":true}"
+  let chartWithLegacyTiming :=
+    "{\"taps\":[],\"holds\":[],\"touches\":[],\"touchHolds\":[],\"slideHeads\":[],\"slides\":[{\"timing\":0,\"slot\":\"S1\",\"length\":1,\"startTiming\":0,\"slideKind\":\"Single\",\"noteIndex\":92,\"judgeQueues\":[[{\"targetAreas\":[\"A1\"],\"policy\":\"Or\",\"isLast\":true,\"isSkippable\":true,\"arrowProgressWhenOn\":0,\"arrowProgressWhenFinished\":0}]]}],\"slideSkipping\":true}"
+  let parsedHeadTiming := ChartLoader.parseChartJsonString chartWithHeadTiming
+  let parsedLegacyTiming := ChartLoader.parseChartJsonString chartWithLegacyTiming
+  let headTimingOk :=
+    match parsedHeadTiming with
+    | .ok chart =>
+        match chart.slides with
+        | [slide] =>
+            slide.headTiming = TimePoint.zero &&
+            slide.slot = .S1 &&
+            slide.length = dur 1 &&
+            slide.startTiming = TimePoint.zero &&
+            slide.logicalSlideId = 91 &&
+            slide.noteIndex = 91 &&
+            reprStr slide.judgeQueues = reprStr expectedQueues
+        | _ => false
+    | .error _ => false
+  let legacyTimingRejected := exceptIsError parsedLegacyTiming
+  passCase "lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing"
+    (headTimingOk && legacyTimingRejected)
+    "lowered slide-body JSON now requires `headTiming` and rejects legacy body `timing`"
+
 def all : List RuntimeCase :=
   [ test_button_tap_can_use_matching_a_sensor
   , test_classic_hold_matching_a_sensor_keeps_body_pressed
@@ -2876,8 +3244,14 @@ def all : List RuntimeCase :=
   , test_replay_slide_delays_final_event_after_internal_judged
   , test_same_lane_tap_queue_blocks_second_note_until_first_advances
   , test_same_area_touch_queue_blocks_second_note_until_first_advances
+  , test_build_game_state_routes_slide_head_into_tap_queue
+  , test_game_state_json_preserves_tap_family_kind_for_slide_head
+  , test_build_game_state_accepts_head_only_lowered_slide_chart
+  , test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order
   , test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click
   , test_future_same_lane_tap_head_does_not_steal_hold_click
+  , test_future_hold_head_does_not_steal_touch_sensor_click
+  , test_future_touch_hold_head_does_not_steal_touch_sensor_click
   , test_later_same_lane_tap_does_not_bypass_earlier_hold_head
   , test_reference_style_hold_head_does_not_advance_without_own_click
   , test_same_lane_extra_click_allows_hold_head_after_tap
@@ -2899,6 +3273,7 @@ def all : List RuntimeCase :=
   , test_manual_tactic_hold_interval_sugar
   , test_manual_tactic_chord_sugar
   , test_typed_json_boundary_symbolic_only
+  , test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing
   ]
 
 def passedCount : Nat :=
@@ -2966,6 +3341,15 @@ theorem test_chart_wrapper_fallback_demo_level6_achieves_ap_proof :
 
 theorem test_chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap_proof :
     test_chart_wrapper_fallback_demo_level6_headless_child_emits_no_head_tap.passed = true := by native_decide
+
+theorem test_default_tactic_does_not_infer_slide_head_from_body_metadata_alone_proof :
+    test_default_tactic_does_not_infer_slide_head_from_body_metadata_alone.passed = true := by native_decide
+
+theorem test_default_tactic_uses_explicit_slide_head_even_if_body_compat_flag_is_headless_proof :
+    test_default_tactic_uses_explicit_slide_head_even_if_body_compat_flag_is_headless.passed = true := by native_decide
+
+theorem test_default_tactic_replays_head_only_lowered_slide_chart_proof :
+    test_default_tactic_replays_head_only_lowered_slide_chart.passed = true := by native_decide
 
 theorem test_conn_child_progress_force_finishes_parent_proof :
     test_conn_child_progress_force_finishes_parent.passed = true := by native_decide
@@ -3081,14 +3465,35 @@ theorem test_replay_slide_delays_final_event_after_internal_judged_proof :
 theorem test_same_lane_tap_queue_blocks_second_note_until_first_advances_proof :
     test_same_lane_tap_queue_blocks_second_note_until_first_advances.passed = true := by native_decide
 
+theorem test_build_game_state_routes_slide_head_into_tap_queue_proof :
+    test_build_game_state_routes_slide_head_into_tap_queue.passed = true := by native_decide
+
+theorem test_game_state_json_preserves_tap_family_kind_for_slide_head_proof :
+    test_game_state_json_preserves_tap_family_kind_for_slide_head.passed = true := by native_decide
+
+theorem test_build_game_state_keeps_body_only_slide_out_of_tap_queue_proof :
+    test_build_game_state_keeps_body_only_slide_out_of_tap_queue.passed = true := by native_decide
+
+theorem test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order_proof :
+    test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order.passed = true := by native_decide
+
 theorem test_same_area_touch_queue_blocks_second_note_until_first_advances_proof :
     test_same_area_touch_queue_blocks_second_note_until_first_advances.passed = true := by native_decide
 
 theorem test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click_proof :
     test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click.passed = true := by native_decide
 
+theorem test_same_lane_slide_head_consumes_shared_click_before_hold_head_proof :
+    test_same_lane_slide_head_consumes_shared_click_before_hold_head.passed = true := by native_decide
+
 theorem test_future_same_lane_tap_head_does_not_steal_hold_click_proof :
     test_future_same_lane_tap_head_does_not_steal_hold_click.passed = true := by native_decide
+
+theorem test_future_hold_head_does_not_steal_touch_sensor_click_proof :
+    test_future_hold_head_does_not_steal_touch_sensor_click.passed = true := by native_decide
+
+theorem test_future_touch_hold_head_does_not_steal_touch_sensor_click_proof :
+    test_future_touch_hold_head_does_not_steal_touch_sensor_click.passed = true := by native_decide
 
 theorem test_later_same_lane_tap_does_not_bypass_earlier_hold_head_proof :
     test_later_same_lane_tap_does_not_bypass_earlier_hold_head.passed = true := by native_decide
@@ -3137,5 +3542,8 @@ theorem test_manual_tactic_chord_sugar_proof :
 
 theorem test_typed_json_boundary_symbolic_only_proof :
     test_typed_json_boundary_symbolic_only.passed = true := by native_decide
+
+theorem test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing_proof :
+    test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing.passed = true := by native_decide
 
 end LnmaiCore.RuntimeTests

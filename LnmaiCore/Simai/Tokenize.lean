@@ -30,10 +30,26 @@ def touchAreaToSensorArea? (s : String) : Option SensorArea :=
   | area :: rest =>
       match area, rest with
       | 'C', _ => some .C
-      | 'A', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (n - 1))
-      | 'D', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (7 + n))
-      | 'E', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (16 + n))
-      | 'B', digit :: _ => digitToNat? digit >>= (fun n => SensorArea.ofIndex? (24 + n))
+      | 'A', digit :: _ =>
+          match digitToNat? digit with
+          | some 1 => some .A1 | some 2 => some .A2 | some 3 => some .A3 | some 4 => some .A4
+          | some 5 => some .A5 | some 6 => some .A6 | some 7 => some .A7 | some 8 => some .A8
+          | _ => none
+      | 'D', digit :: _ =>
+          match digitToNat? digit with
+          | some 1 => some .D1 | some 2 => some .D2 | some 3 => some .D3 | some 4 => some .D4
+          | some 5 => some .D5 | some 6 => some .D6 | some 7 => some .D7 | some 8 => some .D8
+          | _ => none
+      | 'E', digit :: _ =>
+          match digitToNat? digit with
+          | some 1 => some .E1 | some 2 => some .E2 | some 3 => some .E3 | some 4 => some .E4
+          | some 5 => some .E5 | some 6 => some .E6 | some 7 => some .E7 | some 8 => some .E8
+          | _ => none
+      | 'B', digit :: _ =>
+          match digitToNat? digit with
+          | some 1 => some .B1 | some 2 => some .B2 | some 3 => some .B3 | some 4 => some .B4
+          | some 5 => some .B5 | some 6 => some .B6 | some 7 => some .B7 | some 8 => some .B8
+          | _ => none
       | _ , _ => none
   | _ => none
 

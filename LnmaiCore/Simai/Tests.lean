@@ -1,4 +1,5 @@
 import LnmaiCore.Simai
+import LnmaiCore.Simai.DSL
 import LnmaiCore.Proofs.Simai
 import Lean.Data.Json
 
@@ -70,6 +71,49 @@ def test_simai_normalized_chart_dsl_smoke : ParityCase :=
      | slide :: _ => !slide.judgeQueues.isEmpty && slide.totalJudgeQueueLen > 0
      | _ => false)
     "normalized chart DSL exposes normalization-owned topology"
+
+def test_simai_lowered_slide_split_ir_dsl : ParityCase :=
+  let ordinary : LoweredSlideSplitIr := simai_lowered_slide_split_ir! "1-3[4:1]"
+  let connected : LoweredSlideSplitIr := simai_lowered_slide_split_ir! "1-3[4:1]*>5[4:1]"
+  supportedCase "simai_lowered_slide_split_ir_dsl"
+    (match ordinary.slideHeads, ordinary.slideBodies with
+     | [head], [body] =>
+         match connected.slideHeads, connected.slideBodies with
+         | [connHead], [firstBody, secondBody] =>
+             head.logicalNoteIndex = head.logicalSlideId &&
+             body.logicalNoteIndex = body.logicalSlideId &&
+             head.runtimeNoteIndex = head.noteIndex &&
+             body.runtimeNoteIndex = body.noteIndex &&
+             head.logicalSlideId = body.logicalSlideId &&
+             head.noteIndex != body.noteIndex &&
+             head.timingMicros = body.headTimingMicros &&
+             connHead.logicalNoteIndex = firstBody.logicalNoteIndex &&
+             connHead.runtimeNoteIndex = connHead.noteIndex &&
+             firstBody.runtimeNoteIndex = firstBody.noteIndex &&
+             connHead.logicalSlideId = firstBody.logicalSlideId &&
+             connHead.noteIndex != firstBody.noteIndex &&
+             !firstBody.isSlideNoHead &&
+             secondBody.isSlideNoHead
+         | _, _ => false
+     | _, _ => false)
+    "lowered slide DSL now shows explicit head/body split instead of only lowered slide bodies"
+
+def test_simai_normalized_slide_ir_identity_dsl : ParityCase :=
+  let slides : List NormalizedSlideIr := simai_normalized_slide_ir! "1-3[4:1]*>5[4:1]"
+  supportedCase "simai_normalized_slide_ir_identity_dsl"
+    (match slides with
+     | [first, second] =>
+         let firstIds := first.runtimeIds
+         let secondIds := second.runtimeIds
+         firstIds.logicalNoteIndex = first.noteIndex &&
+         firstIds.hasSeparateHeadAndBodyRuntimeIds &&
+         firstIds.primaryRuntimeNoteIndex = firstIds.bodyRuntimeNoteIndex.getD 0 &&
+         secondIds.logicalNoteIndex = second.noteIndex &&
+         secondIds.isBodyOnlyRuntimeIdShape &&
+         secondIds.primaryRuntimeNoteIndex = secondIds.bodyRuntimeNoteIndex.getD 0 &&
+         second.parentNoteIndex = some first.noteIndex
+     | _ => false)
+    "normalized slide DSL exposes separate head/body runtime ids even when it still presents one logical slide node"
 
 def test_metadata_parsing : ParityCase :=
   match parseFrontendMaidata "&title=My Awesome Song\n&artist=The Best Artist\n&des=Chart Master\n&first=1.5\n&lv_1=1\n&lv_4=10+\n&lv_5=12\n&uot_other=some_value\n" with
@@ -287,8 +331,8 @@ def test_rational_inspection_json_is_stable : ParityCase :=
       | token :: _ =>
           let bpmJson := Lean.toJson token.bpm
           let hSpeedJson := Lean.toJson token.hSpeed
-          let expectedBpmJson := Lean.Json.mkObj [("num", Lean.toJson (180 : Int)), ("den", Lean.toJson (1 : Nat)), ("decimal", Lean.Json.str "180")]
-          let expectedHSpeedJson := Lean.Json.mkObj [("num", Lean.toJson (5 : Int)), ("den", Lean.toJson (2 : Nat)), ("decimal", Lean.Json.str "2.5")]
+          let expectedBpmJson := Lean.Json.mkObj [("num", Lean.toJson (180 : ℤ)), ("den", Lean.toJson (1 : Nat)), ("decimal", Lean.Json.str "180")]
+          let expectedHSpeedJson := Lean.Json.mkObj [("num", Lean.toJson (5 : ℤ)), ("den", Lean.toJson (2 : Nat)), ("decimal", Lean.Json.str "2.5")]
           supportedCase "rational_inspection_json_is_stable"
             (bpmJson == expectedBpmJson && hSpeedJson == expectedHSpeedJson)
             "inspection rationals serialize as stable num/den/decimal objects"
@@ -314,6 +358,52 @@ def test_same_head_slide_group_lowering : ParityCase :=
             "same-head `*` groups lower to connected slides"
       | _, _, _ => supportedCase "same_head_slide_group_lowering" false "expected grouped slide tokens"
   | .error err => supportedCase "same_head_slide_group_lowering" false s!"unexpected parse error: {err.message}"
+
+def test_lowered_ordinary_slide_splits_head_and_body : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides, chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
+      | normalized :: _, head :: _, body :: _ =>
+         supportedCase "lowered_ordinary_slide_splits_head_and_body"
+            (normalized.hasHeadNote && normalized.hasBody && !normalized.isSlideNoHead &&
+             chart.semantic.lowered.slideHeads.length = 1 &&
+             chart.semantic.lowered.slides.length = 1 &&
+             head.logicalSlideId = body.logicalSlideId &&
+             head.noteIndex != body.noteIndex &&
+             head.timing = body.headTiming &&
+             head.slot = body.slot)
+            "ordinary slides now lower into one explicit slide-head note plus one slide-body note"
+      | _, _, _ => supportedCase "lowered_ordinary_slide_splits_head_and_body" false "expected one normalized slide plus one lowered slide head and one lowered slide body"
+  | .error err => supportedCase "lowered_ordinary_slide_splits_head_and_body" false s!"unexpected parse error: {err.message}"
+
+def test_lowered_headless_slide_has_body_only : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1?-3[4:1],\n" with
+  | .ok chart =>
+      supportedCase "lowered_headless_slide_has_body_only"
+        (chart.semantic.normalized.slides.all (fun note => !note.hasHeadNote && note.hasBody && note.isSlideNoHead) &&
+         chart.semantic.lowered.slideHeads.isEmpty &&
+         chart.semantic.lowered.slides.length = 1 &&
+         chart.semantic.lowered.slides.all (fun note => note.isSlideNoHead))
+        "no-head slides lower to slide-body notes without a separate slide-head note"
+  | .error err => supportedCase "lowered_headless_slide_has_body_only" false s!"unexpected parse error: {err.message}"
+
+def test_lowered_conn_group_has_one_head_for_first_body : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides, chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
+      | firstNormalized :: secondNormalized :: _, head :: _, firstBody :: secondBody :: _ =>
+          supportedCase "lowered_conn_group_has_one_head_for_first_body"
+            (firstNormalized.hasHeadNote && firstNormalized.hasBody &&
+             !secondNormalized.hasHeadNote && secondNormalized.hasBody &&
+             chart.semantic.lowered.slideHeads.length = 1 &&
+             chart.semantic.lowered.slides.length = 2 &&
+             head.logicalSlideId = firstBody.logicalSlideId &&
+             head.noteIndex != firstBody.noteIndex &&
+             !firstBody.isSlideNoHead &&
+             secondBody.isSlideNoHead)
+            "same-head connected groups lower to one slide head for the first body and headless child bodies thereafter"
+      | _, _, _ => supportedCase "lowered_conn_group_has_one_head_for_first_body" false "expected two normalized slides plus one lowered slide head and two lowered slide bodies"
+  | .error err => supportedCase "lowered_conn_group_has_one_head_for_first_body" false s!"unexpected parse error: {err.message}"
 
 def test_same_head_wifi_group_rejected : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1w5[4:1]*-3[4:1],\n" with
@@ -704,7 +794,12 @@ def test_just_right_is_debug_not_normalized_authority : ParityCase :=
   | .error err => supportedCase "just_right_is_debug_not_normalized_authority" false s!"unexpected parse error: {err.message}"
 
 def all : List ParityCase :=
-  [ test_metadata_parsing
+  [ test_simai_chart_dsl_smoke
+  , test_simai_slide_dsl_smoke
+  , test_simai_chart_level_dsl_smoke
+  , test_simai_normalized_chart_dsl_smoke
+  , test_simai_lowered_slide_split_ir_dsl
+  , test_metadata_parsing
   , test_empty_fumen
   , test_simple_tap_and_bpm
   , test_hold_note_basic_duration
@@ -725,6 +820,9 @@ def all : List ParityCase :=
   , test_unfit_bpm_quantizes_consistently
   , test_rational_inspection_json_is_stable
   , test_same_head_slide_group_lowering
+  , test_lowered_ordinary_slide_splits_head_and_body
+  , test_lowered_headless_slide_has_body_only
+  , test_lowered_conn_group_has_one_head_for_first_body
   , test_same_head_wifi_group_rejected
   , test_same_head_conn_child_start_inherits_parent_end
   , test_normalized_slide_topology_attached
@@ -788,6 +886,9 @@ theorem test_hspeed_change_proof : test_hspeed_change.passed = true := by native
 theorem test_unfit_bpm_quantizes_consistently_proof : test_unfit_bpm_quantizes_consistently.passed = true := by native_decide
 theorem test_rational_inspection_json_is_stable_proof : test_rational_inspection_json_is_stable.passed = true := by native_decide
 theorem test_same_head_slide_group_lowering_proof : test_same_head_slide_group_lowering.passed = true := by native_decide
+theorem test_lowered_ordinary_slide_splits_head_and_body_proof : test_lowered_ordinary_slide_splits_head_and_body.passed = true := by native_decide
+theorem test_lowered_headless_slide_has_body_only_proof : test_lowered_headless_slide_has_body_only.passed = true := by native_decide
+theorem test_lowered_conn_group_has_one_head_for_first_body_proof : test_lowered_conn_group_has_one_head_for_first_body.passed = true := by native_decide
 theorem test_same_head_wifi_group_rejected_proof : test_same_head_wifi_group_rejected.passed = true := by native_decide
 theorem test_same_head_conn_child_start_inherits_parent_end_proof : test_same_head_conn_child_start_inherits_parent_end.passed = true := by native_decide
 theorem test_normalized_slide_topology_attached_proof : test_normalized_slide_topology_attached.passed = true := by native_decide

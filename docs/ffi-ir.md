@@ -250,7 +250,7 @@ Fields:
 
 Fields:
 
-- `timing`: `TimePoint`
+- `headTiming`: `TimePoint` — slide-head timing anchor retained on the body-side normalized object
 - `slot`: `OuterSlot`
 - `length`: `Duration`
 - `startTiming`: `TimePoint`
@@ -262,6 +262,8 @@ Fields:
 - `isBreak`: boolean
 - `isEX`: boolean
 - `isHanabi`: boolean
+- `hasHeadNote`: normalized semantic flag for whether a judged slide head exists
+- `hasBody`: normalized semantic flag for whether a slide body exists
 - `isSlideNoHead`: boolean
 - `isForceStar`: boolean
 - `isFakeRotate`: boolean
@@ -277,6 +279,12 @@ Fields:
 - `sourceGroupSize`: optional original group size
 - `noteIndex`: note id
 - `simaiShape`: `SlideShape`
+
+Notes:
+
+- `hasHeadNote` / `hasBody` are the preferred normalized semantic fields
+- `isSlideNoHead` remains a compatibility flag derived from parser-originated chart syntax and should not be treated as the long-term authority for head/body existence
+- Rust-side typed FFI mirrors now expose `headTiming` / `hasHeadNote` / `hasBody` directly for normalized slides
 
 ### `NormalizedChart`
 
@@ -363,16 +371,34 @@ Fields:
 - `touchHoldGroupSize`: optional touch-hold group size
 - `noteIndex`: note id
 
-### `SlideChartNote`
+### `SlideHeadChartNote`
 
 Fields:
 
 - `timing`: `TimePoint`
 - `slot`: `OuterSlot`
+- `isBreak`: boolean
+- `isEX`: boolean
+- `logicalSlideId`: shared logical slide identity linking the lowered head/body pair
+- `noteIndex`: note id
+
+Notes:
+
+- lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
+
+### `SlideChartNote`
+
+This lowered object represents the slide body / path-traversal widget.
+
+Fields:
+
+- `headTiming`: `TimePoint` — head-trigger timing anchor used for body checkability policy
+- `slot`: `OuterSlot`
 - `length`: `Duration`
 - `startTiming`: `TimePoint`
 - `slideKind`: runtime slide kind
 - `isClassic`: boolean
+- `isSlideNoHead`: compatibility boolean retained on the body-side lowered object; not the semantic authority for whether a judged head object exists
 - `isConnSlide`: boolean
 - `parentNoteIndex`: optional parent note id
 - `isGroupHead`: boolean
@@ -384,9 +410,16 @@ Fields:
 - `judgeAt`: optional explicit judge time
 - `isBreak`: boolean
 - `isEX`: boolean
+- `logicalSlideId`: shared logical slide identity linking the lowered head/body pair
 - `noteIndex`: note id
 - `judgeQueues`: list of judge queues, each queue a list of `SlideAreaSpec`
 - `debugSimai`: optional slide debug tuple
+
+Notes:
+
+- `headTiming` is the authoritative body-side head anchor field in the current exported schema
+- Lean-side lowered-chart JSON decoding now requires `headTiming` and rejects legacy body `timing`
+- lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
 
 ### `ChartSpec`
 
@@ -396,6 +429,7 @@ Fields:
 - `holds`: list of `HoldChartNote`
 - `touches`: list of `TouchChartNote`
 - `touchHolds`: list of `TouchHoldChartNote`
+- `slideHeads`: list of `SlideHeadChartNote`
 - `slides`: list of `SlideChartNote`
 - `slideSkipping`: optional global slide-skipping override
 
@@ -443,7 +477,7 @@ Fields:
 - `prevSensor`: previous-frame sensor-held vector
 - `buttonQueueFrontiers`: current consumption frontier for each button lane
 - `touchQueueFrontiers`: current consumption frontier for each touch area
-- `tapQueues`: per-button tap lifecycle queues
+- `tapQueues`: per-button tap-family lifecycle queues containing tagged `TapFamilyNote` entries
 - `holdQueues`: per-button hold lifecycle queues
 - `touchHoldQueues`: per-sensor touch-hold lifecycle queues
 - `touchQueues`: per-sensor touch lifecycle queues
@@ -463,6 +497,24 @@ Host guidance:
 
 - do not treat `GameState` as the most stable integration boundary
 - prefer `ChartSpec` / step results unless full state inspection is required
+
+### `TapFamilyNote`
+
+Runtime queue item used inside `GameState.tapQueues`.
+
+Serialized shape:
+
+- `kind`: `"tap"` or `"slideHead"`
+- `params`: `CommonNoteParams`
+- `lane`: `OuterSlot`
+- `state`: `TapState`
+- `buttonQueueIndex`: shared button-queue index
+- `logicalSlideId`: present for `slideHead`, linking it to its lowered/body slide identity
+
+Notes:
+
+- `tapQueues` now preserve the runtime distinction between ordinary taps and slide heads
+- slide heads still share the same tap-family queue and click competition semantics as taps and hold heads
 
 ## Runtime Output Layer
 

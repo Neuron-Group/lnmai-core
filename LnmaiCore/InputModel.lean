@@ -190,7 +190,7 @@ structure GameState where
   prevSensor    : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false
   buttonQueueFrontiers : ButtonVec Nat := ButtonVec.replicate BUTTON_ZONE_COUNT 0
   touchQueueFrontiers : SensorVec Nat := SensorVec.replicate SENSOR_AREA_COUNT 0
-  tapQueues     : ButtonQueueVec Lifecycle.TapNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
+  tapQueues     : ButtonQueueVec Lifecycle.TapFamilyNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
   holdQueues    : ButtonQueueVec Lifecycle.HoldNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
   touchHoldQueues : SensorQueueVec Lifecycle.HoldNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }
   touchQueues   : SensorQueueVec Lifecycle.TouchNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }

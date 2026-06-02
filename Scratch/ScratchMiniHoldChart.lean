@@ -2,7 +2,7 @@ import LnmaiCore
 open LnmaiCore
 open LnmaiCore.ChartLoader
 
-private def secs' (whole : Int) : TimePoint :=
+private def secs' (whole : ℤ) : TimePoint :=
   TimePoint.fromMicros (whole * 1000000)
 
 private def miniChart : ChartSpec :=

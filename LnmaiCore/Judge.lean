@@ -195,7 +195,7 @@ def correctSlideGrade : JudgeGrade → JudgeGrade
     0: >= 100%    1: [67%, 100%)   2: [33%, 67%)
     3: [5%, 33%)  4: [0%, 5%)
 -/
-private def pressBandMicros (heldMicros realityMicros : Int) : Nat :=
+private def pressBandMicros (heldMicros realityMicros : ℤ) : Nat :=
   if heldMicros >= realityMicros then 0
   else if heldMicros * 100 >= realityMicros * 67 then 1
   else if heldMicros * 100 >= realityMicros * 33 then 2

@@ -52,7 +52,7 @@ def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (Normalize
               let isWifi := parsed.shape.kind = SlideKind.wifi
               let length := token.length.getD (noteTimingIncrement token.bpm (max token.divisor 1))
               let slide : NormalizedSlide :=
-                { timing := token.timing
+                { headTiming := token.timing
                 , slot := slot
                 , length := length
                 , startTiming := token.timing + token.starWait.getD Duration.zero
@@ -64,6 +64,8 @@ def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (Normalize
                 , isBreak := token.isBreak
                 , isEX := token.isEX
                 , isHanabi := token.isHanabi
+                , hasHeadNote := !token.isSlideNoHead
+                , hasBody := true
                 , isSlideNoHead := token.isSlideNoHead
                 , isForceStar := token.isForceStar
                 , isFakeRotate := token.isFakeRotate
@@ -149,7 +151,14 @@ def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToke
             | some sensorPos =>
                 (noteIndex + 1,
                  taps, holds,
-                 { timing := token.timing, sensorPos := sensorPos, isBreak := token.isBreak, isHanabi := token.isHanabi, noteIndex := noteIndex } :: touches,
+                 { timing := token.timing
+                 , sensorPos := sensorPos
+                 , isBreak := token.isBreak
+                 , isHanabi := token.isHanabi
+                 , sourceGroupId := token.sourceGroupId
+                 , sourceGroupIndex := token.sourceGroupIndex
+                 , sourceGroupSize := token.sourceGroupSize
+                 , noteIndex := noteIndex } :: touches,
                  touchHolds, slides, slideDebug, slideSemantics)
             | none => state
         | .touchHold =>
@@ -157,7 +166,16 @@ def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToke
             | some sensorPos =>
                 (noteIndex + 1,
                  taps, holds, touches,
-                 { timing := token.timing, sensorPos := sensorPos, length := token.length.getD (measureDurSec token.bpm), isBreak := token.isBreak, isEX := token.isEX, isHanabi := token.isHanabi, noteIndex := noteIndex } :: touchHolds,
+                 { timing := token.timing
+                 , sensorPos := sensorPos
+                 , length := token.length.getD (measureDurSec token.bpm)
+                 , isBreak := token.isBreak
+                 , isEX := token.isEX
+                 , isHanabi := token.isHanabi
+                 , sourceGroupId := token.sourceGroupId
+                 , sourceGroupIndex := token.sourceGroupIndex
+                 , sourceGroupSize := token.sourceGroupSize
+                 , noteIndex := noteIndex } :: touchHolds,
                  slides, slideDebug, slideSemantics)
             | none => state
         | .slide =>
@@ -171,16 +189,52 @@ def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToke
   ({ taps := taps.reverse, holds := holds.reverse, touches := touches.reverse, touchHolds := touchHolds.reverse, slides := loweredSlides, slideDebug := slideDebug.reverse, slideSkipping := true }, slideSemantics.reverse)
 
 def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
+  let maxNoteIndex :=
+    (((chart.taps.foldl (fun acc note => max acc note.noteIndex) 0
+      |> fun acc => chart.holds.foldl (fun acc note => max acc note.noteIndex) acc)
+      |> fun acc => chart.touches.foldl (fun acc note => max acc note.noteIndex) acc)
+      |> fun acc => chart.touchHolds.foldl (fun acc note => max acc note.noteIndex) acc)
+      |> fun acc => chart.slides.foldl (fun acc note => max acc note.noteIndex) acc
+  let (_, slideHeadsRev) :=
+    chart.slides.foldl
+      (fun (state : Nat × List ChartLoader.SlideHeadChartNote) note =>
+        let (nextNoteIndex, heads) := state
+        if !note.hasHeadNote then
+          (nextNoteIndex, heads)
+        else
+          (nextNoteIndex + 1,
+            { timing := note.headTiming
+            , slot := note.slot
+            , isBreak := note.isBreak
+            , isEX := note.isEX
+            , logicalSlideId := note.noteIndex
+            , noteIndex := nextNoteIndex } :: heads))
+      (maxNoteIndex + 1, [])
   { taps := chart.taps.map (fun note =>
       { timing := note.timing, slot := note.slot, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex })
   , holds := chart.holds.map (fun note =>
       { timing := note.timing, slot := note.slot, length := note.length, isBreak := note.isBreak, isEX := note.isEX, isTouch := false, noteIndex := note.noteIndex })
   , touches := chart.touches.map (fun note =>
-      { timing := note.timing, sensorPos := note.sensorPos, isBreak := note.isBreak, noteIndex := note.noteIndex })
-  , touchHolds := chart.touchHolds.map (fun note =>
-      { timing := note.timing, sensorPos := note.sensorPos, length := note.length, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex })
-  , slides := chart.slides.map (fun note =>
       { timing := note.timing
+      , sensorPos := note.sensorPos
+      , isBreak := note.isBreak
+      , sourceGroupId := note.sourceGroupId
+      , sourceGroupIndex := note.sourceGroupIndex
+      , sourceGroupSize := note.sourceGroupSize
+      , noteIndex := note.noteIndex })
+  , touchHolds := chart.touchHolds.map (fun note =>
+      { timing := note.timing
+      , sensorPos := note.sensorPos
+      , length := note.length
+      , isBreak := note.isBreak
+      , isEX := note.isEX
+      , sourceGroupId := note.sourceGroupId
+      , sourceGroupIndex := note.sourceGroupIndex
+      , sourceGroupSize := note.sourceGroupSize
+      , noteIndex := note.noteIndex })
+  , slideHeads := slideHeadsRev.reverse
+  , slides := chart.slides.map (fun note =>
+      { headTiming := note.headTiming
       , slot := note.slot
       , length := note.length
       , startTiming := note.startTiming
@@ -196,6 +250,7 @@ def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
       , judgeAt := note.judgeAt
       , isBreak := note.isBreak
       , isEX := note.isEX
+      , logicalSlideId := note.noteIndex
       , noteIndex := note.noteIndex
       , judgeQueues := note.judgeQueues
       , debugSimai := slideDebugFor chart note.noteIndex |>.map (fun dbg =>

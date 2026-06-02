@@ -2,8 +2,8 @@ import LnmaiCore
 open LnmaiCore
 open LnmaiCore.ChartLoader
 
-private def secs' (whole : Int) : TimePoint := TimePoint.fromMicros (whole * 1000000)
-private def dur' (micros : Int) : Duration := Duration.fromMicros micros
+private def secs' (whole : ℤ) : TimePoint := TimePoint.fromMicros (whole * 1000000)
+private def dur' (micros : ℤ) : Duration := Duration.fromMicros micros
 
 private def wrapperChart : ChartSpec :=
   { holds :=

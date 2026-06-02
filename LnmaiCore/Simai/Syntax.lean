@@ -43,7 +43,7 @@ def ratToJson (value : Rat) : Json :=
 def ratFromJson? (json : Json) : Except String Rat := do
   let numJson ← json.getObjVal? "num"
   let denJson ← json.getObjVal? "den"
-  let num : Int <- fromJson? numJson
+  let num : ℤ <- fromJson? numJson
   let denNat : Nat <- fromJson? denJson
   if denNat = 0 then
     Except.error "rational denominator must be nonzero"

@@ -52,7 +52,7 @@ private def ghostOverrides : List TimingSkeletonOverride :=
   , { noteIndex := 458, resolve := tapHeadSensorAndReleaseNextFrame }
   , { noteIndex := 534, resolve := tapHeadSensorAndReleaseNextFrame } ]
 
-private def nonPerfects (result : RuntimeSimulationResult) : List (Nat × JudgeGrade × Int) :=
+private def nonPerfects (result : RuntimeSimulationResult) : List (Nat × JudgeGrade × ℤ) :=
   result.events.filterMap fun evt =>
     if evt.grade = JudgeGrade.Perfect then none else some (evt.noteIndex, evt.grade, evt.diff.toMicros)
 

@@ -5,10 +5,10 @@ import LnmaiCore.Lifecycle
 
 open LnmaiCore
 
-private def tp (secondsMicros : Int) : TimePoint :=
+private def tp (secondsMicros : ℤ) : TimePoint :=
   TimePoint.fromMicros secondsMicros
 
-private def dur (micros : Int) : Duration :=
+private def dur (micros : ℤ) : Duration :=
   Duration.fromMicros micros
 
 private def sameTimeConnPairState : InputModel.GameState :=

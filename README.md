@@ -82,6 +82,7 @@ Recent work includes:
 
 - shared proof-facing queue replay over the real slide queue core
 - shared Simai-spec to runtime-queue interop helpers
+- proof-facing slide DSL IR now exposes a shared `logicalNoteIndex`; aggregate normalized slide DSL views also expose separate `headRuntimeNoteIndex` / `bodyRuntimeNoteIndex` plus a `primaryRuntimeNoteIndex` fallback, and `NormalizedSlideIr.runtimeIds` packages those fields into a small proof-facing helper record
 - Ghost Tokyo proofs rewritten around parser-derived full queues and exact
   replay
 - removal of older reduced Ghost Tokyo proof scaffolding
@@ -106,6 +107,7 @@ Substantially in place today:
 - Lean slide-shape classification
 - Lean authoritative slide-table topology attachment
 - normalized chart IR
+- lowered slide head/body split in `ChartSpec` via explicit `slideHeads` plus slide-body objects carrying shared `logicalSlideId`
 - parser-backed Lean DSL macros
 - runtime slide construction sourced from Lean topology
 - proof-facing exact replay over parser-derived queues
@@ -113,6 +115,7 @@ Substantially in place today:
 Still open or incomplete:
 
 - cleaner FFI exposure of normalized chart/inspection boundaries
+- Rust does not yet package aggregate normalized-slide logical/head-runtime/body-runtime identity as a first-class helper, even though the lowered split model already exposes `logicalSlideId` + per-object `noteIndex`
 - broader proof coverage over the real constructor path
 - more cleanup around generic proof APIs and shared conversion surfaces
 

@@ -47,7 +47,7 @@ private def local261NonPerfects (result : RuntimeSimulationResult) : List (Nat Ã
     if evt.grade = .Perfect then none else some (evt.noteIndex, evt.grade))
 
 private def local261TouchReplacementModule
-    (noteIndex : Nat) (timeMicros : Int) (area : SensorArea) : TimingSkeletonModule :=
+    (noteIndex : Nat) (timeMicros : â„¤) (area : SensorArea) : TimingSkeletonModule :=
   fixedNoteIndexModule noteIndex
     (mkManualTacticSequence [touchAt timeMicros area])
 

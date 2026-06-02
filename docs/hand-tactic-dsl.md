@@ -229,6 +229,9 @@ For harder charts, a useful pattern is:
 
 The current override surface is `noteIndex`-based, so any note family can be replaced selectively while all other notes still use chart-derived defaults.
 
+For lowered slides, the head and body now have distinct `noteIndex` values while sharing `logicalSlideId`.
+That means an override can target the tap-family slide head or the slide body independently.
+
 Example shape:
 
 ```lean

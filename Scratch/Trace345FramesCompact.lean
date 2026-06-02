@@ -6,7 +6,7 @@ private def summarizeSlide (slide : Lifecycle.SlideNote) : String :=
   s!"time={slide.timing.toMicros} start={slide.startTiming.toMicros} checkable={slide.isCheckable} rem={Lifecycle.slideQueueRemaining slide.judgeQueues} queues={repr slide.judgeQueues}"
 
 private def keepNote (idx : Nat) : Bool := idx = 345
-private def inWindow (t : Int) : Bool := 81700000 <= t && t <= 82600000
+private def inWindow (t : ℤ) : Bool := 81700000 <= t && t <= 82600000
 
 #eval do
   let content ← IO.FS.readFile "tools/assets/11264_幽霊東京/maidata.txt"

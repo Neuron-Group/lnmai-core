@@ -7,7 +7,7 @@ namespace LnmaiCore
 
 /-- Exact machine-facing tick count in microseconds. -/
 structure TimeTick where
-  val : Int
+  val : ℤ
 deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- Duration on the local song timeline, measured in microsecond ticks. -/
@@ -22,10 +22,10 @@ deriving DecidableEq, Repr, Inhabited, BEq
 
 namespace TimeTick
 
-def ofInt (value : Int) : TimeTick :=
+def ofInt (value : ℤ) : TimeTick :=
   { val := value }
 
-def toInt (tick : TimeTick) : Int :=
+def toInt (tick : TimeTick) : ℤ :=
   tick.val
 
 def zero : TimeTick :=
@@ -60,7 +60,7 @@ namespace Duration
 def ofTick (tick : TimeTick) : Duration :=
   { ticks := tick }
 
-def ofInt (value : Int) : Duration :=
+def ofInt (value : ℤ) : Duration :=
   ofTick <| TimeTick.ofInt value
 
 def zero : Duration :=
@@ -69,13 +69,13 @@ def zero : Duration :=
 def toTick (duration : Duration) : TimeTick :=
   duration.ticks
 
-def toInt (duration : Duration) : Int :=
+def toInt (duration : Duration) : ℤ :=
   duration.ticks.val
 
-def fromMicros (micros : Int) : Duration :=
+def fromMicros (micros : ℤ) : Duration :=
   ofInt micros
 
-def toMicros (duration : Duration) : Int :=
+def toMicros (duration : Duration) : ℤ :=
   duration.toInt
 
 def scaleNat (duration : Duration) (factor : Nat) : Duration :=
@@ -158,7 +158,7 @@ namespace TimePoint
 def ofTick (tick : TimeTick) : TimePoint :=
   { ticks := tick }
 
-def ofInt (value : Int) : TimePoint :=
+def ofInt (value : ℤ) : TimePoint :=
   ofTick <| TimeTick.ofInt value
 
 def zero : TimePoint :=
@@ -167,13 +167,13 @@ def zero : TimePoint :=
 def toTick (point : TimePoint) : TimeTick :=
   point.ticks
 
-def toInt (point : TimePoint) : Int :=
+def toInt (point : TimePoint) : ℤ :=
   point.ticks.val
 
-def fromMicros (micros : Int) : TimePoint :=
+def fromMicros (micros : ℤ) : TimePoint :=
   ofInt micros
 
-def toMicros (point : TimePoint) : Int :=
+def toMicros (point : TimePoint) : ℤ :=
   point.toInt
 
 instance : LT TimePoint where
@@ -241,21 +241,21 @@ end TimePoint
 
 namespace Time
 
-def microsPerMilli : Int := 1000
+def microsPerMilli : ℤ := 1000
 
-def microsPerSecond : Int := 1000000
+def microsPerSecond : ℤ := 1000000
 
-def microsPerMinute : Int := 60 * microsPerSecond
+def microsPerMinute : ℤ := 60 * microsPerSecond
 
-def millisToMicros (millis : Int) : Int :=
+def millisToMicros (millis : ℤ) : ℤ :=
   millis * microsPerMilli
 
-private def roundDivAwayFromZero (num den : Int) : Int :=
+private def roundDivAwayFromZero (num den : ℤ) : ℤ :=
   if den = 0 then
     0
   else
     let denAbs := Int.natAbs den
-    let denPos : Int := Int.ofNat denAbs
+    let denPos : ℤ := Int.ofNat denAbs
     let numAdj :=
       if num < 0 then
         num - denPos / 2
@@ -263,7 +263,7 @@ private def roundDivAwayFromZero (num den : Int) : Int :=
         num + denPos / 2
     numAdj / denPos
 
-def quantizeRatMicros (value : Rat) : Int :=
+def quantizeRatMicros (value : Rat) : ℤ :=
   roundDivAwayFromZero value.num value.den
 
 def durationFromRatMicros (value : Rat) : Duration :=
@@ -287,10 +287,10 @@ def durationFromSecondsRat (seconds : Rat) : Duration :=
 def pointFromSecondsRat (seconds : Rat) : TimePoint :=
   pointFromRatMicros (seconds * microsPerSecond)
 
-def fromMillis (millis : Int) : Duration :=
+def fromMillis (millis : ℤ) : Duration :=
   Duration.fromMicros (millisToMicros millis)
 
-def pointFromMillis (millis : Int) : TimePoint :=
+def pointFromMillis (millis : ℤ) : TimePoint :=
   TimePoint.fromMicros (millisToMicros millis)
 
 theorem timePoint_toMicros_order_preserving (a b : TimePoint) :
@@ -333,7 +333,7 @@ theorem duration_pairwise_le_toMicros_iff (xs : List Duration) :
 
 /-- Quantize a decimal string in seconds into whole microseconds. Fractional
 microseconds are rounded half away from zero. -/
-def quantizeSecondsString (text : String) : Option Int :=
+def quantizeSecondsString (text : String) : Option ℤ :=
   let t := text.trimAscii.toString
   if t = "" then
     none
@@ -355,7 +355,7 @@ def quantizeSecondsString (text : String) : Option Int :=
               let fracDigits := frac.length
               let fracNat := frac.toNat?.getD 0
               let fracNumerator := Int.ofNat fracNat * 1000000
-              let fracDenominator : Int := Int.ofNat ((10 : Nat) ^ fracDigits)
+              let fracDenominator : ℤ := Int.ofNat ((10 : Nat) ^ fracDigits)
               let fracMicros :=
                 if fracDenominator = 0 then
                   0
@@ -376,10 +376,10 @@ def parseSecondsPointString? (text : String) : Option TimePoint :=
 
 end Time
 
-theorem duration_toInt_ofInt (value : Int) :
+theorem duration_toInt_ofInt (value : ℤ) :
     (Duration.ofInt value).toInt = value := rfl
 
-theorem timePoint_toInt_ofInt (value : Int) :
+theorem timePoint_toInt_ofInt (value : ℤ) :
     (TimePoint.ofInt value).toInt = value := rfl
 
 end LnmaiCore

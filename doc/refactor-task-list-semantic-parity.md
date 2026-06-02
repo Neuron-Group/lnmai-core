@@ -49,9 +49,12 @@ Verified reference finding:
 - reduced C# harness checks were added under `tools/majdata-harness/` to avoid guessing on mixed same-frame competition behavior
 - the harness is also now used proactively for conn-slide and wifi semantic rule-shape checks before tightening Lean-side parity tests
 
-Current next target:
+Current active downstream follow-up:
 
-- `Task 5.1 — Document subsystem processing order`
+- keep downstream consumers on the explicit lowered slide-body `headTiming` schema
+- keep Rust-side lowered consumers on explicit `logicalSlideId` + per-object `noteIndex`
+- proof-facing Lean DSL aggregate slide views now expose `logicalNoteIndex`, `headRuntimeNoteIndex`, `bodyRuntimeNoteIndex`, and `primaryRuntimeNoteIndex`
+- if Rust later needs the same aggregate convenience, add a typed helper over `FrontendSemanticChart` rather than weakening the lowered split model
 
 
 ## Phase 1 — Strengthen Semantic Safety Rails
@@ -519,20 +522,177 @@ Status: complete
 
 ### Task O.2 — Add a semantic parity checklist section to README
 
+
+## Phase 7 — Slide Head / Body Split
+
+Status: urgent, in progress
+
+
+### Task 7.1 — Freeze the split design and migration sequence
+
+Status: complete
+
 **Purpose**
 
-- communicate project direction clearly
+- establish one explicit architecture for no-head and connected-slide edge cases before further runtime patches
 
 **Target files**
 
-- `README.md`
+- `doc/slide-head-body-refactor-proposal.md`
+- `../AGENTS.md`
+- `AGENTS.md`
 
 **Actions**
 
-- add a short section explaining:
-  - semantics-first design
-  - reference parity goal
-  - non-goal of mirroring Unity internals
+- document the head/body split model
+- distinguish chart no-head from visual no-head
+- define phased migration order across parser, runtime, prover, and FFI
+- mark the work urgent for future agents
+
+**Acceptance criteria**
+
+- the proposal document exists in-repo
+- urgent guidance points maintainers to it before slide work
+
+
+### Task 7.2 — Add explicit head/body fields to normalized slide IR
+
+Status: complete
+
+**Purpose**
+
+- stop relying on a single overloaded no-head flag after normalization
+
+**Target files**
+
+- `LnmaiCore/Simai/IR.lean`
+- `LnmaiCore/Simai/Normalize.lean`
+- `LnmaiCore/Simai/DSL.lean`
+
+**Actions**
+
+- add explicit normalized fields such as:
+  - `hasHeadNote`
+  - `hasBody`
+- preserve existing parser-facing compatibility only as long as needed
+- expose the new fields through DSL inspection helpers
+
+**Acceptance criteria**
+
+- normalized slide IR clearly distinguishes body-only from ordinary slides
+
+Implementation note:
+
+- normalized slide IR now exposes explicit `hasHeadNote` and `hasBody`
+- existing `isSlideNoHead` remains as a compatibility field for parser-facing continuity, but it is no longer the preferred semantic authority for normalized head/body existence
+
+
+### Task 7.3 — Split lowered chart slide objects into head and body components
+
+Status: complete
+
+**Purpose**
+
+- move the semantic split into the lowered chart model before runtime
+
+**Target files**
+
+- `LnmaiCore/ChartLoader.lean`
+- `LnmaiCore/Simai/Normalize.lean`
+- FFI-facing chart IR files as needed
+
+**Actions**
+
+- introduce explicit lowered head/body note structures
+- ordinary slides lower to head + body
+- singleton no-head and connected child slides lower to body only
+- carry shared logical slide identity through lowering
+- make the lowered head object semantically correspond to a tap-family judged head note rather than to a special case of slide-body runtime logic
+
+**Acceptance criteria**
+
+- lowered IR can represent head-only, body-only, and head+body combinations without fake empty queues
+
+Implementation note:
+
+- `ChartSpec` now exposes explicit `slideHeads` alongside lowered slide-body objects
+- ordinary slides lower to one head plus one body
+- no-head singleton slides lower to body only
+- connected child slide parts remain body-only
+- synthetic runtime coverage now confirms lowered charts can also represent head-only slide artifacts without fabricating empty body queues
+- lowered head/body pairs now carry explicit `logicalSlideId`
+- lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
+
+
+### Task 7.4 — Narrow runtime slide-body semantics to path traversal only
+
+Status: complete
+
+**Purpose**
+
+- remove synthetic head assumptions from the slide body runtime
+
+**Target files**
+
+- `LnmaiCore/Lifecycle.lean`
+- `LnmaiCore/Scheduler.lean`
+
+**Actions**
+
+- add runtime slide-head handling explicitly as a tap-family judged note path
+- route `SlideHeadNote` through tap-family queue and click-consumption semantics
+- keep body runtime responsible only for path queues, body-path timing, connected-body propagation, and final slide judgment
+- remove any remaining use of body-side no-head fields as the semantic authority for whether a judged head note exists
+- verify singleton no-head and connected child parity cases
+
+**Acceptance criteria**
+
+- body-only slides judge correctly without head-specific branches
+- ordinary slide heads compete with taps and hold heads according to tap-family queue rules
+- body checkability remains driven by explicit head timing and connected-parent progression rather than inferred synthetic head state
+
+Implementation note:
+
+- lowered `slideHeads` now load through the tap-family button queue in `ChartLoader.buildGameState`
+- runtime tap-family queues now carry tagged `TapFamilyNote` entries, so hosts can distinguish ordinary taps from explicit `SlideHeadNote` runtime objects without changing queue competition policy
+- body-only slides no longer synthesize tap-family heads from slide-body metadata during runtime loading
+- slide-body IR now names the preserved head-trigger anchor explicitly as `headTiming`
+- runtime tests now cover both explicit slide-head queue loading and shared-click competition against hold heads
+
+
+### Task 7.5 — Rebuild prover/FFI generation around explicit head/body objects
+
+Status: substantially complete
+
+**Purpose**
+
+- derive replay inputs and exported IR structurally from the lowered model
+
+**Target files**
+
+- `LnmaiCore/Proofs/Runtime.lean`
+- `docs/ffi-ir.md`
+- `docs/ffi-api.md`
+- Rust FFI bindings
+
+**Actions**
+
+- emit head inputs only from explicit head objects
+- emit path inputs only from explicit body objects
+- export object kind and shared logical slide identity
+- stop inferring head replay input from slide-body flags such as `isSlideNoHead`
+
+**Acceptance criteria**
+
+- no replay head click is inferred from body metadata alone
+- ordinary slide replay/proof traces show a real head-note action because a head object exists, not because the body happened to carry legacy head-related flags
+
+Implementation note:
+
+- `LnmaiCore/Proofs/Runtime.lean` now builds replay/timing skeleton head input from explicit lowered `slideHeads` matched by shared `logicalSlideId`
+- runtime/proof note counting now includes explicit lowered slide-head notes
+- Rust FFI mirrors now expose lowered `slideHeads`, normalized `headTiming`, and the explicit normalized `hasHeadNote` / `hasBody` fields
+- lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
 
 
 ## Recommended Execution Order

@@ -42,6 +42,7 @@ Current implementation progress against this roadmap:
 - Phase 3 is complete for tap / touch / hold-head immediate judgment cleanup
 - Phase 4 is complete
 - Phase 5 is complete
+- Phase 7 has started; the lowered chart IR head/body split is now in place as the first migration slice
 
 What has been verified and tightened already:
 
@@ -54,6 +55,7 @@ What has been verified and tightened already:
 - slide semantic transition has been separated from render/audio derivation
 - conn-slide parent/child propagation semantics are covered beyond the earlier narrow force-finish case
 - wifi progression markers, judged-wait timing, and too-late grading are now covered by targeted parity tests
+- lowered slide IR now separates explicit slide-head objects from slide-body objects before runtime
 
 Important reference finding from `MajdataPlay`:
 

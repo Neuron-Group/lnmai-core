@@ -72,26 +72,128 @@ deriving Inhabited, Repr, ToJson, FromJson
 def TapNote.position (note : TapNote) : RuntimePos :=
   .button note.lane.toButtonZone
 
+structure SlideHeadNote where
+  params : CommonNoteParams
+  lane : OuterSlot
+  state : TapState
+  logicalSlideId : Nat := 0
+  buttonQueueIndex : Nat := 0
+deriving Inhabited, Repr, ToJson, FromJson
+
+def SlideHeadNote.position (note : SlideHeadNote) : RuntimePos :=
+  .button note.lane.toButtonZone
+
+inductive TapFamilyNote where
+  | tap : TapNote → TapFamilyNote
+  | slideHead : SlideHeadNote → TapFamilyNote
+deriving Inhabited, Repr
+
+private def getObjValAsD? {α : Type} [FromJson α] (json : Json) (field : String) (fallback : α) : Except String α :=
+  match json.getObjValAs? α field with
+  | .ok value => pure value
+  | .error _ => pure fallback
+
+instance : ToJson TapFamilyNote where
+  toJson
+    | .tap note =>
+        Json.mkObj
+          [ ("kind", Json.str "tap")
+          , ("params", toJson note.params)
+          , ("lane", toJson note.lane)
+          , ("state", toJson note.state)
+          , ("buttonQueueIndex", toJson note.buttonQueueIndex) ]
+    | .slideHead note =>
+        Json.mkObj
+          [ ("kind", Json.str "slideHead")
+          , ("params", toJson note.params)
+          , ("lane", toJson note.lane)
+          , ("state", toJson note.state)
+          , ("logicalSlideId", toJson note.logicalSlideId)
+          , ("buttonQueueIndex", toJson note.buttonQueueIndex) ]
+
+instance : FromJson TapFamilyNote where
+  fromJson? json := do
+    let kind ← json.getObjValAs? String "kind"
+    let params ← json.getObjValAs? CommonNoteParams "params"
+    let lane ← json.getObjValAs? OuterSlot "lane"
+    let state ← json.getObjValAs? TapState "state"
+    let buttonQueueIndex ← getObjValAsD? json "buttonQueueIndex" 0
+    match kind with
+    | "tap" =>
+        pure <| .tap
+          { params := params
+          , lane := lane
+          , state := state
+          , buttonQueueIndex := buttonQueueIndex }
+    | "slideHead" =>
+        let logicalSlideId ← getObjValAsD? json "logicalSlideId" params.noteIndex
+        pure <| .slideHead
+          { params := params
+          , lane := lane
+          , state := state
+          , logicalSlideId := logicalSlideId
+          , buttonQueueIndex := buttonQueueIndex }
+    | other =>
+        throw s!"unknown TapFamilyNote kind: {other}"
+
+def TapFamilyNote.params : TapFamilyNote → CommonNoteParams
+  | .tap note => note.params
+  | .slideHead note => note.params
+
+def TapFamilyNote.lane : TapFamilyNote → OuterSlot
+  | .tap note => note.lane
+  | .slideHead note => note.lane
+
+def TapFamilyNote.state : TapFamilyNote → TapState
+  | .tap note => note.state
+  | .slideHead note => note.state
+
+def TapFamilyNote.buttonQueueIndex : TapFamilyNote → Nat
+  | .tap note => note.buttonQueueIndex
+  | .slideHead note => note.buttonQueueIndex
+
+def TapFamilyNote.position : TapFamilyNote → RuntimePos
+  | .tap note => note.position
+  | .slideHead note => note.position
+
+instance : Coe TapNote TapFamilyNote where
+  coe := TapFamilyNote.tap
+
+instance : Coe SlideHeadNote TapFamilyNote where
+  coe := TapFamilyNote.slideHead
+
 private def canEnterJudgeable (currentTime judgeableStart : TimePoint) : Bool :=
   currentTime ≥ judgeableStart
 
 private def isTooLateForTapLike (currentTime timing lateLimit : TimePoint) : Bool :=
   currentTime > lateLimit
 
-private def tapMissEvent (note : TapNote) (style : JudgeStyle) : JudgeEvent :=
+private def tapLikeMissEvent (params : CommonNoteParams) (lane : OuterSlot) (style : JudgeStyle) : JudgeEvent :=
   let grade := Convert.convertGrade style JudgeGrade.Miss
   { kind := .Tap
   , grade := grade
   , diff := Duration.fromMicros (-1000)
-  , position := note.position
-  , noteIndex := note.params.noteIndex }
+  , position := .button lane.toButtonZone
+  , noteIndex := params.noteIndex }
 
-private def tapJudgeEvent (note : TapNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
+private def tapLikeJudgeEvent (params : CommonNoteParams) (lane : OuterSlot) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Tap
   , grade := grade
   , diff := judgeDiff
-  , position := note.position
-  , noteIndex := note.params.noteIndex }
+  , position := .button lane.toButtonZone
+  , noteIndex := params.noteIndex }
+
+private def tapMissEvent (note : TapNote) (style : JudgeStyle) : JudgeEvent :=
+  tapLikeMissEvent note.params note.lane style
+
+private def tapJudgeEvent (note : TapNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
+  tapLikeJudgeEvent note.params note.lane grade judgeDiff
+
+private def slideHeadMissEvent (note : SlideHeadNote) (style : JudgeStyle) : JudgeEvent :=
+  tapLikeMissEvent note.params note.lane style
+
+private def slideHeadJudgeEvent (note : SlideHeadNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
+  tapLikeJudgeEvent note.params note.lane grade judgeDiff
 
 private def judgeTapNow (note : TapNote) (style : JudgeStyle) (judgeDiff : Duration) : TapNote × Option JudgeEvent :=
   let raw := Judge.judgeTap judgeDiff note.params.isEX
@@ -126,6 +228,45 @@ def tapStep (note : TapNote) (currentTime : TimePoint) (judgeDiff : Duration) (i
     (note, none)
   | .Ended =>
     (note, none)
+
+def slideHeadStep (note : SlideHeadNote) (currentTime : TimePoint) (judgeDiff : Duration) (inputClicked : Bool) (style : JudgeStyle) : SlideHeadNote × Option JudgeEvent :=
+  let timing := note.params.effectiveTiming
+  let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC)
+  match note.state with
+  | .Waiting =>
+    if isTooLateForTapLike currentTime timing (timing + tapGoodMs) then
+      ({ note with state := TapState.Ended }, some (slideHeadMissEvent note style))
+    else if canEnterJudgeable currentTime judgeableRange.1 then
+      if inputClicked then
+        let raw := Judge.judgeTap judgeDiff note.params.isEX
+        let grade := Convert.convertGrade style raw
+        ({ note with state := TapState.Ended }, some (slideHeadJudgeEvent note grade judgeDiff))
+      else
+        ({ note with state := TapState.Judgeable }, none)
+    else
+      (note, none)
+  | .Judgeable =>
+    if isTooLateForTapLike currentTime timing (timing + tapGoodMs) then
+      ({ note with state := TapState.Ended }, some (slideHeadMissEvent note style))
+    else if inputClicked && canEnterJudgeable currentTime judgeableRange.1 then
+      let raw := Judge.judgeTap judgeDiff note.params.isEX
+      let grade := Convert.convertGrade style raw
+      ({ note with state := TapState.Ended }, some (slideHeadJudgeEvent note grade judgeDiff))
+    else
+      (note, none)
+  | .Judged _ =>
+    (note, none)
+  | .Ended =>
+    (note, none)
+
+def tapFamilyStep (note : TapFamilyNote) (currentTime : TimePoint) (judgeDiff : Duration) (inputClicked : Bool) (style : JudgeStyle) : TapFamilyNote × Option JudgeEvent :=
+  match note with
+  | .tap tap =>
+      let (next, evt) := tapStep tap currentTime judgeDiff inputClicked style
+      (.tap next, evt)
+  | .slideHead head =>
+      let (next, evt) := slideHeadStep head currentTime judgeDiff inputClicked style
+      (.slideHead next, evt)
 
 ----------------------------------------------------------------------------
 -- Hold Note State
@@ -626,7 +767,7 @@ structure SlideNote where
   lane            : OuterSlot
   state           : SlideState
   length          : Duration            -- total slide length
-  timing          : TimePoint           -- slide head timing
+  headTiming      : TimePoint           -- slide head timing anchor for body checkability
   startTiming     : TimePoint           -- when slide started
   slideKind       : SlideKind := .Single
   isClassic       : Bool := false
@@ -699,7 +840,7 @@ private def slideCurrentDiff (note : SlideNote) (currentTime : TimePoint) : Dura
   currentTime - note.params.effectiveTiming
 
 private def slideShouldBeCheckable (note : SlideNote) (currentTime : TimePoint) : Bool :=
-  let headTiming := currentTime - note.timing
+  let headTiming := currentTime - note.headTiming
   if note.isCheckable then
     true
   else if note.isConnSlide then

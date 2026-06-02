@@ -5,7 +5,7 @@ open InputModel
 private def summarizeSlide (slide : Lifecycle.SlideNote) : String :=
   s!"note={slide.params.noteIndex} timing={slide.timing.toMicros} start={slide.startTiming.toMicros} checkable={slide.isCheckable} rem={Lifecycle.slideQueueRemaining slide.judgeQueues} queues={repr slide.judgeQueues}"
 
-private def inWindow (t : Int) : Bool :=
+private def inWindow (t : ℤ) : Bool :=
   81200000 <= t && t <= 82600000
 
 private def keepNote (idx : Nat) : Bool :=

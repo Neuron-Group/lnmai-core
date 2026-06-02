@@ -69,6 +69,7 @@ structure LoadedChartSummary where
   holdCount : Nat
   touchCount : Nat
   touchHoldCount : Nat
+  slideHeadCount : Nat
   slideCount : Nat
 deriving Inhabited, Repr, ToJson, FromJson
 
@@ -92,6 +93,7 @@ private def makeLoadedChartSummary (chartSpec : ChartLoader.ChartSpec) : LoadedC
   , holdCount := chartSpec.holds.length
   , touchCount := chartSpec.touches.length
   , touchHoldCount := chartSpec.touchHolds.length
+  , slideHeadCount := chartSpec.slideHeads.length
   , slideCount := chartSpec.slides.length }
 
 private def makeLoadedChartJson (handle : UInt64) (chartSpec : ChartLoader.ChartSpec) : Json :=

@@ -422,6 +422,11 @@ Success payload:
 
 Use this when the host needs the complete `GameState` after every step.
 
+Runtime-state note:
+
+- `GameState.tapQueues` now contain tagged tap-family queue entries with `kind = "tap"` or `kind = "slideHead"`
+- slide heads still share the same button-queue frontier and click-competition semantics as taps and hold heads
+
 ### `lnmai_get_game_state_json_by_handle`
 
 Input:
@@ -577,6 +582,7 @@ Example success response for `lnmai_parse_lowered_chart_json`:
     "holds": [],
     "touches": [],
     "touchHolds": [],
+    "slideHeads": [],
     "slides": [],
     "slideSkipping": true
   }
@@ -623,6 +629,7 @@ Example success response for `lnmai_parse_frontend_chart_json`:
         "holds": [],
         "touches": [],
         "touchHolds": [],
+        "slideHeads": [],
         "slides": [],
         "slideSkipping": true
       }
@@ -730,6 +737,13 @@ Example success response for `lnmai_parse_frontend_chart_json`:
   }
 }
 ```
+
+Notes:
+
+- lowered ordinary slides now appear as separate `slideHeads` plus `slides` entries
+- lowered head/body pairs now carry explicit `logicalSlideId`
+- lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
+- exported lowered slide bodies use `headTiming` as the required body-side head anchor field
 
 This bundled response is the broadest parser-facing payload:
 

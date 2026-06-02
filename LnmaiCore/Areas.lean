@@ -35,21 +35,6 @@ def ButtonZone.all : List ButtonZone :=
 def OuterSlot.all : List OuterSlot :=
   [ .S1, .S2, .S3, .S4, .S5, .S6, .S7, .S8 ]
 
-def SensorArea.toIndex : SensorArea → Nat
-  | .A1 => 0 | .A2 => 1 | .A3 => 2 | .A4 => 3 | .A5 => 4 | .A6 => 5 | .A7 => 6 | .A8 => 7
-  | .D1 => 8 | .D2 => 9 | .D3 => 10 | .D4 => 11 | .D5 => 12 | .D6 => 13 | .D7 => 14 | .D8 => 15
-  | .C => 16
-  | .E1 => 17 | .E2 => 18 | .E3 => 19 | .E4 => 20 | .E5 => 21 | .E6 => 22 | .E7 => 23 | .E8 => 24
-  | .B1 => 25 | .B2 => 26 | .B3 => 27 | .B4 => 28 | .B5 => 29 | .B6 => 30 | .B7 => 31 | .B8 => 32
-
-def SensorArea.ofIndex? : Nat → Option SensorArea
-  | 0 => some .A1 | 1 => some .A2 | 2 => some .A3 | 3 => some .A4 | 4 => some .A5 | 5 => some .A6 | 6 => some .A7 | 7 => some .A8
-  | 8 => some .D1 | 9 => some .D2 | 10 => some .D3 | 11 => some .D4 | 12 => some .D5 | 13 => some .D6 | 14 => some .D7 | 15 => some .D8
-  | 16 => some .C
-  | 17 => some .E1 | 18 => some .E2 | 19 => some .E3 | 20 => some .E4 | 21 => some .E5 | 22 => some .E6 | 23 => some .E7 | 24 => some .E8
-  | 25 => some .B1 | 26 => some .B2 | 27 => some .B3 | 28 => some .B4 | 29 => some .B5 | 30 => some .B6 | 31 => some .B7 | 32 => some .B8
-  | _ => none
-
 def ButtonZone.toIndex : ButtonZone → Nat
   | .K1 => 0 | .K2 => 1 | .K3 => 2 | .K4 => 3 | .K5 => 4 | .K6 => 5 | .K7 => 6 | .K8 => 7
 
@@ -66,15 +51,11 @@ def OuterSlot.ofIndex? : Nat → Option OuterSlot
   | 4 => some .S5 | 5 => some .S6 | 6 => some .S7 | 7 => some .S8
   | _ => none
 
-theorem sensorArea_ofIndex_toIndex (area : SensorArea) : SensorArea.ofIndex? area.toIndex = some area := by
-  cases area <;> rfl
+def ButtonZone.storageOrder : List ButtonZone :=
+  [ .K1, .K2, .K3, .K4, .K5, .K6, .K7, .K8 ]
 
-theorem sensorArea_toIndex_ofIndex (index : Nat) (h : index < Constants.SENSOR_AREA_COUNT) :
-    match SensorArea.ofIndex? index with
-    | some area => area.toIndex = index
-    | none => False := by
-  have h' : index < 33 := by simpa [Constants.SENSOR_AREA_COUNT] using h
-  interval_cases index <;> rfl
+def OuterSlot.storageOrder : List OuterSlot :=
+  [ .S1, .S2, .S3, .S4, .S5, .S6, .S7, .S8 ]
 
 theorem buttonZone_ofIndex_toIndex (zone : ButtonZone) : ButtonZone.ofIndex? zone.toIndex = some zone := by
   cases zone <;> rfl

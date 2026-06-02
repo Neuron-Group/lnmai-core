@@ -4,7 +4,7 @@ import LnmaiCore.Proofs.Runtime
 
 open LnmaiCore
 
-private def dur (micros : Int) : Duration := Duration.fromMicros micros
+private def dur (micros : ℤ) : Duration := Duration.fromMicros micros
 
 #eval let touchHold : Lifecycle.HoldNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 170 }

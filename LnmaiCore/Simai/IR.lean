@@ -40,6 +40,9 @@ structure NormalizedTouchHold where
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
+  sourceGroupId : Option Nat := none
+  sourceGroupIndex : Option Nat := none
+  sourceGroupSize : Option Nat := none
   noteIndex : Nat
 deriving Inhabited, Repr, ToJson, FromJson
 
@@ -48,11 +51,14 @@ structure NormalizedTouch where
   sensorPos : SensorArea
   isBreak : Bool := false
   isHanabi : Bool := false
+  sourceGroupId : Option Nat := none
+  sourceGroupIndex : Option Nat := none
+  sourceGroupSize : Option Nat := none
   noteIndex : Nat
 deriving Inhabited, Repr, ToJson, FromJson
 
 structure NormalizedSlide where
-  timing : TimePoint
+  headTiming : TimePoint
   slot : OuterSlot
   length : Duration
   startTiming : TimePoint
@@ -64,6 +70,8 @@ structure NormalizedSlide where
   isBreak : Bool := false
   isEX : Bool := false
   isHanabi : Bool := false
+  hasHeadNote : Bool := true
+  hasBody : Bool := true
   isSlideNoHead : Bool := false
   isForceStar : Bool := false
   isFakeRotate : Bool := false
