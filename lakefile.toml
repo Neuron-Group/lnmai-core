@@ -7,9 +7,16 @@ name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
 rev = "v4.30.0-rc2"
 
+[[require]]
+name = "aeneas"
+path = "/Users/pingfanh/bin/aeneas/backends/lean"
+
 
 [[lean_lib]]
 name = "LnmaiCore"
+
+[[lean_lib]]
+name = "Verification"
 
 [[lean_lib]]
 name = "Proofs"
