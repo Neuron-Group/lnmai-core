@@ -147,6 +147,7 @@ public sealed class ScenarioResult
     public TapResult? Touch { get; init; }
     public TouchHoldHeadResult? TouchHold { get; init; }
     public HoldBodyResult? HoldBody { get; init; }
+    public SlideBodyResult? SlideBody { get; init; }
     public ConnSlideResult? ConnSlide { get; init; }
     public WifiResult? Wifi { get; init; }
     public string? Note { get; init; }
@@ -157,6 +158,7 @@ public sealed class ScenarioResult
         (Touch is null ? string.Empty : $"\ntouch: judged={Touch.IsJudged}, grade={Touch.Grade?.ToString() ?? "none"}") +
         (TouchHold is null ? string.Empty : $"\ntouchHoldHead: judged={TouchHold.IsJudged}, grade={TouchHold.Grade?.ToString() ?? "none"}, queueAdvanced={TouchHold.QueueAdvanced}, usedGroupShare={TouchHold.UsedGroupShare}") +
         (HoldBody is null ? string.Empty : $"\nholdBody: state={HoldBody.State}, grade={HoldBody.Grade}, ended={HoldBody.IsEnded}, holdingEffectActive={HoldBody.IsHoldingEffectActive}") +
+        (SlideBody is null ? string.Empty : $"\n{SlideBody.Format()}") +
         (ConnSlide is null ? string.Empty : $"\n{ConnSlide.Format()}") +
         (Wifi is null ? string.Empty : $"\n{Wifi.Format()}") +
         (string.IsNullOrEmpty(Note) ? string.Empty : $"\nnote: {Note}");
@@ -207,6 +209,21 @@ public sealed class SlideQueueStepResult
 {
     public required int Remaining { get; init; }
     public required bool QueueCleared { get; init; }
+}
+
+public sealed class SlideBodyResult
+{
+    public required bool IsCheckable { get; init; }
+    public required int QueueRemaining { get; init; }
+    public required bool QueueCleared { get; init; }
+    public required bool EventEmitted { get; init; }
+    public required bool HideAllBars { get; init; }
+    public required JudgeGrade? Grade { get; init; }
+    public required float RemainingWaitTimeSec { get; init; }
+
+    public string Format() =>
+        $"slideBody: checkable={IsCheckable}, queueRemaining={QueueRemaining}, queueCleared={QueueCleared}, " +
+        $"eventEmitted={EventEmitted}, hideAllBars={HideAllBars}, grade={Grade?.ToString() ?? "none"}, remainingWait={RemainingWaitTimeSec:0.###}";
 }
 
 public sealed class WifiResult

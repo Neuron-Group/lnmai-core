@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Neq2OhfKxlA=",
+  "dgSpecHash": "bSU6qPN5MKY=",
   "success": true,
-  "projectFilePath": "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
+  "projectFilePath": "/home/neuron/Projects/LambdaDX/lnmai-core-ffi/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
   "expectedPackageFiles": [],
   "logs": []
 }

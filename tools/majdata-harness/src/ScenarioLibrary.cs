@@ -107,6 +107,36 @@ public static class ScenarioLibrary
         },
         new Scenario
         {
+            Name = "Slide head-time checkability boundary is inclusive at -50ms",
+            Run = RunSlideCheckableAtMinus50ms
+        },
+        new Scenario
+        {
+            Name = "Conn child slide body becomes checkable from parent pending finish",
+            Run = RunConnChildBodyCheckableFromParentPendingFinish
+        },
+        new Scenario
+        {
+            Name = "Slide judged-wait delays final event until wait expires",
+            Run = RunSlideJudgedWaitDelaysFinalEvent
+        },
+        new Scenario
+        {
+            Name = "Ordinary non-wifi slide judged-wait delays final event until wait expires",
+            Run = RunOrdinarySlideJudgedWaitDelaysFinalEvent
+        },
+        new Scenario
+        {
+            Name = "Reference-like single-track slide body may cascade through multiple areas in one frame",
+            Run = RunReferenceLikeSingleTrackCascade
+        },
+        new Scenario
+        {
+            Name = "Connected child slide may unlock and cascade in the same frame once parent is pending finish",
+            Run = RunConnectedChildUnlockAndCascadeSameFrame
+        },
+        new Scenario
+        {
             Name = "Reference-like touch-hold stays judgeable after touch frontier advances past it",
             Run = RunTouchHoldRemainsJudgeableAfterFrontierAdvance
         },
@@ -705,6 +735,170 @@ public static class ScenarioLibrary
                 TooLateOneRemaining = JudgeGrade.Perfect,
                 TooLateManyRemaining = JudgeGrade.Perfect
             }
+        };
+    }
+
+    private static ScenarioResult RunSlideCheckableAtMinus50ms()
+    {
+        var checkable = ReferenceLikeLogic.ComputeSlideCheckable(
+            isConnSlide: false,
+            isGroupPartHead: false,
+            isGroupPart: false,
+            thisFrameSec: 1.15f,
+            headTimingSec: 1.20f,
+            parentFinished: false,
+            parentPendingFinish: false);
+
+        return new ScenarioResult
+        {
+            Name = "slide-checkable-at-minus-50ms",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            SlideBody = new SlideBodyResult
+            {
+                IsCheckable = checkable,
+                QueueRemaining = 1,
+                QueueCleared = false,
+                EventEmitted = false,
+                HideAllBars = false,
+                Grade = null,
+                RemainingWaitTimeSec = 0f
+            }
+        };
+    }
+
+    private static ScenarioResult RunConnChildBodyCheckableFromParentPendingFinish()
+    {
+        var checkable = ReferenceLikeLogic.ComputeSlideCheckable(
+            isConnSlide: true,
+            isGroupPartHead: false,
+            isGroupPart: true,
+            thisFrameSec: 0.9f,
+            headTimingSec: 1.2f,
+            parentFinished: false,
+            parentPendingFinish: true);
+
+        return new ScenarioResult
+        {
+            Name = "conn-child-body-checkable-from-parent-pending-finish",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            SlideBody = new SlideBodyResult
+            {
+                IsCheckable = checkable,
+                QueueRemaining = 2,
+                QueueCleared = false,
+                EventEmitted = false,
+                HideAllBars = false,
+                Grade = null,
+                RemainingWaitTimeSec = 0f
+            }
+        };
+    }
+
+    private static ScenarioResult RunSlideJudgedWaitDelaysFinalEvent()
+    {
+        var waiting = ReferenceLikeLogic.RunSlideJudgedWaitFrame(
+            lastWaitTimeSec: 0.03f,
+            deltaTimeSec: 0.016f,
+            storedGrade: JudgeGrade.Perfect);
+
+        var expired = ReferenceLikeLogic.RunSlideJudgedWaitFrame(
+            lastWaitTimeSec: 0f,
+            deltaTimeSec: 0.016f,
+            storedGrade: JudgeGrade.Perfect);
+
+        return new ScenarioResult
+        {
+            Name = "slide-judged-wait-delays-final-event",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            SlideBody = new SlideBodyResult
+            {
+                IsCheckable = true,
+                QueueRemaining = 0,
+                QueueCleared = true,
+                EventEmitted = expired.EventEmitted,
+                HideAllBars = expired.HideAllBars,
+                Grade = expired.Grade,
+                RemainingWaitTimeSec = waiting.RemainingWaitTimeSec
+            },
+            Note = "Reference shape keeps a judged-wait gap before final emission; Lean should only differ here if a concrete observational witness shows a mismatch."
+        };
+    }
+
+    private static ScenarioResult RunOrdinarySlideJudgedWaitDelaysFinalEvent()
+    {
+        var waiting = ReferenceLikeLogic.RunSlideJudgedWaitFrame(
+            lastWaitTimeSec: 0.05f,
+            deltaTimeSec: 0.016f,
+            storedGrade: JudgeGrade.Perfect);
+
+        var expired = ReferenceLikeLogic.RunSlideJudgedWaitFrame(
+            lastWaitTimeSec: 0f,
+            deltaTimeSec: 0.016f,
+            storedGrade: JudgeGrade.Perfect);
+
+        return new ScenarioResult
+        {
+            Name = "ordinary-slide-judged-wait-delays-final-event",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            SlideBody = new SlideBodyResult
+            {
+                IsCheckable = true,
+                QueueRemaining = 0,
+                QueueCleared = true,
+                EventEmitted = expired.EventEmitted,
+                HideAllBars = expired.HideAllBars,
+                Grade = expired.Grade,
+                RemainingWaitTimeSec = waiting.RemainingWaitTimeSec
+            },
+            Note = "This is the ordinary non-wifi counterpart of the judged-wait witness. The final slide event should still wait for the stored delay to expire before emission."
+        };
+    }
+
+    private static ScenarioResult RunReferenceLikeSingleTrackCascade()
+    {
+        var queue = new List<SlideAreaState>
+        {
+            new() { SensorArea = 0, IsLast = false, IsSkippable = true, WasOn = true, WasOff = true },
+            new() { SensorArea = 1, IsLast = false, IsSkippable = true, WasOn = true, WasOff = true },
+            new() { SensorArea = 2, IsLast = true, IsSkippable = false, WasOn = false, WasOff = false }
+        };
+
+        var result = ReferenceLikeLogic.RunReferenceLikeSingleTrackSlideBodyFrame(queue, 0, 1);
+
+        return new ScenarioResult
+        {
+            Name = "reference-like-single-track-cascade",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            SlideBody = result,
+            Note = "This reduced model also cascades through multiple legal areas in one frame. If Lean differs from Unity by one frame on recursive segmentation without observable replay mismatch, treat that as semantic innovation rather than a bug candidate."
+        };
+    }
+
+    private static ScenarioResult RunConnectedChildUnlockAndCascadeSameFrame()
+    {
+        var childQueue = new List<SlideAreaState>
+        {
+            new() { SensorArea = 4, IsLast = false, IsSkippable = true, WasOn = true, WasOff = true },
+            new() { SensorArea = 5, IsLast = true, IsSkippable = false, WasOn = false, WasOff = false }
+        };
+
+        var result = ReferenceLikeLogic.RunReferenceLikeConnectedChildCascadeFrame(
+            parentPendingFinish: true,
+            childQueue,
+            4);
+
+        return new ScenarioResult
+        {
+            Name = "connected-child-unlock-and-cascade-same-frame",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            SlideBody = result,
+            Note = "This models family-composed slide-body recursion: the child becomes checkable from parent pending finish and can immediately consume legal body progress in the same frame."
         };
     }
 }

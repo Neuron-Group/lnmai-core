@@ -3,6 +3,64 @@ namespace MajdataHarness;
 public static class ReferenceLikeLogic
 {
     private const float DeluxeHoldReleaseIgnoreTimeSec = 0.15f;
+    private const float SlideCheckableLeadTimeSec = 0.05f;
+    private const float FloatBoundaryEpsilon = 0.000001f;
+
+    public static bool ComputeSlideCheckable(
+        bool isConnSlide,
+        bool isGroupPartHead,
+        bool isGroupPart,
+        float thisFrameSec,
+        float headTimingSec,
+        bool parentFinished,
+        bool parentPendingFinish)
+    {
+        var startTiming = thisFrameSec - headTimingSec;
+        var crossedHeadBoundary =
+            startTiming > -SlideCheckableLeadTimeSec ||
+            MathF.Abs(startTiming + SlideCheckableLeadTimeSec) <= FloatBoundaryEpsilon;
+        if (isGroupPart)
+        {
+            if (isGroupPartHead)
+                return crossedHeadBoundary;
+
+            return isConnSlide && (parentFinished || parentPendingFinish);
+        }
+
+        return crossedHeadBoundary;
+    }
+
+    public static SlideBodyResult RunSlideJudgedWaitFrame(
+        float lastWaitTimeSec,
+        float deltaTimeSec,
+        JudgeGrade storedGrade)
+    {
+        if (lastWaitTimeSec <= 0f)
+        {
+            return new SlideBodyResult
+            {
+                IsCheckable = true,
+                QueueRemaining = 0,
+                QueueCleared = true,
+                EventEmitted = true,
+                HideAllBars = true,
+                Grade = storedGrade,
+                RemainingWaitTimeSec = 0f
+            };
+        }
+
+        var remaining = lastWaitTimeSec - deltaTimeSec;
+        return new SlideBodyResult
+        {
+            IsCheckable = true,
+            QueueRemaining = 0,
+            QueueCleared = true,
+            EventEmitted = false,
+            HideAllBars = false,
+            Grade = storedGrade,
+            RemainingWaitTimeSec = remaining
+        };
+    }
 
     public static int ComputeWifiProgressMarker(bool isClassic, List<List<WifiQueueHead>> queues)
     {
@@ -98,6 +156,54 @@ public static class ReferenceLikeLogic
                 QueueCleared = queue.Count == 0
             };
         }
+    }
+
+    public static SlideBodyResult RunReferenceLikeSingleTrackSlideBodyFrame(
+        List<SlideAreaState> queue,
+        params int[] activeSensors)
+    {
+        var step = RunReferenceLikeSingleTrackSlideStep(queue, activeSensors);
+        return new SlideBodyResult
+        {
+            IsCheckable = true,
+            QueueRemaining = step.Remaining,
+            QueueCleared = step.QueueCleared,
+            EventEmitted = false,
+            HideAllBars = false,
+            Grade = null,
+            RemainingWaitTimeSec = 0f
+        };
+    }
+
+    public static SlideBodyResult RunReferenceLikeConnectedChildCascadeFrame(
+        bool parentPendingFinish,
+        List<SlideAreaState> childQueue,
+        params int[] activeSensors)
+    {
+        var checkable = ComputeSlideCheckable(
+            isConnSlide: true,
+            isGroupPartHead: false,
+            isGroupPart: true,
+            thisFrameSec: 0f,
+            headTimingSec: 1f,
+            parentFinished: false,
+            parentPendingFinish: parentPendingFinish);
+
+        if (!checkable)
+        {
+            return new SlideBodyResult
+            {
+                IsCheckable = false,
+                QueueRemaining = childQueue.Count,
+                QueueCleared = false,
+                EventEmitted = false,
+                HideAllBars = false,
+                Grade = null,
+                RemainingWaitTimeSec = 0f
+            };
+        }
+
+        return RunReferenceLikeSingleTrackSlideBodyFrame(childQueue, activeSensors);
     }
 
     public static TapResult RunTouchCheck(

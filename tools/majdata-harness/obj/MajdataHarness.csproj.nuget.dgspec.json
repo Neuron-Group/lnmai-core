@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/MajdataHarness.csproj": {}
+    "/home/neuron/Projects/LambdaDX/lnmai-core-ffi/lnmai-core/tools/majdata-harness/MajdataHarness.csproj": {}
   },
   "projects": {
-    "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/MajdataHarness.csproj": {
+    "/home/neuron/Projects/LambdaDX/lnmai-core-ffi/lnmai-core/tools/majdata-harness/MajdataHarness.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
+        "projectUniqueName": "/home/neuron/Projects/LambdaDX/lnmai-core-ffi/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
         "projectName": "MajdataHarness",
-        "projectPath": "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
+        "projectPath": "/home/neuron/Projects/LambdaDX/lnmai-core-ffi/lnmai-core/tools/majdata-harness/MajdataHarness.csproj",
         "packagesPath": "/home/neuron/.nuget/packages/",
-        "outputPath": "/home/neuron/Projects/LnMai/lnmai-core/tools/majdata-harness/obj/",
+        "outputPath": "/home/neuron/Projects/LambdaDX/lnmai-core-ffi/lnmai-core/tools/majdata-harness/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/home/neuron/.nuget/NuGet/NuGet.Config"
