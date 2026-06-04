@@ -13,7 +13,7 @@ abbrev ManualTacticAction := TimedInputEvent
 
 structure ManualTacticSequence where
   events : List ManualTacticAction := []
-deriving Inhabited, Repr
+deriving Inhabited, Repr, ToJson, FromJson
 
 inductive NoteTimingSkeletonKind where
   | tap

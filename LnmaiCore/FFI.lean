@@ -2,6 +2,7 @@
 import Lean.Data.Json
 import LnmaiCore.Simai.Frontend
 import LnmaiCore.ChartLoader
+import LnmaiCore.Proofs.Runtime
 import LnmaiCore.Scheduler
 import LnmaiCore.InputModel
 import Std.Data.HashMap
@@ -256,6 +257,12 @@ def buildGameStateJson (chartSpecJson : @& String) : String :=
   stringResultJson "invalid_chart_spec_json" <| do
     let chartSpec : ChartLoader.ChartSpec ← decodeValueFromString chartSpecJson
     pure <| ChartLoader.buildGameState chartSpec
+
+@[export lnmai_default_tactic_from_chart_json]
+def defaultTacticFromChartJson (chartSpecJson : @& String) : String :=
+  stringResultJson "invalid_chart_spec_json" <| do
+    let chartSpec : ChartLoader.ChartSpec ← decodeValueFromString chartSpecJson
+    pure <| defaultTacticFromChart chartSpec
 
 @[export lnmai_step_game_state_json]
 def stepGameStateJson (stateJson : @& String) (batchJson : @& String) : String :=

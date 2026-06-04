@@ -18,6 +18,7 @@ lean_object * lnmai_parse_normalized_chart_json(lean_object * content, uint32_t 
 lean_object * lnmai_parse_lowered_chart_json(lean_object * content, uint32_t level_index);
 
 lean_object * lnmai_build_game_state_json(lean_object * chart_spec_json);
+lean_object * lnmai_default_tactic_from_chart_json(lean_object * chart_spec_json);
 lean_object * lnmai_step_game_state_json(lean_object * state_json, lean_object * batch_json);
 
 lean_object * lnmai_create_empty_session_handle(void);
