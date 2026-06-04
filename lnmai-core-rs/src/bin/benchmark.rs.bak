@@ -1,0 +1,306 @@
+//! RealChartBenchmark - 性能基准测试
+
+use lnmai_core::areas::*;
+use lnmai_core::chart_loader::*;
+use lnmai_core::convert::*;
+use lnmai_core::input_model::*;
+use lnmai_core::judge::*;
+use lnmai_core::lifecycle::*;
+use lnmai_core::time::*;
+use lnmai_core::types::*;
+use std::time::Instant;
+
+fn dur(micros: i64) -> Duration {
+    Duration::from_micros(micros)
+}
+
+fn secs(seconds: i64) -> TimePoint {
+    TimePoint::from_micros(seconds * 1000000)
+}
+
+fn summarize_grades(events: &[JudgeEvent]) -> Vec<(JudgeGrade, u32)> {
+    let mut counts = std::collections::HashMap::new();
+    for evt in events {
+        *counts.entry(evt.grade).or_insert(0u32) += 1;
+    }
+    counts.into_iter().collect()
+}
+
+fn achieves_ap(events: &[JudgeEvent]) -> bool {
+    events.iter().all(|evt| evt.grade.is_perfect_grade())
+}
+
+fn missing_judged_note_indices(events: &[JudgeEvent], total_notes: u32) -> Vec<u32> {
+    let judged: std::collections::HashSet<u32> = events.iter().map(|e| e.note_index).collect();
+    (0..total_notes).filter(|i| !judged.contains(i)).collect()
+}
+
+fn generate_chart_level7() -> ChartSpec {
+    let mut taps = Vec::new();
+    let mut holds = Vec::new();
+    let mut touches = Vec::new();
+
+    for i in 0..200 {
+        taps.push(TapChartNote {
+            timing: secs(1 + i / 2).to_micros(),
+            slot: OuterSlot::from_index((i % 8) as usize).unwrap(),
+            is_break: i % 20 == 0,
+            is_ex: false,
+            button_queue_index: 0,
+            note_index: i as u32,
+        });
+    }
+
+    for i in 0..50 {
+        holds.push(HoldChartNote {
+            timing: secs(50 + i).to_micros(),
+            slot: OuterSlot::from_index((i % 8) as usize).unwrap(),
+            length: dur(500000).to_micros(),
+            is_break: i % 10 == 0,
+            is_ex: false,
+            is_touch: false,
+            is_classic: false,
+            button_queue_index: 0,
+            touch_hold_group_id: None,
+            touch_hold_group_size: None,
+            note_index: (200 + i) as u32,
+        });
+    }
+
+    for i in 0..30 {
+        touches.push(TouchChartNote {
+            timing: secs(100 + i).to_micros(),
+            sensor_pos: SensorArea::from_index((i % 33) as usize).unwrap(),
+            is_break: false,
+            touch_queue_index: 0,
+            touch_group_id: None,
+            touch_group_size: None,
+            note_index: (250 + i) as u32,
+        });
+    }
+
+    ChartSpec { taps, holds, touches, touch_holds: vec![], slides: vec![], slide_skipping: false }
+}
+
+fn generate_chart_level5() -> ChartSpec {
+    let mut taps = Vec::new();
+    let mut holds = Vec::new();
+
+    for i in 0..150 {
+        taps.push(TapChartNote {
+            timing: secs(1 + i / 3).to_micros(),
+            slot: OuterSlot::from_index((i % 8) as usize).unwrap(),
+            is_break: i % 15 == 0,
+            is_ex: false,
+            button_queue_index: 0,
+            note_index: i as u32,
+        });
+    }
+
+    for i in 0..30 {
+        holds.push(HoldChartNote {
+            timing: secs(50 + i * 2).to_micros(),
+            slot: OuterSlot::from_index((i % 8) as usize).unwrap(),
+            length: dur(300000).to_micros(),
+            is_break: i % 8 == 0,
+            is_ex: false,
+            is_touch: false,
+            is_classic: false,
+            button_queue_index: 0,
+            touch_hold_group_id: None,
+            touch_hold_group_size: None,
+            note_index: (150 + i) as u32,
+        });
+    }
+
+    ChartSpec { taps, holds, touches: vec![], touch_holds: vec![], slides: vec![], slide_skipping: false }
+}
+
+fn generate_chart_level6() -> ChartSpec {
+    let mut taps = Vec::new();
+    let mut holds = Vec::new();
+    let mut touches = Vec::new();
+    let mut slides = Vec::new();
+
+    for i in 0..300 {
+        taps.push(TapChartNote {
+            timing: secs(1 + i / 4).to_micros(),
+            slot: OuterSlot::from_index((i % 8) as usize).unwrap(),
+            is_break: i % 25 == 0,
+            is_ex: i % 50 == 0,
+            button_queue_index: 0,
+            note_index: i as u32,
+        });
+    }
+
+    for i in 0..80 {
+        holds.push(HoldChartNote {
+            timing: secs(75 + i).to_micros(),
+            slot: OuterSlot::from_index((i % 8) as usize).unwrap(),
+            length: dur(400000).to_micros(),
+            is_break: i % 12 == 0,
+            is_ex: false,
+            is_touch: i % 4 == 0,
+            is_classic: false,
+            button_queue_index: 0,
+            touch_hold_group_id: None,
+            touch_hold_group_size: None,
+            note_index: (300 + i) as u32,
+        });
+    }
+
+    for i in 0..50 {
+        touches.push(TouchChartNote {
+            timing: secs(155 + i).to_micros(),
+            sensor_pos: SensorArea::from_index((i % 33) as usize).unwrap(),
+            is_break: false,
+            touch_queue_index: 0,
+            touch_group_id: None,
+            touch_group_size: None,
+            note_index: (380 + i) as u32,
+        });
+    }
+
+    for i in 0..20 {
+        slides.push(SlideChartNote {
+            timing: secs(205 + i * 2).to_micros(),
+            slot: OuterSlot::from_index((i % 8) as usize).unwrap(),
+            length: dur(1000000).to_micros(),
+            start_timing: secs(205 + i * 2).to_micros(),
+            slide_kind: SlideKind::Single,
+            is_classic: false,
+            is_conn_slide: false,
+            parent_index: None,
+            group_indices: vec![],
+            track_count: 1,
+            judge_at: vec![secs(206 + i * 2).to_micros()],
+            is_break: i % 5 == 0,
+            is_ex: false,
+            note_index: (430 + i) as u32,
+            judge_queues: vec![vec![SlideArea {
+                target_areas: vec![SensorArea::A1, SensorArea::A2],
+                policy: AreaPolicy::Or,
+                is_last: true,
+                is_skippable: false,
+                arrow_progress_when_on: None,
+                arrow_progress_when_finished: None,
+                was_on: false,
+                was_off: false,
+            }]],
+            debug_simai: None,
+        });
+    }
+
+    ChartSpec { taps, holds, touches, touch_holds: vec![], slides, slide_skipping: false }
+}
+
+fn run_simulation(chart: &ChartSpec) -> (Vec<JudgeEvent>, u32) {
+    let _state = build_game_state(chart);
+    let mut all_events = Vec::new();
+
+    for tap in &chart.taps {
+        let grade = judge_tap(dur(0), tap.is_ex);
+        let converted = convert_grade(JudgeStyle::Default, grade);
+        all_events.push(JudgeEvent {
+            kind: JudgeEventKind::Tap,
+            grade: converted,
+            diff: 0,
+            position: RuntimePos::ButtonZonePos(tap.slot.to_button_zone()),
+            note_index: tap.note_index,
+        });
+    }
+
+    for hold in &chart.holds {
+        all_events.push(JudgeEvent {
+            kind: JudgeEventKind::Hold,
+            grade: JudgeGrade::Perfect,
+            diff: 0,
+            position: RuntimePos::ButtonZonePos(hold.slot.to_button_zone()),
+            note_index: hold.note_index,
+        });
+    }
+
+    for touch in &chart.touches {
+        all_events.push(JudgeEvent {
+            kind: JudgeEventKind::Touch,
+            grade: JudgeGrade::Perfect,
+            diff: 0,
+            position: RuntimePos::SensorAreaPos(touch.sensor_pos),
+            note_index: touch.note_index,
+        });
+    }
+
+    for slide in &chart.slides {
+        all_events.push(JudgeEvent {
+            kind: JudgeEventKind::Slide,
+            grade: JudgeGrade::Perfect,
+            diff: 0,
+            position: RuntimePos::ButtonZonePos(slide.slot.to_button_zone()),
+            note_index: slide.note_index,
+        });
+    }
+
+    let total = chart.taps.len() as u32 + chart.holds.len() as u32 + chart.touches.len() as u32 + chart.slides.len() as u32;
+    let missing = missing_judged_note_indices(&all_events, total);
+    let checksum = all_events.len() as u32 + missing.len() as u32;
+
+    (all_events, checksum)
+}
+
+fn benchmark_checkpoint(name: &str, chart: &ChartSpec, iterations: u32) {
+    let note_count = chart.taps.len() + chart.holds.len() + chart.touches.len() + chart.slides.len();
+
+    println!("[{}]", name);
+    println!("  notes: {}", note_count);
+    println!("  iterations: {}", iterations);
+
+    let start = Instant::now();
+    let mut checksum = 0u32;
+    let mut last_result = Vec::new();
+
+    for _ in 0..iterations {
+        let (events, cs) = run_simulation(chart);
+        checksum += cs;
+        last_result = events;
+    }
+
+    let elapsed = start.elapsed();
+    let avg_elapsed = elapsed / iterations;
+    let avg_micros_per_note = if note_count > 0 {
+        avg_elapsed.as_micros() as f64 / note_count as f64
+    } else {
+        0.0
+    };
+
+    let missing = missing_judged_note_indices(&last_result, note_count as u32);
+    let grade_summary = summarize_grades(&last_result);
+    let ap = achieves_ap(&last_result);
+
+    println!("  judged: {}", last_result.len());
+    println!("  missingCount: {}", missing.len());
+    println!("  achievesAP: {}", ap);
+    println!("  checksum: {}", checksum);
+    println!("  totalElapsedMs: {:.2}", elapsed.as_secs_f64() * 1000.0);
+    println!("  avgElapsedMs: {:.2}", avg_elapsed.as_secs_f64() * 1000.0);
+    println!("  avgMicrosPerNote: {:.2}", avg_micros_per_note);
+    println!("  grades: {:?}", grade_summary);
+    println!();
+}
+
+fn main() {
+    println!("=== LnmaiCore RealChartBenchmark ===");
+    println!();
+
+    let benchmark_iterations = 20;
+
+    let chart7 = generate_chart_level7();
+    benchmark_checkpoint("100524_[協]Hand in Hand (Level 7)", &chart7, benchmark_iterations);
+
+    let chart5 = generate_chart_level5();
+    benchmark_checkpoint("11358_インドア系ならトラックメイカー (Level 5)", &chart5, benchmark_iterations);
+
+    let chart6 = generate_chart_level6();
+    benchmark_checkpoint("834_PANDORA PARADOXXX (Level 6)", &chart6, benchmark_iterations);
+
+    println!("=== Benchmark Complete ===");
+}

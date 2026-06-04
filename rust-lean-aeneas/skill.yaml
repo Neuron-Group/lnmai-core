@@ -1,0 +1,157 @@
+---
+name: rust-lean-aeneas-verification
+description: Formally verify Rust programs using Lean 4 and Aeneas
+version: 1.0.0
+author: LnmaiCore Team
+tags:
+  - rust
+  - lean
+  - formal-verification
+  - aeneas
+  - theorem-proving
+---
+
+# Rust + Lean 4 Formal Verification via Aeneas
+
+## Overview
+
+This skill enables formal verification of Rust programs by translating them to Lean 4 using Aeneas and proving mathematical properties about them.
+
+## Prerequisites
+
+- Rust installed (rustup)
+- Lean 4 installed (elan)
+- Charon built from source
+- Aeneas built from source (requires OCaml 5)
+
+## Quick Start
+
+### 1. Write Aeneas-Friendly Rust
+
+```rust
+// GOOD: Simple, pure function
+pub fn checked_add(x: u32, y: u32) -> Option<u32> {
+    if y <= u32::MAX - x {
+        Some(x + y)
+    } else {
+        None
+    }
+}
+
+// AVOID: String, iterators, unwrap
+// BAD: fn greet(name: String) -> String { format!("Hello, {name}!") }
+// GOOD: fn greet(name: &Vec<u8>) -> Vec<u8> { ... }
+```
+
+### 2. Run Verification Pipeline
+
+```bash
+# Step 1: Extract MIR with Charon
+charon cargo --preset=aeneas
+
+# Step 2: Translate to Lean with Aeneas
+aeneas -backend lean -dest lean_output your_crate.llbc
+
+# Step 3: Write proofs in Lean
+# See generated Lean files and add theorems
+```
+
+### 3. Write Proofs
+
+```lean
+import Aeneas
+open Aeneas Aeneas.Std Result
+
+-- Generated code from Aeneas
+def checked_add (x : U32) (y : U32) : Option U32 := ...
+
+-- Your proof
+theorem checked_add_no_panic (x y : U32) :
+  ∃ result, checked_add x y = ok result := by
+  simp [checked_add]
+  split
+  · exact ⟨some (x + y), rfl⟩
+  · exact ⟨none, rfl⟩
+```
+
+## Guidelines for Aeneas-Friendly Rust
+
+| Guideline | Do | Don't |
+|-----------|-----|-------|
+| Text handling | `Vec<u8>` | `String` |
+| Loops | `while` with index | Iterator chains |
+| Error handling | `match` on `Option`/`Result` | `unwrap()`, `expect()` |
+| Dispatch | Enum + `match` | `dyn Trait` |
+| Data structures | Functional (linked list) | Complex `Vec` operations |
+
+## Supported Features
+
+- ✅ Basic arithmetic, `if`/`else`, `match`
+- ✅ `while` loops (with fuel)
+- ✅ `Vec<T>`, `Option<T>`, `Result<T, E>`
+- ✅ Structs, Enums, References
+- ⚠️ Closures, Traits (limited)
+- ❌ `String`, Iterator chains, `dyn Trait`
+
+## Common Issues
+
+### Name Clashes
+```rust
+// BAD: Variant name clashes with type path
+enum RuntimePos { Button(ButtonZone), Sensor(SensorArea) }
+
+// GOOD: Use unique names
+enum RuntimePos { ButtonZonePos(ButtonZone), SensorAreaPos(SensorArea) }
+```
+
+### Missing `trait_decl_id`
+Caused by `String` or complex trait usage. Replace with `Vec<u8>`.
+
+### Overflow Panics
+Use checked arithmetic or prove bounds in Lean.
+
+## Proof Patterns
+
+### No Panics
+```lean
+theorem fn_no_panic (args...) : ∃ result, fn args = ok result := by
+  simp [fn]; split; exact ⟨result, rfl⟩
+```
+
+### Correctness
+```lean
+theorem fn_correct (args...) : fn args = ok expected := by
+  simp [fn]; omega
+```
+
+### Invariant Preservation
+```lean
+theorem step_preserves_inv (s : State) (i : Input) :
+  inv s → inv (step s i) := by
+  intro h; simp [step]; exact h
+```
+
+## Commands Reference
+
+```bash
+# Charon
+charon version                    # Check version
+charon cargo --preset=aeneas      # Extract with Aeneas preset
+charon cargo --start-from crate::module  # Extract specific module
+
+# Aeneas
+aeneas -backend lean file.llbc    # Generate Lean
+aeneas -backend lean -split-files file.llbc  # Split into multiple files
+aeneas -backend lean -all-computable file.llbc  # No noncomputable sections
+
+# Lean
+lake build                        # Build Lean project
+lake test                         # Run Lean tests
+```
+
+## Resources
+
+- [Aeneas GitHub](https://github.com/AeneasVerif/aeneas)
+- [Charon GitHub](https://github.com/AeneasVerif/charon)
+- [Lean 4 Docs](https://lean-lang.org/doc/)
+- [Aeneas Tutorial](https://github.com/AeneasVerif/aeneas/tree/main/tests/lean/Tutorial)
