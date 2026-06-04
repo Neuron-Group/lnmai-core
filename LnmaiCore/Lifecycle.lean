@@ -409,18 +409,7 @@ private def stepRegularHoldHeadJudgeable
 private def headJudgedShouldBypassReleaseIgnore (headGrade : JudgeGrade) : Bool :=
   headGrade.isMissOrTooFast
 
-private def legacyHoldHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
-  if note.headGrade.isMissOrTooFast then
-    let newRT := note.playerReleaseTime + delta
-    ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
-  else
-    let newRT := note.playerReleaseTime + delta
-    if newRT ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
-      ({ note with playerReleaseTime := newRT }, none)
-    else
-      ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
-
-private def helperHoldHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
+private def holdHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
   let newRT := note.playerReleaseTime + delta
   if headJudgedShouldBypassReleaseIgnore note.headGrade then
     ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
@@ -428,13 +417,6 @@ private def helperHoldHeadReleaseTransition (note : HoldNote) (delta : Duration)
     ({ note with playerReleaseTime := newRT }, none)
   else
     ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
-
-private theorem helperHoldHeadReleaseTransition_eq_legacy (note : HoldNote) (delta : Duration) :
-    helperHoldHeadReleaseTransition note delta = legacyHoldHeadReleaseTransition note delta := by
-  unfold helperHoldHeadReleaseTransition legacyHoldHeadReleaseTransition headJudgedShouldBypassReleaseIgnore
-  by_cases h : note.headGrade.isMissOrTooFast
-  · simp [h]
-  · simp [h]
 
 /--
   Advance a hold note one frame.
@@ -495,7 +477,7 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
       -- MajdataPlay skips the release-ignore grace after a missed/too-fast head by seeding
       -- `_releaseTime` to a sentinel immediately on head miss, so body release starts counting at once.
       let note := { note with headGrade := headGrade }
-      helperHoldHeadReleaseTransition note delta
+      holdHeadReleaseTransition note delta
   | .BodyHeld =>
     -- check if body still active
     if note.isClassic then

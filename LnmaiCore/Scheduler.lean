@@ -123,12 +123,6 @@ private def fallbackPrevSensorHeldForButtonNote (prevSensor : SensorVec Bool) (z
 private def holdBodyPressedFromButtonOrSensor (currentButtonPressed currentSensorPressed : Bool) : Bool :=
   currentButtonPressed || currentSensorPressed
 
-private theorem holdBodyPressedFromButtonOrSensor_eq_legacy
-    (currentButtonPressed currentSensorPressed : Bool) :
-    holdBodyPressedFromButtonOrSensor currentButtonPressed currentSensorPressed =
-      (currentButtonPressed || currentSensorPressed) := by
-  rfl
-
 private def consumeButtonThenFallbackSensor
     (input : FrameInput)
     (cursor : ClickCursor)
@@ -146,30 +140,6 @@ private def consumeButtonThenFallbackSensor
     else
       (false, cursor1)
   (usedButton, usedSensor, cursor2)
-
-private def legacyConsumeButtonThenFallbackSensor
-    (input : FrameInput)
-    (cursor : ClickCursor)
-    (allowInput : Bool)
-    (zone : ButtonZone)
-    (sensorArea : SensorArea) : Bool × Bool × ClickCursor :=
-  let (usedButton, cursor1) := if allowInput then tryUseButtonClickAt input cursor zone else (false, cursor)
-  let (usedSensor, cursor2) :=
-    if allowInput && !usedButton then
-      tryUseSensorClickAt input cursor1 sensorArea
-    else
-      (false, cursor1)
-  (usedButton, usedSensor, cursor2)
-
-private theorem consumeButtonThenFallbackSensor_eq_legacy
-    (input : FrameInput)
-    (cursor : ClickCursor)
-    (allowInput : Bool)
-    (zone : ButtonZone)
-    (sensorArea : SensorArea) :
-    consumeButtonThenFallbackSensor input cursor allowInput zone sensorArea =
-      legacyConsumeButtonThenFallbackSensor input cursor allowInput zone sensorArea := by
-  rfl
 
 private def listSetAt : List α → Nat → α → List α
   | [], _, _ => []
