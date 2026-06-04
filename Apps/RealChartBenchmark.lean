@@ -1,36 +1,9 @@
-import LnmaiCore
+import LnmaiCore.RealChart.Shared
 
 open LnmaiCore
-
-structure BenchmarkCheckpoint where
-  name : String
-  assetPath : System.FilePath
-  level : Nat
-
-def benchmarkCheckpoints : List BenchmarkCheckpoint :=
-  [ { name := "100524_[協]Hand in Hand"
-    , assetPath := "tools/assets/100524_[協]Hand in Hand/maidata.txt"
-    , level := 7 }
-  , { name := "11358_インドア系ならトラックメイカー"
-    , assetPath := "tools/assets/11358_インドア系ならトラックメイカー/maidata.txt"
-    , level := 5 }
-  , { name := "11264_幽霊東京"
-    , assetPath := "tools/assets/11264_幽霊東京/maidata.txt"
-    , level := 5 }
-  , { name := "834_PANDORA PARADOXXX"
-    , assetPath := "tools/assets/834_PANDORA PARADOXXX/maidata.txt"
-    , level := 6 } ]
+open LnmaiCore.RealChart.Shared
 
 def benchmarkIterations : Nat := 20
-
-def summarizeGrades (events : List JudgeEvent) : List (JudgeGrade × Nat) :=
-  let grades := events.map (fun evt => evt.grade)
-  let uniq := grades.eraseDups
-  uniq.map (fun grade => (grade, grades.count grade))
-
-def formatGradeSummary (items : List (JudgeGrade × Nat)) : String :=
-  String.intercalate ", " <|
-    items.map (fun item => s!"{item.1}: {item.2}")
 
 def microsPerNoteString (elapsedNanos : Nat) (noteCount : Nat) : String :=
   if noteCount = 0 then
@@ -58,13 +31,13 @@ def repeatSimulationWithChecksum
       let checksum' := checksum + result.events.length + (missingJudgedNoteIndices result).length
       repeatSimulationWithChecksum chart tactic n checksum'
 
-def benchmarkCheckpoint (checkpoint : BenchmarkCheckpoint) : IO Unit := do
+def benchmarkCheckpoint (checkpoint : Checkpoint) : IO Unit := do
   let content ← IO.FS.readFile checkpoint.assetPath
   match Simai.compileLowered content checkpoint.level with
   | .error err =>
       IO.println s!"[{checkpoint.name}] parse error at level {checkpoint.level}: {repr err}"
   | .ok chart =>
-      let tactic := defaultTacticFromChart chart
+      let tactic := tacticForCheckpoint checkpoint chart
       let startNanos ← IO.monoNanosNow
       let (result, checksum) := repeatSimulationWithChecksum chart tactic benchmarkIterations 0
       let endNanos ← IO.monoNanosNow
@@ -87,11 +60,14 @@ def benchmarkCheckpoint (checkpoint : BenchmarkCheckpoint) : IO Unit := do
       IO.println s!"  avgMicrosPerNote: {microsPerNoteString avgNanos noteCount}"
       IO.println s!"  grades: {formatGradeSummary gradeSummary}"
 
-partial def benchmarkAll : List BenchmarkCheckpoint → IO Unit
+partial def benchmarkAll : List Checkpoint → IO Unit
   | [] => pure ()
   | checkpoint :: rest => do
       benchmarkCheckpoint checkpoint
       benchmarkAll rest
 
+def benchmarkMain : IO Unit := do
+  benchmarkAll checkpoints
+
 def main : IO Unit := do
-  benchmarkAll benchmarkCheckpoints
+  benchmarkMain
