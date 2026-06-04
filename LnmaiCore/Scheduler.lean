@@ -120,6 +120,57 @@ private def fallbackSensorHeldForButtonNote (input : FrameInput) (zone : ButtonZ
 private def fallbackPrevSensorHeldForButtonNote (prevSensor : SensorVec Bool) (zone : ButtonZone) : Bool :=
   InputModel.prevSensorHeldAt prevSensor (fallbackSensorAreaForButtonNote zone)
 
+private def holdBodyPressedFromButtonOrSensor (currentButtonPressed currentSensorPressed : Bool) : Bool :=
+  currentButtonPressed || currentSensorPressed
+
+private theorem holdBodyPressedFromButtonOrSensor_eq_legacy
+    (currentButtonPressed currentSensorPressed : Bool) :
+    holdBodyPressedFromButtonOrSensor currentButtonPressed currentSensorPressed =
+      (currentButtonPressed || currentSensorPressed) := by
+  rfl
+
+private def consumeButtonThenFallbackSensor
+    (input : FrameInput)
+    (cursor : ClickCursor)
+    (allowInput : Bool)
+    (zone : ButtonZone)
+    (sensorArea : SensorArea) : Bool × Bool × ClickCursor :=
+  let (usedButton, cursor1) :=
+    if allowInput then
+      tryUseButtonClickAt input cursor zone
+    else
+      (false, cursor)
+  let (usedSensor, cursor2) :=
+    if allowInput && !usedButton then
+      tryUseSensorClickAt input cursor1 sensorArea
+    else
+      (false, cursor1)
+  (usedButton, usedSensor, cursor2)
+
+private def legacyConsumeButtonThenFallbackSensor
+    (input : FrameInput)
+    (cursor : ClickCursor)
+    (allowInput : Bool)
+    (zone : ButtonZone)
+    (sensorArea : SensorArea) : Bool × Bool × ClickCursor :=
+  let (usedButton, cursor1) := if allowInput then tryUseButtonClickAt input cursor zone else (false, cursor)
+  let (usedSensor, cursor2) :=
+    if allowInput && !usedButton then
+      tryUseSensorClickAt input cursor1 sensorArea
+    else
+      (false, cursor1)
+  (usedButton, usedSensor, cursor2)
+
+private theorem consumeButtonThenFallbackSensor_eq_legacy
+    (input : FrameInput)
+    (cursor : ClickCursor)
+    (allowInput : Bool)
+    (zone : ButtonZone)
+    (sensorArea : SensorArea) :
+    consumeButtonThenFallbackSensor input cursor allowInput zone sensorArea =
+      legacyConsumeButtonThenFallbackSensor input cursor allowInput zone sensorArea := by
+  rfl
+
 private def listSetAt : List α → Nat → α → List α
   | [], _, _ => []
   | _ :: rest, 0, value => value :: rest
@@ -234,17 +285,13 @@ private def processTapNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVec
         let buttonDiff := currentTime - timing
         let sensorDiff := (currentTime - touchPanelOffset) - timing
         let canConsumeClick := tapEligibleForClick note currentTime && buttonQueueIndexUnlocked frontiers zone note.buttonQueueIndex
-        let (usedButton, cursor1) :=
-          if canConsumeClick then tryUseButtonClickAt input cursor zone else (false, cursor)
-        let (clicked, diff, cursor2) :=
-          if usedButton then (true, buttonDiff, cursor1)
-          else
-            let (usedSensor, cursorS) :=
-              if canConsumeClick then
-                tryUseSensorClickAt input cursor1 (fallbackSensorAreaForButtonNote note.lane.toButtonZone)
-              else
-                (false, cursor1)
-            if usedSensor then (true, sensorDiff, cursorS) else (false, buttonDiff, cursorS)
+        let fallbackArea := fallbackSensorAreaForButtonNote note.lane.toButtonZone
+        let (usedButton, usedSensor, cursor2) :=
+          consumeButtonThenFallbackSensor input cursor canConsumeClick zone fallbackArea
+        let (clicked, diff) :=
+          if usedButton then (true, buttonDiff)
+          else if usedSensor then (true, sensorDiff)
+          else (false, buttonDiff)
         match tapFamilyStep note currentTime diff clicked style with
         | (newNote, some evt) =>
             let frontiers' :=
@@ -345,16 +392,15 @@ private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVe
       queueHeadMatches (InputModel.buttonQueueAt queues zone) note
         && buttonQueueIndexUnlocked frontiers zone note.buttonQueueIndex
         && holdHeadEligibleForClick note currentTime
-    let (usedButton, cursor1) := if allowInput then tryUseButtonClickAt input cursor zone else (false, cursor)
-    let (usedSensor, cursor2) :=
-      if allowInput && !usedButton then
-        tryUseSensorClickAt input cursor1 (fallbackSensorAreaForButtonNote zone)
-      else
-        (false, cursor1)
+    let fallbackArea := fallbackSensorAreaForButtonNote zone
+    let (usedButton, usedSensor, cursor2) :=
+      consumeButtonThenFallbackSensor input cursor allowInput zone fallbackArea
     let clicked := usedButton || usedSensor
     let diff := if usedButton then buttonDiff else sensorDiff
     let (newNote, evt?) :=
-      holdStep note currentTime diff HOLD_HEAD_IGNORE_LENGTH_SEC HOLD_TAIL_IGNORE_LENGTH_SEC clicked (currentButtonPressed || currentSensorPressed) currentButtonPressed prevSensorPressed touchPanelOffset none delta style
+      holdStep note currentTime diff HOLD_HEAD_IGNORE_LENGTH_SEC HOLD_TAIL_IGNORE_LENGTH_SEC clicked
+        (holdBodyPressedFromButtonOrSensor currentButtonPressed currentSensorPressed)
+        currentButtonPressed prevSensorPressed touchPanelOffset none delta style
     let frontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedButtonQueue frontiers zone else frontiers
     let queues' := if enteredHeadJudged note.state newNote.state then advanceButtonQueueIfHead queues zone newNote else queues
     let (restFrontiers, restQueues, restNotes, restEvs, cursor3) := processHoldNotes frontiers' queues' rest input currentTime delta style touchPanelOffset prevSensor cursor2
@@ -437,13 +483,6 @@ private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueV
         let buttonDiff := currentTime - timing
         let sensorDiff := (currentTime - touchPanelOffset) - timing
         let canConsumeClick := touchEligibleForClick note currentTime && touchQueueIndexUnlocked frontiers area note.touchQueueIndex
-        let _ :=
-          if note.params.noteIndex = 54 then
-            Id.run do
-              dbg_trace s!"probe54 pre area={repr area} time={currentTime.toMicros} frontier={frontiers.getD area 0} currentIndex={q.currentIndex} sensorClicked={input.getSensorClicked note.sensorPos} sensorCount={input.getSensorClickCount note.sensorPos} cursorUsed={(cursor.sensorUsed.getD note.sensorPos 0)} canConsume={canConsumeClick} groupId={repr note.touchGroupId} state={repr note.state}"
-              pure ()
-          else
-            ()
         let (usedButton, cursor1) :=
           if canConsumeClick && useButtonRingForTouch then
             match area.toOuterButtonZone? with
@@ -455,13 +494,6 @@ private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueV
           if usedButton then (false, cursor1)
           else
             if canConsumeClick then tryUseSensorClickAt input cursor1 note.sensorPos else (false, cursor1)
-        let _ :=
-          if note.params.noteIndex = 54 then
-            Id.run do
-              dbg_trace s!"probe54 consume time={currentTime.toMicros} usedButton={usedButton} usedSensor={usedSensor} cursorBefore={(cursor.sensorUsed.getD note.sensorPos 0)} cursorAfter={(cursor2.sensorUsed.getD note.sensorPos 0)}"
-              pure ()
-          else
-            ()
         let clicked := usedButton || usedSensor
         let diff := if usedButton then buttonDiff else sensorDiff
         let sharedResult :=
@@ -470,13 +502,6 @@ private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueV
           | none => none
         match touchStep note currentTime diff clicked sharedResult style with
         | (newNote, some evt) =>
-          let _ :=
-            if note.params.noteIndex = 54 && currentTime.toMicros = 14280000 then
-              Id.run do
-                dbg_trace s!"probe54 step some clicked={clicked} diff={diff.toMicros} stateAfter={repr newNote.state} evt={reprStr (evt.noteIndex, evt.kind, evt.grade, evt.diff.toMicros)}"
-                pure ()
-            else
-              ()
           let groups' :=
             if evt.grade.isMissOrTooFast then groups
             else
@@ -487,13 +512,6 @@ private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueV
           let frontiers' := advanceSharedTouchQueue frontiers area
           (nextQueue, (frontiers', cursor2, groups', evt :: evsRev))
         | (newNote, none) =>
-          let _ :=
-            if note.params.noteIndex = 54 && currentTime.toMicros = 14280000 then
-              Id.run do
-                dbg_trace s!"probe54 step none clicked={clicked} diff={diff.toMicros} stateAfter={repr newNote.state}"
-                pure ()
-            else
-              ()
           let groups' :=
             match note.touchGroupId, newNote.state with
             | some groupId, TouchState.Ended => groups
@@ -700,11 +718,8 @@ def probeTapHoldSensorConsumers (st : GameState) (input : FrameInput) : List Sen
             let (usedButton, cursor1) :=
               if canConsumeClick then tryUseButtonClickAt input cursor zone else (false, cursor)
             let fallbackArea := fallbackSensorAreaForButtonNote note.lane.toButtonZone
-            let (usedSensor, cursor2) :=
-              if canConsumeClick && !usedButton then
-                tryUseSensorClickAt input cursor1 fallbackArea
-              else
-                (false, cursor1)
+            let (usedButton', usedSensor, cursor2) :=
+              consumeButtonThenFallbackSensor input cursor canConsumeClick zone fallbackArea
             let acc :=
               if usedSensor then
                 { kind := .tap
@@ -717,7 +732,7 @@ def probeTapHoldSensorConsumers (st : GameState) (input : FrameInput) : List Sen
               else
                 acc
             let frontiers' :=
-              match tapFamilyStep note newTime (if usedButton then buttonDiff else sensorDiff) (usedButton || usedSensor) st.judgeStyle with
+              match tapFamilyStep note newTime (if usedButton' then buttonDiff else sensorDiff) (usedButton' || usedSensor) st.judgeStyle with
               | (newNote, some _) =>
                   match newNote.state with
                   | Lifecycle.TapState.Ended => advanceSharedButtonQueue frontiers zone
@@ -738,13 +753,10 @@ def probeTapHoldSensorConsumers (st : GameState) (input : FrameInput) : List Sen
         let buttonDiff := newTime - timing
         let sensorDiff := (newTime - st.touchPanelOffset) - timing
         let allowInput := queueHeadMatches (InputModel.buttonQueueAt queues zone) note && buttonQueueIndexUnlocked frontiers zone note.buttonQueueIndex
-        let (usedButton, cursor1) := if allowInput then tryUseButtonClickAt input cursor zone else (false, cursor)
+        let (usedButton, _cursor1) := if allowInput then tryUseButtonClickAt input cursor zone else (false, cursor)
         let fallbackArea := fallbackSensorAreaForButtonNote zone
-        let (usedSensor, cursor2) :=
-          if allowInput && !usedButton then
-            tryUseSensorClickAt input cursor1 fallbackArea
-          else
-            (false, cursor1)
+        let (usedButton', usedSensor, cursor2) :=
+          consumeButtonThenFallbackSensor input cursor allowInput zone fallbackArea
         let acc :=
           if usedSensor then
             { kind := .hold
@@ -756,10 +768,11 @@ def probeTapHoldSensorConsumers (st : GameState) (input : FrameInput) : List Sen
             , diff := sensorDiff } :: acc
           else
             acc
-        let diff := if usedButton then buttonDiff else sensorDiff
+        let diff := if usedButton' then buttonDiff else sensorDiff
         let holdResult :=
-          holdStep note newTime diff HOLD_HEAD_IGNORE_LENGTH_SEC HOLD_TAIL_IGNORE_LENGTH_SEC (usedButton || usedSensor)
-            (input.getButtonHeld zone || fallbackSensorHeldForButtonNote input zone) (input.getButtonHeld zone)
+          holdStep note newTime diff HOLD_HEAD_IGNORE_LENGTH_SEC HOLD_TAIL_IGNORE_LENGTH_SEC (usedButton' || usedSensor)
+            (holdBodyPressedFromButtonOrSensor (input.getButtonHeld zone) (fallbackSensorHeldForButtonNote input zone))
+            (input.getButtonHeld zone)
             (fallbackPrevSensorHeldForButtonNote st.prevSensor zone) st.touchPanelOffset none input.delta st.judgeStyle
         let frontiers' :=
           if enteredHeadJudged note.state holdResult.1.state then

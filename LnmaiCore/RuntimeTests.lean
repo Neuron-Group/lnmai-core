@@ -2293,6 +2293,107 @@ def test_build_game_state_accepts_head_only_lowered_slide_chart : RuntimeCase :=
       passCase "build_game_state_accepts_head_only_lowered_slide_chart" false
         "expected one slide-head queue entry and no slide bodies"
 
+def test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := []
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , isSlideNoHead := true
+         , logicalSlideId := 414
+         , noteIndex := 414
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]]
+         , debugSimai := some ("1-5[4:1]", "pretend-shape", true) }] }
+  let state := ChartLoader.buildGameState chart
+  let tapQueue := state.tapQueues.getD .K1 { notes := [] }
+  match state.slides with
+  | [slide] =>
+      let stateOk :=
+        match slide.state with
+        | .Active waitTime => waitTime = dur 200000
+        | _ => false
+      let queueShapeOk :=
+        match slide.judgeQueues with
+        | [[area]] => area.targetAreas = [.A1] && area.isLast
+        | _ => false
+      passCase "build_game_state_ignores_debug_simai_metadata_for_runtime_shape"
+        (tapQueue.notes.isEmpty
+          && slide.params.noteIndex = 414
+          && stateOk
+          && queueShapeOk)
+        "debug/inspection slide metadata must not synthesize extra runtime heads or alter body-side runtime queue shape"
+  | _ =>
+      passCase "build_game_state_ignores_debug_simai_metadata_for_runtime_shape" false
+        "expected exactly one runtime slide body and no synthesized tap-family head"
+
+private def staleConnParentFlagsState : InputModel.GameState :=
+  let parentArea1 : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := false, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }
+  let parentArea2 : Lifecycle.SlideArea :=
+    { targetAreas := [.A2], isLast := true, arrowProgressWhenOn := 1, arrowProgressWhenFinished := 1 }
+  let childArea : Lifecycle.SlideArea :=
+    { targetAreas := [.A3], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }
+  let parent : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 415 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , headTiming := tp 600000
+    , startTiming := tp 600000
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , isGroupPartHead := true
+    , isGroupPartEnd := false
+    , trackCount := 1
+    , initialQueueRemaining := 2
+    , totalJudgeQueueLen := 2
+    , isCheckable := true
+    , judgeQueues := [[parentArea1, parentArea2]] }
+  let child : Lifecycle.SlideNote :=
+    { params := { judgeTiming := tp 1400000, judgeOffset := Duration.zero, noteIndex := 416 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 400000
+    , headTiming := secs 1
+    , startTiming := secs 1
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , parentNoteIndex := some 415
+    , isGroupPartHead := false
+    , isGroupPartEnd := true
+    , parentFinished := true
+    , parentPendingFinish := true
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := false
+    , judgeQueues := [[childArea]] }
+  { currentTime := tp 1200000
+  , slides := [parent, child] }
+
+def test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [.A3] Duration.zero
+  let (nextState, events, _, _) := Scheduler.stepFrame staleConnParentFlagsState input
+  match nextState.slides with
+  | [parentAfter, childAfter] =>
+      let childQueueStillIntact :=
+        match childAfter.judgeQueues with
+        | [[area]] => area.targetAreas = [.A3] && area.isLast
+        | _ => false
+      passCase "scheduler_recomputes_stale_conn_parent_flags_before_child_progress"
+        (events.isEmpty
+          && parentAfter.judgeQueues.length = 1
+          && childAfter.parentFinished = false
+          && childAfter.parentPendingFinish = false
+          && childAfter.isCheckable = false
+          && childQueueStillIntact)
+        "stale serialized conn-parent flags must be recomputed from the parent's remaining runtime queue before the child can unlock"
+  | _ =>
+      passCase "scheduler_recomputes_stale_conn_parent_flags_before_child_progress" false
+        "expected parent and child slides to remain present after one frame"
+
 def test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
     { holds :=
@@ -3187,6 +3288,28 @@ def test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing
     (headTimingOk && legacyTimingRejected)
     "lowered slide-body JSON now requires `headTiming` and rejects legacy body `timing`"
 
+def test_lowered_slide_chart_json_malformed_logical_slide_id_fails : RuntimeCase :=
+  let chartWithMalformedLogicalSlideId :=
+    "{\"taps\":[],\"holds\":[],\"touches\":[],\"touchHolds\":[],\"slideHeads\":[],\"slides\":[{\"headTiming\":0,\"slot\":\"S1\",\"length\":1,\"startTiming\":0,\"slideKind\":\"Single\",\"logicalSlideId\":\"oops\",\"noteIndex\":93,\"judgeQueues\":[[{\"targetAreas\":[\"A1\"],\"policy\":\"Or\",\"isLast\":true,\"isSkippable\":true,\"arrowProgressWhenOn\":0,\"arrowProgressWhenFinished\":0}]]}],\"slideSkipping\":true}"
+  let parsed := ChartLoader.parseChartJsonString chartWithMalformedLogicalSlideId
+  passCase "lowered_slide_chart_json_malformed_logical_slide_id_fails"
+    (exceptIsError parsed)
+    "malformed gameplay-relevant optional `logicalSlideId` should now fail decode instead of silently falling back to `noteIndex`"
+
+def test_tap_family_json_malformed_button_queue_index_fails : RuntimeCase :=
+  let json :=
+    Json.mkObj
+      [ ("kind", Json.str "slideHead")
+      , ("params", toJson ({ judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 94 } : Lifecycle.CommonNoteParams))
+      , ("lane", toJson OuterSlot.S1)
+      , ("state", toJson Lifecycle.TapState.Waiting)
+      , ("logicalSlideId", Json.num 94)
+      , ("buttonQueueIndex", Json.str "oops") ]
+  let parsed : Except String Lifecycle.TapFamilyNote := fromJson? json
+  passCase "tap_family_json_malformed_button_queue_index_fails"
+    (exceptIsError parsed)
+    "malformed gameplay-relevant optional tap-family `buttonQueueIndex` should now fail decode instead of silently falling back to zero"
+
 def all : List RuntimeCase :=
   [ test_button_tap_can_use_matching_a_sensor
   , test_classic_hold_matching_a_sensor_keeps_body_pressed
@@ -3246,7 +3369,9 @@ def all : List RuntimeCase :=
   , test_same_area_touch_queue_blocks_second_note_until_first_advances
   , test_build_game_state_routes_slide_head_into_tap_queue
   , test_game_state_json_preserves_tap_family_kind_for_slide_head
+  , test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape
   , test_build_game_state_accepts_head_only_lowered_slide_chart
+  , test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress
   , test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order
   , test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click
   , test_future_same_lane_tap_head_does_not_steal_hold_click
@@ -3274,6 +3399,8 @@ def all : List RuntimeCase :=
   , test_manual_tactic_chord_sugar
   , test_typed_json_boundary_symbolic_only
   , test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing
+  , test_lowered_slide_chart_json_malformed_logical_slide_id_fails
+  , test_tap_family_json_malformed_button_queue_index_fails
   ]
 
 def passedCount : Nat :=
@@ -3473,6 +3600,15 @@ theorem test_game_state_json_preserves_tap_family_kind_for_slide_head_proof :
 
 theorem test_build_game_state_keeps_body_only_slide_out_of_tap_queue_proof :
     test_build_game_state_keeps_body_only_slide_out_of_tap_queue.passed = true := by native_decide
+
+theorem test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape_proof :
+    test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape.passed = true := by native_decide
+
+theorem test_build_game_state_accepts_head_only_lowered_slide_chart_proof :
+    test_build_game_state_accepts_head_only_lowered_slide_chart.passed = true := by native_decide
+
+theorem test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress_proof :
+    test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress.passed = true := by native_decide
 
 theorem test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order_proof :
     test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order.passed = true := by native_decide

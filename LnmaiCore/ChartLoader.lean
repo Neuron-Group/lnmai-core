@@ -34,6 +34,11 @@ private def getObjValAsD? {α : Type} [FromJson α] (json : Json) (field : Strin
   | .ok value => pure value
   | .error _ => pure fallback
 
+private def getObjOptionalValAsD? {α : Type} [FromJson α] (json : Json) (field : String) (fallback : α) : Except String α :=
+  match json.getObjVal? field with
+  | .ok valueJson => fromJson? valueJson
+  | .error _ => pure fallback
+
 structure TapChartNote where
   timing : TimePoint
   slot      : OuterSlot
@@ -105,7 +110,7 @@ instance : FromJson SlideHeadChartNote where
     let isBreak ← getObjValAsD? json "isBreak" false
     let isEX ← getObjValAsD? json "isEX" false
     let noteIndex ← getObjValAsD? json "noteIndex" 0
-    let logicalSlideId ← getObjValAsD? json "logicalSlideId" noteIndex
+    let logicalSlideId ← getObjOptionalValAsD? json "logicalSlideId" noteIndex
     pure
       { timing := timing
       , slot := slot
@@ -160,7 +165,7 @@ instance : FromJson SlideChartNote where
     let isBreak ← getObjValAsD? json "isBreak" false
     let isEX ← getObjValAsD? json "isEX" false
     let noteIndex ← getObjValAsD? json "noteIndex" 0
-    let logicalSlideId ← getObjValAsD? json "logicalSlideId" noteIndex
+    let logicalSlideId ← getObjOptionalValAsD? json "logicalSlideId" noteIndex
     let judgeQueues ← getObjValAsD? json "judgeQueues" []
     let debugSimai ← getObjValAsD? json "debugSimai" none
     pure

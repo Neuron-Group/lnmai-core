@@ -93,6 +93,11 @@ private def getObjValAsD? {α : Type} [FromJson α] (json : Json) (field : Strin
   | .ok value => pure value
   | .error _ => pure fallback
 
+private def getObjOptionalValAsD? {α : Type} [FromJson α] (json : Json) (field : String) (fallback : α) : Except String α :=
+  match json.getObjVal? field with
+  | .ok valueJson => fromJson? valueJson
+  | .error _ => pure fallback
+
 instance : ToJson TapFamilyNote where
   toJson
     | .tap note =>
@@ -117,7 +122,7 @@ instance : FromJson TapFamilyNote where
     let params ← json.getObjValAs? CommonNoteParams "params"
     let lane ← json.getObjValAs? OuterSlot "lane"
     let state ← json.getObjValAs? TapState "state"
-    let buttonQueueIndex ← getObjValAsD? json "buttonQueueIndex" 0
+    let buttonQueueIndex ← getObjOptionalValAsD? json "buttonQueueIndex" 0
     match kind with
     | "tap" =>
         pure <| .tap
@@ -126,7 +131,7 @@ instance : FromJson TapFamilyNote where
           , state := state
           , buttonQueueIndex := buttonQueueIndex }
     | "slideHead" =>
-        let logicalSlideId ← getObjValAsD? json "logicalSlideId" params.noteIndex
+        let logicalSlideId ← getObjOptionalValAsD? json "logicalSlideId" params.noteIndex
         pure <| .slideHead
           { params := params
           , lane := lane
@@ -401,6 +406,36 @@ private def stepRegularHoldHeadJudgeable
   else
     (note, none)
 
+private def headJudgedShouldBypassReleaseIgnore (headGrade : JudgeGrade) : Bool :=
+  headGrade.isMissOrTooFast
+
+private def legacyHoldHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
+  if note.headGrade.isMissOrTooFast then
+    let newRT := note.playerReleaseTime + delta
+    ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
+  else
+    let newRT := note.playerReleaseTime + delta
+    if newRT ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
+      ({ note with playerReleaseTime := newRT }, none)
+    else
+      ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
+
+private def helperHoldHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
+  let newRT := note.playerReleaseTime + delta
+  if headJudgedShouldBypassReleaseIgnore note.headGrade then
+    ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
+  else if newRT ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
+    ({ note with playerReleaseTime := newRT }, none)
+  else
+    ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
+
+private theorem helperHoldHeadReleaseTransition_eq_legacy (note : HoldNote) (delta : Duration) :
+    helperHoldHeadReleaseTransition note delta = legacyHoldHeadReleaseTransition note delta := by
+  unfold helperHoldHeadReleaseTransition legacyHoldHeadReleaseTransition headJudgedShouldBypassReleaseIgnore
+  by_cases h : note.headGrade.isMissOrTooFast
+  · simp [h]
+  · simp [h]
+
 /--
   Advance a hold note one frame.
   `inputPressed` = button/sensor is held this frame.
@@ -459,15 +494,8 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
     else
       -- MajdataPlay skips the release-ignore grace after a missed/too-fast head by seeding
       -- `_releaseTime` to a sentinel immediately on head miss, so body release starts counting at once.
-      if headGrade.isMissOrTooFast then
-        let newRT := note.playerReleaseTime + delta
-        ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
-      else
-        let newRT := note.playerReleaseTime + delta
-        if newRT ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
-          ({ note with playerReleaseTime := newRT }, none)
-        else
-          ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
+      let note := { note with headGrade := headGrade }
+      helperHoldHeadReleaseTransition note delta
   | .BodyHeld =>
     -- check if body still active
     if note.isClassic then
