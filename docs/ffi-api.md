@@ -809,28 +809,32 @@ Example success response for `lnmai_step_game_state_handle_light`:
         "grade": "Perfect",
         "diff": 0,
         "position": {
-          "tag": "button",
-          "value": "K1"
+          "button": "K1"
         },
-        "noteIndex": 0
+        "noteIndex": 0,
+        "isBreak": false
       }
     ],
     "audioCommands": [
       {
-        "tag": "PlayJudgeSfx",
-        "kind": "Tap",
-        "grade": "Perfect",
-        "atTime": 0,
-        "noteIndex": 0
+        "PlayJudgeSfx": {
+          "noteIndex": 0,
+          "kind": "Tap",
+          "isBreak": false,
+          "grade": "Perfect",
+          "atTime": 0
+        }
       }
     ],
     "renderCommands": [
       {
-        "tag": "ShowJudgeResult",
-        "kind": "Tap",
-        "grade": "Perfect",
-        "diff": 0,
-        "noteIndex": 0
+        "ShowJudgeResult": {
+          "noteIndex": 0,
+          "kind": "Tap",
+          "isBreak": false,
+          "grade": "Perfect",
+          "diff": 0
+        }
       }
     ],
     "score": {

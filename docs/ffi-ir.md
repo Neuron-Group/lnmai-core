@@ -484,8 +484,8 @@ Fields:
 - `slides`: list of active/runtime slide notes
 - `activeHolds`: currently active button holds
 - `activeTouchHolds`: currently active sensor holds
-- `touchGroupStates`: touch-group bookkeeping state
-- `touchHoldGroupStates`: touch-hold-group bookkeeping state
+- `touchGroupStates`: list of `GroupState`
+- `touchHoldGroupStates`: list of `TouchHoldBodyGroupState`
 - `currentBatch`: last processed `TimedInputBatch`
 - `score`: `ScoreState`
 - `judgeStyle`: current judge style
@@ -497,6 +497,24 @@ Host guidance:
 
 - do not treat `GameState` as the most stable integration boundary
 - prefer `ChartSpec` / step results unless full state inspection is required
+
+### `GroupState`
+
+Fields:
+
+- `groupId`: touch-group id
+- `count`: number of contributing members
+- `size`: original touch-group size
+- `grade`: shared touch-group grade
+- `diff`: shared touch-group timing delta
+
+### `TouchHoldBodyGroupState`
+
+Fields:
+
+- `groupId`: touch-hold body-group id
+- `memberNoteIndices`: live members still participating in the body majority
+- `triggeredNoteIndices`: current members contributing pressed body state
 
 ### `TapFamilyNote`
 
@@ -599,24 +617,42 @@ Fields:
 - `diff`: signed timing delta as `Duration`
 - `position`: runtime position descriptor
 - `noteIndex`: note id
+- `isBreak`: boolean break-note flag carried orthogonally to `kind`
+
+Notes:
+
+- `kind` remains the gameplay family (`Tap`, `Hold`, `Slide`, `Touch`)
+- break semantics now travel through `isBreak` instead of overloading `kind`
 
 ### `AudioCommand`
 
 Variants:
 
-- `PlayJudgeSfx(kind, grade, atTime, noteIndex)`
-- `PlaySlideCue(noteIndex, trackIndex, atTime)`
+- `PlayJudgeSfx(kind, grade, isBreak, atTime, noteIndex)`
+- `PlaySlideCue(noteIndex, trackIndex, isBreak, atTime)`
+
+JSON encoding note:
+
+- Lean emits the default externally tagged object form, for example
+  `{"PlayJudgeSfx": {"noteIndex": 12, "kind": "Tap", "isBreak": true, "grade": "Perfect",
+  "atTime": 0}}`
 
 ### `RenderCommand`
 
 Variants:
 
-- `ShowJudgeResult(kind, grade, diff, noteIndex)`
+- `ShowJudgeResult(kind, grade, isBreak, diff, noteIndex)`
 - `UpdateSlideProgress(noteIndex, remaining)`
 - `UpdateSlideTrackProgress(noteIndex, trackIndex, remaining)`
 - `HideAllSlideBars(noteIndex)`
 - `HideSlideBars(noteIndex, endIndex)`
 - `HideSlideTrackBars(noteIndex, trackIndex, endIndex)`
+
+JSON encoding note:
+
+- Render commands use the same externally tagged object form, for example
+  `{"ShowJudgeResult": {"noteIndex": 12, "kind": "Tap", "isBreak": true, "grade":
+  "Perfect", "diff": 0}}`
 
 ### `RuntimeStepResult`
 

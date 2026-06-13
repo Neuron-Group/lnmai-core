@@ -346,6 +346,26 @@ public static class ReferenceLikeLogic
         return result;
     }
 
+    public static TouchHoldHeadResult RunTouchHoldHeadCheckWithGroupModels(
+        NoteManagerStub noteManager,
+        TouchQueueInfo queueInfo,
+        int sensorArea,
+        int buttonZone,
+        bool inJudgeableRange,
+        TouchGroupModel? touchGroup,
+        TouchHoldBodyGroupModel? bodyGroup)
+    {
+        _ = bodyGroup?.Majority ?? false;
+        var groupShareAvailable = touchGroup?.ShareAvailable ?? false;
+        return RunTouchHoldHeadCheck(
+            noteManager,
+            queueInfo,
+            sensorArea,
+            buttonZone,
+            inJudgeableRange,
+            groupShareAvailable);
+    }
+
     public static HoldBodyResult RunModernHoldBodyFrame(
         bool isHeadJudged,
         bool isButtonPressed,
@@ -407,6 +427,40 @@ public static class ReferenceLikeLogic
             Grade = JudgeGrade.Perfect,
             IsEnded = false,
             IsHoldingEffectActive = false
+        };
+    }
+
+    public static BodyGroupResult RunTouchHoldBodyMajorityFrame(
+        TouchHoldBodyGroupModel bodyGroup,
+        int noteId,
+        bool localSensorOn)
+    {
+        if (localSensorOn)
+            bodyGroup.RegisterTrigger(noteId);
+        else
+            bodyGroup.UnregisterTrigger(noteId);
+
+        return new BodyGroupResult
+        {
+            Recovered = localSensorOn || bodyGroup.Majority,
+            MemberCount = bodyGroup.MemberCount,
+            TriggeredCount = bodyGroup.TriggeredCount,
+            Majority = bodyGroup.Majority
+        };
+    }
+
+    public static BreakAccountingResult FoldJudgeEventForCounts(
+        NoteFamilyKind family,
+        JudgeGrade grade,
+        bool isBreak)
+    {
+        return new BreakAccountingResult
+        {
+            Family = family,
+            Grade = grade,
+            IsBreak = isBreak,
+            BreakCountAtGrade = isBreak ? 1 : 0,
+            FamilyCountAtGrade = isBreak ? 0 : 1
         };
     }
 }

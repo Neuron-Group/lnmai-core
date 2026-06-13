@@ -33,5 +33,8 @@ dotnet run --project MajdataHarness.csproj
 
 - tap consumes shared click before hold head
 - hold head consumes shared click before tap when order is reversed
+- touch-hold head uses touch-group share, not body-group majority
+- touch-hold body-group exit shrinks the majority denominator
+- break counting branches on `IsBreak`, not note family alone
 
 These scenarios model the reference-style logic at a small scale and help verify semantic expectations before patching the Lean runtime.

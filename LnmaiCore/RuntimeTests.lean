@@ -41,6 +41,9 @@ private def eventGrades (events : List JudgeEvent) : List JudgeGrade :=
 private def eventKinds (events : List JudgeEvent) : List JudgeEventKind :=
   events.map (fun evt => evt.kind)
 
+private def eventBreakFlags (events : List JudgeEvent) : List Bool :=
+  events.map (fun evt => evt.isBreak)
+
 private def hasTrackProgress (cmds : List RenderCommand) (noteIndex trackIndex remaining : Nat) : Bool :=
   cmds.any (fun cmd =>
     match cmd with
@@ -297,6 +300,164 @@ def test_touch_hold_local_press_reactivates_released_note : RuntimeCase :=
     (events.isEmpty && recovered)
     "a released touch-hold should also recover when its own sensor is pressed again"
 
+private def breakTapState : InputModel.GameState :=
+  let tap : Lifecycle.TapNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, isBreak := true, noteIndex := 360 }
+    , lane := .S1
+    , state := .Judgeable }
+  { currentTime := tp 984000
+  , tapQueues := ButtonVec.ofFn (fun zone => if zone == .K1 then { notes := [tap] } else { notes := [] }) }
+
+def test_break_tap_event_preserves_family_and_counts_as_break : RuntimeCase :=
+  let input := mkButtonFrameInput [.K1] [] [] [] (dur 16000)
+  let (nextState, events, audioCmds, renderCmds) := Scheduler.stepFrame breakTapState input
+  match events, audioCmds, renderCmds with
+  | [evt], [audio], [render] =>
+      let audioOk :=
+        match audio with
+        | .PlayJudgeSfx kind grade isBreak _ noteIndex =>
+            kind = .Tap && grade = .Perfect && isBreak && noteIndex = 360
+        | _ => false
+      let renderOk :=
+        match render with
+        | .ShowJudgeResult kind grade isBreak _ noteIndex =>
+            kind = .Tap && grade = .Perfect && isBreak && noteIndex = 360
+        | _ => false
+      passCase "break_tap_event_preserves_family_and_counts_as_break"
+        (evt.kind = .Tap
+          && evt.isBreak
+          && audioOk
+          && renderOk
+          && nextState.score.counts.breakCount .Perfect = 1
+          && nextState.score.counts.tapCount .Perfect = 0)
+        "break tap events should keep tap-family identity while folding into break counters"
+  | _, _, _ =>
+      passCase "break_tap_event_preserves_family_and_counts_as_break" false
+        "expected one judged break tap event plus break-aware audio/render commands"
+
+private def breakHoldState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, isBreak := true, noteIndex := 361 }
+    , start := .button .K1
+    , state := .BodyHeld
+    , length := dur 200000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect }
+  { currentTime := tp 1300000
+  , activeHolds := [(.K1, hold)] }
+
+def test_break_hold_event_preserves_family_and_counts_as_break : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, audioCmds, renderCmds) := Scheduler.stepFrame breakHoldState input
+  match events, audioCmds, renderCmds, nextState.activeHolds with
+  | [evt], [audio], [render], [] =>
+      let audioOk :=
+        match audio with
+        | .PlayJudgeSfx kind grade isBreak _ noteIndex =>
+            kind = .Hold && grade = .Perfect && isBreak && noteIndex = 361
+        | _ => false
+      let renderOk :=
+        match render with
+        | .ShowJudgeResult kind grade isBreak _ noteIndex =>
+            kind = .Hold && grade = .Perfect && isBreak && noteIndex = 361
+        | _ => false
+      passCase "break_hold_event_preserves_family_and_counts_as_break"
+        (evt.kind = .Hold
+          && evt.isBreak
+          && audioOk
+          && renderOk
+          && nextState.score.counts.breakCount .Perfect = 1
+          && nextState.score.counts.holdCount .Perfect = 0)
+        "break hold finals should keep hold-family identity while folding into break counters"
+  | _, _, _, _ =>
+      passCase "break_hold_event_preserves_family_and_counts_as_break" false
+        "expected one final break hold event, break-aware audio/render commands, and no remaining active hold"
+
+private def breakTouchState : InputModel.GameState :=
+  let touch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, isBreak := true, noteIndex := 362 }
+    , state := .Judgeable
+    , sensorPos := .A1 }
+  { currentTime := tp 984000
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touch] } else { notes := [] }) }
+
+def test_break_touch_event_preserves_family_and_counts_as_break : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [.A1] [] (dur 16000)
+  let (nextState, events, audioCmds, renderCmds) := Scheduler.stepFrame breakTouchState input
+  match events, audioCmds, renderCmds with
+  | [evt], [audio], [render] =>
+      let audioOk :=
+        match audio with
+        | .PlayJudgeSfx kind grade isBreak _ noteIndex =>
+            kind = .Touch && grade = .Perfect && isBreak && noteIndex = 362
+        | _ => false
+      let renderOk :=
+        match render with
+        | .ShowJudgeResult kind grade isBreak _ noteIndex =>
+            kind = .Touch && grade = .Perfect && isBreak && noteIndex = 362
+        | _ => false
+      passCase "break_touch_event_preserves_family_and_counts_as_break"
+        (evt.kind = .Touch
+          && evt.isBreak
+          && audioOk
+          && renderOk
+          && nextState.score.counts.breakCount .Perfect = 1
+          && nextState.score.counts.touchCount .Perfect = 0)
+        "break touch events should keep touch-family identity while folding into break counters"
+  | _, _, _ =>
+      passCase "break_touch_event_preserves_family_and_counts_as_break" false
+        "expected one judged break touch event plus break-aware audio/render commands"
+
+private def breakSlideState : InputModel.GameState :=
+  let unfinished : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, isBreak := true, noteIndex := 363 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , headTiming := tp 800000
+    , startTiming := tp 800000
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[unfinished]] }
+  { currentTime := tp 1600000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_break_slide_event_preserves_family_and_counts_as_break : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, audioCmds, renderCmds) := Scheduler.stepFrame breakSlideState input
+  match events, audioCmds with
+  | [evt], [audio] =>
+      let audioOk :=
+        match audio with
+        | .PlayJudgeSfx kind grade isBreak _ noteIndex =>
+            kind = .Slide && grade = .LateGood && isBreak && noteIndex = 363
+        | _ => false
+      let renderOk :=
+        renderCmds.any (fun render =>
+          match render with
+          | .ShowJudgeResult kind grade isBreak _ noteIndex =>
+              kind = .Slide && grade = .LateGood && isBreak && noteIndex = 363
+          | _ => false)
+      passCase "break_slide_event_preserves_family_and_counts_as_break"
+        (evt.kind = .Slide
+          && evt.isBreak
+          && evt.grade = .LateGood
+          && audioOk
+          && renderOk
+          && nextState.score.counts.breakCount .LateGood = 1
+          && nextState.score.counts.slideCount .LateGood = 0)
+        "break slide too-late events should keep slide-family identity while folding into break counters"
+  | _, _ =>
+      passCase "break_slide_event_preserves_family_and_counts_as_break" false
+        "expected one judged break slide event plus break-aware audio/render commands"
+
 def test_classic_hold_fast_boundary_is_strict : RuntimeCase :=
   let timing := secs 1
   let length := dur 500000
@@ -341,6 +502,58 @@ def test_touch_hold_group_share_requires_strict_majority : RuntimeCase :=
   passCase "touch_hold_group_share_requires_strict_majority"
     (events.isEmpty && unresolved)
     "MajdataPlay requires `Percent > 0.5`, so an exact half share must not silently judge the touch-hold head"
+
+private def touchHoldBodyExitShrinksMajorityState : InputModel.GameState :=
+  let holdA1 : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 380 }
+    , start := .sensor .A1
+    , state := .BodyReleased
+    , length := dur 800000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , playerReleaseTime := dur 32000
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchHoldGroupId := some 90
+    , touchHoldGroupSize := 4 }
+  let holdA2 : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 381 }
+    , start := .sensor .A2
+    , state := .BodyHeld
+    , length := dur 800000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchHoldGroupId := some 90
+    , touchHoldGroupSize := 4
+    , touchHoldGroupTriggered := true }
+  let holdA3 : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 382 }
+    , start := .sensor .A3
+    , state := .BodyHeld
+    , length := dur 800000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchHoldGroupId := some 90
+    , touchHoldGroupSize := 4
+    , touchHoldGroupTriggered := true }
+  { currentTime := tp 1300000
+  , activeTouchHolds := [(.A1, holdA1), (.A2, holdA2), (.A3, holdA3)]
+  , touchHoldGroupStates :=
+      [{ groupId := 90, memberNoteIndices := [380, 381, 382], triggeredNoteIndices := [381, 382] }] }
+
+def test_touch_hold_body_group_exit_shrinks_majority_denominator : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchHoldBodyExitShrinksMajorityState input
+  let recovered :=
+    nextState.activeTouchHolds.any (fun entry =>
+      entry.1 = .A1 && match entry.2.state with | .BodyHeld => true | _ => false)
+  passCase "touch_hold_body_group_exit_shrinks_majority_denominator"
+    (events.isEmpty && recovered)
+    "body majority should use the live body-group member count after exits, not the original chart size"
 
 private def wifiParentPendingFinishState : InputModel.GameState :=
   let parent : Lifecycle.SlideNote :=
@@ -2927,6 +3140,69 @@ def test_touch_hold_head_can_resolve_from_shared_touch_group : RuntimeCase :=
   | _, _, _ =>
       passCase "touch_hold_head_can_resolve_from_shared_touch_group" false "expected silent head resolution with queue advance"
 
+private def touchHoldHeadUsesTouchGroupNotBodyGroupState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 390 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchGroupId := some 140
+    , touchGroupSize := 3
+    , touchHoldGroupId := some 240
+    , touchHoldGroupSize := 3 }
+  { currentTime := tp 984000
+  , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [hold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, hold)]
+  , touchGroupStates := [{ groupId := 140, count := 2, size := 3, grade := .Perfect, diff := Duration.zero }]
+  , touchHoldGroupStates := [{ groupId := 240, memberNoteIndices := [390, 391, 392], triggeredNoteIndices := [] }] }
+
+def test_touch_hold_head_share_uses_touch_group_not_body_group : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchHoldHeadUsesTouchGroupNotBodyGroupState input
+  match events, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
+  | [], queueAfter, holdsAfter =>
+      let resolved :=
+        holdsAfter.any (fun entry =>
+          entry.1 == .A1 && match entry.2.state with | .HeadJudged .Perfect => true | _ => false)
+      passCase "touch_hold_head_share_uses_touch_group_not_body_group"
+        (queueAfter.currentIndex = 1 && resolved)
+        "touch-hold head sharing should read the shared touch group even when the body-group id differs"
+  | _, _, _ =>
+      passCase "touch_hold_head_share_uses_touch_group_not_body_group" false
+        "expected silent head resolution from touch-group state"
+
+private def touchHoldHeadIgnoresBodyGroupShareState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 393 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchGroupId := some 141
+    , touchGroupSize := 3
+    , touchHoldGroupId := some 241
+    , touchHoldGroupSize := 3 }
+  { currentTime := tp 984000
+  , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [hold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, hold)]
+  , touchGroupStates := []
+  , touchHoldGroupStates :=
+      [{ groupId := 241, memberNoteIndices := [393, 394, 395], triggeredNoteIndices := [394, 395] }] }
+
+def test_touch_hold_head_share_does_not_resolve_from_body_group_state : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchHoldHeadIgnoresBodyGroupShareState input
+  let unresolved :=
+    nextState.activeTouchHolds.any (fun entry =>
+      entry.1 = .A1 && match entry.2.state with | .HeadJudgeable => true | _ => false)
+  let queueAfter := nextState.touchHoldQueues.getD .A1 { notes := [] }
+  passCase "touch_hold_head_share_does_not_resolve_from_body_group_state"
+    (events.isEmpty && unresolved && queueAfter.currentIndex = 0)
+    "body-group majority should not silently judge a touch-hold head without touch-group share"
+
 private def touchThenTouchHoldGroupShareSameFrameState : InputModel.GameState :=
   let touch : Lifecycle.TouchNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 91 }
@@ -3319,9 +3595,14 @@ def all : List RuntimeCase :=
   , test_short_modern_hold_does_not_force_end_before_remaining_time_zero
   , test_touch_hold_body_majority_reactivates_released_note
   , test_touch_hold_local_press_reactivates_released_note
+  , test_break_tap_event_preserves_family_and_counts_as_break
+  , test_break_hold_event_preserves_family_and_counts_as_break
+  , test_break_touch_event_preserves_family_and_counts_as_break
+  , test_break_slide_event_preserves_family_and_counts_as_break
   , test_classic_hold_fast_boundary_is_strict
   , test_classic_hold_late_boundary_is_strict
   , test_touch_hold_group_share_requires_strict_majority
+  , test_touch_hold_body_group_exit_shrinks_majority_denominator
   , test_conn_child_wifi_parent_pending_finish_becomes_checkable
   , test_wifi_too_late_two_single_tails_is_lategood_by_max_remaining
   , test_overlapping_slides_can_both_progress_from_one_sensor_hold
@@ -3386,6 +3667,8 @@ def all : List RuntimeCase :=
   , test_same_area_consecutive_touch_holds_advance_shared_frontier
   , test_unlocked_touch_frontier_still_allows_older_touch_hold
   , test_touch_hold_head_can_resolve_from_shared_touch_group
+  , test_touch_hold_head_share_uses_touch_group_not_body_group
+  , test_touch_hold_head_share_does_not_resolve_from_body_group_state
   , test_scheduler_policy_touch_runs_before_touch_hold_group_share
   , test_reference_like_slide_skip_chain_does_not_clear_last_area_early
   , test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all

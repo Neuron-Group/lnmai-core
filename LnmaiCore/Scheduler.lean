@@ -313,9 +313,6 @@ private def advanceSensorQueueIfHead (queues : SensorQueueVec HoldNote) (area : 
   else
     queues
 
-private def touchHoldGroupTriggeredCount (holds : List (SensorArea × HoldNote)) (groupId : Nat) : Nat :=
-  (holds.filter (fun note => note.2.touchHoldGroupId == some groupId && note.2.touchHoldGroupTriggered)).length
-
 private def hasStrictMajority (count size : Nat) : Bool :=
   size > 0 && count * 2 > size
 
@@ -341,6 +338,113 @@ private def updateGroupState (groups : List GroupState) (groupId : Nat) (groupSi
       else
         group :: loop rest
   loop groups
+
+private def touchHoldBodyGroupStatesFromHolds
+    (holds : List (SensorArea × HoldNote)) : List TouchHoldBodyGroupState :=
+  let rec loop (remaining : List (SensorArea × HoldNote)) (acc : List TouchHoldBodyGroupState) :
+      List TouchHoldBodyGroupState :=
+    match remaining with
+    | [] => acc.reverse
+    | (_, note) :: rest =>
+        match note.touchHoldGroupId with
+        | none => loop rest acc
+        | some groupId =>
+            let noteIndex := note.params.noteIndex
+            let triggered := note.touchHoldGroupTriggered
+            let rec upsert (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
+              match items with
+              | [] =>
+                  let triggeredNoteIndices := if triggered then [noteIndex] else []
+                  [{ groupId := groupId, memberNoteIndices := [noteIndex], triggeredNoteIndices := triggeredNoteIndices }]
+              | item :: tail =>
+                  if item.groupId == groupId then
+                    let memberNoteIndices :=
+                      if item.memberNoteIndices.contains noteIndex then item.memberNoteIndices
+                      else noteIndex :: item.memberNoteIndices
+                    let triggeredNoteIndices :=
+                      if triggered && !item.triggeredNoteIndices.contains noteIndex then
+                        noteIndex :: item.triggeredNoteIndices
+                      else if !triggered then
+                        item.triggeredNoteIndices.erase noteIndex
+                      else
+                        item.triggeredNoteIndices
+                    { item with
+                        memberNoteIndices := memberNoteIndices
+                      , triggeredNoteIndices := triggeredNoteIndices } :: tail
+                  else
+                    item :: upsert tail
+            loop rest (upsert acc)
+  loop holds []
+
+private def touchHoldBodyGroupTriggeredCount (group : TouchHoldBodyGroupState) : Nat :=
+  group.triggeredNoteIndices.length
+
+private def touchHoldBodyGroupMemberCount (group : TouchHoldBodyGroupState) : Nat :=
+  group.memberNoteIndices.length
+
+private def touchHoldBodyGroupMajorityPressed
+    (groups : List TouchHoldBodyGroupState) (groupId : Nat) : Bool :=
+  match groups.find? (fun group => group.groupId == groupId) with
+  | some group => hasStrictMajority (touchHoldBodyGroupTriggeredCount group) (touchHoldBodyGroupMemberCount group)
+  | none => false
+
+private def registerTouchHoldBodyTrigger
+    (groups : List TouchHoldBodyGroupState) (groupId : Nat) (noteIndex : Nat) : List TouchHoldBodyGroupState :=
+  let rec loop (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
+    match items with
+    | [] => [{ groupId := groupId, memberNoteIndices := [noteIndex], triggeredNoteIndices := [noteIndex] }]
+    | group :: rest =>
+        if group.groupId == groupId then
+          let memberNoteIndices :=
+            if group.memberNoteIndices.contains noteIndex then group.memberNoteIndices
+            else noteIndex :: group.memberNoteIndices
+          let triggeredNoteIndices :=
+            if group.triggeredNoteIndices.contains noteIndex then group.triggeredNoteIndices
+            else noteIndex :: group.triggeredNoteIndices
+          { group with
+              memberNoteIndices := memberNoteIndices
+            , triggeredNoteIndices := triggeredNoteIndices } :: rest
+        else
+          group :: loop rest
+  loop groups
+
+private def unregisterTouchHoldBodyTrigger
+    (groups : List TouchHoldBodyGroupState) (groupId : Nat) (noteIndex : Nat) : List TouchHoldBodyGroupState :=
+  let rec loop (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
+    match items with
+    | [] => []
+    | group :: rest =>
+        if group.groupId == groupId then
+          { group with triggeredNoteIndices := group.triggeredNoteIndices.erase noteIndex } :: rest
+        else
+          group :: loop rest
+  loop groups
+
+private def exitTouchHoldBodyGroupMember
+    (groups : List TouchHoldBodyGroupState) (groupId : Nat) (noteIndex : Nat) : List TouchHoldBodyGroupState :=
+  let rec loop (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
+    match items with
+    | [] => []
+    | group :: rest =>
+        if group.groupId == groupId then
+          let memberNoteIndices := group.memberNoteIndices.erase noteIndex
+          if memberNoteIndices.isEmpty then
+            rest
+          else
+            { group with
+                memberNoteIndices := memberNoteIndices
+              , triggeredNoteIndices := group.triggeredNoteIndices.erase noteIndex } :: rest
+        else
+          group :: loop rest
+  loop groups
+
+private def touchHoldBodyCheckActive (note : HoldNote) (currentTime : TimePoint) : Bool :=
+  let timing := note.params.effectiveTiming
+  let bodyCheckStart := timing + TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC
+  let bodyCheckEnd := timing + note.length - TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
+  let bodyWindowDisabled :=
+    !note.isClassic && note.length ≤ TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC + TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
+  !bodyWindowDisabled && currentTime ≥ bodyCheckStart && currentTime ≤ bodyCheckEnd
 
 private def touchQueueIndexUnlocked (frontiers : SensorVec Nat) (area : SensorArea) (index : Nat) : Bool :=
   index ≤ frontiers.getD area 0
@@ -381,19 +485,44 @@ private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVe
     | none =>
       (restFrontiers, restQueues, restNotes', restEvs, cursor3)
 
-private def processTouchHoldNotes (touchFrontiers : SensorVec Nat) (queues : SensorQueueVec HoldNote) (holds : List (SensorArea × HoldNote)) (input : FrameInput) (currentTime : TimePoint) (delta : Duration) (style : JudgeStyle) (touchPanelOffset : Duration) (useButtonRingForTouch : Bool) (cursor : ClickCursor) (groupStates : List GroupState) : SensorVec Nat × SensorQueueVec HoldNote × List (SensorArea × HoldNote) × List JudgeEvent × ClickCursor × List GroupState :=
+private def processTouchHoldNotes
+    (touchFrontiers : SensorVec Nat)
+    (queues : SensorQueueVec HoldNote)
+    (holds : List (SensorArea × HoldNote))
+    (input : FrameInput)
+    (currentTime : TimePoint)
+    (delta : Duration)
+    (style : JudgeStyle)
+    (touchPanelOffset : Duration)
+    (useButtonRingForTouch : Bool)
+    (cursor : ClickCursor)
+    (touchGroupStates : List GroupState)
+    (touchHoldBodyGroups : List TouchHoldBodyGroupState) :
+    SensorVec Nat × SensorQueueVec HoldNote × List (SensorArea × HoldNote) × List JudgeEvent ×
+      ClickCursor × List GroupState × List TouchHoldBodyGroupState :=
   match holds with
-  | [] => (touchFrontiers, queues, [], [], cursor, groupStates)
+  | [] => (touchFrontiers, queues, [], [], cursor, touchGroupStates, touchHoldBodyGroups)
   | (area, note) :: rest =>
     let timing := note.params.effectiveTiming
     let buttonDiff := currentTime - timing
     let sensorDiff := (currentTime - touchPanelOffset) - timing
-    let groupTriggeredCount :=
-      match note.touchHoldGroupId with
-      | some groupId =>
-          touchHoldGroupTriggeredCount holds groupId
-      | none => 0
-    let effectivePressed := input.getSensorHeld area || hasStrictMajority groupTriggeredCount note.touchHoldGroupSize
+    let localBodyPressed := input.getSensorHeld area
+    let touchHoldBodyGroups1 :=
+      if touchHoldBodyCheckActive note currentTime then
+        match note.touchHoldGroupId with
+        | some groupId =>
+            if localBodyPressed then
+              registerTouchHoldBodyTrigger touchHoldBodyGroups groupId note.params.noteIndex
+            else
+              unregisterTouchHoldBodyTrigger touchHoldBodyGroups groupId note.params.noteIndex
+        | none => touchHoldBodyGroups
+      else
+        touchHoldBodyGroups
+    let effectivePressed :=
+      localBodyPressed ||
+        match note.touchHoldGroupId with
+        | some groupId => touchHoldBodyGroupMajorityPressed touchHoldBodyGroups1 groupId
+        | none => false
     let allowInput :=
       queueHeadMatches (InputModel.sensorQueueAt queues area) note
         && touchQueueIndexUnlocked touchFrontiers area note.touchQueueIndex
@@ -405,38 +534,60 @@ private def processTouchHoldNotes (touchFrontiers : SensorVec Nat) (queues : Sen
         | none => (false, cursor)
       else
         (false, cursor)
-    let (usedSensor, cursor1) := if usedButton then (false, cursor1) else if allowInput then tryUseSensorClickAt input cursor1 area else (false, cursor1)
+    let (usedSensor, cursor1) :=
+      if usedButton then
+        (false, cursor1)
+      else if allowInput then
+        tryUseSensorClickAt input cursor1 area
+      else
+        (false, cursor1)
     let sharedResult :=
-      match note.touchHoldGroupId with
-      | some groupId =>
-        match groupShareResult groupStates groupId with
-        | some shared => some shared
-        | none => none
+      match note.touchGroupId with
+      | some groupId => groupShareResult touchGroupStates groupId
       | none => none
     let headDiff := if usedButton then buttonDiff else sensorDiff
     let (newNote, evt?) :=
-      holdStep note currentTime headDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC (usedButton || usedSensor) effectivePressed usedButton false touchPanelOffset sharedResult delta style
+      holdStep note currentTime headDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
+        (usedButton || usedSensor) effectivePressed usedButton false touchPanelOffset sharedResult delta style
     let touchFrontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedTouchQueue touchFrontiers area else touchFrontiers
     let queues' := if enteredHeadJudged note.state newNote.state then advanceSensorQueueIfHead queues area newNote else queues
-    let groupStates' :=
-      match evt?, note.touchHoldGroupId with
+    let touchGroupStates' :=
+      match evt?, note.touchGroupId with
       | some evt, some groupId =>
-        if evt.grade.isMissOrTooFast then groupStates else updateGroupState groupStates groupId note.touchHoldGroupSize evt.grade newNote.headDiff
+          if evt.grade.isMissOrTooFast then
+            touchGroupStates
+          else
+            updateGroupState touchGroupStates groupId note.touchGroupSize evt.grade newNote.headDiff
       | _, _ =>
-        match newNote.state with
-        | HoldSubState.HeadJudged grade =>
-          if grade.isMissOrTooFast then groupStates else
-            match note.touchHoldGroupId with
-            | some groupId => updateGroupState groupStates groupId note.touchHoldGroupSize grade newNote.headDiff
-            | none => groupStates
-        | _ => groupStates
-    let (restTouchFrontiers, restQueues, restNotes, restEvs, cursor2, restGroups) := processTouchHoldNotes touchFrontiers' queues' rest input currentTime delta style touchPanelOffset useButtonRingForTouch cursor1 groupStates'
+          match newNote.state with
+          | HoldSubState.HeadJudged grade =>
+              if grade.isMissOrTooFast then
+                touchGroupStates
+              else
+                match note.touchGroupId with
+                | some groupId =>
+                    updateGroupState touchGroupStates groupId note.touchGroupSize grade newNote.headDiff
+                | none => touchGroupStates
+          | _ => touchGroupStates
+    let touchHoldBodyGroups2 :=
+      match note.touchHoldGroupId with
+      | some groupId =>
+          if keepHoldActive newNote then
+            touchHoldBodyGroups1
+          else
+            exitTouchHoldBodyGroupMember touchHoldBodyGroups1 groupId note.params.noteIndex
+      | none => touchHoldBodyGroups1
+    let (restTouchFrontiers, restQueues, restNotes, restEvs, cursor2, restTouchGroups, restBodyGroups) :=
+      processTouchHoldNotes touchFrontiers' queues' rest input currentTime delta style touchPanelOffset
+        useButtonRingForTouch cursor1 touchGroupStates' touchHoldBodyGroups2
     let restNotes' := if keepHoldActive newNote then (area, newNote) :: restNotes else restNotes
     match evt? with
     | some evt =>
-      (restTouchFrontiers, restQueues, restNotes', evt :: restEvs, cursor2, restGroups)
+        (restTouchFrontiers, restQueues, restNotes', evt :: restEvs, cursor2, restTouchGroups,
+          restBodyGroups)
     | none =>
-      (restTouchFrontiers, restQueues, restNotes', restEvs, cursor2, restGroups)
+        (restTouchFrontiers, restQueues, restNotes', restEvs, cursor2, restTouchGroups,
+          restBodyGroups)
 
 ----------------------------------------------------------------------------
 -- Process touch notes
@@ -532,12 +683,16 @@ private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (cu
 private def foldEventIntoScore (s : ScoreState) (evt : JudgeEvent) : ScoreState :=
   let multiple : Nat := 1
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
-  let counts := match evt.kind with
-    | .Tap   => { s.counts with tapCount   := λ g => if g == evt.grade then s.counts.tapCount g + 1 else s.counts.tapCount g }
-    | .Hold  => { s.counts with holdCount  := λ g => if g == evt.grade then s.counts.holdCount g + 1 else s.counts.holdCount g }
-    | .Slide => { s.counts with slideCount := λ g => if g == evt.grade then s.counts.slideCount g + 1 else s.counts.slideCount g }
-    | .Touch => { s.counts with touchCount := λ g => if g == evt.grade then s.counts.touchCount g + 1 else s.counts.touchCount g }
-    | .Break => { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + 1 else s.counts.breakCount g }
+  let counts :=
+    if evt.isBreak || evt.kind == .Break then
+      { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + 1 else s.counts.breakCount g }
+    else
+      match evt.kind with
+      | .Tap   => { s.counts with tapCount   := λ g => if g == evt.grade then s.counts.tapCount g + 1 else s.counts.tapCount g }
+      | .Hold  => { s.counts with holdCount  := λ g => if g == evt.grade then s.counts.holdCount g + 1 else s.counts.holdCount g }
+      | .Slide => { s.counts with slideCount := λ g => if g == evt.grade then s.counts.slideCount g + 1 else s.counts.slideCount g }
+      | .Touch => { s.counts with touchCount := λ g => if g == evt.grade then s.counts.touchCount g + 1 else s.counts.touchCount g }
+      | .Break => { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + 1 else s.counts.breakCount g }
   { s with
     combo       := comboDelta.combo
     pCombo      := comboDelta.pCombo
@@ -552,10 +707,10 @@ private def foldEventsIntoScore (s : ScoreState) (events : List JudgeEvent) : Sc
   | evt :: rest => foldEventsIntoScore (foldEventIntoScore s evt) rest
 
 private def eventToAudioCommands (evt : JudgeEvent) (timePoint : TimePoint) : List AudioCommand :=
-  [ AudioCommand.PlayJudgeSfx evt.kind evt.grade timePoint evt.noteIndex ]
+  [ AudioCommand.PlayJudgeSfx evt.kind evt.grade evt.isBreak timePoint evt.noteIndex ]
 
 private def eventToRenderCommands (evt : JudgeEvent) : List RenderCommand :=
-  [ RenderCommand.ShowJudgeResult evt.kind evt.grade evt.diff evt.noteIndex ]
+  [ RenderCommand.ShowJudgeResult evt.kind evt.grade evt.isBreak evt.diff evt.noteIndex ]
 
 private def eventsToAudioCommands (events : List JudgeEvent) (timePoint : TimePoint) : List AudioCommand :=
   match events with
@@ -575,6 +730,11 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let newTime := st.currentTime + input.delta
   let cursor : ClickCursor := {}
   let resolvedSlides := updateSlideParentFlags st.slides
+  let touchHoldBodyGroups :=
+    if st.touchHoldGroupStates.isEmpty then
+      touchHoldBodyGroupStatesFromHolds st.activeTouchHolds
+    else
+      st.touchHoldGroupStates
 
   -- Semantic order is deliberate; see module comment above.
   let (buttonFrontiers1, tapNotes, tapEvents, cursorTap) :=
@@ -583,8 +743,8 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     processHoldNotes buttonFrontiers1 st.holdQueues st.activeHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.prevSensor cursorTap
   let (touchFrontiers1, touchNotes, touchEvents, cursor2, touchGroupStates) :=
     processTouchNotes st.touchQueueFrontiers st.touchQueues input newTime st.judgeStyle cursor1 st.useButtonRingForTouch st.touchPanelOffset st.touchGroupStates
-  let (touchFrontiers2, touchHoldQueues, touchHoldNotes, touchHoldEvents, _cursor3, touchHoldGroupStates) :=
-    processTouchHoldNotes touchFrontiers1 st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.useButtonRingForTouch cursor2 touchGroupStates
+  let (touchFrontiers2, touchHoldQueues, touchHoldNotes, touchHoldEvents, _cursor3, touchGroupStates', touchHoldGroupStates) :=
+    processTouchHoldNotes touchFrontiers1 st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.useButtonRingForTouch cursor2 touchGroupStates touchHoldBodyGroups
   let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
     processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
   let slideNotes := forceFinishParentSlides slideNotes
@@ -610,7 +770,7 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     , slides      := slideNotes
     , activeHolds := holdNotes
     , activeTouchHolds := touchHoldNotes
-    , touchGroupStates := touchGroupStates
+    , touchGroupStates := touchGroupStates'
     , touchHoldGroupStates := touchHoldGroupStates
   }, allEvents, audioCommands, renderCommands)
 

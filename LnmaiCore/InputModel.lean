@@ -198,7 +198,7 @@ structure GameState where
   activeHolds   : List (ButtonZone × Lifecycle.HoldNote) := []
   activeTouchHolds : List (SensorArea × Lifecycle.HoldNote) := []
   touchGroupStates : List GroupState := []
-  touchHoldGroupStates : List GroupState := []
+  touchHoldGroupStates : List TouchHoldBodyGroupState := []
   currentBatch  : TimedInputBatch := {}
   score         : ScoreState := {}
   judgeStyle    : JudgeStyle := JudgeStyle.Default

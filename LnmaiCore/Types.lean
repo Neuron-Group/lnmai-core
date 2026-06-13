@@ -237,6 +237,12 @@ structure GroupState where
   diff    : Duration
 deriving Repr, Inhabited, ToJson, FromJson
 
+structure TouchHoldBodyGroupState where
+  groupId : Nat
+  memberNoteIndices : List Nat := []
+  triggeredNoteIndices : List Nat := []
+deriving Repr, Inhabited, ToJson, FromJson
+
 namespace NoteJudgeResult
 
 def isFast (r : NoteJudgeResult) : Bool := r.diff < Duration.zero
@@ -371,15 +377,18 @@ structure JudgeEvent where
   diff      : Duration
   position  : RuntimePos
   noteIndex : Nat
+  isBreak   : Bool := false
 deriving Repr, Inhabited, ToJson, FromJson
 
 inductive AudioCommand where
-  | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (atTime : TimePoint) (noteIndex : Nat)
-  | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (atTime : TimePoint)
+  | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (isBreak : Bool)
+      (atTime : TimePoint) (noteIndex : Nat)
+  | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (isBreak : Bool) (atTime : TimePoint)
 deriving Repr, Inhabited, ToJson, FromJson
 
 inductive RenderCommand where
-  | ShowJudgeResult (kind : JudgeEventKind) (grade : JudgeGrade) (diff : Duration) (noteIndex : Nat)
+  | ShowJudgeResult (kind : JudgeEventKind) (grade : JudgeGrade) (isBreak : Bool)
+      (diff : Duration) (noteIndex : Nat)
   | UpdateSlideProgress (noteIndex : Nat) (remaining : Nat)
   | UpdateSlideTrackProgress (noteIndex : Nat) (trackIndex : Nat) (remaining : Nat)
   | HideAllSlideBars (noteIndex : Nat)

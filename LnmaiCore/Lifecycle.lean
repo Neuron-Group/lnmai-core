@@ -179,14 +179,16 @@ private def tapLikeMissEvent (params : CommonNoteParams) (lane : OuterSlot) (sty
   , grade := grade
   , diff := Duration.fromMicros (-1000)
   , position := .button lane.toButtonZone
-  , noteIndex := params.noteIndex }
+  , noteIndex := params.noteIndex
+  , isBreak := params.isBreak }
 
 private def tapLikeJudgeEvent (params : CommonNoteParams) (lane : OuterSlot) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Tap
   , grade := grade
   , diff := judgeDiff
   , position := .button lane.toButtonZone
-  , noteIndex := params.noteIndex }
+  , noteIndex := params.noteIndex
+  , isBreak := params.isBreak }
 
 private def tapMissEvent (note : TapNote) (style : JudgeStyle) : JudgeEvent :=
   tapLikeMissEvent note.params note.lane style
@@ -439,7 +441,13 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
         Judge.judgeHoldEnd headGrade note.headDiff note.length (headIgnore + tailIgnore) releaseTime
     let finalGrade' := Convert.convertGrade style finalGrade
     let eventDiff := if note.headDiff == Duration.zero && headGrade == Miss then Time.fromMillis 150 else note.headDiff
-    let evt : JudgeEvent := { kind := .Hold, grade := finalGrade', diff := eventDiff, position := note.position, noteIndex := note.params.noteIndex }
+    let evt : JudgeEvent :=
+      { kind := .Hold
+      , grade := finalGrade'
+      , diff := eventDiff
+      , position := note.position
+      , noteIndex := note.params.noteIndex
+      , isBreak := note.params.isBreak }
     ({ note with state := HoldSubState.Ended finalGrade', touchHoldGroupTriggered := false }, some evt)
   match note.state with
   | .HeadWaiting =>
@@ -542,14 +550,16 @@ private def touchMissEvent (note : TouchNote) (judgeDiff : Duration) : JudgeEven
   , grade := Miss
   , diff := judgeDiff
   , position := .sensor note.sensorPos
-  , noteIndex := note.params.noteIndex }
+  , noteIndex := note.params.noteIndex
+  , isBreak := note.params.isBreak }
 
 private def touchJudgeEvent (note : TouchNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
   , grade := grade
   , diff := judgeDiff
   , position := .sensor note.sensorPos
-  , noteIndex := note.params.noteIndex }
+  , noteIndex := note.params.noteIndex
+  , isBreak := note.params.isBreak }
 
 private def judgeTouchNow? (note : TouchNote) (style : JudgeStyle) (judgeDiff : Duration) : TouchNote × Option JudgeEvent :=
   match Judge.judgeTouch judgeDiff note.params.isEX with
@@ -878,7 +888,8 @@ private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff :
   , grade := grade
   , diff := judgeDiff
   , position := note.position
-  , noteIndex := note.params.noteIndex }
+  , noteIndex := note.params.noteIndex
+  , isBreak := note.params.isBreak }
 
 private def buildSlideSemanticBase
     (note : SlideNote) (updatedQueues : List SlideQueue) (queueRenderCmds : List RenderCommand)
@@ -953,7 +964,10 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
 
 private def slideSemanticAudioCmds (semantic : SlideStepSemantic) (currentTime : TimePoint) : List AudioCommand :=
   if semantic.shouldPlayTrackOns then
-    semantic.trackOns.map (fun trackIndex => AudioCommand.PlaySlideCue semantic.note.params.noteIndex trackIndex currentTime)
+    semantic.trackOns.map
+      (fun trackIndex =>
+        AudioCommand.PlaySlideCue semantic.note.params.noteIndex trackIndex semantic.note.params.isBreak
+          currentTime)
   else []
 
 private def slideSemanticRenderCmds (semantic : SlideStepSemantic) : List RenderCommand :=

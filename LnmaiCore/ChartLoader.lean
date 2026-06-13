@@ -599,6 +599,43 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   , isCheckable := false
   , judgeQueues := judgeQueues }
 
+private def touchHoldBodyGroupStatesFromHolds
+    (holds : List (SensorArea × HoldNote)) : List TouchHoldBodyGroupState :=
+  let rec loop (remaining : List (SensorArea × HoldNote)) (acc : List TouchHoldBodyGroupState) :
+      List TouchHoldBodyGroupState :=
+    match remaining with
+    | [] => acc.reverse
+    | (_, note) :: rest =>
+        match note.touchHoldGroupId with
+        | none => loop rest acc
+        | some groupId =>
+            let noteIndex := note.params.noteIndex
+            let triggered := note.touchHoldGroupTriggered
+            let rec upsert (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
+              match items with
+              | [] =>
+                  let triggeredNoteIndices := if triggered then [noteIndex] else []
+                  [{ groupId := groupId, memberNoteIndices := [noteIndex], triggeredNoteIndices := triggeredNoteIndices }]
+              | item :: tail =>
+                  if item.groupId == groupId then
+                    let memberNoteIndices :=
+                      if item.memberNoteIndices.contains noteIndex then item.memberNoteIndices
+                      else noteIndex :: item.memberNoteIndices
+                    let triggeredNoteIndices :=
+                      if triggered && !item.triggeredNoteIndices.contains noteIndex then
+                        noteIndex :: item.triggeredNoteIndices
+                      else if !triggered then
+                        item.triggeredNoteIndices.erase noteIndex
+                      else
+                        item.triggeredNoteIndices
+                    { item with
+                        memberNoteIndices := memberNoteIndices
+                      , triggeredNoteIndices := triggeredNoteIndices } :: tail
+                  else
+                    item :: upsert tail
+            loop rest (upsert acc)
+  loop holds []
+
 def buildGameState (chart : ChartSpec) : GameState :=
   let tapFamilyHeads := chart.taps ++ chart.slideHeads.map (fun note =>
     { timing := note.timing
@@ -652,6 +689,7 @@ def buildGameState (chart : ChartSpec) : GameState :=
     touchHoldQueues.entries.foldr (fun entry acc =>
       let entries := entry.2.notes.map (fun note => (entry.1, note))
       entries ++ acc) []
+  let touchHoldGroupStates := touchHoldBodyGroupStatesFromHolds activeTouchHolds
   {
     currentTime := TimePoint.zero,
     prevButton := ButtonVec.replicate BUTTON_ZONE_COUNT false,
@@ -666,7 +704,7 @@ def buildGameState (chart : ChartSpec) : GameState :=
     activeHolds := activeHolds,
     activeTouchHolds := activeTouchHolds,
     touchGroupStates := [],
-    touchHoldGroupStates := [],
+    touchHoldGroupStates := touchHoldGroupStates,
     currentBatch := {},
     score := {},
     judgeStyle := JudgeStyle.Default,

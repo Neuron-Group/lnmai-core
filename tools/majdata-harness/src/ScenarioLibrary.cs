@@ -42,6 +42,16 @@ public static class ScenarioLibrary
         },
         new Scenario
         {
+            Name = "Touch-hold head uses touch-group share, not body-group majority",
+            Run = RunTouchHoldHeadUsesTouchGroupNotBodyGroup
+        },
+        new Scenario
+        {
+            Name = "Touch-hold head does not resolve from body-group majority alone",
+            Run = RunTouchHoldHeadIgnoresBodyGroupMajority
+        },
+        new Scenario
+        {
             Name = "Two button clicks let tap then hold both consume on mobile-style counts",
             Run = RunTapThenHoldWithTwoButtonClicks
         },
@@ -79,6 +89,16 @@ public static class ScenarioLibrary
         {
             Name = "Touch-hold shared head requires strict majority",
             Run = RunTouchHoldSharedHeadRequiresStrictMajority
+        },
+        new Scenario
+        {
+            Name = "Touch-hold body-group exit shrinks the majority denominator",
+            Run = RunTouchHoldBodyGroupExitShrinksDenominator
+        },
+        new Scenario
+        {
+            Name = "Break note counting branches on IsBreak, not note family",
+            Run = RunBreakCountingUsesIsBreak
         },
         new Scenario
         {
@@ -368,6 +388,73 @@ public static class ScenarioLibrary
         };
     }
 
+    private static ScenarioResult RunTouchHoldHeadUsesTouchGroupNotBodyGroup()
+    {
+        var noteManager = new NoteManagerStub();
+        noteManager.SetCurrentTouchIndex(0, 0);
+
+        var touchGroup = new TouchGroupModel
+        {
+            MemberCount = 3,
+            JudgeResult = JudgeGrade.Perfect
+        };
+        touchGroup.RegisterResult(JudgeGrade.Perfect);
+        touchGroup.RegisterResult(JudgeGrade.Perfect);
+
+        var bodyGroup = new TouchHoldBodyGroupModel([10, 11, 12]);
+
+        var touchHold = ReferenceLikeLogic.RunTouchHoldHeadCheckWithGroupModels(
+            noteManager,
+            new TouchQueueInfo { Index = 0, SensorArea = 0 },
+            sensorArea: 0,
+            buttonZone: 0,
+            inJudgeableRange: true,
+            touchGroup,
+            bodyGroup);
+
+        return new ScenarioResult
+        {
+            Name = "touchhold-head-uses-touch-group-not-body-group",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            TouchHold = touchHold,
+            Note = "GroupInfo-style touch share resolves the head even when the body-group has no majority."
+        };
+    }
+
+    private static ScenarioResult RunTouchHoldHeadIgnoresBodyGroupMajority()
+    {
+        var noteManager = new NoteManagerStub();
+        noteManager.SetCurrentTouchIndex(0, 0);
+
+        var touchGroup = new TouchGroupModel
+        {
+            MemberCount = 3,
+            JudgeResult = JudgeGrade.Perfect
+        };
+        var bodyGroup = new TouchHoldBodyGroupModel([20, 21, 22]);
+        bodyGroup.RegisterTrigger(21);
+        bodyGroup.RegisterTrigger(22);
+
+        var touchHold = ReferenceLikeLogic.RunTouchHoldHeadCheckWithGroupModels(
+            noteManager,
+            new TouchQueueInfo { Index = 0, SensorArea = 0 },
+            sensorArea: 0,
+            buttonZone: 0,
+            inJudgeableRange: true,
+            touchGroup,
+            bodyGroup);
+
+        return new ScenarioResult
+        {
+            Name = "touchhold-head-ignores-body-group-majority",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false },
+            TouchHold = touchHold,
+            Note = "BodyGroupInfo-style majority alone does not supply a shared head result."
+        };
+    }
+
     private static ScenarioResult RunTapThenHoldWithTwoButtonClicks()
     {
         var noteManager = new NoteManagerStub();
@@ -565,6 +652,45 @@ public static class ScenarioLibrary
             Tap = new TapResult { IsJudged = false },
             Hold = new HoldHeadResult { IsJudged = false, QueueAdvanced = false },
             TouchHold = touchHold
+        };
+    }
+
+    private static ScenarioResult RunTouchHoldBodyGroupExitShrinksDenominator()
+    {
+        var bodyGroup = new TouchHoldBodyGroupModel([30, 31, 32, 33]);
+        bodyGroup.RegisterTrigger(31);
+        bodyGroup.RegisterTrigger(32);
+        bodyGroup.Exit(33);
+
+        var result = ReferenceLikeLogic.RunTouchHoldBodyMajorityFrame(
+            bodyGroup,
+            noteId: 30,
+            localSensorOn: false);
+
+        return new ScenarioResult
+        {
+            Name = "touchhold-body-group-exit-shrinks-denominator",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false, QueueAdvanced = false },
+            BodyGroup = result,
+            Note = "After one member exits, 2 triggered out of 3 remaining members is a strict majority; keeping the original denominator would block recovery."
+        };
+    }
+
+    private static ScenarioResult RunBreakCountingUsesIsBreak()
+    {
+        var breakAccounting = ReferenceLikeLogic.FoldJudgeEventForCounts(
+            NoteFamilyKind.Slide,
+            JudgeGrade.LateGood,
+            isBreak: true);
+
+        return new ScenarioResult
+        {
+            Name = "break-counting-uses-isbreak",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = false, QueueAdvanced = false },
+            BreakAccounting = breakAccounting,
+            Note = "A break slide should increment break counters while keeping slide-family identity."
         };
     }
 

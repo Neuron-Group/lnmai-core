@@ -13,6 +13,14 @@ public enum JudgeGrade
     Miss
 }
 
+public enum NoteFamilyKind
+{
+    Tap,
+    Hold,
+    Touch,
+    Slide
+}
+
 public sealed class NoteManagerStub
 {
     private readonly bool[] _buttonClickedInThisFrame = new bool[8];
@@ -139,6 +147,29 @@ public sealed class TouchHoldHeadResult
     public bool UsedGroupShare { get; set; }
 }
 
+public sealed class BodyGroupResult
+{
+    public required bool Recovered { get; init; }
+    public required int MemberCount { get; init; }
+    public required int TriggeredCount { get; init; }
+    public required bool Majority { get; init; }
+
+    public string Format() =>
+        $"bodyGroup: recovered={Recovered}, memberCount={MemberCount}, triggeredCount={TriggeredCount}, majority={Majority}";
+}
+
+public sealed class BreakAccountingResult
+{
+    public required NoteFamilyKind Family { get; init; }
+    public required JudgeGrade Grade { get; init; }
+    public required bool IsBreak { get; init; }
+    public required int BreakCountAtGrade { get; init; }
+    public required int FamilyCountAtGrade { get; init; }
+
+    public string Format() =>
+        $"breakAccounting: family={Family}, grade={Grade}, isBreak={IsBreak}, breakCountAtGrade={BreakCountAtGrade}, familyCountAtGrade={FamilyCountAtGrade}";
+}
+
 public sealed class ScenarioResult
 {
     public required string Name { get; init; }
@@ -147,6 +178,8 @@ public sealed class ScenarioResult
     public TapResult? Touch { get; init; }
     public TouchHoldHeadResult? TouchHold { get; init; }
     public HoldBodyResult? HoldBody { get; init; }
+    public BodyGroupResult? BodyGroup { get; init; }
+    public BreakAccountingResult? BreakAccounting { get; init; }
     public SlideBodyResult? SlideBody { get; init; }
     public ConnSlideResult? ConnSlide { get; init; }
     public WifiResult? Wifi { get; init; }
@@ -158,10 +191,60 @@ public sealed class ScenarioResult
         (Touch is null ? string.Empty : $"\ntouch: judged={Touch.IsJudged}, grade={Touch.Grade?.ToString() ?? "none"}") +
         (TouchHold is null ? string.Empty : $"\ntouchHoldHead: judged={TouchHold.IsJudged}, grade={TouchHold.Grade?.ToString() ?? "none"}, queueAdvanced={TouchHold.QueueAdvanced}, usedGroupShare={TouchHold.UsedGroupShare}") +
         (HoldBody is null ? string.Empty : $"\nholdBody: state={HoldBody.State}, grade={HoldBody.Grade}, ended={HoldBody.IsEnded}, holdingEffectActive={HoldBody.IsHoldingEffectActive}") +
+        (BodyGroup is null ? string.Empty : $"\n{BodyGroup.Format()}") +
+        (BreakAccounting is null ? string.Empty : $"\n{BreakAccounting.Format()}") +
         (SlideBody is null ? string.Empty : $"\n{SlideBody.Format()}") +
         (ConnSlide is null ? string.Empty : $"\n{ConnSlide.Format()}") +
         (Wifi is null ? string.Empty : $"\n{Wifi.Format()}") +
         (string.IsNullOrEmpty(Note) ? string.Empty : $"\nnote: {Note}");
+}
+
+public sealed class TouchGroupModel
+{
+    public required int MemberCount { get; init; }
+    public JudgeGrade? JudgeResult { get; set; }
+    public List<JudgeGrade> Results { get; } = [];
+    public float Percent => MemberCount == 0 ? 0f : Results.Count / (float)MemberCount;
+    public bool ShareAvailable => Percent > 0.5f && JudgeResult is not null;
+
+    public void RegisterResult(JudgeGrade grade)
+    {
+        if (grade == JudgeGrade.Miss)
+            return;
+
+        Results.Add(grade);
+    }
+}
+
+public sealed class TouchHoldBodyGroupModel
+{
+    private readonly HashSet<int> _memberIds = [];
+    private readonly HashSet<int> _triggeredIds = [];
+
+    public TouchHoldBodyGroupModel(IEnumerable<int> memberIds)
+    {
+        foreach (var id in memberIds)
+            _memberIds.Add(id);
+    }
+
+    public int MemberCount => _memberIds.Count;
+    public int TriggeredCount => _triggeredIds.Count;
+    public float Percent => MemberCount == 0 ? 0f : TriggeredCount / (float)MemberCount;
+    public bool Majority => Percent > 0.5f;
+
+    public void RegisterTrigger(int noteId)
+    {
+        _memberIds.Add(noteId);
+        _triggeredIds.Add(noteId);
+    }
+
+    public void UnregisterTrigger(int noteId) => _triggeredIds.Remove(noteId);
+
+    public void Exit(int noteId)
+    {
+        _memberIds.Remove(noteId);
+        _triggeredIds.Remove(noteId);
+    }
 }
 
 public sealed class ConnSlideState
