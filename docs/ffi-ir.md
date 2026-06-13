@@ -490,7 +490,6 @@ Fields:
 - `score`: `ScoreState`
 - `judgeStyle`: current judge style
 - `touchPanelOffset`: timing offset for touch panel logic
-- `useButtonRingForTouch`: runtime option flag
 - `subdivideSlideJudgeGrade`: runtime option flag
 
 Host guidance:
@@ -569,8 +568,8 @@ Fields:
 - `earnedExtra`
 - `lostBase`
 - `lostExtra`
-- `dxScore`
-- `maxDxScore`
+- `dxScore`: DX-score loss delta (`0` for no loss, negative after lost DX score)
+- `maxDxScore`: total available DX score
 - `fastCount`
 - `lateCount`
 - `counts`: `NoteTypeJudgeCounts`

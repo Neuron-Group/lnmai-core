@@ -636,7 +636,33 @@ private def touchHoldBodyGroupStatesFromHolds
             loop rest (upsert acc)
   loop holds []
 
+private structure ChartScoreTotals where
+  totalBase : Nat := 0
+  totalExtra : Nat := 0
+  noteCount : Nat := 0
+
+private def addScoreTotal
+    (totals : ChartScoreTotals) (kind : NoteType) (isBreak : Bool) : ChartScoreTotals :=
+  let scoreKind := if isBreak then NoteType.Break else kind
+  { totalBase := totals.totalBase + NoteType.baseScore scoreKind
+  , totalExtra := totals.totalExtra + NoteType.extraScore scoreKind
+  , noteCount := totals.noteCount + 1 }
+
+private def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
+  let totals := chart.taps.foldl (fun totals note => addScoreTotal totals .Tap note.isBreak) {}
+  let totals := chart.slideHeads.foldl (fun totals note => addScoreTotal totals .Tap note.isBreak) totals
+  let totals := chart.holds.foldl (fun totals note => addScoreTotal totals .Hold note.isBreak) totals
+  let totals :=
+    chart.touchHolds.foldl (fun totals note => addScoreTotal totals .Hold note.isBreak) totals
+  let totals := chart.touches.foldl (fun totals note => addScoreTotal totals .Touch note.isBreak) totals
+  chart.slides.foldl
+    (fun totals note =>
+      if note.isConnSlide && !note.isGroupEnd then totals
+      else addScoreTotal totals .Slide note.isBreak)
+    totals
+
 def buildGameState (chart : ChartSpec) : GameState :=
+  let scoreTotals := chartScoreTotals chart
   let tapFamilyHeads := chart.taps ++ chart.slideHeads.map (fun note =>
     { timing := note.timing
     , slot := note.slot
@@ -706,10 +732,12 @@ def buildGameState (chart : ChartSpec) : GameState :=
     touchGroupStates := [],
     touchHoldGroupStates := touchHoldGroupStates,
     currentBatch := {},
-    score := {},
+    score :=
+      { totalBase := scoreTotals.totalBase
+      , totalExtra := scoreTotals.totalExtra
+      , maxDxScore := scoreTotals.noteCount * 3 },
     judgeStyle := JudgeStyle.Default,
     touchPanelOffset := Constants.TOUCH_PANEL_OFFSET
-    , useButtonRingForTouch := Constants.USE_BUTTON_RING_FOR_TOUCH
     , subdivideSlideJudgeGrade := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
   }
 

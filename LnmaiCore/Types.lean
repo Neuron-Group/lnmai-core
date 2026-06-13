@@ -331,6 +331,16 @@ instance : FromJson NoteTypeJudgeCounts where
       , touchCount := touchCount
       , breakCount := breakCount }
 
+def NoteTypeJudgeCounts.gradeCount (counts : NoteTypeJudgeCounts) (grade : JudgeGrade) : Nat :=
+  counts.tapCount grade + counts.holdCount grade + counts.slideCount grade +
+    counts.touchCount grade + counts.breakCount grade
+
+def NoteTypeJudgeCounts.gradeCountWhere
+    (counts : NoteTypeJudgeCounts) (pred : JudgeGrade → Bool) : Nat :=
+  judgeCountsGrades.foldl
+    (fun acc grade => if pred grade then acc + counts.gradeCount grade else acc)
+    0
+
 ----------------------------------------------------------------------------
 -- Score accumulation state
 ----------------------------------------------------------------------------
@@ -357,10 +367,18 @@ deriving Inhabited, Repr, ToJson, FromJson
 ----------------------------------------------------------------------------
 
 def comboState (s : ScoreState) : ComboState :=
-  if s.combo == 0 then ComboState.None
-  else if s.pCombo == s.combo && s.cPCombo == s.combo then ComboState.APPlus
-  else if s.pCombo == s.combo then ComboState.AP
-  else if s.combo == s.pCombo then ComboState.FCPlus
+  let critical := s.counts.gradeCount .Perfect
+  let perfect := s.counts.gradeCountWhere (fun grade =>
+    grade == .LatePerfect3rd || grade == .LatePerfect2nd ||
+      grade == .FastPerfect2nd || grade == .FastPerfect3rd)
+  let great := s.counts.gradeCountWhere JudgeGrade.isGreatGrade
+  let good := s.counts.gradeCountWhere JudgeGrade.isGoodGrade
+  let miss := s.counts.gradeCountWhere JudgeGrade.isMissOrTooFast
+  let allNonMiss := critical + perfect + great + good
+  if allNonMiss == 0 || miss != 0 then ComboState.None
+  else if perfect == 0 && great == 0 && good == 0 then ComboState.APPlus
+  else if great == 0 && good == 0 then ComboState.AP
+  else if good == 0 then ComboState.FCPlus
   else ComboState.FC
 
 ----------------------------------------------------------------------------

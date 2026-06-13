@@ -26,10 +26,11 @@ def convertMaji : JudgeGrade → JudgeGrade
   -- Perfect3rd → Great
   | LatePerfect3rd => LateGreat
   | FastPerfect3rd => FastGreat
+  -- Perfect2nd remains Perfect2nd in the reference MAJI conversion.
+  | LatePerfect2nd => LatePerfect2nd
+  | FastPerfect2nd => FastPerfect2nd
   -- Everything else → Miss (late side) or TooFast (fast side)
-  | LatePerfect2nd => Miss
   | LateGood       => Miss
-  | FastPerfect2nd => TooFast
   | FastGood       => TooFast
   -- Fixed points
   | JudgeGrade.Perfect => JudgeGrade.Perfect

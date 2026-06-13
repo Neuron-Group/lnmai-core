@@ -41,6 +41,9 @@ Runtime state note:
 
 - `GameState.tapQueues` now serialize tagged `TapFamilyNote` entries with `kind = "tap"` or `"slideHead"`
 - slide heads remain in the shared tap-family queue; the new tag only exposes runtime object kind to hosts
+- `GameState` no longer exposes a core touch-mode flag; hosts should synthesize sensor input before calling the core if they want desktop-style outer-button touch mapping
+- `ScoreState.dxScore` is the core DX-loss delta; use `ScoreState::dx_score_remaining()` for achieved DX score
+- `ScoreState::combo_state()` derives AP+/AP/FC+/FC from judge-count categories
 
 Recommended next step for real host integration:
 

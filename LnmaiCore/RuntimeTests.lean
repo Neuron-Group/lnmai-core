@@ -2019,30 +2019,28 @@ def test_frame_zero_touch_hold_head_judges_same_frame : RuntimeCase :=
         "touch-hold head resolves from waiting on frame zero when its shared touch queue is already current"
   | _, _ => passCase "frame_zero_touch_hold_head_judges_same_frame" false "expected one active touch-hold after frame-zero head judgment"
 
-private def buttonRingPreferredTouchState : InputModel.GameState :=
+private def touchIgnoresOuterButtonState : InputModel.GameState :=
   let touch : Lifecycle.TouchNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 64 }
     , state := .Judgeable
     , sensorPos := .A1 }
   { currentTime := TimePoint.zero
   , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touch] } else { notes := [] })
-  , useButtonRingForTouch := true
   , touchPanelOffset := dur 100000 }
 
-def test_touch_uses_button_ring_before_sensor_when_enabled : RuntimeCase :=
+def test_touch_ignores_outer_button_without_sensor_input : RuntimeCase :=
   let batch : InputModel.TimedInputBatch :=
     { currentTime := TimePoint.zero
-    , events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
-                , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1] }
-  let (nextState, events, _, _) := Scheduler.stepFrameTimed buttonRingPreferredTouchState batch
+    , events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed touchIgnoresOuterButtonState batch
   match nextState.touchQueues.getD .A1 { notes := [] }, events with
-  | queue, [evt] =>
-      passCase "touch_uses_button_ring_before_sensor_when_enabled"
-        (queue.currentIndex = 1 && evt.kind = .Touch && evt.noteIndex = 64 && evt.diff = Duration.zero)
-        "with button-ring touch enabled, touch should judge from the button path before the sensor path"
-  | _, _ => passCase "touch_uses_button_ring_before_sensor_when_enabled" false "expected one touch event from the button-ring path"
+  | queue, [] =>
+      passCase "touch_ignores_outer_button_without_sensor_input"
+        (queue.currentIndex = 0)
+        "core touch judgment should require sensor input; desktop button mapping belongs before core input framing"
+  | _, _ => passCase "touch_ignores_outer_button_without_sensor_input" false "expected no touch event from an outer button alone"
 
-private def buttonRingPreferredTouchHoldState : InputModel.GameState :=
+private def touchHoldIgnoresOuterButtonState : InputModel.GameState :=
   let touchHold : Lifecycle.HoldNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 65 }
     , start := .sensor .A1
@@ -2055,24 +2053,21 @@ private def buttonRingPreferredTouchHoldState : InputModel.GameState :=
   , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [] } else { notes := [] })
   , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touchHold] } else { notes := [] })
   , activeTouchHolds := [(.A1, touchHold)]
-  , useButtonRingForTouch := true
   , touchPanelOffset := dur 100000 }
 
-def test_touch_hold_head_uses_button_ring_before_sensor_when_enabled : RuntimeCase :=
+def test_touch_hold_head_ignores_outer_button_without_sensor_input : RuntimeCase :=
   let batch : InputModel.TimedInputBatch :=
     { currentTime := TimePoint.zero
     , events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
-                , InputModel.TimedInputEvent.buttonHold TimePoint.zero .K1 true
-                , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
-                , InputModel.TimedInputEvent.sensorHold TimePoint.zero .A1 true] }
-  let (nextState, _, _, _) := Scheduler.stepFrameTimed buttonRingPreferredTouchHoldState batch
-  match nextState.touchQueues.getD .A1 { notes := [] }, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
-  | touchQueue, holdQueue, [(_, hold)] =>
-      let judged := match hold.state with | .HeadJudged .Perfect => true | _ => false
-      passCase "touch_hold_head_uses_button_ring_before_sensor_when_enabled"
-        (nextState.touchQueueFrontiers.getD .A1 0 = 1 && touchQueue.currentIndex = 0 && holdQueue.currentIndex = 1 && judged && hold.headDiff = Duration.zero)
-        "with button-ring touch enabled, touch-hold head should judge from the button path before the sensor path"
-  | _, _, _ => passCase "touch_hold_head_uses_button_ring_before_sensor_when_enabled" false "expected judged touch-hold head from the button-ring path"
+                , InputModel.TimedInputEvent.buttonHold TimePoint.zero .K1 true] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed touchHoldIgnoresOuterButtonState batch
+  match nextState.touchQueues.getD .A1 { notes := [] }, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds, events with
+  | touchQueue, holdQueue, [(_, hold)], [] =>
+      let stillWaiting := match hold.state with | .HeadJudgeable => true | _ => false
+      passCase "touch_hold_head_ignores_outer_button_without_sensor_input"
+        (nextState.touchQueueFrontiers.getD .A1 0 = 0 && touchQueue.currentIndex = 0 && holdQueue.currentIndex = 0 && stillWaiting)
+        "core touch-hold head judgment should require sensor input; desktop button mapping belongs before core input framing"
+  | _, _, _, _ => passCase "touch_hold_head_ignores_outer_button_without_sensor_input" false "expected no touch-hold head event from an outer button alone"
 
 def test_replay_frame_zero_tap_judges_same_frame : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
@@ -3449,6 +3444,53 @@ def test_mixed_chart_golden_ap_with_late_touch : RuntimeCase :=
     (mixedGoldenMatches finalState events expected)
     "mixed replay golden drops from AP+ to AP when the touch becomes LatePerfect2nd while the rest stay perfect"
 
+def test_maji_grade_conversion_preserves_perfect2nd : RuntimeCase :=
+  passCase "maji_grade_conversion_preserves_perfect2nd"
+    (LnmaiCore.Convert.convertMaji .LatePerfect2nd = .LatePerfect2nd
+      && LnmaiCore.Convert.convertMaji .FastPerfect2nd = .FastPerfect2nd
+      && LnmaiCore.Convert.convertMaji .LatePerfect3rd = .LateGreat
+      && LnmaiCore.Convert.convertMaji .FastPerfect3rd = .FastGreat)
+    "MAJI conversion should preserve Perfect2nd and demote only Perfect3rd to Great"
+
+private def scoreAccumulationChart : ChartLoader.ChartSpec :=
+  { taps :=
+      [ { timing := TimePoint.zero, slot := .S1, isBreak := false, isEX := false, noteIndex := 501 }
+      , { timing := secs 1, slot := .S2, isBreak := true, isEX := false, noteIndex := 502 }
+      , { timing := secs 2, slot := .S3, isBreak := false, isEX := false, noteIndex := 503 } ]
+  , holds := []
+  , touches := []
+  , touchHolds := []
+  , slideHeads := []
+  , slides := []
+  , slideSkipping := true }
+
+private def scoreAccumulationTactic : ManualTacticSequence :=
+  mkManualTacticSequence
+    [ tapAtTime TimePoint.zero .K1
+    , tapAtTime (secs 1 + dur 40000) .K2
+    , tapAtTime (secs 2 + dur 70000) .K3 ]
+
+def test_runtime_score_accumulates_base_extra_and_fc_plus : RuntimeCase :=
+  let result := simulateChartSpecWithTactic scoreAccumulationChart scoreAccumulationTactic
+  let score := result.finalState.score
+  passCase "runtime_score_accumulates_base_extra_and_fc_plus"
+    (eventGrades result.events = [.Perfect, .LatePerfect3rd, .LateGreat2nd]
+      && score.totalBase = 3500
+      && score.totalExtra = 100
+      && score.earnedBase = 3400
+      && score.earnedExtra = 50
+      && score.lostBase = 100
+      && score.lostExtra = 50
+      && score.maxDxScore = 9
+      && score.dxScore = -3
+      && score.fastCount = 0
+      && score.lateCount = 2
+      && score.counts.tapCount .Perfect = 1
+      && score.counts.breakCount .LatePerfect3rd = 1
+      && score.counts.tapCount .LateGreat2nd = 1
+      && LnmaiCore.comboState score = .FCPlus)
+    "runtime score fold should accumulate base/extra score, DX loss, fast/late counts, and FC+ state"
+
 def test_frame_window_zero_delta_includes_exact_point : RuntimeCase :=
   let batch : InputModel.TimedInputBatch :=
     { currentTime := secs 1
@@ -3486,6 +3528,24 @@ def test_frame_window_positive_delta_excludes_outside_window : RuntimeCase :=
   passCase "frame_window_positive_delta_excludes_outside_window"
     (input.getSensorClickCount .A1 = 0)
     "positive-duration frames exclude events outside the left-open interval"
+
+def test_frame_window_filters_timed_hold_events : RuntimeCase :=
+  let prevButtonHeld := ButtonVec.ofFn (fun zone => zone == .K1)
+  let prevSensorHeld := SensorVec.ofFn (fun area => area == .A1)
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := secs 1
+    , events :=
+        [ InputModel.TimedInputEvent.buttonHold (secs 1 - dur 16000) .K1 false
+        , InputModel.TimedInputEvent.sensorHold (secs 1 - dur 16001) .A1 false
+        , InputModel.TimedInputEvent.buttonHold (secs 1 - dur 1) .K2 true
+        , InputModel.TimedInputEvent.sensorHold (secs 1) .A2 true ] }
+  let input := batch.toFrameInput (dur 16000) prevButtonHeld prevSensorHeld
+  passCase "frame_window_filters_timed_hold_events"
+    (input.getButtonHeld .K1
+      && input.getSensorHeld .A1
+      && input.getButtonHeld .K2
+      && input.getSensorHeld .A2)
+    "timed hold down/up events should obey the same frame-window filtering as click events"
 
 def test_manual_tactic_hold_interval_sugar : RuntimeCase :=
   let parsed := parseManualTacticSequence "hold button K2 from 1000000 to 1220000\nhold sensor A4 from 2000000 to 2220000"
@@ -3637,8 +3697,8 @@ def all : List RuntimeCase :=
   , test_frame_zero_touch_judges_same_frame
   , test_touch_waiting_large_delta_uses_reference_too_late_boundary
   , test_frame_zero_touch_hold_head_judges_same_frame
-  , test_touch_uses_button_ring_before_sensor_when_enabled
-  , test_touch_hold_head_uses_button_ring_before_sensor_when_enabled
+  , test_touch_ignores_outer_button_without_sensor_input
+  , test_touch_hold_head_ignores_outer_button_without_sensor_input
   , test_replay_frame_zero_tap_judges_same_frame
   , test_replay_frame_zero_touch_judges_same_frame
   , test_replay_frame_zero_touch_hold_head_judges_same_frame
@@ -3674,10 +3734,13 @@ def all : List RuntimeCase :=
   , test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all
   , test_mixed_chart_golden_ap_plus
   , test_mixed_chart_golden_ap_with_late_touch
+  , test_maji_grade_conversion_preserves_perfect2nd
+  , test_runtime_score_accumulates_base_extra_and_fc_plus
   , test_frame_window_zero_delta_includes_exact_point
   , test_frame_window_positive_delta_excludes_left_boundary
   , test_frame_window_positive_delta_includes_inside_and_right_boundary
   , test_frame_window_positive_delta_excludes_outside_window
+  , test_frame_window_filters_timed_hold_events
   , test_manual_tactic_hold_interval_sugar
   , test_manual_tactic_chord_sugar
   , test_typed_json_boundary_symbolic_only
@@ -3845,11 +3908,11 @@ theorem test_touch_waiting_large_delta_uses_reference_too_late_boundary_proof :
 theorem test_frame_zero_touch_hold_head_judges_same_frame_proof :
     test_frame_zero_touch_hold_head_judges_same_frame.passed = true := by native_decide
 
-theorem test_touch_uses_button_ring_before_sensor_when_enabled_proof :
-    test_touch_uses_button_ring_before_sensor_when_enabled.passed = true := by native_decide
+theorem test_touch_ignores_outer_button_without_sensor_input_proof :
+    test_touch_ignores_outer_button_without_sensor_input.passed = true := by native_decide
 
-theorem test_touch_hold_head_uses_button_ring_before_sensor_when_enabled_proof :
-    test_touch_hold_head_uses_button_ring_before_sensor_when_enabled.passed = true := by native_decide
+theorem test_touch_hold_head_ignores_outer_button_without_sensor_input_proof :
+    test_touch_hold_head_ignores_outer_button_without_sensor_input.passed = true := by native_decide
 
 theorem test_replay_frame_zero_tap_judges_same_frame_proof :
     test_replay_frame_zero_tap_judges_same_frame.passed = true := by native_decide
@@ -3941,6 +4004,12 @@ theorem test_mixed_chart_golden_ap_plus_proof :
 theorem test_mixed_chart_golden_ap_with_late_touch_proof :
     test_mixed_chart_golden_ap_with_late_touch.passed = true := by native_decide
 
+theorem test_maji_grade_conversion_preserves_perfect2nd_proof :
+    test_maji_grade_conversion_preserves_perfect2nd.passed = true := by native_decide
+
+theorem test_runtime_score_accumulates_base_extra_and_fc_plus_proof :
+    test_runtime_score_accumulates_base_extra_and_fc_plus.passed = true := by native_decide
+
 theorem test_frame_window_zero_delta_includes_exact_point_proof :
     test_frame_window_zero_delta_includes_exact_point.passed = true := by native_decide
 
@@ -3952,6 +4021,9 @@ theorem test_frame_window_positive_delta_includes_inside_and_right_boundary_proo
 
 theorem test_frame_window_positive_delta_excludes_outside_window_proof :
     test_frame_window_positive_delta_excludes_outside_window.passed = true := by native_decide
+
+theorem test_frame_window_filters_timed_hold_events_proof :
+    test_frame_window_filters_timed_hold_events.passed = true := by native_decide
 
 theorem test_manual_tactic_hold_interval_sugar_proof :
     test_manual_tactic_hold_interval_sugar.passed = true := by native_decide

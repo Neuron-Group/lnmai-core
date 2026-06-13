@@ -494,7 +494,6 @@ private def processTouchHoldNotes
     (delta : Duration)
     (style : JudgeStyle)
     (touchPanelOffset : Duration)
-    (useButtonRingForTouch : Bool)
     (cursor : ClickCursor)
     (touchGroupStates : List GroupState)
     (touchHoldBodyGroups : List TouchHoldBodyGroupState) :
@@ -504,7 +503,6 @@ private def processTouchHoldNotes
   | [] => (touchFrontiers, queues, [], [], cursor, touchGroupStates, touchHoldBodyGroups)
   | (area, note) :: rest =>
     let timing := note.params.effectiveTiming
-    let buttonDiff := currentTime - timing
     let sensorDiff := (currentTime - touchPanelOffset) - timing
     let localBodyPressed := input.getSensorHeld area
     let touchHoldBodyGroups1 :=
@@ -527,28 +525,18 @@ private def processTouchHoldNotes
       queueHeadMatches (InputModel.sensorQueueAt queues area) note
         && touchQueueIndexUnlocked touchFrontiers area note.touchQueueIndex
         && holdHeadEligibleForClick note currentTime
-    let (usedButton, cursor1) :=
-      if allowInput && useButtonRingForTouch then
-        match area.toOuterButtonZone? with
-        | some zone => tryUseButtonClickAt input cursor zone
-        | none => (false, cursor)
+    let (usedSensor, cursor1) :=
+      if allowInput then
+        tryUseSensorClickAt input cursor area
       else
         (false, cursor)
-    let (usedSensor, cursor1) :=
-      if usedButton then
-        (false, cursor1)
-      else if allowInput then
-        tryUseSensorClickAt input cursor1 area
-      else
-        (false, cursor1)
     let sharedResult :=
       match note.touchGroupId with
       | some groupId => groupShareResult touchGroupStates groupId
       | none => none
-    let headDiff := if usedButton then buttonDiff else sensorDiff
     let (newNote, evt?) :=
-      holdStep note currentTime headDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
-        (usedButton || usedSensor) effectivePressed usedButton false touchPanelOffset sharedResult delta style
+      holdStep note currentTime sensorDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
+        usedSensor effectivePressed false false touchPanelOffset sharedResult delta style
     let touchFrontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedTouchQueue touchFrontiers area else touchFrontiers
     let queues' := if enteredHeadJudged note.state newNote.state then advanceSensorQueueIfHead queues area newNote else queues
     let touchGroupStates' :=
@@ -579,7 +567,7 @@ private def processTouchHoldNotes
       | none => touchHoldBodyGroups1
     let (restTouchFrontiers, restQueues, restNotes, restEvs, cursor2, restTouchGroups, restBodyGroups) :=
       processTouchHoldNotes touchFrontiers' queues' rest input currentTime delta style touchPanelOffset
-        useButtonRingForTouch cursor1 touchGroupStates' touchHoldBodyGroups2
+        cursor1 touchGroupStates' touchHoldBodyGroups2
     let restNotes' := if keepHoldActive newNote then (area, newNote) :: restNotes else restNotes
     match evt? with
     | some evt =>
@@ -593,7 +581,7 @@ private def processTouchHoldNotes
 -- Process touch notes
 ----------------------------------------------------------------------------
 
-private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueVec TouchNote) (input : FrameInput) (currentTime : TimePoint) (style : JudgeStyle) (cursor : ClickCursor) (useButtonRingForTouch : Bool) (touchPanelOffset : Duration) (groupStates : List GroupState) : SensorVec Nat × SensorQueueVec TouchNote × List JudgeEvent × ClickCursor × List GroupState :=
+private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueVec TouchNote) (input : FrameInput) (currentTime : TimePoint) (style : JudgeStyle) (cursor : ClickCursor) (touchPanelOffset : Duration) (groupStates : List GroupState) : SensorVec Nat × SensorQueueVec TouchNote × List JudgeEvent × ClickCursor × List GroupState :=
   let (nextQueues, (frontiers', cursor', groups', evsRev)) :=
     queues.mapAccum (frontiers, cursor, groupStates, ([] : List JudgeEvent)) (fun area q state =>
       let (frontiers, cursor, groups, evsRev) := state
@@ -601,22 +589,12 @@ private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueV
       | none => (q, (frontiers, cursor, groups, evsRev))
       | some note =>
         let timing := note.params.effectiveTiming
-        let buttonDiff := currentTime - timing
         let sensorDiff := (currentTime - touchPanelOffset) - timing
         let canConsumeClick := touchEligibleForClick note currentTime && touchQueueIndexUnlocked frontiers area note.touchQueueIndex
-        let (usedButton, cursor1) :=
-          if canConsumeClick && useButtonRingForTouch then
-            match area.toOuterButtonZone? with
-            | some zone => tryUseButtonClickAt input cursor zone
-            | none => (false, cursor)
-          else
-            (false, cursor)
         let (usedSensor, cursor2) :=
-          if usedButton then (false, cursor1)
-          else
-            if canConsumeClick then tryUseSensorClickAt input cursor1 note.sensorPos else (false, cursor1)
-        let clicked := usedButton || usedSensor
-        let diff := if usedButton then buttonDiff else sensorDiff
+          if canConsumeClick then tryUseSensorClickAt input cursor note.sensorPos else (false, cursor)
+        let clicked := usedSensor
+        let diff := sensorDiff
         let sharedResult :=
           match note.touchGroupId with
           | some groupId => groupShareResult groups groupId
@@ -680,9 +658,33 @@ private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (cu
 -- Score Accumulation from Events
 ----------------------------------------------------------------------------
 
+private def eventScoreNoteType (evt : JudgeEvent) : NoteType :=
+  if evt.isBreak || evt.kind == .Break then
+    .Break
+  else
+    match evt.kind with
+    | .Tap => .Tap
+    | .Hold => .Hold
+    | .Slide => .Slide
+    | .Touch => .Touch
+    | .Break => .Break
+
+private def eventScoreDeltas (evt : JudgeEvent) (multiple : Nat) : Nat × Nat × Nat × Nat :=
+  match eventScoreNoteType evt with
+  | .Break =>
+      let (earnedBase, earnedExtra, _earnedClassicExtra, lostBase, lostExtra, _lostClassicExtra) :=
+        Score.scoreBreak evt.grade multiple
+      (earnedBase, earnedExtra, lostBase, lostExtra)
+  | kind =>
+      let (earnedBase, lostBase) := Score.scoreNonBreak (NoteType.baseScore kind) evt.grade multiple
+      (earnedBase, 0, lostBase, 0)
+
 private def foldEventIntoScore (s : ScoreState) (evt : JudgeEvent) : ScoreState :=
   let multiple : Nat := 1
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
+  let (earnedBaseDelta, earnedExtraDelta, lostBaseDelta, lostExtraDelta) :=
+    eventScoreDeltas evt multiple
+  let (isFast, isLate) := Score.countFastLate evt.grade evt.diff Score.FastLateDisplay.All
   let counts :=
     if evt.isBreak || evt.kind == .Break then
       { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + 1 else s.counts.breakCount g }
@@ -697,7 +699,13 @@ private def foldEventIntoScore (s : ScoreState) (evt : JudgeEvent) : ScoreState 
     combo       := comboDelta.combo
     pCombo      := comboDelta.pCombo
     cPCombo     := comboDelta.cPCombo
+    earnedBase  := s.earnedBase + earnedBaseDelta
+    earnedExtra := s.earnedExtra + earnedExtraDelta
+    lostBase    := s.lostBase + lostBaseDelta
+    lostExtra   := s.lostExtra + lostExtraDelta
     dxScore     := comboDelta.dXScoreLost
+    fastCount   := s.fastCount + if isFast then multiple else 0
+    lateCount   := s.lateCount + if isLate then multiple else 0
     counts      := counts
   }
 
@@ -742,9 +750,9 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let (buttonFrontiers2, holdQueues, holdNotes, holdEvents, cursor1) :=
     processHoldNotes buttonFrontiers1 st.holdQueues st.activeHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.prevSensor cursorTap
   let (touchFrontiers1, touchNotes, touchEvents, cursor2, touchGroupStates) :=
-    processTouchNotes st.touchQueueFrontiers st.touchQueues input newTime st.judgeStyle cursor1 st.useButtonRingForTouch st.touchPanelOffset st.touchGroupStates
+    processTouchNotes st.touchQueueFrontiers st.touchQueues input newTime st.judgeStyle cursor1 st.touchPanelOffset st.touchGroupStates
   let (touchFrontiers2, touchHoldQueues, touchHoldNotes, touchHoldEvents, _cursor3, touchGroupStates', touchHoldGroupStates) :=
-    processTouchHoldNotes touchFrontiers1 st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.useButtonRingForTouch cursor2 touchGroupStates touchHoldBodyGroups
+    processTouchHoldNotes touchFrontiers1 st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset cursor2 touchGroupStates touchHoldBodyGroups
   let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
     processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
   let slideNotes := forceFinishParentSlides slideNotes
@@ -791,22 +799,13 @@ def probeTouchHeadAt (st : GameState) (input : FrameInput) (area : SensorArea) :
   | none => none
   | some note =>
       let timing := note.params.effectiveTiming
-      let buttonDiff := newTime - timing
       let sensorDiff := (newTime - st.touchPanelOffset) - timing
       let frontier := st.touchQueueFrontiers.getD area 0
       let canConsumeClick := touchEligibleForClick note newTime && touchQueueIndexUnlocked st.touchQueueFrontiers area note.touchQueueIndex
-      let (usedButton, cursor2) :=
-        if canConsumeClick && st.useButtonRingForTouch then
-          match area.toOuterButtonZone? with
-          | some zone => tryUseButtonClickAt input cursor1 zone
-          | none => (false, cursor1)
-        else
-          (false, cursor1)
       let (usedSensor, _cursor3) :=
-        if usedButton then (false, cursor2)
-        else if canConsumeClick then tryUseSensorClickAt input cursor2 note.sensorPos else (false, cursor2)
-      let clicked := usedButton || usedSensor
-      let diff := if usedButton then buttonDiff else sensorDiff
+        if canConsumeClick then tryUseSensorClickAt input cursor1 note.sensorPos else (false, cursor1)
+      let clicked := usedSensor
+      let diff := sensorDiff
       let sharedResult :=
         match note.touchGroupId with
         | some groupId => groupShareResult st.touchGroupStates groupId
@@ -821,7 +820,7 @@ def probeTouchHeadAt (st : GameState) (input : FrameInput) (area : SensorArea) :
         , cursorSensorUsedBefore := cursor1.sensorUsed.getD note.sensorPos 0
         , inputSensorClickCount := input.getSensorClickCount note.sensorPos
         , canConsumeClick := canConsumeClick
-        , usedButton := usedButton
+        , usedButton := false
         , usedSensor := usedSensor
         , clicked := clicked
         , sharedResult := sharedResult

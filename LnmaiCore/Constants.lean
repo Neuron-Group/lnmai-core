@@ -66,7 +66,6 @@ def DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC : Duration := Duration.scaleNat FRAME_LE
 def CLASSIC_HOLD_ALLOW_OVER_LENGTH_SEC  : Duration := Duration.scaleNat FRAME_LENGTH 20
 def JUDGE_OFFSET : Duration := Duration.zero
 def TOUCH_PANEL_OFFSET : Duration := Duration.zero
-def USE_BUTTON_RING_FOR_TOUCH : Bool := false
 def SUBDIVIDE_SLIDE_JUDGE_GRADE : Bool := false
 
 def HOLD_CLASSIC_END_JUDGE_PERFECT_FAST_MSEC : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 9

@@ -471,7 +471,7 @@ Turn semantic parity into a checklist-driven test matrix.
 #### Touch
 
 - frame-zero hit
-- button-ring fallback
+- strict sensor-only core input
 - group majority same frame
 - too-late miss
 

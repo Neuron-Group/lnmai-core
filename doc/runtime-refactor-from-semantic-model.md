@@ -237,7 +237,7 @@ Refactor idea:
 These share:
 
 - touch-area frontier semantics
-- button-ring/sensor priority rules
+- sensor click-consumption rules
 - touch-group sharing machinery
 
 They differ in:

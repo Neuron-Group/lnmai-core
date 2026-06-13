@@ -125,10 +125,16 @@ def TimedInputBatch.toFrameInput (batch : TimedInputBatch) (delta : Duration)
             , sensorClickCount := fi.sensorClickCount.set area (fi.sensorClickCount.getD area 0 + 1) }
           else
             fi
-      | .buttonHold _ zone isDown =>
-          { fi with buttonHeld := fi.buttonHeld.set zone isDown }
-      | .sensorHold _ area isDown =>
-          { fi with sensorHeld := fi.sensorHeld.set area isDown }) initial
+      | .buttonHold tp zone isDown =>
+          if withinFrame (.buttonHold tp zone isDown) then
+            { fi with buttonHeld := fi.buttonHeld.set zone isDown }
+          else
+            fi
+      | .sensorHold tp area isDown =>
+          if withinFrame (.sensorHold tp area isDown) then
+            { fi with sensorHeld := fi.sensorHeld.set area isDown }
+          else
+            fi) initial
   { acc with delta := delta }
 
 ----------------------------------------------------------------------------
@@ -203,7 +209,6 @@ structure GameState where
   score         : ScoreState := {}
   judgeStyle    : JudgeStyle := JudgeStyle.Default
   touchPanelOffset : Duration := Duration.zero
-  useButtonRingForTouch : Bool := Constants.USE_BUTTON_RING_FOR_TOUCH
   subdivideSlideJudgeGrade : Bool := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
 deriving Inhabited, Repr, ToJson, FromJson
 

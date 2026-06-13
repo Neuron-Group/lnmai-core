@@ -192,7 +192,7 @@ Shared frontier state answers a different question:
 
 In `MajdataPlay`, this appears as:
 
-- button-ring frontier via `NoteManager.IsCurrentNoteJudgeable(in TapQueueInfo)` at
+- outer-button frontier via `NoteManager.IsCurrentNoteJudgeable(in TapQueueInfo)` at
   `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs:381`
 - touch frontier via `NoteManager.IsCurrentNoteJudgeable(in TouchQueueInfo)` at
   `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs:395`
@@ -353,7 +353,7 @@ Under that signature, the runtime still needs explicit semantic coverage for:
 - `tap`: early-window entry, click-source choice, miss timing, frontier advance
 - `hold`: head judgment, head miss, body-held, body-released, force-end,
   classic-vs-deluxe branching
-- `touch`: late-only judgment, group-share acceptance, button-ring fallback,
+- `touch`: late-only judgment, group-share acceptance, sensor-only core input,
   miss timing
 - `touch-hold`: head judgment, shared-group resolution, body majority
   reactivation, force-end, shared touch-frontier advance
@@ -643,10 +643,9 @@ checked.
   (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchDrop.cs`)
 - touch-hold head can judge on frame zero when eligible
   (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchHoldDrop.cs`)
-- button-ring touch input takes priority before sensor input when enabled
-  (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteControllers/NoteManager.cs`,
-  `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchDrop.cs`,
-  `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchHoldDrop.cs`)
+- MajdataPlay desktop mode can synthesize A-area sensor input from outer-button input.
+  Lean core intentionally models strict sensor-only touch semantics instead; any
+  desktop-style mapping belongs in the host input layer before core input framing.
 - touch-group strict majority is `Percent > 0.5`
   (`../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchDrop.cs`,
   `../reference/MajdataPlay/Assets/Scripts/Scenes/Game/NoteBehaviours/TouchHoldDrop.cs`)
@@ -728,7 +727,7 @@ Status vocabulary:
 
 - shared touch-frontier unlock: `Modeled`, `Checked`, `Regressed`
 - late-only judgment region: `Modeled`, `Checked`, `Regressed`
-- button-ring priority over sensor path: `Modeled`, `Checked`, `Regressed`
+- strict sensor-only core touch input: `Modeled`, `Checked`, `Regressed`
 - same-frame group-share publication: `Modeled`, `Checked`, `Regressed`
 - stored group result/diff after strict majority: `Modeled`, `Checked`, `Regressed`
 - too-late miss boundary under replay/frame-window variations: `Modeled`, `Checked`, `Regressed`, `Open`
