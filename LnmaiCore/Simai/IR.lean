@@ -85,6 +85,7 @@ structure NormalizedSlide where
   sourceGroupId : Option Nat := none
   sourceGroupIndex : Option Nat := none
   sourceGroupSize : Option Nat := none
+  multiple : Nat := 1
   noteIndex : Nat
   simaiShape : SlideShape
 deriving Inhabited, Repr, ToJson, FromJson

@@ -17,6 +17,12 @@ set_option linter.unusedVariables false
 
 namespace LnmaiCore
 
+private def getObjValAsD? {α : Type} [FromJson α] (json : Json) (field : String) (fallback : α) :
+    Except String α :=
+  match json.getObjValAs? α field with
+  | .ok value => pure value
+  | .error _ => pure fallback
+
 ----------------------------------------------------------------------------
 -- Typed runtime note/event positions
 ----------------------------------------------------------------------------
@@ -416,7 +422,25 @@ structure JudgeEvent where
   position  : RuntimePos
   noteIndex : Nat
   isBreak   : Bool := false
-deriving Repr, Inhabited, ToJson, FromJson
+  multiple  : Nat := 1
+deriving Repr, Inhabited, ToJson
+
+instance : FromJson JudgeEvent where
+  fromJson? json := do
+    let kind ← json.getObjValAs? JudgeEventKind "kind"
+    let grade ← json.getObjValAs? JudgeGrade "grade"
+    let diff ← json.getObjValAs? Duration "diff"
+    let position ← json.getObjValAs? RuntimePos "position"
+    let noteIndex ← json.getObjValAs? Nat "noteIndex"
+    let isBreak ← getObjValAsD? json "isBreak" false
+    let multiple ← getObjValAsD? json "multiple" 1
+    pure { kind := kind
+         , grade := grade
+         , diff := diff
+         , position := position
+         , noteIndex := noteIndex
+         , isBreak := isBreak
+         , multiple := multiple }
 
 inductive AudioCommand where
   | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (isBreak : Bool)

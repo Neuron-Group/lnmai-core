@@ -344,19 +344,20 @@ private def stepTouchHoldHeadWaiting
     (inputClicked : Bool)
     (sharedResult : Option (JudgeGrade × Duration))
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
-  match sharedResult with
-  | some (grade, sharedDiff) =>
-      (holdHeadShared note grade sharedDiff, none)
-  | none =>
-      if currentTime > timing + touchGoodMs then
-        (holdHeadMiss note touchGoodMs, none)
-      else if canEnterJudgeable currentTime judgeableStart then
-        if inputClicked then
-          judgeHoldHeadTouchNow? note style judgeDiff
+  if currentTime > timing + touchGoodMs then
+    (holdHeadMiss note touchGoodMs, none)
+  else
+    match sharedResult with
+    | some (grade, sharedDiff) =>
+        (holdHeadShared note grade sharedDiff, none)
+    | none =>
+        if canEnterJudgeable currentTime judgeableStart then
+          if inputClicked then
+            judgeHoldHeadTouchNow? note style judgeDiff
+          else
+            ({ note with state := HoldSubState.HeadJudgeable }, none)
         else
-          ({ note with state := HoldSubState.HeadJudgeable }, none)
-      else
-        (note, none)
+          (note, none)
 
 private def stepTouchHoldHeadJudgeable
     (note : HoldNote)
@@ -366,16 +367,17 @@ private def stepTouchHoldHeadJudgeable
     (inputClicked : Bool)
     (sharedResult : Option (JudgeGrade × Duration))
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
-  match sharedResult with
-  | some (grade, sharedDiff) =>
-      (holdHeadShared note grade sharedDiff, none)
-  | none =>
-      if inputClicked && canEnterJudgeable currentTime judgeableStart then
-        judgeHoldHeadTouchNow? note style judgeDiff
-      else if currentTime > timing + touchGoodMs then
-        (holdHeadMiss note touchGoodMs, none)
-      else
-        (note, none)
+  if currentTime > timing + touchGoodMs then
+    (holdHeadMiss note touchGoodMs, none)
+  else
+    match sharedResult with
+    | some (grade, sharedDiff) =>
+        (holdHeadShared note grade sharedDiff, none)
+    | none =>
+        if inputClicked && canEnterJudgeable currentTime judgeableStart then
+          judgeHoldHeadTouchNow? note style judgeDiff
+        else
+          (note, none)
 
 private def stepRegularHoldHeadWaiting
     (note : HoldNote)
@@ -553,6 +555,9 @@ private def touchMissEvent (note : TouchNote) (judgeDiff : Duration) : JudgeEven
   , noteIndex := note.params.noteIndex
   , isBreak := note.params.isBreak }
 
+private def touchTooLateMissEvent (note : TouchNote) : JudgeEvent :=
+  touchMissEvent note (Duration.fromMicros (-1000))
+
 private def touchJudgeEvent (note : TouchNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
   , grade := grade
@@ -578,35 +583,37 @@ def touchStep (note : TouchNote) (currentTime : TimePoint) (judgeDiff : Duration
   let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC + TOUCH_JUDGABLE_RANGE_LATE_EXTRA_SEC)
   match note.state with
   | .Waiting =>
-    match sharedResult with
-    | some (grade, sharedDiff) =>
-      ({ note with state := TouchState.Ended }, some (touchJudgeEvent note (Convert.convertGrade style grade) sharedDiff))
-    | none =>
     if currentTime > timing + touchGoodMs then
-      ({ note with state := TouchState.Ended }, some (touchMissEvent note judgeDiff))
-    else if canEnterJudgeable currentTime judgeableRange.1 then
-      if inputClicked then
-        judgeTouchNow? note style judgeDiff
-      else
-        ({ note with state := TouchState.Judgeable }, none)
+      ({ note with state := TouchState.Ended }, some (touchTooLateMissEvent note))
     else
-      (note, none)
-  | .Judgeable =>
-    match sharedResult with
-    | some (grade, sharedDiff) =>
-      ({ note with state := TouchState.Ended }, some (touchJudgeEvent note (Convert.convertGrade style grade) sharedDiff))
-    | none =>
-    if currentTime > timing + touchGoodMs then
-      ({ note with state := TouchState.Ended }, some (touchMissEvent note judgeDiff))
-    else if inputClicked then
-      match Judge.judgeTouch judgeDiff note.params.isEX with
-      | some raw =>
-        let grade := Convert.convertGrade style raw
-        ({ note with state := TouchState.Ended }, some (touchJudgeEvent note grade judgeDiff))
+      match sharedResult with
+      | some (grade, sharedDiff) =>
+          ({ note with state := TouchState.Ended }, some (touchJudgeEvent note grade sharedDiff))
       | none =>
-        (note, none)  -- too early, keep waiting
+          if canEnterJudgeable currentTime judgeableRange.1 then
+            if inputClicked then
+              judgeTouchNow? note style judgeDiff
+            else
+              ({ note with state := TouchState.Judgeable }, none)
+          else
+            (note, none)
+  | .Judgeable =>
+    if currentTime > timing + touchGoodMs then
+      ({ note with state := TouchState.Ended }, some (touchTooLateMissEvent note))
     else
-      (note, none)
+      match sharedResult with
+      | some (grade, sharedDiff) =>
+          ({ note with state := TouchState.Ended }, some (touchJudgeEvent note grade sharedDiff))
+      | none =>
+          if inputClicked then
+            match Judge.judgeTouch judgeDiff note.params.isEX with
+            | some raw =>
+              let grade := Convert.convertGrade style raw
+              ({ note with state := TouchState.Ended }, some (touchJudgeEvent note grade judgeDiff))
+            | none =>
+              (note, none)  -- too early, keep waiting
+          else
+            (note, none)
   | .Judged _ | .Ended =>
     (note, none)
 
@@ -801,6 +808,7 @@ structure SlideNote where
   totalJudgeQueueLen : Nat := 0
   trackCount      : Nat := 1
   isCheckable     : Bool := false
+  multiple        : Nat := 1
   judgeQueues     : List SlideQueue := []
 deriving Inhabited, Repr, ToJson, FromJson
 
@@ -889,7 +897,8 @@ private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff :
   , diff := judgeDiff
   , position := note.position
   , noteIndex := note.params.noteIndex
-  , isBreak := note.params.isBreak }
+  , isBreak := note.params.isBreak
+  , multiple := max 1 note.multiple }
 
 private def buildSlideSemanticBase
     (note : SlideNote) (updatedQueues : List SlideQueue) (queueRenderCmds : List RenderCommand)

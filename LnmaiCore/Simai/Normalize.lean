@@ -75,6 +75,7 @@ def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (Normalize
                 , sourceGroupId := token.sourceGroupId
                 , sourceGroupIndex := token.sourceGroupIndex
                 , sourceGroupSize := token.sourceGroupSize
+                , multiple := 1
                 , noteIndex := noteIndex
                 , simaiShape := parsed.shape }
               some (slide, parsed)
@@ -124,6 +125,40 @@ private def applyConnectedSlideMetadata (slides : List NormalizedSlide) : List N
         | _, _, _ =>
             loop rest none none none ({ slide with isConnSlide := false, isGroupHead := false, isGroupEnd := false, parentNoteIndex := none } :: acc)
   loop slides none none none []
+
+private def slideCanFoldMultiplicity (left right : NormalizedSlide) : Bool :=
+  left.sourceGroupId.isNone && right.sourceGroupId.isNone &&
+  left.headTiming == right.headTiming &&
+  left.slot == right.slot &&
+  left.length == right.length &&
+  left.startTiming == right.startTiming &&
+  left.hSpeed == right.hSpeed &&
+  left.slideKind == right.slideKind &&
+  left.isClassic == right.isClassic &&
+  left.trackCount == right.trackCount &&
+  left.judgeAt == right.judgeAt &&
+  left.isBreak == right.isBreak &&
+  left.isEX == right.isEX &&
+  left.isHanabi == right.isHanabi &&
+  left.hasHeadNote == right.hasHeadNote &&
+  left.hasBody == right.hasBody &&
+  left.isSlideNoHead == right.isSlideNoHead &&
+  left.isForceStar == right.isForceStar &&
+  left.isFakeRotate == right.isFakeRotate &&
+  left.isSlideBreak == right.isSlideBreak &&
+  left.simaiShape == right.simaiShape
+
+private def insertFoldedSlideMultiplicity (slide : NormalizedSlide) :
+    List NormalizedSlide → List NormalizedSlide
+  | [] => [slide]
+  | head :: rest =>
+      if slideCanFoldMultiplicity head slide then
+        { head with multiple := head.multiple + slide.multiple } :: rest
+      else
+        head :: insertFoldedSlideMultiplicity slide rest
+
+private def foldSlideMultiplicity (slides : List NormalizedSlide) : List NormalizedSlide :=
+  slides.foldl (fun acc slide => insertFoldedSlideMultiplicity slide acc) []
 
 def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToken) : NormalizedChart × List SlideNoteSemantics :=
   let (_, taps, holds, touches, touchHolds, slides, slideDebug, slideSemantics) :=
@@ -185,7 +220,8 @@ def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToke
             | none => state
         | _ => state)
       (1, [], [], [], [], [], [], [])
-  let loweredSlides := (applyConnectedSlideMetadata slides.reverse).map attachJudgeQueues
+  let loweredSlides :=
+    (applyConnectedSlideMetadata (foldSlideMultiplicity slides.reverse)).map attachJudgeQueues
   ({ taps := taps.reverse, holds := holds.reverse, touches := touches.reverse, touchHolds := touchHolds.reverse, slides := loweredSlides, slideDebug := slideDebug.reverse, slideSkipping := true }, slideSemantics.reverse)
 
 def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
@@ -202,13 +238,16 @@ def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
         if !note.hasHeadNote then
           (nextNoteIndex, heads)
         else
-          (nextNoteIndex + 1,
-            { timing := note.headTiming
-            , slot := note.slot
-            , isBreak := note.isBreak
-            , isEX := note.isEX
-            , logicalSlideId := note.noteIndex
-            , noteIndex := nextNoteIndex } :: heads))
+          let count := max 1 note.multiple
+          let generated :=
+            (List.range count).map (fun offset =>
+              { timing := note.headTiming
+              , slot := note.slot
+              , isBreak := note.isBreak
+              , isEX := note.isEX
+              , logicalSlideId := note.noteIndex
+              , noteIndex := nextNoteIndex + offset })
+          (nextNoteIndex + count, generated.reverse ++ heads))
       (maxNoteIndex + 1, [])
   { taps := chart.taps.map (fun note =>
       { timing := note.timing, slot := note.slot, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex })
@@ -250,6 +289,7 @@ def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
       , judgeAt := note.judgeAt
       , isBreak := note.isSlideBreak
       , isEX := note.isEX
+      , multiple := note.multiple
       , logicalSlideId := note.noteIndex
       , noteIndex := note.noteIndex
       , judgeQueues := note.judgeQueues

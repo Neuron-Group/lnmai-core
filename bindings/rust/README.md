@@ -35,6 +35,7 @@ Current slide head/body schema notes:
 - lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
 - lowered slide bodies use `headTiming` as the body-side head anchor field in the current schema
 - lowered slide bodies use segment-local slide break semantics for their `isBreak` field; slide heads keep head break semantics
+- folded identical simultaneous slide bodies carry `multiple`; lowered slide heads remain explicit separate head notes
 - Rust typed mirrors require `headTiming` for slide-body payloads
 - normalized slide mirrors expose explicit `hasHeadNote` and `hasBody`; `isSlideNoHead` remains compatibility metadata rather than the long-term semantic authority
 

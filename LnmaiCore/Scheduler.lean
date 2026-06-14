@@ -521,8 +521,14 @@ private def processTouchHoldNotes
         match note.touchHoldGroupId with
         | some groupId => touchHoldBodyGroupMajorityPressed touchHoldBodyGroups1 groupId
         | none => false
+    let sharedResult :=
+      match note.touchGroupId with
+      | some groupId => groupShareResult touchGroupStates groupId
+      | none => none
     let allowInput :=
-      queueHeadMatches (InputModel.sensorQueueAt queues area) note
+      sharedResult.isNone
+        && currentTime <= timing + touchGoodMs
+        && queueHeadMatches (InputModel.sensorQueueAt queues area) note
         && touchQueueIndexUnlocked touchFrontiers area note.touchQueueIndex
         && holdHeadEligibleForClick note currentTime
     let (usedSensor, cursor1) :=
@@ -530,10 +536,6 @@ private def processTouchHoldNotes
         tryUseSensorClickAt input cursor area
       else
         (false, cursor)
-    let sharedResult :=
-      match note.touchGroupId with
-      | some groupId => groupShareResult touchGroupStates groupId
-      | none => none
     let (newNote, evt?) :=
       holdStep note currentTime sensorDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
         usedSensor effectivePressed false false touchPanelOffset sharedResult delta style
@@ -590,15 +592,17 @@ private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueV
       | some note =>
         let timing := note.params.effectiveTiming
         let sensorDiff := (currentTime - touchPanelOffset) - timing
-        let canConsumeClick := touchEligibleForClick note currentTime && touchQueueIndexUnlocked frontiers area note.touchQueueIndex
-        let (usedSensor, cursor2) :=
-          if canConsumeClick then tryUseSensorClickAt input cursor note.sensorPos else (false, cursor)
-        let clicked := usedSensor
-        let diff := sensorDiff
         let sharedResult :=
           match note.touchGroupId with
           | some groupId => groupShareResult groups groupId
           | none => none
+        let canConsumeClick :=
+          sharedResult.isNone && touchEligibleForClick note currentTime &&
+            touchQueueIndexUnlocked frontiers area note.touchQueueIndex
+        let (usedSensor, cursor2) :=
+          if canConsumeClick then tryUseSensorClickAt input cursor note.sensorPos else (false, cursor)
+        let clicked := usedSensor
+        let diff := sensorDiff
         match touchStep note currentTime diff clicked sharedResult style with
         | (newNote, some evt) =>
           let groups' :=
@@ -682,7 +686,7 @@ private def eventScoreDeltas (evt : JudgeEvent) (multiple : Nat) : Nat × Nat ×
 private def foldEventIntoScore
     (noteDisplay breakDisplay : JudgeDisplayOption) (s : ScoreState) (evt : JudgeEvent) :
     ScoreState :=
-  let multiple : Nat := 1
+  let multiple : Nat := max 1 evt.multiple
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
   let (earnedBaseDelta, earnedExtraDelta, lostBaseDelta, lostExtraDelta) :=
     eventScoreDeltas evt multiple
@@ -690,14 +694,14 @@ private def foldEventIntoScore
   let (isFast, isLate) := Score.countFastLate evt.grade evt.diff display
   let counts :=
     if evt.isBreak || evt.kind == .Break then
-      { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + 1 else s.counts.breakCount g }
+      { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + multiple else s.counts.breakCount g }
     else
       match evt.kind with
-      | .Tap   => { s.counts with tapCount   := λ g => if g == evt.grade then s.counts.tapCount g + 1 else s.counts.tapCount g }
-      | .Hold  => { s.counts with holdCount  := λ g => if g == evt.grade then s.counts.holdCount g + 1 else s.counts.holdCount g }
-      | .Slide => { s.counts with slideCount := λ g => if g == evt.grade then s.counts.slideCount g + 1 else s.counts.slideCount g }
-      | .Touch => { s.counts with touchCount := λ g => if g == evt.grade then s.counts.touchCount g + 1 else s.counts.touchCount g }
-      | .Break => { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + 1 else s.counts.breakCount g }
+      | .Tap   => { s.counts with tapCount   := λ g => if g == evt.grade then s.counts.tapCount g + multiple else s.counts.tapCount g }
+      | .Hold  => { s.counts with holdCount  := λ g => if g == evt.grade then s.counts.holdCount g + multiple else s.counts.holdCount g }
+      | .Slide => { s.counts with slideCount := λ g => if g == evt.grade then s.counts.slideCount g + multiple else s.counts.slideCount g }
+      | .Touch => { s.counts with touchCount := λ g => if g == evt.grade then s.counts.touchCount g + multiple else s.counts.touchCount g }
+      | .Break => { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + multiple else s.counts.breakCount g }
   { s with
     combo       := comboDelta.combo
     pCombo      := comboDelta.pCombo
@@ -809,15 +813,17 @@ def probeTouchHeadAt (st : GameState) (input : FrameInput) (area : SensorArea) :
       let timing := note.params.effectiveTiming
       let sensorDiff := (newTime - st.touchPanelOffset) - timing
       let frontier := st.touchQueueFrontiers.getD area 0
-      let canConsumeClick := touchEligibleForClick note newTime && touchQueueIndexUnlocked st.touchQueueFrontiers area note.touchQueueIndex
-      let (usedSensor, _cursor3) :=
-        if canConsumeClick then tryUseSensorClickAt input cursor1 note.sensorPos else (false, cursor1)
-      let clicked := usedSensor
-      let diff := sensorDiff
       let sharedResult :=
         match note.touchGroupId with
         | some groupId => groupShareResult st.touchGroupStates groupId
         | none => none
+      let canConsumeClick :=
+        sharedResult.isNone && touchEligibleForClick note newTime &&
+          touchQueueIndexUnlocked st.touchQueueFrontiers area note.touchQueueIndex
+      let (usedSensor, _cursor3) :=
+        if canConsumeClick then tryUseSensorClickAt input cursor1 note.sensorPos else (false, cursor1)
+      let clicked := usedSensor
+      let diff := sensorDiff
       let (newNote, evt?) := touchStep note newTime diff clicked sharedResult st.judgeStyle
       some
         { area := area

@@ -288,6 +288,7 @@ Fields:
 - `sourceGroupId`: optional original group id
 - `sourceGroupIndex`: optional original group position
 - `sourceGroupSize`: optional original group size
+- `multiple`: folded identical simultaneous slide count; defaults to `1`
 - `noteIndex`: note id
 - `simaiShape`: `SlideShape`
 
@@ -421,6 +422,7 @@ Fields:
 - `judgeAt`: optional explicit judge time
 - `isBreak`: boolean — body-side break flag, sourced from segment-local slide break semantics
 - `isEX`: boolean
+- `multiple`: folded identical simultaneous slide-body count; defaults to `1`
 - `logicalSlideId`: shared logical slide identity linking the lowered head/body pair
 - `noteIndex`: note id
 - `judgeQueues`: list of judge queues, each queue a list of `SlideAreaSpec`
@@ -636,11 +638,13 @@ Fields:
 - `position`: runtime position descriptor
 - `noteIndex`: note id
 - `isBreak`: boolean break-note flag carried orthogonally to `kind`
+- `multiple`: multiplicity for result accounting; defaults to `1`
 
 Notes:
 
 - `kind` remains the gameplay family (`Tap`, `Hold`, `Slide`, `Touch`)
 - break semantics now travel through `isBreak` instead of overloading `kind`
+- slide-body events use `multiple` to mirror MajdataPlay's folded identical-slide `Multiple` accounting
 
 ### `AudioCommand`
 

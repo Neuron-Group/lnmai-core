@@ -138,6 +138,7 @@ structure SlideChartNote where
   judgeAt       : Option TimePoint := none
   isBreak       : Bool := false
   isEX          : Bool := false
+  multiple      : Nat := 1
   logicalSlideId : Nat := 0
   noteIndex     : Nat := 0
   judgeQueues   : List (List SlideAreaSpec) := []
@@ -164,6 +165,7 @@ instance : FromJson SlideChartNote where
     let judgeAt ← getObjValAsD? json "judgeAt" none
     let isBreak ← getObjValAsD? json "isBreak" false
     let isEX ← getObjValAsD? json "isEX" false
+    let multiple ← getObjValAsD? json "multiple" 1
     let noteIndex ← getObjValAsD? json "noteIndex" 0
     let logicalSlideId ← getObjOptionalValAsD? json "logicalSlideId" noteIndex
     let judgeQueues ← getObjValAsD? json "judgeQueues" []
@@ -187,6 +189,7 @@ instance : FromJson SlideChartNote where
       , judgeAt := judgeAt
       , isBreak := isBreak
       , isEX := isEX
+      , multiple := multiple
       , logicalSlideId := logicalSlideId
       , noteIndex := noteIndex
       , judgeQueues := judgeQueues
@@ -597,6 +600,7 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   , totalJudgeQueueLen := note.totalJudgeQueueLen
   , trackCount := note.trackCount
   , isCheckable := false
+  , multiple := max 1 note.multiple
   , judgeQueues := judgeQueues }
 
 private def touchHoldBodyGroupStatesFromHolds
@@ -642,11 +646,13 @@ private structure ChartScoreTotals where
   noteCount : Nat := 0
 
 private def addScoreTotal
-    (totals : ChartScoreTotals) (kind : NoteType) (isBreak : Bool) : ChartScoreTotals :=
+    (totals : ChartScoreTotals) (kind : NoteType) (isBreak : Bool) (multiple : Nat := 1) :
+    ChartScoreTotals :=
+  let multiple := max 1 multiple
   let scoreKind := if isBreak then NoteType.Break else kind
-  { totalBase := totals.totalBase + NoteType.baseScore scoreKind
-  , totalExtra := totals.totalExtra + NoteType.extraScore scoreKind
-  , noteCount := totals.noteCount + 1 }
+  { totalBase := totals.totalBase + NoteType.baseScore scoreKind * multiple
+  , totalExtra := totals.totalExtra + NoteType.extraScore scoreKind * multiple
+  , noteCount := totals.noteCount + multiple }
 
 private def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
   let totals := chart.taps.foldl (fun totals note => addScoreTotal totals .Tap note.isBreak) {}
@@ -658,7 +664,7 @@ private def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
   chart.slides.foldl
     (fun totals note =>
       if note.isConnSlide && !note.isGroupEnd then totals
-      else addScoreTotal totals .Slide note.isBreak)
+      else addScoreTotal totals .Slide note.isBreak note.multiple)
     totals
 
 def buildGameState (chart : ChartSpec) : GameState :=

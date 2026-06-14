@@ -1036,6 +1036,105 @@ def test_touch_group_majority_shares_result_same_frame : RuntimeCase :=
         "grouped touch majority shares the judged result to the later sibling in the same frame"
   | _ => passCase "touch_group_majority_shares_result_same_frame" false "expected three touch events in one frame"
 
+private def touchGroupSharedConvertedGradeState : InputModel.GameState :=
+  let touch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 33 }
+    , state := .Judgeable
+    , sensorPos := .A1
+    , touchGroupId := some 33
+    , touchGroupSize := 3 }
+  { currentTime := tp (-16000)
+  , judgeStyle := .Maji
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touch] } else { notes := [] })
+  , touchGroupStates :=
+      [{ groupId := 33, count := 2, size := 3, grade := .LateGood, diff := dur 180000 }] }
+
+def test_touch_group_share_reuses_converted_grade_without_second_conversion : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (_, events, _, _) := Scheduler.stepFrame touchGroupSharedConvertedGradeState input
+  match events with
+  | [evt] =>
+      passCase "touch_group_share_reuses_converted_grade_without_second_conversion"
+        (evt.kind = .Touch
+          && evt.noteIndex = 33
+          && evt.grade = .LateGood
+          && evt.diff = dur 180000)
+        "stored touch-group grades are already converted in MajdataPlay and must not be converted again"
+  | _ =>
+      passCase "touch_group_share_reuses_converted_grade_without_second_conversion" false
+        "expected one shared touch event"
+
+private def touchGroupSharedTooLateState : InputModel.GameState :=
+  let touch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 34 }
+    , state := .Judgeable
+    , sensorPos := .A1
+    , touchGroupId := some 34
+    , touchGroupSize := 3 }
+  { currentTime := tp 300000
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touch] } else { notes := [] })
+  , touchGroupStates :=
+      [{ groupId := 34, count := 2, size := 3, grade := .Perfect, diff := Duration.zero }] }
+
+def test_touch_group_share_does_not_override_too_late_miss : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 1000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchGroupSharedTooLateState input
+  match nextState.touchQueues.getD .A1 { notes := [] }, events with
+  | queueAfter, [evt] =>
+      passCase "touch_group_share_does_not_override_too_late_miss"
+        (queueAfter.currentIndex = 1
+          && evt.kind = .Touch
+          && evt.noteIndex = 34
+          && evt.grade = .Miss
+          && evt.diff = dur (-1000))
+        "MajdataPlay checks touch too-late before applying shared group results"
+  | _, _ =>
+      passCase "touch_group_share_does_not_override_too_late_miss" false
+        "expected one too-late touch miss"
+
+private def touchGroupShareLeavesClickForTouchHoldState : InputModel.GameState :=
+  let touch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 35 }
+    , state := .Judgeable
+    , sensorPos := .A1
+    , touchGroupId := some 35
+    , touchGroupSize := 3
+    , touchQueueIndex := 0 }
+  let touchHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 36 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 1 }
+  { currentTime := tp (-16000)
+  , touchQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touch] } else { notes := [] })
+  , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [touchHold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, touchHold)]
+  , touchGroupStates :=
+      [{ groupId := 35, count := 2, size := 3, grade := .Perfect, diff := Duration.zero }] }
+
+def test_touch_group_share_does_not_consume_sensor_click : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [.A1] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchGroupShareLeavesClickForTouchHoldState input
+  match events, nextState.touchQueues.getD .A1 { notes := [] }, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
+  | [evt], touchQueueAfter, holdQueueAfter, [(_, holdAfter)] =>
+      let holdHeadJudged :=
+        match holdAfter.state with
+        | .HeadJudged .Perfect => true
+        | _ => false
+      passCase "touch_group_share_does_not_consume_sensor_click"
+        (evt.kind = .Touch
+          && evt.noteIndex = 35
+          && evt.grade = .Perfect
+          && touchQueueAfter.currentIndex = 1
+          && holdQueueAfter.currentIndex = 1
+          && holdHeadJudged)
+        "a shared touch result resolves before Check(), leaving the physical click for the next touch-family head"
+  | _, _, _, _ =>
+      passCase "touch_group_share_does_not_consume_sensor_click" false
+        "expected the shared touch event and a judged touch-hold head"
+
 private def pendingConnChildState : InputModel.GameState :=
   let parentArea : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true }
@@ -1983,7 +2082,8 @@ def test_touch_waiting_large_delta_uses_reference_too_late_boundary : RuntimeCas
         (queue.currentIndex = 1
           && evt.kind = .Touch
           && evt.noteIndex = 177
-          && evt.grade = .Miss)
+          && evt.grade = .Miss
+          && evt.diff = dur (-1000))
         "a touch that stays in Waiting across a large frame jump should miss once time is strictly past the reference good boundary"
   | _, _ => passCase "touch_waiting_large_delta_uses_reference_too_late_boundary" false "expected one touch miss event after large-delta waiting step"
 
@@ -2534,6 +2634,65 @@ def test_build_game_state_scores_slide_head_and_body_break_separately : RuntimeC
       && headScore.totalExtra = 100
       && headScore.maxDxScore = 6)
     "lowered slide heads and bodies contribute break score totals from their own break flags"
+
+def test_build_game_state_scores_slide_body_multiplicity : RuntimeCase :=
+  let chart : ChartLoader.ChartSpec :=
+    { slideHeads := []
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , multiple := 3
+         , logicalSlideId := 417
+         , noteIndex := 417
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let state := ChartLoader.buildGameState chart
+  match state.slides with
+  | [slide] =>
+      passCase "build_game_state_scores_slide_body_multiplicity"
+        (slide.multiple = 3
+          && state.score.totalBase = 4500
+          && state.score.totalExtra = 0
+          && state.score.maxDxScore = 9)
+        "folded identical slide bodies score as their MajdataPlay Multiple count"
+  | _ =>
+      passCase "build_game_state_scores_slide_body_multiplicity" false
+        "expected one folded slide body"
+
+private def judgedMultipleSlideState : InputModel.GameState :=
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 418 }
+    , lane := .S1
+    , state := .Judged .LateGreat Duration.zero (dur 120000)
+    , length := dur 200000
+    , headTiming := TimePoint.zero
+    , startTiming := TimePoint.zero
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , multiple := 3
+    , judgeQueues := [[]] }
+  { currentTime := TimePoint.zero
+  , slides := [slide] }
+
+def test_slide_event_multiplicity_accumulates_score : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame judgedMultipleSlideState input
+  match events with
+  | [evt] =>
+      passCase "slide_event_multiplicity_accumulates_score"
+        (evt.kind = .Slide
+          && evt.noteIndex = 418
+          && evt.grade = .LateGreat
+          && evt.multiple = 3
+          && nextState.score.combo = 3
+          && nextState.score.counts.slideCount .LateGreat = 3
+          && nextState.score.dxScore = -6)
+        "slide result events carry Multiple through combo, counters, and DX score loss"
+  | _ =>
+      passCase "slide_event_multiplicity_accumulates_score" false
+        "expected one multiplied slide event"
 
 def test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
@@ -3232,6 +3391,122 @@ def test_touch_hold_head_share_does_not_resolve_from_body_group_state : RuntimeC
     (events.isEmpty && unresolved && queueAfter.currentIndex = 0)
     "body-group majority should not silently judge a touch-hold head without touch-group share"
 
+private def touchHoldHeadShareLeavesClickState : InputModel.GameState :=
+  let sharedHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 394 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchGroupId := some 142
+    , touchGroupSize := 3 }
+  let clickedHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 395 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 1 }
+  { currentTime := tp (-16000)
+  , touchHoldQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [sharedHold, clickedHold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, sharedHold), (.A1, clickedHold)]
+  , touchGroupStates := [{ groupId := 142, count := 2, size := 3, grade := .Perfect, diff := Duration.zero }] }
+
+def test_touch_hold_head_share_does_not_consume_sensor_click : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [.A1] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchHoldHeadShareLeavesClickState input
+  match events, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
+  | [], queueAfter, [(_, firstAfter), (_, secondAfter)] =>
+      let firstShared :=
+        match firstAfter.state with
+        | .HeadJudged .Perfect => firstAfter.headDiff = Duration.zero
+        | _ => false
+      let secondClicked :=
+        match secondAfter.state with
+        | .HeadJudged .Perfect => secondAfter.headDiff = Duration.zero
+        | _ => false
+      passCase "touch_hold_head_share_does_not_consume_sensor_click"
+        (queueAfter.currentIndex = 2 && firstShared && secondClicked)
+        "touch-hold shared head resolution happens before Check(), so it must not consume the physical sensor click"
+  | _, _, _ =>
+      passCase "touch_hold_head_share_does_not_consume_sensor_click" false
+        "expected one shared touch-hold head and one clicked touch-hold head"
+
+private def touchHoldHeadShareTooLateState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 396 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchGroupId := some 142
+    , touchGroupSize := 3
+    , touchHoldGroupId := some 242
+    , touchHoldGroupSize := 3 }
+  { currentTime := tp 300000
+  , touchHoldQueues := SensorVec.ofFn (fun area => if area == .A1 then { notes := [hold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, hold)]
+  , touchGroupStates := [{ groupId := 142, count := 2, size := 3, grade := .Perfect, diff := Duration.zero }] }
+
+def test_touch_hold_head_share_does_not_override_too_late_miss : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 1000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchHoldHeadShareTooLateState input
+  match events, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
+  | [], queueAfter, [(_, holdAfter)] =>
+      let missedHead :=
+        match holdAfter.state with
+        | .HeadJudged .Miss => true
+        | _ => false
+      passCase "touch_hold_head_share_does_not_override_too_late_miss"
+        (queueAfter.currentIndex = 1 && missedHead)
+        "MajdataPlay touch-hold heads check too-late before consuming shared touch-group results"
+  | _, _, _ =>
+      passCase "touch_hold_head_share_does_not_override_too_late_miss" false
+        "expected a silent too-late head miss and queue advance"
+
+private def touchHoldHeadTooLateLeavesClickState : InputModel.GameState :=
+  let lateHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 397 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0 }
+  let clickedHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := tp 301000, judgeOffset := Duration.zero, noteIndex := 398 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 1 }
+  { currentTime := tp 300000
+  , touchHoldQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [lateHold, clickedHold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, lateHold), (.A1, clickedHold)] }
+
+def test_touch_hold_too_late_head_does_not_consume_sensor_click : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [.A1] [] (dur 1000)
+  let (nextState, events, _, _) := Scheduler.stepFrame touchHoldHeadTooLateLeavesClickState input
+  match events, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
+  | [], queueAfter, [(_, firstAfter), (_, secondAfter)] =>
+      let firstMissed :=
+        match firstAfter.state with
+        | .HeadJudged .Miss => true
+        | _ => false
+      let secondClicked :=
+        match secondAfter.state with
+        | .HeadJudged .Perfect => secondAfter.headDiff = Duration.zero
+        | _ => false
+      passCase "touch_hold_too_late_head_does_not_consume_sensor_click"
+        (queueAfter.currentIndex = 2 && firstMissed && secondClicked)
+        "a touch-hold head that is already too late should miss before Check() and leave the physical click available"
+  | _, _, _ =>
+      passCase "touch_hold_too_late_head_does_not_consume_sensor_click" false
+        "expected a too-late touch-hold head miss followed by a clicked touch-hold head"
+
 private def touchThenTouchHoldGroupShareSameFrameState : InputModel.GameState :=
   let touch : Lifecycle.TouchNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 91 }
@@ -3731,6 +4006,9 @@ def all : List RuntimeCase :=
   , test_conn_child_progress_force_finishes_parent
   , test_slide_judge_uses_touch_panel_offset
   , test_touch_group_majority_shares_result_same_frame
+  , test_touch_group_share_reuses_converted_grade_without_second_conversion
+  , test_touch_group_share_does_not_override_too_late_miss
+  , test_touch_group_share_does_not_consume_sensor_click
   , test_conn_child_pending_finish_becomes_checkable
   , test_conn_child_finished_parent_becomes_checkable
   , test_conn_parent_not_force_finished_without_child_progress
@@ -3769,6 +4047,8 @@ def all : List RuntimeCase :=
   , test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape
   , test_build_game_state_accepts_head_only_lowered_slide_chart
   , test_build_game_state_scores_slide_head_and_body_break_separately
+  , test_build_game_state_scores_slide_body_multiplicity
+  , test_slide_event_multiplicity_accumulates_score
   , test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress
   , test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order
   , test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click
@@ -3786,6 +4066,9 @@ def all : List RuntimeCase :=
   , test_touch_hold_head_can_resolve_from_shared_touch_group
   , test_touch_hold_head_share_uses_touch_group_not_body_group
   , test_touch_hold_head_share_does_not_resolve_from_body_group_state
+  , test_touch_hold_head_share_does_not_consume_sensor_click
+  , test_touch_hold_head_share_does_not_override_too_late_miss
+  , test_touch_hold_too_late_head_does_not_consume_sensor_click
   , test_scheduler_policy_touch_runs_before_touch_hold_group_share
   , test_reference_like_slide_skip_chain_does_not_clear_last_area_early
   , test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all
@@ -3891,6 +4174,15 @@ theorem test_slide_judge_uses_touch_panel_offset_proof :
 
 theorem test_touch_group_majority_shares_result_same_frame_proof :
     test_touch_group_majority_shares_result_same_frame.passed = true := by native_decide
+
+theorem test_touch_group_share_reuses_converted_grade_without_second_conversion_proof :
+    test_touch_group_share_reuses_converted_grade_without_second_conversion.passed = true := by native_decide
+
+theorem test_touch_group_share_does_not_override_too_late_miss_proof :
+    test_touch_group_share_does_not_override_too_late_miss.passed = true := by native_decide
+
+theorem test_touch_group_share_does_not_consume_sensor_click_proof :
+    test_touch_group_share_does_not_consume_sensor_click.passed = true := by native_decide
 
 theorem test_conn_child_pending_finish_becomes_checkable_proof :
     test_conn_child_pending_finish_becomes_checkable.passed = true := by native_decide
@@ -4015,6 +4307,12 @@ theorem test_build_game_state_accepts_head_only_lowered_slide_chart_proof :
 theorem test_build_game_state_scores_slide_head_and_body_break_separately_proof :
     test_build_game_state_scores_slide_head_and_body_break_separately.passed = true := by native_decide
 
+theorem test_build_game_state_scores_slide_body_multiplicity_proof :
+    test_build_game_state_scores_slide_body_multiplicity.passed = true := by native_decide
+
+theorem test_slide_event_multiplicity_accumulates_score_proof :
+    test_slide_event_multiplicity_accumulates_score.passed = true := by native_decide
+
 theorem test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress_proof :
     test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress.passed = true := by native_decide
 
@@ -4059,6 +4357,15 @@ theorem test_same_area_consecutive_touch_holds_advance_shared_frontier_proof :
 
 theorem test_unlocked_touch_frontier_still_allows_older_touch_hold_proof :
     test_unlocked_touch_frontier_still_allows_older_touch_hold.passed = true := by native_decide
+
+theorem test_touch_hold_head_share_does_not_consume_sensor_click_proof :
+    test_touch_hold_head_share_does_not_consume_sensor_click.passed = true := by native_decide
+
+theorem test_touch_hold_head_share_does_not_override_too_late_miss_proof :
+    test_touch_hold_head_share_does_not_override_too_late_miss.passed = true := by native_decide
+
+theorem test_touch_hold_too_late_head_does_not_consume_sensor_click_proof :
+    test_touch_hold_too_late_head_does_not_consume_sensor_click.passed = true := by native_decide
 
 theorem test_mixed_chart_golden_ap_plus_proof :
     test_mixed_chart_golden_ap_plus.passed = true := by native_decide

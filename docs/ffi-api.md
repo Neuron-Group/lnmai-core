@@ -744,6 +744,7 @@ Notes:
 - lowered head/body pairs now carry explicit `logicalSlideId`
 - lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
 - exported lowered slide bodies use `headTiming` as the required body-side head anchor field
+- folded identical simultaneous slide bodies carry `multiple`; the corresponding lowered heads remain explicit separate head notes
 
 This bundled response is the broadest parser-facing payload:
 

@@ -395,6 +395,27 @@ def test_lowered_ordinary_slide_splits_head_and_body : ParityCase :=
       | _, _, _ => supportedCase "lowered_ordinary_slide_splits_head_and_body" false "expected one normalized slide plus one lowered slide head and one lowered slide body"
   | .error err => supportedCase "lowered_ordinary_slide_splits_head_and_body" false s!"unexpected parse error: {err.message}"
 
+def test_identical_simultaneous_slides_fold_body_multiplicity : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]/1-3[4:1],\n" with
+  | .ok chart =>
+      match chart.inspection.tokens, chart.semantic.normalized.slides, chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
+      | _ :: _ :: _, [normalized], [head1, head2], [body] =>
+          supportedCase "identical_simultaneous_slides_fold_body_multiplicity"
+            (normalized.multiple = 2 &&
+             body.multiple = 2 &&
+             head1.logicalSlideId = body.logicalSlideId &&
+             head2.logicalSlideId = body.logicalSlideId &&
+             head1.noteIndex != head2.noteIndex &&
+             head1.noteIndex != body.noteIndex &&
+             head2.noteIndex != body.noteIndex)
+            "identical simultaneous slides lower to multiple heads plus one body carrying the folded Multiple count"
+      | _, _, _, _ =>
+          supportedCase "identical_simultaneous_slides_fold_body_multiplicity" false
+            "expected two source tokens, one folded normalized slide body, and two lowered heads"
+  | .error err =>
+      supportedCase "identical_simultaneous_slides_fold_body_multiplicity" false
+        s!"unexpected parse error: {err.message}"
+
 def test_lowered_headless_slide_has_body_only : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1?-3[4:1],\n" with
   | .ok chart =>
@@ -841,6 +862,7 @@ def all : List ParityCase :=
   , test_rational_inspection_json_is_stable
   , test_same_head_slide_group_lowering
   , test_lowered_ordinary_slide_splits_head_and_body
+  , test_identical_simultaneous_slides_fold_body_multiplicity
   , test_lowered_headless_slide_has_body_only
   , test_lowered_conn_group_has_one_head_for_first_body
   , test_same_head_wifi_group_rejected
@@ -909,6 +931,8 @@ theorem test_unfit_bpm_quantizes_consistently_proof : test_unfit_bpm_quantizes_c
 theorem test_rational_inspection_json_is_stable_proof : test_rational_inspection_json_is_stable.passed = true := by native_decide
 theorem test_same_head_slide_group_lowering_proof : test_same_head_slide_group_lowering.passed = true := by native_decide
 theorem test_lowered_ordinary_slide_splits_head_and_body_proof : test_lowered_ordinary_slide_splits_head_and_body.passed = true := by native_decide
+theorem test_identical_simultaneous_slides_fold_body_multiplicity_proof :
+    test_identical_simultaneous_slides_fold_body_multiplicity.passed = true := by native_decide
 theorem test_lowered_headless_slide_has_body_only_proof : test_lowered_headless_slide_has_body_only.passed = true := by native_decide
 theorem test_lowered_conn_group_has_one_head_for_first_body_proof : test_lowered_conn_group_has_one_head_for_first_body.passed = true := by native_decide
 theorem test_same_head_wifi_group_rejected_proof : test_same_head_wifi_group_rejected.passed = true := by native_decide
