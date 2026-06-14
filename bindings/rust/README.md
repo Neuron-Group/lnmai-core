@@ -34,6 +34,7 @@ Current slide head/body schema notes:
 - lowered head/body pairs now carry explicit `logicalSlideId`
 - lowered slide heads and slide bodies now use distinct `noteIndex` values while sharing `logicalSlideId`
 - lowered slide bodies use `headTiming` as the body-side head anchor field in the current schema
+- lowered slide bodies use segment-local slide break semantics for their `isBreak` field; slide heads keep head break semantics
 - Rust typed mirrors require `headTiming` for slide-body payloads
 - normalized slide mirrors expose explicit `hasHeadNote` and `hasBody`; `isSlideNoHead` remains compatibility metadata rather than the long-term semantic authority
 
@@ -42,6 +43,7 @@ Runtime state note:
 - `GameState.tapQueues` now serialize tagged `TapFamilyNote` entries with `kind = "tap"` or `"slideHead"`
 - slide heads remain in the shared tap-family queue; the new tag only exposes runtime object kind to hosts
 - `GameState` no longer exposes a core touch-mode flag; hosts should synthesize sensor input before calling the core if they want desktop-style outer-button touch mapping
+- `GameState.noteFastLateDisplay` and `GameState.breakFastLateDisplay` mirror the core fast/late counter policy
 - `ScoreState.dxScore` is the core DX-loss delta; use `ScoreState::dx_score_remaining()` for achieved DX score
 - `ScoreState::combo_state()` derives AP+/AP/FC+/FC from judge-count categories
 

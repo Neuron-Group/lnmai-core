@@ -141,6 +141,26 @@ def isGoodGrade : JudgeGrade → Bool
 end JudgeGrade
 
 ----------------------------------------------------------------------------
+-- Judge display options
+----------------------------------------------------------------------------
+
+/--
+  Display/counting option mirrored from MajdataPlay's `JudgeDisplayOption`.
+
+  The runtime uses this for fast/late statistic folding. MajdataPlay's
+  `ObjectCounter.UpdateFastLateCount` treats `BelowGR` and `Disable` like
+  `BelowP` for statistics, while `MissOnly` contributes no fast/late count.
+-/
+inductive JudgeDisplayOption where
+  | All
+  | BelowCP
+  | BelowP
+  | BelowGR
+  | MissOnly
+  | Disable
+deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
+
+----------------------------------------------------------------------------
 -- Note Type
 ----------------------------------------------------------------------------
 

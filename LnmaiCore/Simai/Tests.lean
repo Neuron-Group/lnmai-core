@@ -255,6 +255,25 @@ def test_slide_break_on_segment : ParityCase :=
       | _, _ => supportedCase "slide_break_on_segment" false "expected one slide token"
   | .error err => supportedCase "slide_break_on_segment" false s!"unexpected parse error: {err.message}"
 
+def test_lowered_slide_break_split_uses_segment_break_for_body : ParityCase :=
+  let segmentBody :=
+    match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3b[4:1],\n" with
+    | .ok chart =>
+        match chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
+        | head :: _, body :: _ => !head.isBreak && body.isBreak
+        | _, _ => false
+    | .error _ => false
+  let headOnlyBreak :=
+    match parseLevel1 "&first=0\n&inote_1=\n(120)\n1b-3[4:1],\n" with
+    | .ok chart =>
+        match chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
+        | head :: _, body :: _ => head.isBreak && !body.isBreak
+        | _, _ => false
+    | .error _ => false
+  supportedCase "lowered_slide_break_split_uses_segment_break_for_body"
+    (segmentBody && headOnlyBreak)
+    "lowered slide heads use head break while lowered slide bodies use segment-local slide break"
+
 def test_simultaneous_notes_slash : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(60)\n1/8/Ch[4:1],\n" with
   | .ok chart =>
@@ -812,6 +831,7 @@ def all : List ParityCase :=
   , test_modifiers
   , test_slide_modifiers
   , test_slide_break_on_segment
+  , test_lowered_slide_break_split_uses_segment_break_for_body
   , test_simultaneous_notes_slash
   , test_pseudo_simultaneous_backtick
   , test_comment_handling
@@ -878,6 +898,8 @@ theorem test_touch_note_proof : test_touch_note.passed = true := by native_decid
 theorem test_modifiers_proof : test_modifiers.passed = true := by native_decide
 theorem test_slide_modifiers_proof : test_slide_modifiers.passed = true := by native_decide
 theorem test_slide_break_on_segment_proof : test_slide_break_on_segment.passed = true := by native_decide
+theorem test_lowered_slide_break_split_uses_segment_break_for_body_proof :
+    test_lowered_slide_break_split_uses_segment_break_for_body.passed = true := by native_decide
 theorem test_simultaneous_notes_slash_proof : test_simultaneous_notes_slash.passed = true := by native_decide
 theorem test_pseudo_simultaneous_backtick_proof : test_pseudo_simultaneous_backtick.passed = true := by native_decide
 theorem test_comment_handling_proof : test_comment_handling.passed = true := by native_decide

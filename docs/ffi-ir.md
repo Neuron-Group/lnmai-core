@@ -53,6 +53,17 @@ maidata / Simai text
 - `ButtonZone`: `"K1"` .. `"K8"`
 - `OuterSlot`: `"S1"` .. `"S8"`
 
+### Judge display options
+
+`JudgeDisplayOption` is encoded as one of:
+
+- `"All"`
+- `"BelowCP"`
+- `"BelowP"`
+- `"BelowGR"`
+- `"MissOnly"`
+- `"Disable"`
+
 ### Optional values
 
 Lean `Option α` becomes either the encoded value or `null`.
@@ -408,7 +419,7 @@ Fields:
 - `totalJudgeQueueLen`: total judge segments across tracks
 - `trackCount`: number of tracks
 - `judgeAt`: optional explicit judge time
-- `isBreak`: boolean
+- `isBreak`: boolean — body-side break flag, sourced from segment-local slide break semantics
 - `isEX`: boolean
 - `logicalSlideId`: shared logical slide identity linking the lowered head/body pair
 - `noteIndex`: note id
@@ -491,6 +502,8 @@ Fields:
 - `judgeStyle`: current judge style
 - `touchPanelOffset`: timing offset for touch panel logic
 - `subdivideSlideJudgeGrade`: runtime option flag
+- `noteFastLateDisplay`: `JudgeDisplayOption` used for non-break fast/late counters
+- `breakFastLateDisplay`: `JudgeDisplayOption` used for break fast/late counters
 
 Host guidance:
 
@@ -573,6 +586,12 @@ Fields:
 - `fastCount`
 - `lateCount`
 - `counts`: `NoteTypeJudgeCounts`
+
+Fast/late counter policy:
+
+- `GameState.noteFastLateDisplay` defaults to `All`, matching MajdataPlay's note-counter setting source
+- `GameState.breakFastLateDisplay` defaults to `Disable`, matching MajdataPlay's break-counter setting source
+- for statistics, MajdataPlay's `ObjectCounter` treats `BelowGR` and `Disable` like `BelowP`
 
 ### `NoteTypeJudgeCounts`
 

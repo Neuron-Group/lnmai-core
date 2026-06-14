@@ -210,6 +210,8 @@ structure GameState where
   judgeStyle    : JudgeStyle := JudgeStyle.Default
   touchPanelOffset : Duration := Duration.zero
   subdivideSlideJudgeGrade : Bool := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
+  noteFastLateDisplay : JudgeDisplayOption := JudgeDisplayOption.All
+  breakFastLateDisplay : JudgeDisplayOption := JudgeDisplayOption.Disable
 deriving Inhabited, Repr, ToJson, FromJson
 
 end LnmaiCore.InputModel

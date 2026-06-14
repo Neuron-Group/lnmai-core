@@ -679,12 +679,15 @@ private def eventScoreDeltas (evt : JudgeEvent) (multiple : Nat) : Nat × Nat ×
       let (earnedBase, lostBase) := Score.scoreNonBreak (NoteType.baseScore kind) evt.grade multiple
       (earnedBase, 0, lostBase, 0)
 
-private def foldEventIntoScore (s : ScoreState) (evt : JudgeEvent) : ScoreState :=
+private def foldEventIntoScore
+    (noteDisplay breakDisplay : JudgeDisplayOption) (s : ScoreState) (evt : JudgeEvent) :
+    ScoreState :=
   let multiple : Nat := 1
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
   let (earnedBaseDelta, earnedExtraDelta, lostBaseDelta, lostExtraDelta) :=
     eventScoreDeltas evt multiple
-  let (isFast, isLate) := Score.countFastLate evt.grade evt.diff Score.FastLateDisplay.All
+  let display := if evt.isBreak || evt.kind == .Break then breakDisplay else noteDisplay
+  let (isFast, isLate) := Score.countFastLate evt.grade evt.diff display
   let counts :=
     if evt.isBreak || evt.kind == .Break then
       { s.counts with breakCount := λ g => if g == evt.grade then s.counts.breakCount g + 1 else s.counts.breakCount g }
@@ -709,10 +712,14 @@ private def foldEventIntoScore (s : ScoreState) (evt : JudgeEvent) : ScoreState 
     counts      := counts
   }
 
-private def foldEventsIntoScore (s : ScoreState) (events : List JudgeEvent) : ScoreState :=
+private def foldEventsIntoScore
+    (noteDisplay breakDisplay : JudgeDisplayOption) (s : ScoreState) (events : List JudgeEvent) :
+    ScoreState :=
   match events with
   | [] => s
-  | evt :: rest => foldEventsIntoScore (foldEventIntoScore s evt) rest
+  | evt :: rest =>
+      foldEventsIntoScore noteDisplay breakDisplay
+        (foldEventIntoScore noteDisplay breakDisplay s evt) rest
 
 private def eventToAudioCommands (evt : JudgeEvent) (timePoint : TimePoint) : List AudioCommand :=
   [ AudioCommand.PlayJudgeSfx evt.kind evt.grade evt.isBreak timePoint evt.noteIndex ]
@@ -760,7 +767,8 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let forceFinishCommands := forceFinishRenderCmds resolvedSlides slideNotes
 
   let allEvents := tapEvents ++ holdEvents ++ touchHoldEvents ++ touchEvents ++ slideEvents
-  let newScore := foldEventsIntoScore st.score allEvents
+  let newScore :=
+    foldEventsIntoScore st.noteFastLateDisplay st.breakFastLateDisplay st.score allEvents
   let audioCommands := slideAudioCommands ++ eventsToAudioCommands allEvents newTime
   let renderCommands := slideRenderCommands ++ forceFinishCommands ++ eventsToRenderCommands allEvents
 

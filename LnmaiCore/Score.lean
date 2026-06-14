@@ -159,30 +159,29 @@ def updateCombo (combo : Nat) (pCombo : Nat) (cPCombo : Nat) (dXScoreLost : ℤ)
   Returns (isFast, isLate) increment flags for this grade,
   given a display option (matching JudgeDisplayOption).
 -/
-inductive FastLateDisplay where
-  | All     -- count all non-zero-diff, non-miss
-  | BelowCP -- count everything except Perfect (CP), Miss, TooFast
-  | BelowP  -- count only Great and Good (distance from Perfect > 2)
-deriving DecidableEq, Repr
-
-def countFastLate (grade : JudgeGrade) (diff : Duration) (display : FastLateDisplay) : (Bool × Bool) :=
+def countFastLate
+    (grade : JudgeGrade) (diff : Duration) (display : JudgeDisplayOption) : Bool × Bool :=
   if grade.isMissOrTooFast then
     (false, false)
   else
     let d := grade.distFromPerfect
     match display with
-    | FastLateDisplay.All =>
+    | JudgeDisplayOption.All =>
       if diff == Duration.zero then (false, false)
       else if diff < Duration.zero then (true, false)
       else (false, true)
-    | FastLateDisplay.BelowCP =>
+    | JudgeDisplayOption.BelowCP =>
       if grade == JudgeGrade.Perfect then (false, false)
       else if diff < Duration.zero then (true, false)
       else (false, true)
-    | FastLateDisplay.BelowP =>
+    | JudgeDisplayOption.BelowP
+    | JudgeDisplayOption.BelowGR
+    | JudgeDisplayOption.Disable =>
       if d ≤ 2 then (false, false)  -- skip Perfect, Perfect2nd, Perfect3rd
       else if diff < Duration.zero then (true, false)
       else (false, true)
+    | JudgeDisplayOption.MissOnly =>
+      (false, false)
 
 ----------------------------------------------------------------------------
 -- DX Score Rank

@@ -2501,6 +2501,40 @@ def test_build_game_state_accepts_head_only_lowered_slide_chart : RuntimeCase :=
       passCase "build_game_state_accepts_head_only_lowered_slide_chart" false
         "expected one slide-head queue entry and no slide bodies"
 
+def test_build_game_state_scores_slide_head_and_body_break_separately : RuntimeCase :=
+  let segmentBreakChart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, isBreak := false, logicalSlideId := 415, noteIndex := 515 }]
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , isBreak := true
+         , logicalSlideId := 415
+         , noteIndex := 415
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let headBreakChart : ChartLoader.ChartSpec :=
+    { slideHeads := [{ timing := TimePoint.zero, slot := .S1, isBreak := true, logicalSlideId := 416, noteIndex := 516 }]
+    , slides :=
+        [{ headTiming := TimePoint.zero
+         , slot := .S1
+         , length := dur 200000
+         , startTiming := TimePoint.zero
+         , isBreak := false
+         , logicalSlideId := 416
+         , noteIndex := 416
+         , judgeQueues := [[{ targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]] }] }
+  let segmentScore := (ChartLoader.buildGameState segmentBreakChart).score
+  let headScore := (ChartLoader.buildGameState headBreakChart).score
+  passCase "build_game_state_scores_slide_head_and_body_break_separately"
+    (segmentScore.totalBase = 3000
+      && segmentScore.totalExtra = 100
+      && segmentScore.maxDxScore = 6
+      && headScore.totalBase = 4000
+      && headScore.totalExtra = 100
+      && headScore.maxDxScore = 6)
+    "lowered slide heads and bodies contribute break score totals from their own break flags"
+
 def test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
     { slideHeads := []
@@ -3484,12 +3518,34 @@ def test_runtime_score_accumulates_base_extra_and_fc_plus : RuntimeCase :=
       && score.maxDxScore = 9
       && score.dxScore = -3
       && score.fastCount = 0
-      && score.lateCount = 2
+      && score.lateCount = 1
       && score.counts.tapCount .Perfect = 1
       && score.counts.breakCount .LatePerfect3rd = 1
       && score.counts.tapCount .LateGreat2nd = 1
       && LnmaiCore.comboState score = .FCPlus)
-    "runtime score fold should accumulate base/extra score, DX loss, fast/late counts, and FC+ state"
+    "runtime score fold should accumulate base/extra score, DX loss, default fast/late counts, and FC+ state"
+
+def test_fast_late_disable_counter_matches_object_counter : RuntimeCase :=
+  passCase "fast_late_disable_counter_matches_object_counter"
+    (Score.countFastLate .LateGreat (dur 30000) .Disable = (false, true)
+      && Score.countFastLate .LatePerfect3rd (dur 30000) .Disable = (false, false)
+      && Score.countFastLate .LateGood (dur 30000) .MissOnly = (false, false))
+    "MajdataPlay ObjectCounter treats Disable like BelowP for fast/late stats and MissOnly as no fast/late contribution"
+
+def test_runtime_fast_late_display_options_follow_game_state : RuntimeCase :=
+  let initialState :=
+    { ChartLoader.buildGameState scoreAccumulationChart with
+      noteFastLateDisplay := .MissOnly
+      breakFastLateDisplay := .All }
+  let result := simulateStateWithTacticAndBatches initialState scoreAccumulationTactic []
+  let score := result.finalState.score
+  passCase "runtime_fast_late_display_options_follow_game_state"
+    (eventGrades result.events = [.Perfect, .LatePerfect3rd, .LateGreat2nd]
+      && score.fastCount = 0
+      && score.lateCount = 1
+      && score.counts.breakCount .LatePerfect3rd = 1
+      && score.counts.tapCount .LateGreat2nd = 1)
+    "scheduler score folding should use the GameState note/break fast-late display settings"
 
 def test_frame_window_zero_delta_includes_exact_point : RuntimeCase :=
   let batch : InputModel.TimedInputBatch :=
@@ -3712,6 +3768,7 @@ def all : List RuntimeCase :=
   , test_game_state_json_preserves_tap_family_kind_for_slide_head
   , test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape
   , test_build_game_state_accepts_head_only_lowered_slide_chart
+  , test_build_game_state_scores_slide_head_and_body_break_separately
   , test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress
   , test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order
   , test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click
@@ -3736,6 +3793,8 @@ def all : List RuntimeCase :=
   , test_mixed_chart_golden_ap_with_late_touch
   , test_maji_grade_conversion_preserves_perfect2nd
   , test_runtime_score_accumulates_base_extra_and_fc_plus
+  , test_fast_late_disable_counter_matches_object_counter
+  , test_runtime_fast_late_display_options_follow_game_state
   , test_frame_window_zero_delta_includes_exact_point
   , test_frame_window_positive_delta_excludes_left_boundary
   , test_frame_window_positive_delta_includes_inside_and_right_boundary
@@ -3953,6 +4012,9 @@ theorem test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape_pro
 theorem test_build_game_state_accepts_head_only_lowered_slide_chart_proof :
     test_build_game_state_accepts_head_only_lowered_slide_chart.passed = true := by native_decide
 
+theorem test_build_game_state_scores_slide_head_and_body_break_separately_proof :
+    test_build_game_state_scores_slide_head_and_body_break_separately.passed = true := by native_decide
+
 theorem test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress_proof :
     test_scheduler_recomputes_stale_conn_parent_flags_before_child_progress.passed = true := by native_decide
 
@@ -4009,6 +4071,12 @@ theorem test_maji_grade_conversion_preserves_perfect2nd_proof :
 
 theorem test_runtime_score_accumulates_base_extra_and_fc_plus_proof :
     test_runtime_score_accumulates_base_extra_and_fc_plus.passed = true := by native_decide
+
+theorem test_fast_late_disable_counter_matches_object_counter_proof :
+    test_fast_late_disable_counter_matches_object_counter.passed = true := by native_decide
+
+theorem test_runtime_fast_late_display_options_follow_game_state_proof :
+    test_runtime_fast_late_display_options_follow_game_state.passed = true := by native_decide
 
 theorem test_frame_window_zero_delta_includes_exact_point_proof :
     test_frame_window_zero_delta_includes_exact_point.passed = true := by native_decide
