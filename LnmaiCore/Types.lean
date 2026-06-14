@@ -367,6 +367,12 @@ def NoteTypeJudgeCounts.gradeCountWhere
     (fun acc grade => if pred grade then acc + counts.gradeCount grade else acc)
     0
 
+def NoteTypeJudgeCounts.breakGradeCountWhere
+    (counts : NoteTypeJudgeCounts) (pred : JudgeGrade → Bool) : Nat :=
+  judgeCountsGrades.foldl
+    (fun acc grade => if pred grade then acc + counts.breakCount grade else acc)
+    0
+
 ----------------------------------------------------------------------------
 -- Score accumulation state
 ----------------------------------------------------------------------------
@@ -379,14 +385,60 @@ structure ScoreState where
   totalExtra  : Nat := 0
   earnedBase  : Nat := 0
   earnedExtra : Nat := 0
+  earnedClassicExtra : Nat := 0
   lostBase    : Nat := 0
   lostExtra   : Nat := 0
+  lostClassicExtra : Nat := 0
   dxScore     : ℤ := 0
   maxDxScore  : Nat := 0
   fastCount   : Nat := 0
   lateCount   : Nat := 0
   counts      : NoteTypeJudgeCounts := emptyNoteTypeJudgeCounts
-deriving Inhabited, Repr, ToJson, FromJson
+deriving Inhabited, Repr, ToJson
+
+private def getObjValAsDStrict? {α : Type} [FromJson α] (json : Json) (field : String)
+    (fallback : α) : Except String α :=
+  match json.getObjVal? field with
+  | .ok value => fromJson? value
+  | .error _ => pure fallback
+
+instance : FromJson ScoreState where
+  fromJson?
+    | json@(Json.obj _) => do
+        let combo ← getObjValAsDStrict? json "combo" 0
+        let pCombo ← getObjValAsDStrict? json "pCombo" 0
+        let cPCombo ← getObjValAsDStrict? json "cPCombo" 0
+        let totalBase ← getObjValAsDStrict? json "totalBase" 0
+        let totalExtra ← getObjValAsDStrict? json "totalExtra" 0
+        let earnedBase ← getObjValAsDStrict? json "earnedBase" 0
+        let earnedExtra ← getObjValAsDStrict? json "earnedExtra" 0
+        let earnedClassicExtra ← getObjValAsDStrict? json "earnedClassicExtra" 0
+        let lostBase ← getObjValAsDStrict? json "lostBase" 0
+        let lostExtra ← getObjValAsDStrict? json "lostExtra" 0
+        let lostClassicExtra ← getObjValAsDStrict? json "lostClassicExtra" 0
+        let dxScore ← getObjValAsDStrict? json "dxScore" 0
+        let maxDxScore ← getObjValAsDStrict? json "maxDxScore" 0
+        let fastCount ← getObjValAsDStrict? json "fastCount" 0
+        let lateCount ← getObjValAsDStrict? json "lateCount" 0
+        let counts ← getObjValAsDStrict? json "counts" emptyNoteTypeJudgeCounts
+        pure
+          { combo := combo
+          , pCombo := pCombo
+          , cPCombo := cPCombo
+          , totalBase := totalBase
+          , totalExtra := totalExtra
+          , earnedBase := earnedBase
+          , earnedExtra := earnedExtra
+          , earnedClassicExtra := earnedClassicExtra
+          , lostBase := lostBase
+          , lostExtra := lostExtra
+          , lostClassicExtra := lostClassicExtra
+          , dxScore := dxScore
+          , maxDxScore := maxDxScore
+          , fastCount := fastCount
+          , lateCount := lateCount
+          , counts := counts }
+    | _ => .error "invalid ScoreState"
 
 ----------------------------------------------------------------------------
 -- Combo display result
@@ -401,10 +453,24 @@ def comboState (s : ScoreState) : ComboState :=
   let good := s.counts.gradeCountWhere JudgeGrade.isGoodGrade
   let miss := s.counts.gradeCountWhere JudgeGrade.isMissOrTooFast
   let allNonMiss := critical + perfect + great + good
-  if allNonMiss == 0 || miss != 0 then ComboState.None
-  else if perfect == 0 && great == 0 && good == 0 then ComboState.APPlus
-  else if great == 0 && good == 0 then ComboState.AP
-  else if good == 0 then ComboState.FCPlus
+  let isFullCombo := allNonMiss != 0 && miss == 0
+  let isFullComboPlus := isFullCombo && good == 0
+  let isAllPerfect := isFullComboPlus && great == 0
+  let breakCritical := s.counts.breakCount .Perfect
+  let breakPerfect := s.counts.breakGradeCountWhere (fun grade =>
+    grade == .LatePerfect3rd || grade == .LatePerfect2nd ||
+      grade == .FastPerfect2nd || grade == .FastPerfect3rd)
+  let breakGreat := s.counts.breakGradeCountWhere JudgeGrade.isGreatGrade
+  let breakGood := s.counts.breakGradeCountWhere JudgeGrade.isGoodGrade
+  let breakMiss := s.counts.breakGradeCountWhere JudgeGrade.isMissOrTooFast
+  let breakAllNonMiss := breakCritical + breakPerfect + breakGreat + breakGood
+  let breakIsAllPerfect := breakAllNonMiss != 0 && breakMiss == 0 && breakGood == 0 &&
+    breakGreat == 0
+  let breakIsTheoretical := breakIsAllPerfect && breakPerfect == 0
+  if !isFullCombo then ComboState.None
+  else if isAllPerfect then
+    if breakIsTheoretical then ComboState.APPlus else ComboState.AP
+  else if isFullComboPlus then ComboState.FCPlus
   else ComboState.FC
 
 ----------------------------------------------------------------------------

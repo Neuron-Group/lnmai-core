@@ -621,8 +621,10 @@ Fields:
 - `totalExtra`
 - `earnedBase`
 - `earnedExtra`
+- `earnedClassicExtra`: Break-only classic extra score earned
 - `lostBase`
 - `lostExtra`
+- `lostClassicExtra`: Break-only classic extra score lost
 - `dxScore`: DX-score loss delta (`0` for no loss, negative after lost DX score)
 - `maxDxScore`: total available DX score
 - `fastCount`

@@ -47,7 +47,8 @@ Runtime state note:
 - `HoldNote.releaseIgnoreTime` is serialized separately from scored `playerReleaseTime`; Rust mirrors default missing older JSON to `0`
 - `GameState.noteFastLateDisplay` and `GameState.breakFastLateDisplay` mirror the core fast/late counter policy
 - `ScoreState.dxScore` is the core DX-loss delta; use `ScoreState::dx_score_remaining()` for achieved DX score
-- `ScoreState::combo_state()` derives AP+/AP/FC+/FC from judge-count categories
+- `ScoreState::combo_state()` derives AP+/AP/FC+/FC from judge counts using
+  MajdataPlay's Break-theoretical AP+ rule
 
 Recommended next step for real host integration:
 

@@ -404,7 +404,10 @@ def test_break_tap_event_preserves_family_and_counts_as_break : RuntimeCase :=
           && audioOk
           && renderOk
           && nextState.score.counts.breakCount .Perfect = 1
-          && nextState.score.counts.tapCount .Perfect = 0)
+          && nextState.score.counts.tapCount .Perfect = 0
+          && nextState.score.earnedClassicExtra = 100
+          && nextState.score.lostClassicExtra = 0
+          && LnmaiCore.comboState nextState.score = .APPlus)
         "break tap events should keep tap-family identity while folding into break counters"
   | _, _, _ =>
       passCase "break_tap_event_preserves_family_and_counts_as_break" false
@@ -4277,7 +4280,7 @@ private def mixedGoldenAPTactic : ManualTacticSequence :=
 private def mixedGoldenAPTacticLateTouch : ManualTacticSequence :=
   manual_tactic! "500000 tap K1\n1000000 tap K2\n1000000 button K2 down\n1220000 button K2 up\n1660000 touch A3\n2000000 touch A4\n2000000 sensor A4 down\n2220000 sensor A4 up\n2320000 sensor A5 down\n2400000 sensor A5 up\n2420000 sensor A6 down"
 
-def test_mixed_chart_golden_ap_plus : RuntimeCase :=
+def test_mixed_chart_golden_ap_without_break : RuntimeCase :=
   let (finalState, events) := simulateMixedGoldenSequence mixedGoldenAPTactic
   let expected : MixedGoldenExpectation :=
     { grades := [.Perfect, .Perfect, .Perfect, .Perfect, .Perfect]
@@ -4285,10 +4288,10 @@ def test_mixed_chart_golden_ap_plus : RuntimeCase :=
     , pCombo := 5
     , cPCombo := 5
     , dxScore := 0
-    , comboState := .APPlus }
-  passCase "mixed_chart_golden_ap_plus"
+    , comboState := .AP }
+  passCase "mixed_chart_golden_ap_without_break"
     (mixedGoldenMatches finalState events expected)
-    "mixed replay golden keeps AP+ with perfect tap, hold, touch, touch-hold, and slide results"
+    "MajdataPlay's AP+ result requires theoretical Break notes, so a no-Break all-perfect chart is AP"
 
 def test_mixed_chart_golden_ap_with_late_touch : RuntimeCase :=
   let (finalState, events) := simulateMixedGoldenSequence mixedGoldenAPTacticLateTouch
@@ -4301,7 +4304,7 @@ def test_mixed_chart_golden_ap_with_late_touch : RuntimeCase :=
     , comboState := .AP }
   passCase "mixed_chart_golden_ap_with_late_touch"
     (mixedGoldenMatches finalState events expected)
-    "mixed replay golden drops from AP+ to AP when the touch becomes LatePerfect2nd while the rest stay perfect"
+    "no-Break all-perfect replay stays AP when a non-Break touch becomes LatePerfect2nd"
 
 def test_maji_grade_conversion_preserves_perfect2nd : RuntimeCase :=
   passCase "maji_grade_conversion_preserves_perfect2nd"
@@ -4310,6 +4313,24 @@ def test_maji_grade_conversion_preserves_perfect2nd : RuntimeCase :=
       && LnmaiCore.Convert.convertMaji .LatePerfect3rd = .LateGreat
       && LnmaiCore.Convert.convertMaji .FastPerfect3rd = .FastGreat)
     "MAJI conversion should preserve Perfect2nd and demote only Perfect3rd to Great"
+
+def test_combo_state_matches_majdata_break_theoretical_rule : RuntimeCase :=
+  let breakCriticalAndTapPerfect2nd : NoteTypeJudgeCounts :=
+    { emptyNoteTypeJudgeCounts with
+      tapCount := fun grade => if grade == .LatePerfect2nd then 1 else 0
+      breakCount := fun grade => if grade == .Perfect then 1 else 0 }
+  let breakPerfect2ndAndTapCritical : NoteTypeJudgeCounts :=
+    { emptyNoteTypeJudgeCounts with
+      tapCount := fun grade => if grade == .Perfect then 1 else 0
+      breakCount := fun grade => if grade == .LatePerfect2nd then 1 else 0 }
+  let noBreakCritical : NoteTypeJudgeCounts :=
+    { emptyNoteTypeJudgeCounts with
+      tapCount := fun grade => if grade == .Perfect then 1 else 0 }
+  passCase "combo_state_matches_majdata_break_theoretical_rule"
+    (LnmaiCore.comboState ({ counts := breakCriticalAndTapPerfect2nd } : ScoreState) = .APPlus
+      && LnmaiCore.comboState ({ counts := breakPerfect2ndAndTapCritical } : ScoreState) = .AP
+      && LnmaiCore.comboState ({ counts := noBreakCritical } : ScoreState) = .AP)
+    "MajdataPlay gates AP+ on theoretical Break notes while allowing non-Break Perfect2nd/3rd"
 
 private def scoreAccumulationChart : ChartLoader.ChartSpec :=
   { taps :=
@@ -4338,8 +4359,10 @@ def test_runtime_score_accumulates_base_extra_and_fc_plus : RuntimeCase :=
       && score.totalExtra = 100
       && score.earnedBase = 3400
       && score.earnedExtra = 50
+      && score.earnedClassicExtra = 0
       && score.lostBase = 100
       && score.lostExtra = 50
+      && score.lostClassicExtra = 100
       && score.maxDxScore = 9
       && score.dxScore = -3
       && score.fastCount = 0
@@ -4349,6 +4372,37 @@ def test_runtime_score_accumulates_base_extra_and_fc_plus : RuntimeCase :=
       && score.counts.tapCount .LateGreat2nd = 1
       && LnmaiCore.comboState score = .FCPlus)
     "runtime score fold should accumulate base/extra score, DX loss, default fast/late counts, and FC+ state"
+
+private def breakPerfect2ndChart : ChartLoader.ChartSpec :=
+  { taps :=
+      [ { timing := TimePoint.zero
+        , slot := .S1
+        , isBreak := true
+        , isEX := false
+        , noteIndex := 511 } ]
+  , holds := []
+  , touches := []
+  , touchHolds := []
+  , slideHeads := []
+  , slides := []
+  , slideSkipping := true }
+
+private def breakPerfect2ndTactic : ManualTacticSequence :=
+  mkManualTacticSequence [tapAtTime (tp 30000) .K1]
+
+def test_runtime_break_perfect2nd_accumulates_classic_extra : RuntimeCase :=
+  let result := simulateChartSpecWithTactic breakPerfect2ndChart breakPerfect2ndTactic
+  let score := result.finalState.score
+  passCase "runtime_break_perfect2nd_accumulates_classic_extra"
+    (eventGrades result.events = [.LatePerfect2nd]
+      && score.earnedBase = 2500
+      && score.earnedExtra = 75
+      && score.earnedClassicExtra = 50
+      && score.lostBase = 0
+      && score.lostExtra = 25
+      && score.lostClassicExtra = 50
+      && LnmaiCore.comboState score = .AP)
+    "Break Perfect2nd should carry MajdataPlay's classic extra 50/50 split through runtime state"
 
 def test_fast_late_disable_counter_matches_object_counter : RuntimeCase :=
   passCase "fast_late_disable_counter_matches_object_counter"
@@ -4639,10 +4693,12 @@ def all : List RuntimeCase :=
   , test_scheduler_policy_touch_runs_before_touch_hold_group_share
   , test_reference_like_slide_skip_chain_does_not_clear_last_area_early
   , test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all
-  , test_mixed_chart_golden_ap_plus
+  , test_mixed_chart_golden_ap_without_break
   , test_mixed_chart_golden_ap_with_late_touch
   , test_maji_grade_conversion_preserves_perfect2nd
+  , test_combo_state_matches_majdata_break_theoretical_rule
   , test_runtime_score_accumulates_base_extra_and_fc_plus
+  , test_runtime_break_perfect2nd_accumulates_classic_extra
   , test_fast_late_disable_counter_matches_object_counter
   , test_runtime_fast_late_display_options_follow_game_state
   , test_frame_window_zero_delta_includes_exact_point
@@ -4992,8 +5048,8 @@ theorem test_touch_hold_head_share_does_not_override_too_late_miss_proof :
 theorem test_touch_hold_too_late_head_does_not_consume_sensor_click_proof :
     test_touch_hold_too_late_head_does_not_consume_sensor_click.passed = true := by native_decide
 
-theorem test_mixed_chart_golden_ap_plus_proof :
-    test_mixed_chart_golden_ap_plus.passed = true := by native_decide
+theorem test_mixed_chart_golden_ap_without_break_proof :
+    test_mixed_chart_golden_ap_without_break.passed = true := by native_decide
 
 theorem test_mixed_chart_golden_ap_with_late_touch_proof :
     test_mixed_chart_golden_ap_with_late_touch.passed = true := by native_decide
@@ -5001,8 +5057,14 @@ theorem test_mixed_chart_golden_ap_with_late_touch_proof :
 theorem test_maji_grade_conversion_preserves_perfect2nd_proof :
     test_maji_grade_conversion_preserves_perfect2nd.passed = true := by native_decide
 
+theorem test_combo_state_matches_majdata_break_theoretical_rule_proof :
+    test_combo_state_matches_majdata_break_theoretical_rule.passed = true := by native_decide
+
 theorem test_runtime_score_accumulates_base_extra_and_fc_plus_proof :
     test_runtime_score_accumulates_base_extra_and_fc_plus.passed = true := by native_decide
+
+theorem test_runtime_break_perfect2nd_accumulates_classic_extra_proof :
+    test_runtime_break_perfect2nd_accumulates_classic_extra.passed = true := by native_decide
 
 theorem test_fast_late_disable_counter_matches_object_counter_proof :
     test_fast_late_disable_counter_matches_object_counter.passed = true := by native_decide

@@ -742,22 +742,24 @@ private def eventScoreNoteType (evt : JudgeEvent) : NoteType :=
     | .Touch => .Touch
     | .Break => .Break
 
-private def eventScoreDeltas (evt : JudgeEvent) (multiple : Nat) : Nat × Nat × Nat × Nat :=
+private def eventScoreDeltas (evt : JudgeEvent) (multiple : Nat) :
+    Nat × Nat × Nat × Nat × Nat × Nat :=
   match eventScoreNoteType evt with
   | .Break =>
-      let (earnedBase, earnedExtra, _earnedClassicExtra, lostBase, lostExtra, _lostClassicExtra) :=
+      let (earnedBase, earnedExtra, earnedClassicExtra, lostBase, lostExtra, lostClassicExtra) :=
         Score.scoreBreak evt.grade multiple
-      (earnedBase, earnedExtra, lostBase, lostExtra)
+      (earnedBase, earnedExtra, earnedClassicExtra, lostBase, lostExtra, lostClassicExtra)
   | kind =>
       let (earnedBase, lostBase) := Score.scoreNonBreak (NoteType.baseScore kind) evt.grade multiple
-      (earnedBase, 0, lostBase, 0)
+      (earnedBase, 0, 0, lostBase, 0, 0)
 
 private def foldEventIntoScore
     (noteDisplay breakDisplay : JudgeDisplayOption) (s : ScoreState) (evt : JudgeEvent) :
     ScoreState :=
   let multiple : Nat := max 1 evt.multiple
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
-  let (earnedBaseDelta, earnedExtraDelta, lostBaseDelta, lostExtraDelta) :=
+  let (earnedBaseDelta, earnedExtraDelta, earnedClassicExtraDelta, lostBaseDelta, lostExtraDelta,
+      lostClassicExtraDelta) :=
     eventScoreDeltas evt multiple
   let display := if evt.isBreak || evt.kind == .Break then breakDisplay else noteDisplay
   let (isFast, isLate) := Score.countFastLate evt.grade evt.diff display
@@ -777,8 +779,10 @@ private def foldEventIntoScore
     cPCombo     := comboDelta.cPCombo
     earnedBase  := s.earnedBase + earnedBaseDelta
     earnedExtra := s.earnedExtra + earnedExtraDelta
+    earnedClassicExtra := s.earnedClassicExtra + earnedClassicExtraDelta
     lostBase    := s.lostBase + lostBaseDelta
     lostExtra   := s.lostExtra + lostExtraDelta
+    lostClassicExtra := s.lostClassicExtra + lostClassicExtraDelta
     dxScore     := comboDelta.dXScoreLost
     fastCount   := s.fastCount + if isFast then multiple else 0
     lateCount   := s.lateCount + if isLate then multiple else 0
