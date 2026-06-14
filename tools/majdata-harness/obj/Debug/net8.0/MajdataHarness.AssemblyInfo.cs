@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MajdataHarness")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a7c14b4eda914c639d5c3e4a986de8836375c78d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+99b022825c02e76ba5c27002ab31bb3492ab842b")]
 [assembly: System.Reflection.AssemblyProductAttribute("MajdataHarness")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MajdataHarness")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

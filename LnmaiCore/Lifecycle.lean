@@ -467,6 +467,7 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
   let diff := currentTime - timing
   let bodyCheckStart := timing + headIgnore
   let bodyCheckEnd   := timing + note.length - tailIgnore
+  let classicBodyCheckStart := timing - tapGoodMs
   let bodyWindowDisabled := !note.isClassic && note.length ≤ headIgnore + tailIgnore
   let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC)
   let releaseOffset := if prevSensorPressed && !currentButtonPressed then Duration.zero else touchPanelOffset
@@ -498,33 +499,33 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
     else
       stepRegularHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked style
   | .HeadJudged headGrade =>
-    if currentTime < bodyCheckStart then
-      -- still in head ignore window, keep waiting
-      (note, none)
-    else if note.isClassic then
-      if diff >= note.length + CLASSIC_HOLD_ALLOW_OVER_LENGTH_SEC || headGrade.isMissOrTooFast then
+    if note.isClassic then
+      if currentTime < classicBodyCheckStart then
+        (note, none)
+      else if diff >= note.length + CLASSIC_HOLD_ALLOW_OVER_LENGTH_SEC || headGrade.isMissOrTooFast then
         endHold note headGrade currentTime note.playerReleaseTime
       else if inputPressed then
         ({ note with state := HoldSubState.BodyHeld, touchHoldGroupTriggered := note.isTouchHold }, none)
       else
         endHold note headGrade (currentTime - releaseOffset) note.playerReleaseTime
+    else if currentTime < bodyCheckStart then
+      (note, none)
     else if bodyWindowDisabled then
       if diff >= note.length then
         endHold note headGrade currentTime note.playerReleaseTime
       else
         (note, none)
-    else if currentTime > bodyCheckEnd then
-      -- past body check window → force end
+    else if diff >= note.length then
       endHold note headGrade currentTime note.playerReleaseTime
+    else if currentTime > bodyCheckEnd then
+      (note, none)
     else if inputPressed then
       (holdPressedTransition note, none)
     else
-      -- MajdataPlay skips the release-ignore grace after a missed/too-fast head by seeding
-      -- `_releaseTime` to a sentinel immediately on head miss, so body release starts counting at once.
+      -- MajdataPlay seeds release-ignore away after a missed/too-fast head.
       let note := { note with headGrade := headGrade }
       holdHeadReleaseTransition note delta
   | .BodyHeld =>
-    -- check if body still active
     if note.isClassic then
       if diff >= note.length + CLASSIC_HOLD_ALLOW_OVER_LENGTH_SEC || note.headGrade.isMissOrTooFast then
         endHold note note.headGrade currentTime note.playerReleaseTime
@@ -537,27 +538,27 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
         endHold note note.headGrade currentTime note.playerReleaseTime
       else
         (note, none)
-    else if currentTime > bodyCheckEnd || diff >= note.length then
+    else if diff >= note.length then
       endHold note note.headGrade currentTime note.playerReleaseTime
+    else if currentTime > bodyCheckEnd then
+      (note, none)
     else if inputPressed then
-      (holdKeepPressed note, none)  -- still held
+      (holdKeepPressed note, none)
     else
       (holdReleaseTransition note delta, none)
   | .BodyReleased =>
-    -- released body can recover back to held if input/majority returns before force-end
     if bodyWindowDisabled then
       if diff >= note.length then
-        let newRT := note.playerReleaseTime + delta
-        endHold note note.headGrade currentTime newRT
+        endHold note note.headGrade currentTime note.playerReleaseTime
       else
         (note, none)
-    else if currentTime > bodyCheckEnd || diff >= note.length then
-      let newRT := note.playerReleaseTime + delta
-      endHold note note.headGrade currentTime newRT
+    else if diff >= note.length then
+      endHold note note.headGrade currentTime note.playerReleaseTime
+    else if currentTime > bodyCheckEnd then
+      (note, none)
     else if inputPressed then
       (holdReleasedRecovered note, none)
     else
-      let newRT := note.playerReleaseTime + delta
       (holdReleasedStillOff note delta, none)
   | .Ended _ =>
     (note, none)
@@ -980,7 +981,8 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       { semanticBase with
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
         emitProgressRender := semanticBase.progressChanged }
-    else if isJudgable && slideQueuesCleared updatedQueues && !isTooLate then
+    else if isJudgable &&
+        (slideQueuesCleared note.judgeQueues || (slideQueuesCleared updatedQueues && !isTooLate)) then
       let judgeDiff := slideCurrentJudgeDiff note ctx.currentTime ctx.touchPanelOffset
       let raw :=
         if note.isClassic then
@@ -993,7 +995,7 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
         emitProgressRender := true }
     else if isJudgable && isTooLate then
-      let raw := Judge.judgeSlideTooLate (slideQueueRemaining updatedQueues)
+      let raw := Judge.judgeSlideTooLate (slideQueueRemaining note.judgeQueues)
       let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
       { semanticBase with
         note := { semanticBase.note with state := SlideState.Ended }

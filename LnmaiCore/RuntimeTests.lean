@@ -128,6 +128,30 @@ def test_classic_hold_matching_a_sensor_keeps_body_pressed : RuntimeCase :=
     (events.isEmpty && stillActive)
     "classic hold body remains active while matching A sensor stays held"
 
+private def classicHoldReleaseBeforeHeadIgnoreState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 2010 }
+    , start := .button .K1
+    , state := .HeadJudged .Perfect
+    , length := dur 400000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , isClassic := true }
+  { currentTime := tp 1050000
+  , activeHolds := [(.K1, hold)] }
+
+def test_classic_hold_release_before_head_ignore_ends : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame classicHoldReleaseBeforeHeadIgnoreState input
+  match nextState.activeHolds, events with
+  | [], [evt] =>
+      passCase "classic_hold_release_before_head_ignore_ends"
+        (evt.kind = .Hold && evt.grade = .FastGood && evt.noteIndex = 2010)
+        "classic hold body checking starts at the tap-good early edge, not after the modern head-ignore window"
+  | _, _ =>
+      passCase "classic_hold_release_before_head_ignore_ends" false
+        "expected released classic hold to finish before the modern head-ignore window ends"
+
 private def activeModernHoldHeadMissState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 3 }
@@ -138,7 +162,7 @@ private def activeModernHoldHeadMissState : InputModel.GameState :=
     , headGrade := .Miss
     , playerReleaseTime := Duration.zero
     , isClassic := false }
-  { currentTime := tp 1700000
+  { currentTime := tp 1800000
   , activeHolds := [(.K1, hold)] }
 
 def test_modern_hold_head_miss_can_end_as_late_good : RuntimeCase :=
@@ -225,6 +249,57 @@ def test_short_modern_hold_does_not_force_end_before_remaining_time_zero : Runti
         "MajdataPlay disables body-check processing for short modern holds, so they should stay active until remaining time reaches zero"
   | _, _ =>
       passCase "short_modern_hold_does_not_force_end_before_remaining_time_zero" false "expected short modern hold to remain active before end time"
+
+private def modernHoldPastTailIgnoreBeforeEndState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 2020 }
+    , start := .button .K1
+    , state := .BodyHeld
+    , length := dur 800000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , playerReleaseTime := dur 64000
+    , isClassic := false }
+  { currentTime := tp 1600000
+  , activeHolds := [(.K1, hold)] }
+
+def test_modern_hold_past_tail_ignore_waits_until_remaining_time_zero : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame modernHoldPastTailIgnoreBeforeEndState input
+  match nextState.activeHolds, events with
+  | [(_, holdAfter)], [] =>
+      let stillHeld := match holdAfter.state with | .BodyHeld => true | _ => false
+      passCase "modern_hold_past_tail_ignore_waits_until_remaining_time_zero"
+        (stillHeld && holdAfter.playerReleaseTime = dur 64000)
+        "after the body-check window closes, MajdataPlay waits for GetRemainingTime() == 0 without adding release time"
+  | _, _ =>
+      passCase "modern_hold_past_tail_ignore_waits_until_remaining_time_zero" false
+        "expected modern hold to remain active between tail-ignore boundary and true end"
+
+private def modernHoldReleasedAtTrueEndState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 2021 }
+    , start := .button .K1
+    , state := .BodyReleased
+    , length := dur 800000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , playerReleaseTime := dur 164000
+    , isClassic := false }
+  { currentTime := tp 1790000
+  , activeHolds := [(.K1, hold)] }
+
+def test_modern_hold_force_end_does_not_add_final_release_delta : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame modernHoldReleasedAtTrueEndState input
+  match nextState.activeHolds, events with
+  | [], [evt] =>
+      passCase "modern_hold_force_end_does_not_add_final_release_delta"
+        (evt.kind = .Hold && evt.grade = .LatePerfect2nd && evt.noteIndex = 2021)
+        "ForceEndCheck ends at true remaining-time zero without another body-release accounting frame"
+  | _, _ =>
+      passCase "modern_hold_force_end_does_not_add_final_release_delta" false
+        "expected one final modern hold event using the stored release time"
 
 private def touchHoldReleasedWithBodyMajorityState : InputModel.GameState :=
   let holdA1 : Lifecycle.HoldNote :=
@@ -1819,6 +1894,40 @@ def test_single_slide_too_late_last_segment_remaining_becomes_lategood : Runtime
         "ordinary slide too-late grade is LateGood with MajdataPlay's default -1ms diff when exactly the last queue segment remains"
   | _ => passCase "single_slide_too_late_last_segment_remaining_becomes_lategood" false "expected one ordinary slide event"
 
+private def activeSingleSlideTooLateLastSegmentHitState : InputModel.GameState :=
+  let unfinished : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 158 }
+    , lane := .S1
+    , state := .Active (dur 100000)
+    , length := dur 200000
+    , headTiming := tp 800000
+    , startTiming := tp 800000
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[unfinished]] }
+  { currentTime := tp 1600000
+  , slides := [slide]
+  , touchPanelOffset := Constants.TOUCH_PANEL_OFFSET }
+
+def test_single_slide_too_late_uses_pre_sensor_queue_remaining : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame activeSingleSlideTooLateLastSegmentHitState input
+  match nextState.slides, events with
+  | [slide], [evt] =>
+      let ended := match slide.state with | .Ended => true | _ => false
+      passCase "single_slide_too_late_uses_pre_sensor_queue_remaining"
+        (ended && evt.kind = .Slide && evt.grade = .LateGood && evt.diff = dur (-1000))
+        "MajdataPlay runs SlideCheck before SensorCheck, so TooLateJudge sees the old one-segment queue"
+  | _, _ =>
+      passCase "single_slide_too_late_uses_pre_sensor_queue_remaining" false
+        "expected too-late slide to use pre-sensor queue remaining even when the segment is held"
+
 def test_slide_too_late_lategood_counts_as_fast_from_default_diff : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame activeSingleSlideTooLateOneRemainingState input
@@ -1848,6 +1957,10 @@ theorem slide_too_late_last_segment_remaining_becomes_lategood :
 
 theorem slide_too_late_two_or_more_segments_remaining_stays_miss :
     test_single_slide_too_late_two_segments_remaining_stays_miss.passed = true := by
+  native_decide
+
+theorem slide_too_late_uses_pre_sensor_queue_remaining :
+    test_single_slide_too_late_uses_pre_sensor_queue_remaining.passed = true := by
   native_decide
 
 theorem slide_too_late_lategood_counts_as_fast_from_default_diff :
@@ -4368,10 +4481,13 @@ def test_tap_family_json_malformed_button_queue_index_fails : RuntimeCase :=
 def all : List RuntimeCase :=
   [ test_button_tap_can_use_matching_a_sensor
   , test_classic_hold_matching_a_sensor_keeps_body_pressed
+  , test_classic_hold_release_before_head_ignore_ends
   , test_modern_hold_head_miss_can_end_as_late_good
   , test_modern_hold_head_miss_skips_release_ignore_grace
   , test_modern_hold_perfect_head_keeps_release_ignore_grace
   , test_short_modern_hold_does_not_force_end_before_remaining_time_zero
+  , test_modern_hold_past_tail_ignore_waits_until_remaining_time_zero
+  , test_modern_hold_force_end_does_not_add_final_release_delta
   , test_touch_hold_body_majority_reactivates_released_note
   , test_touch_hold_local_press_reactivates_released_note
   , test_break_tap_event_preserves_family_and_counts_as_break
@@ -4411,6 +4527,7 @@ def all : List RuntimeCase :=
   , test_wifi_judged_wait_before_expiry_emits_nothing
   , test_wifi_too_late_ends_immediately
   , test_wifi_too_late_one_remaining_becomes_lategood
+  , test_single_slide_too_late_uses_pre_sensor_queue_remaining
   , test_slide_too_late_lategood_counts_as_fast_from_default_diff
   , test_wifi_not_checkable_before_minus_50ms
   , test_wifi_exact_minus_50ms_becomes_checkable
@@ -4503,6 +4620,9 @@ theorem test_button_tap_can_use_matching_a_sensor_proof :
 theorem test_classic_hold_matching_a_sensor_keeps_body_pressed_proof :
     test_classic_hold_matching_a_sensor_keeps_body_pressed.passed = true := by native_decide
 
+theorem test_classic_hold_release_before_head_ignore_ends_proof :
+    test_classic_hold_release_before_head_ignore_ends.passed = true := by native_decide
+
 theorem test_modern_hold_head_miss_can_end_as_late_good_proof :
     test_modern_hold_head_miss_can_end_as_late_good.passed = true := by native_decide
 
@@ -4514,6 +4634,13 @@ theorem test_modern_hold_perfect_head_keeps_release_ignore_grace_proof :
 
 theorem test_short_modern_hold_does_not_force_end_before_remaining_time_zero_proof :
     test_short_modern_hold_does_not_force_end_before_remaining_time_zero.passed = true := by native_decide
+
+theorem test_modern_hold_past_tail_ignore_waits_until_remaining_time_zero_proof :
+    test_modern_hold_past_tail_ignore_waits_until_remaining_time_zero.passed = true := by
+  native_decide
+
+theorem test_modern_hold_force_end_does_not_add_final_release_delta_proof :
+    test_modern_hold_force_end_does_not_add_final_release_delta.passed = true := by native_decide
 
 theorem test_touch_hold_body_majority_reactivates_released_note_proof :
     test_touch_hold_body_majority_reactivates_released_note.passed = true := by native_decide
@@ -4622,6 +4749,9 @@ theorem test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all_proof
 
 theorem test_wifi_too_late_one_remaining_becomes_lategood_proof :
     test_wifi_too_late_one_remaining_becomes_lategood.passed = true := by native_decide
+
+theorem test_single_slide_too_late_uses_pre_sensor_queue_remaining_proof :
+    test_single_slide_too_late_uses_pre_sensor_queue_remaining.passed = true := by native_decide
 
 theorem test_slide_too_late_lategood_counts_as_fast_from_default_diff_proof :
     test_slide_too_late_lategood_counts_as_fast_from_default_diff.passed = true := by
