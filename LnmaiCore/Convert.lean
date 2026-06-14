@@ -88,7 +88,8 @@ def convertGrade (style : JudgeStyle) (g : JudgeGrade) : JudgeGrade :=
 -- Theorems
 --   Note: these conversion functions are NOT idempotent for all inputs
 --   (e.g. Maji maps LateGreat3rd→LateGood→Miss on second application).
---   They are applied exactly once per note in the game.
+--   Most notes apply them once; modern slides mirror MajdataPlay's stored
+--   JudgeResult flow and can observe a second conversion at End().
 --   We prove what we can: fixed points and structural properties.
 ----------------------------------------------------------------------------
 

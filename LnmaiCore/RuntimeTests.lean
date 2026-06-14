@@ -2737,6 +2737,55 @@ def test_modern_slide_late_good_clamps_judged_wait_to_50ms : RuntimeCase :=
         "MajdataPlay sets LastWaitTimeSec to 50ms for modern late-good-or-worse slide clears"
   | _ => passCase "modern_slide_late_good_clamps_judged_wait_to_50ms" false "expected one judged slide"
 
+private def finishedModernMajiLateGreatSlideState : InputModel.GameState :=
+  let finishedArea : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true, wasOn := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 77 }
+    , lane := .S1
+    , state := .Active Duration.zero
+    , length := dur 1000000
+    , headTiming := secs 1
+    , startTiming := secs 1
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[finishedArea]] }
+  { currentTime := tp 1284000
+  , judgeStyle := .Maji
+  , slides := [slide] }
+
+def test_modern_slide_maji_reconverts_stored_judge_result_at_end : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (stateAfterJudged, firstEvents, _, _) :=
+    Scheduler.stepFrame finishedModernMajiLateGreatSlideState input
+  let (stateAfterEnd, secondEvents, _, _) := Scheduler.stepFrame stateAfterJudged input
+  match stateAfterJudged.slides, stateAfterEnd.slides, firstEvents, secondEvents with
+  | [judgedSlide], [endedSlide], [], [evt] =>
+      let storedConverted :=
+        match judgedSlide.state with
+        | .Judged .LateGood waitTime judgeDiff =>
+            waitTime = Duration.zero && judgeDiff = dur 300000
+        | _ => false
+      let ended :=
+        match endedSlide.state with
+        | .Ended => true
+        | _ => false
+      passCase "modern_slide_maji_reconverts_stored_judge_result_at_end"
+        (storedConverted
+          && ended
+          && evt.kind = .Slide
+          && evt.noteIndex = 77
+          && evt.grade = .Miss
+          && evt.diff = dur 300000)
+        "modern slide stores the converted JudgeResult, then End applies MajdataPlay conversion again"
+  | _, _, _, _ =>
+      passCase "modern_slide_maji_reconverts_stored_judge_result_at_end" false
+        "expected one internally judged slide followed by one final slide event"
+
 private def finishedClassicLateSlideState : InputModel.GameState :=
   let finishedArea : Lifecycle.SlideArea :=
     { targetAreas := [.A1], isLast := true, wasOn := true }
@@ -4550,6 +4599,7 @@ def all : List RuntimeCase :=
   , test_frame_zero_slide_can_start_progress_same_frame
   , test_replay_slide_delays_final_event_after_internal_judged
   , test_modern_slide_late_good_clamps_judged_wait_to_50ms
+  , test_modern_slide_maji_reconverts_stored_judge_result_at_end
   , test_classic_slide_late_clear_keeps_existing_judged_wait
   , test_conn_slide_early_clear_uses_group_start_for_judged_wait
   , test_same_lane_tap_queue_blocks_second_note_until_first_advances
@@ -4832,6 +4882,10 @@ theorem test_replay_slide_delays_final_event_after_internal_judged_proof :
 
 theorem test_modern_slide_late_good_clamps_judged_wait_to_50ms_proof :
     test_modern_slide_late_good_clamps_judged_wait_to_50ms.passed = true := by native_decide
+
+theorem test_modern_slide_maji_reconverts_stored_judge_result_at_end_proof :
+    test_modern_slide_maji_reconverts_stored_judge_result_at_end.passed = true := by
+  native_decide
 
 theorem test_classic_slide_late_clear_keeps_existing_judged_wait_proof :
     test_classic_slide_late_clear_keeps_existing_judged_wait.passed = true := by native_decide

@@ -989,9 +989,14 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
           Judge.judgeSlideClassic judgeDiff
         else
           Judge.judgeSlideModern judgeDiff waitTime note.params.isEX
+      let storedGrade :=
+        if note.isClassic then
+          raw
+        else
+          Convert.convertGrade ctx.style raw
       let judgedWaitTime := slideAdjustedJudgedWaitTime note ctx.currentTime waitTime judgeDiff
       { semanticBase with
-        note := { semanticBase.note with state := SlideState.Judged raw judgedWaitTime judgeDiff }
+        note := { semanticBase.note with state := SlideState.Judged storedGrade judgedWaitTime judgeDiff }
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
         emitProgressRender := true }
     else if isJudgable && isTooLate then
