@@ -900,8 +900,9 @@ private def slideEffectiveJudgeGrade
 private def slideCurrentJudgeDiff (note : SlideNote) (currentTime : TimePoint) (touchPanelOffset : Duration) : Duration :=
   (currentTime - touchPanelOffset) - note.params.effectiveTiming
 
-private def slideCurrentDiff (note : SlideNote) (currentTime : TimePoint) : Duration :=
-  currentTime - note.params.effectiveTiming
+private def slideTooLateJudgeDiff : Duration :=
+  -- MajdataPlay's SlideBase.TooLateJudge leaves NoteDrop.JudgeDiff at its default -1ms.
+  Duration.fromMicros (-1000)
 
 private def slideShouldBeCheckable (note : SlideNote) (currentTime : TimePoint) : Bool :=
   let headTiming := currentTime - note.headTiming
@@ -996,7 +997,7 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
       { semanticBase with
         note := { semanticBase.note with state := SlideState.Ended }
-        event := some (slideJudgeEvent note grade (slideCurrentDiff note ctx.currentTime))
+        event := some (slideJudgeEvent note grade slideTooLateJudgeDiff)
         hideSlide := true }
     else
       { semanticBase with

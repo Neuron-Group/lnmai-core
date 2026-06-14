@@ -1716,8 +1716,8 @@ def test_wifi_too_late_ends_immediately : RuntimeCase :=
         | .Ended => true
         | _ => false
       passCase "wifi_too_late_ends_immediately"
-        (ended && evt.kind = .Slide && evt.grade = .Miss)
-        "wifi too-late path emits Miss and ends immediately when more than one queue segment remains"
+        (ended && evt.kind = .Slide && evt.grade = .Miss && evt.diff = dur (-1000))
+        "wifi too-late path emits Miss with MajdataPlay's default -1ms diff and ends immediately when more than one queue segment remains"
   | _, _ => passCase "wifi_too_late_ends_immediately" false "expected one ended wifi slide and one event"
 
 private def activeWifiTooLateOneRemainingState : InputModel.GameState :=
@@ -1747,8 +1747,8 @@ def test_wifi_too_late_one_remaining_becomes_lategood : RuntimeCase :=
   match events with
   | [evt] =>
       passCase "wifi_too_late_one_remaining_becomes_lategood"
-        (evt.kind = .Slide && evt.grade = .LateGood)
-        "wifi too-late grade is LateGood when exactly one queue segment remains"
+        (evt.kind = .Slide && evt.grade = .LateGood && evt.diff = dur (-1000))
+        "wifi too-late grade is LateGood with MajdataPlay's default -1ms diff when exactly one queue segment remains"
   | _ => passCase "wifi_too_late_one_remaining_becomes_lategood" false "expected one wifi event"
 
 private def activeSingleSlideTooLateState : InputModel.GameState :=
@@ -1784,8 +1784,8 @@ def test_single_slide_too_late_two_segments_remaining_stays_miss : RuntimeCase :
         | .Ended => true
         | _ => false
       passCase "single_slide_too_late_two_segments_remaining_stays_miss"
-        (ended && evt.kind = .Slide && evt.grade = .Miss)
-        "ordinary slide too-late path emits Miss and ends immediately when at least two queue segments remain"
+        (ended && evt.kind = .Slide && evt.grade = .Miss && evt.diff = dur (-1000))
+        "ordinary slide too-late path emits Miss with MajdataPlay's default -1ms diff and ends immediately when at least two queue segments remain"
   | _, _ => passCase "single_slide_too_late_two_segments_remaining_stays_miss" false "expected one ended ordinary slide and one event"
 
 private def activeSingleSlideTooLateOneRemainingState : InputModel.GameState :=
@@ -1815,9 +1815,24 @@ def test_single_slide_too_late_last_segment_remaining_becomes_lategood : Runtime
   match events with
   | [evt] =>
       passCase "single_slide_too_late_last_segment_remaining_becomes_lategood"
-        (evt.kind = .Slide && evt.grade = .LateGood)
-        "ordinary slide too-late grade is LateGood when exactly the last queue segment remains"
+        (evt.kind = .Slide && evt.grade = .LateGood && evt.diff = dur (-1000))
+        "ordinary slide too-late grade is LateGood with MajdataPlay's default -1ms diff when exactly the last queue segment remains"
   | _ => passCase "single_slide_too_late_last_segment_remaining_becomes_lategood" false "expected one ordinary slide event"
+
+def test_slide_too_late_lategood_counts_as_fast_from_default_diff : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame activeSingleSlideTooLateOneRemainingState input
+  match events with
+  | [evt] =>
+      passCase "slide_too_late_lategood_counts_as_fast_from_default_diff"
+        (evt.grade = .LateGood
+          && evt.diff = dur (-1000)
+          && nextState.score.fastCount = 1
+          && nextState.score.lateCount = 0)
+        "MajdataPlay reports slide TooLateJudge with default -1ms JudgeDiff, so its LateGood contributes to fast rather than late counters"
+  | _ =>
+      passCase "slide_too_late_lategood_counts_as_fast_from_default_diff" false
+        "expected one ordinary slide too-late LateGood event"
 
 theorem slide_too_late_last_segment_remaining_becomes_lategood_in_reduced_wifi_case :
     test_wifi_too_late_one_remaining_becomes_lategood.passed = true := by
@@ -1833,6 +1848,10 @@ theorem slide_too_late_last_segment_remaining_becomes_lategood :
 
 theorem slide_too_late_two_or_more_segments_remaining_stays_miss :
     test_single_slide_too_late_two_segments_remaining_stays_miss.passed = true := by
+  native_decide
+
+theorem slide_too_late_lategood_counts_as_fast_from_default_diff :
+    test_slide_too_late_lategood_counts_as_fast_from_default_diff.passed = true := by
   native_decide
 
 private def wifiPreCheckableState : InputModel.GameState :=
@@ -4392,6 +4411,7 @@ def all : List RuntimeCase :=
   , test_wifi_judged_wait_before_expiry_emits_nothing
   , test_wifi_too_late_ends_immediately
   , test_wifi_too_late_one_remaining_becomes_lategood
+  , test_slide_too_late_lategood_counts_as_fast_from_default_diff
   , test_wifi_not_checkable_before_minus_50ms
   , test_wifi_exact_minus_50ms_becomes_checkable
   , test_wifi_exact_too_late_boundary_does_not_judge
@@ -4602,6 +4622,10 @@ theorem test_reference_like_slide_skip_chain_c_off_only_does_not_clear_all_proof
 
 theorem test_wifi_too_late_one_remaining_becomes_lategood_proof :
     test_wifi_too_late_one_remaining_becomes_lategood.passed = true := by native_decide
+
+theorem test_slide_too_late_lategood_counts_as_fast_from_default_diff_proof :
+    test_slide_too_late_lategood_counts_as_fast_from_default_diff.passed = true := by
+  native_decide
 
 theorem test_conn_child_progress_only_force_finishes_direct_parent_proof :
     test_conn_child_progress_only_force_finishes_direct_parent.passed = true := by native_decide

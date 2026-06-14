@@ -362,6 +362,9 @@ Fields:
 - `timing`: `TimePoint`
 - `sensorPos`: `SensorArea`
 - `isBreak`: boolean
+- `sourceGroupId`: optional original group id used when deriving shared touch groups
+- `sourceGroupIndex`: optional original group position
+- `sourceGroupSize`: optional original group size
 - `touchQueueIndex`: per-area queue slot
 - `touchGroupId`: optional simultaneous touch group id
 - `touchGroupSize`: optional simultaneous touch group size
@@ -376,6 +379,9 @@ Fields:
 - `length`: `Duration`
 - `isBreak`: boolean
 - `isEX`: boolean
+- `sourceGroupId`: optional original group id used when deriving shared touch / touch-hold groups
+- `sourceGroupIndex`: optional original group position
+- `sourceGroupSize`: optional original group size
 - `touchQueueIndex`: per-area queue slot
 - `touchGroupId`: optional touch group id
 - `touchGroupSize`: optional touch group size
