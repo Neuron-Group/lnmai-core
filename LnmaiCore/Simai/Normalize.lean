@@ -89,6 +89,7 @@ private def applyConnectedSlideMetadata (slides : List NormalizedSlide) : List N
       (currentGroupId : Option Nat)
       (parentNoteIndex : Option Nat)
       (parentEndTiming : Option TimePoint)
+      (groupStartTiming : Option TimePoint)
       (acc : List NormalizedSlide) :=
     match remaining with
     | [] => acc.reverse
@@ -102,11 +103,17 @@ private def applyConnectedSlideMetadata (slides : List NormalizedSlide) : List N
               else if slide.slideKind = LnmaiCore.SlideKind.Wifi then LnmaiCore.SlideKind.Wifi else LnmaiCore.SlideKind.ConnPart
             let startTiming :=
               if idx = 0 then slide.startTiming else parentEndTiming.getD slide.startTiming
+            let groupStartTiming' :=
+              if idx = 0 then slide.startTiming
+              else groupStartTiming.getD slide.startTiming
+            let storedGroupStartTiming :=
+              if isConn then some groupStartTiming' else none
             let startShift := startTiming - slide.startTiming
             let judgeAt := slide.judgeAt.map (fun (tp : TimePoint) => tp + startShift)
             let updated :=
               { slide with
                 startTiming := startTiming
+                groupStartTiming := storedGroupStartTiming
                 judgeAt := judgeAt
                 slideKind := slideKind
                 isConnSlide := isConn
@@ -117,14 +124,15 @@ private def applyConnectedSlideMetadata (slides : List NormalizedSlide) : List N
             let nextGroupId := if idx + 1 = size then none else some gid
             let nextParent := if idx + 1 = size then none else some updated.noteIndex
             let nextEnd := if idx + 1 = size then none else nextParentEndTiming
+            let nextGroupStart := if idx + 1 = size then none else some groupStartTiming'
             let resetChain := currentGroupId != some gid && idx != 0
             if resetChain then
-              loop rest none none none ({ slide with isConnSlide := false, isGroupHead := false, isGroupEnd := false, parentNoteIndex := none } :: acc)
+              loop rest none none none none ({ slide with isConnSlide := false, isGroupHead := false, isGroupEnd := false, parentNoteIndex := none } :: acc)
             else
-              loop rest nextGroupId nextParent nextEnd (updated :: acc)
+              loop rest nextGroupId nextParent nextEnd nextGroupStart (updated :: acc)
         | _, _, _ =>
-            loop rest none none none ({ slide with isConnSlide := false, isGroupHead := false, isGroupEnd := false, parentNoteIndex := none } :: acc)
-  loop slides none none none []
+            loop rest none none none none ({ slide with isConnSlide := false, isGroupHead := false, isGroupEnd := false, parentNoteIndex := none } :: acc)
+  loop slides none none none none []
 
 private def slideCanFoldMultiplicity (left right : NormalizedSlide) : Bool :=
   left.sourceGroupId.isNone && right.sourceGroupId.isNone &&
@@ -277,6 +285,7 @@ def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
       , slot := note.slot
       , length := note.length
       , startTiming := note.startTiming
+      , groupStartTiming := note.groupStartTiming
       , slideKind := note.slideKind
       , isClassic := note.isClassic
       , isSlideNoHead := note.isSlideNoHead

@@ -796,6 +796,7 @@ structure SlideNote where
   length          : Duration            -- total slide length
   headTiming      : TimePoint           -- slide head timing anchor for body checkability
   startTiming     : TimePoint           -- when slide started
+  groupStartTiming : Option TimePoint := none
   slideKind       : SlideKind := .Single
   isClassic       : Bool := false
   isConnSlide     : Bool := false
@@ -891,6 +892,16 @@ private def slideUpdatedQueuesWithCmds
 private def slideTooLateTiming (note : SlideNote) : TimePoint :=
   note.startTiming + note.length + SLIDE_JUDGE_GOOD_AREA_MSEC + min note.params.judgeOffset Duration.zero
 
+private def slideAdjustedJudgedWaitTime
+    (note : SlideNote) (currentTime : TimePoint) (waitTime judgeDiff : Duration) : Duration :=
+  let remainingStartTime := currentTime - note.groupStartTiming.getD note.startTiming
+  if remainingStartTime < Duration.zero then
+    Duration.divNat (Duration.abs remainingStartTime) 2
+  else if !note.isClassic && judgeDiff ≥ SLIDE_JUDGE_GOOD_AREA_MSEC then
+    SLIDE_JUDGED_LATE_CLEAR_WAIT
+  else
+    waitTime
+
 private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Slide
   , grade := grade
@@ -940,8 +951,9 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
           Judge.judgeSlideClassic judgeDiff
         else
           Judge.judgeSlideModern judgeDiff waitTime note.params.isEX
+      let judgedWaitTime := slideAdjustedJudgedWaitTime note ctx.currentTime waitTime judgeDiff
       { semanticBase with
-        note := { semanticBase.note with state := SlideState.Judged raw waitTime judgeDiff }
+        note := { semanticBase.note with state := SlideState.Judged raw judgedWaitTime judgeDiff }
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
         emitProgressRender := true }
     else if isJudgable && isTooLate then

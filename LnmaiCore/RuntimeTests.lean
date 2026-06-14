@@ -2485,6 +2485,115 @@ def test_replay_slide_delays_final_event_after_internal_judged : RuntimeCase :=
   | _, _, _, _, _ =>
       passCase "replay_slide_delays_final_event_after_internal_judged" false "expected pre-settle judged slide and one delayed final slide event"
 
+private def finishedModernLateSlideState : InputModel.GameState :=
+  let finishedArea : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true, wasOn := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 74 }
+    , lane := .S1
+    , state := .Active (dur 300000)
+    , length := dur 500000
+    , headTiming := tp 500000
+    , startTiming := tp 500000
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[finishedArea]] }
+  { currentTime := tp 1584012
+  , slides := [slide] }
+
+def test_modern_slide_late_good_clamps_judged_wait_to_50ms : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame finishedModernLateSlideState input
+  match nextState.slides with
+  | [slide] =>
+      let clamped :=
+        match slide.state with
+        | .Judged .LateGood waitTime judgeDiff =>
+            waitTime = Constants.SLIDE_JUDGED_LATE_CLEAR_WAIT && judgeDiff = dur 600012
+        | _ => false
+      passCase "modern_slide_late_good_clamps_judged_wait_to_50ms"
+        (events.isEmpty && clamped)
+        "MajdataPlay sets LastWaitTimeSec to 50ms for modern late-good-or-worse slide clears"
+  | _ => passCase "modern_slide_late_good_clamps_judged_wait_to_50ms" false "expected one judged slide"
+
+private def finishedClassicLateSlideState : InputModel.GameState :=
+  let finishedArea : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true, wasOn := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 75 }
+    , lane := .S1
+    , state := .Active (dur 300000)
+    , length := dur 500000
+    , headTiming := tp 500000
+    , startTiming := tp 500000
+    , slideKind := .Single
+    , isClassic := true
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[finishedArea]] }
+  { currentTime := tp 1584012
+  , slides := [slide] }
+
+def test_classic_slide_late_clear_keeps_existing_judged_wait : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame finishedClassicLateSlideState input
+  match nextState.slides with
+  | [slide] =>
+      let kept :=
+        match slide.state with
+        | .Judged .LateGood waitTime judgeDiff => waitTime = dur 300000 && judgeDiff = dur 600012
+        | _ => false
+      passCase "classic_slide_late_clear_keeps_existing_judged_wait"
+        (events.isEmpty && kept)
+        "MajdataPlay's classic slide JudgeClassic only applies the early-start wait adjustment"
+  | _ => passCase "classic_slide_late_clear_keeps_existing_judged_wait" false "expected one judged slide"
+
+private def finishedConnEndEarlyAgainstGroupStartState : InputModel.GameState :=
+  let finishedArea : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true, wasOn := true }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := tp 850000, judgeOffset := Duration.zero, noteIndex := 76 }
+    , lane := .S1
+    , state := .Active (dur 400000)
+    , length := dur 500000
+    , headTiming := TimePoint.zero
+    , startTiming := tp 500000
+    , groupStartTiming := some (secs 1)
+    , slideKind := .ConnPart
+    , isClassic := false
+    , isConnSlide := true
+    , isGroupPartHead := false
+    , isGroupPartEnd := true
+    , parentFinished := true
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[finishedArea]] }
+  { currentTime := tp 884000
+  , slides := [slide] }
+
+def test_conn_slide_early_clear_uses_group_start_for_judged_wait : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame finishedConnEndEarlyAgainstGroupStartState input
+  match nextState.slides with
+  | [slide] =>
+      let adjusted :=
+        match slide.state with
+        | .Judged .Perfect waitTime judgeDiff =>
+            waitTime = Constants.SLIDE_JUDGED_LATE_CLEAR_WAIT && judgeDiff = dur 50000
+        | _ => false
+      passCase "conn_slide_early_clear_uses_group_start_for_judged_wait"
+        (events.isEmpty && adjusted)
+        "connected slides mirror MajdataPlay's ConnectInfo.StartTiming early-start wait adjustment"
+  | _ => passCase "conn_slide_early_clear_uses_group_start_for_judged_wait" false "expected one judged conn slide"
+
 private def sameLaneTapQueueState : InputModel.GameState :=
   let tap1 : Lifecycle.TapNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 80 }
@@ -4040,6 +4149,9 @@ def all : List RuntimeCase :=
   , test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap
   , test_frame_zero_slide_can_start_progress_same_frame
   , test_replay_slide_delays_final_event_after_internal_judged
+  , test_modern_slide_late_good_clamps_judged_wait_to_50ms
+  , test_classic_slide_late_clear_keeps_existing_judged_wait
+  , test_conn_slide_early_clear_uses_group_start_for_judged_wait
   , test_same_lane_tap_queue_blocks_second_note_until_first_advances
   , test_same_area_touch_queue_blocks_second_note_until_first_advances
   , test_build_game_state_routes_slide_head_into_tap_queue
@@ -4285,6 +4397,15 @@ theorem test_frame_zero_slide_can_start_progress_same_frame_proof :
 
 theorem test_replay_slide_delays_final_event_after_internal_judged_proof :
     test_replay_slide_delays_final_event_after_internal_judged.passed = true := by native_decide
+
+theorem test_modern_slide_late_good_clamps_judged_wait_to_50ms_proof :
+    test_modern_slide_late_good_clamps_judged_wait_to_50ms.passed = true := by native_decide
+
+theorem test_classic_slide_late_clear_keeps_existing_judged_wait_proof :
+    test_classic_slide_late_clear_keeps_existing_judged_wait.passed = true := by native_decide
+
+theorem test_conn_slide_early_clear_uses_group_start_for_judged_wait_proof :
+    test_conn_slide_early_clear_uses_group_start_for_judged_wait.passed = true := by native_decide
 
 theorem test_same_lane_tap_queue_blocks_second_note_until_first_advances_proof :
     test_same_lane_tap_queue_blocks_second_note_until_first_advances.passed = true := by native_decide

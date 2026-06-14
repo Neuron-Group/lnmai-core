@@ -124,6 +124,7 @@ structure SlideChartNote where
   slot          : OuterSlot
   length        : Duration
   startTiming   : TimePoint := TimePoint.zero
+  groupStartTiming : Option TimePoint := none
   slideKind     : SlideKind := .Single
   isClassic     : Bool := false
   isSlideNoHead : Bool := false
@@ -151,6 +152,7 @@ instance : FromJson SlideChartNote where
     let slot ← json.getObjValAs? OuterSlot "slot"
     let length ← json.getObjValAs? Duration "length"
     let startTiming ← getObjValAsD? json "startTiming" TimePoint.zero
+    let groupStartTiming ← getObjValAsD? json "groupStartTiming" none
     let slideKind ← getObjValAsD? json "slideKind" .Single
     let isClassic ← getObjValAsD? json "isClassic" false
     let isSlideNoHead ← getObjValAsD? json "isSlideNoHead" false
@@ -175,6 +177,7 @@ instance : FromJson SlideChartNote where
       , slot := slot
       , length := length
       , startTiming := startTiming
+      , groupStartTiming := groupStartTiming
       , slideKind := slideKind
       , isClassic := isClassic
       , isSlideNoHead := isSlideNoHead
@@ -588,6 +591,7 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
   , length := note.length
   , headTiming := note.headTiming
   , startTiming := note.startTiming
+  , groupStartTiming := note.groupStartTiming
   , slideKind := note.slideKind
   , isClassic := note.isClassic
   , isConnSlide := note.isConnSlide

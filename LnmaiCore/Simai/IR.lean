@@ -62,6 +62,7 @@ structure NormalizedSlide where
   slot : OuterSlot
   length : Duration
   startTiming : TimePoint
+  groupStartTiming : Option TimePoint := none
   hSpeed : Rat := 1
   slideKind : LnmaiCore.SlideKind := .Single
   isClassic : Bool := false
