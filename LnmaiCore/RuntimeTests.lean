@@ -196,8 +196,8 @@ def test_modern_hold_perfect_head_keeps_release_ignore_grace : RuntimeCase :=
   | [(_, holdAfter)], [] =>
       let stillHeadJudged := match holdAfter.state with | .HeadJudged .Perfect => true | _ => false
       passCase "modern_hold_perfect_head_keeps_release_ignore_grace"
-        (stillHeadJudged && holdAfter.playerReleaseTime = dur 16000)
-        "a normal judged head should still spend the short release-ignore grace before entering released state"
+        (stillHeadJudged && holdAfter.playerReleaseTime = Duration.zero && holdAfter.releaseIgnoreTime = dur 16000)
+        "a normal judged head should spend release-ignore grace without adding scored release time"
   | _, _ =>
       passCase "modern_hold_perfect_head_keeps_release_ignore_grace" false "expected active hold to remain in head-judged grace state"
 
@@ -2140,6 +2140,91 @@ def test_touch_ignores_outer_button_without_sensor_input : RuntimeCase :=
         "core touch judgment should require sensor input; desktop button mapping belongs before core input framing"
   | _, _ => passCase "touch_ignores_outer_button_without_sensor_input" false "expected no touch event from an outer button alone"
 
+private def tooLateTapLeavesClickState : InputModel.GameState :=
+  let tap : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 66 }
+    , lane := .S1
+    , state := .Judgeable }
+  { currentTime := tp 151000
+  , tapQueues := ButtonVec.ofFn (fun zone => if zone == .K1 then { notes := [tap] } else { notes := [] }) }
+
+def test_too_late_tap_does_not_consume_button_click : RuntimeCase :=
+  let input := mkButtonFrameInput [.K1] [] [] [] (dur 1000)
+  let (nextState, events, _, _) := Scheduler.stepFrame tooLateTapLeavesClickState input
+  match events, nextState.tapQueues.getD .K1 { notes := [] } with
+  | [evt], queueAfter =>
+      let missed := evt.kind = .Tap && evt.noteIndex = 66 && evt.grade = .Miss
+      passCase "too_late_tap_does_not_consume_button_click"
+        (missed && queueAfter.currentIndex = 1)
+        "a too-late tap should miss before click consumption and leave the lane for later notes"
+  | _, _ =>
+      passCase "too_late_tap_does_not_consume_button_click" false "expected one tap miss without extra consumption"
+
+private def tooLateTouchLeavesClickState : InputModel.GameState :=
+  let lateTouch : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 68 }
+    , state := .Judgeable
+    , sensorPos := .A1
+    , touchQueueIndex := 0 }
+  let clickedTouchHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := tp 301000, judgeOffset := Duration.zero, noteIndex := 69 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0 }
+  { currentTime := tp 300000
+  , touchQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [lateTouch] } else { notes := [] })
+  , touchHoldQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [clickedTouchHold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, clickedTouchHold)] }
+
+def test_too_late_touch_does_not_consume_sensor_click : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [.A1] [] (dur 1000)
+  let (nextState, events, _, _) := Scheduler.stepFrame tooLateTouchLeavesClickState input
+  match events, nextState.touchQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
+  | [missEvt], queueAfter, [(_, holdAfter)] =>
+      let holdClicked :=
+        match holdAfter.state with
+        | .HeadJudged .Perfect => holdAfter.headDiff = Duration.zero
+        | _ => false
+      passCase "too_late_touch_does_not_consume_sensor_click"
+        (missEvt.kind = .Touch
+          && missEvt.noteIndex = 68
+          && missEvt.grade = .Miss
+          && holdClicked
+          && queueAfter.currentIndex = 1)
+        "a too-late touch should miss before Check() and leave the sensor click for a same-frame touch-hold head"
+  | _, _, _ =>
+      passCase "too_late_touch_does_not_consume_sensor_click" false "expected a touch miss followed by a clicked touch-hold head"
+
+private def holdReleaseGraceState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 67 }
+    , start := .button .K1
+    , state := .BodyHeld
+    , length := dur 800000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , playerReleaseTime := Duration.zero
+    , releaseIgnoreTime := dur 16000
+    , isClassic := false }
+  { currentTime := tp 1300000
+  , activeHolds := [(.K1, hold)] }
+
+def test_modern_hold_release_grace_does_not_count_toward_release_time : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame holdReleaseGraceState input
+  match nextState.activeHolds, events with
+  | [(_, holdAfter)], [] =>
+      let stillGrace := match holdAfter.state with | .BodyHeld => true | _ => false
+      passCase "modern_hold_release_grace_does_not_count_toward_release_time"
+        (stillGrace && holdAfter.playerReleaseTime = Duration.zero && holdAfter.releaseIgnoreTime = dur 32000)
+        "release grace should not add to scored release time on the frame it is still expiring"
+  | _, _ =>
+      passCase "modern_hold_release_grace_does_not_count_toward_release_time" false "expected a released hold to stay active without ending yet"
+
 private def touchHoldIgnoresOuterButtonState : InputModel.GameState :=
   let touchHold : Lifecycle.HoldNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 65 }
@@ -2629,6 +2714,68 @@ def test_same_lane_tap_queue_blocks_second_note_until_first_advances : RuntimeCa
   | _, _, _, _ =>
       passCase "same_lane_tap_queue_blocks_second_note_until_first_advances" false "expected two ordered tap events across two frames"
 
+def test_same_lane_tap_queue_consumes_multiple_same_frame_clicks : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+        , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed sameLaneTapQueueState batch
+  let queueAfter := nextState.tapQueues.getD .K1 { notes := [] }
+  let judged80 :=
+    events.any (fun evt => evt.kind = .Tap && evt.noteIndex = 80 && evt.grade = .Perfect)
+  let judged81 :=
+    events.any (fun evt => evt.kind = .Tap && evt.noteIndex = 81 && evt.grade = .Perfect)
+  passCase "same_lane_tap_queue_consumes_multiple_same_frame_clicks"
+    (events.length = 2
+      && judged80
+      && judged81
+      && queueAfter.currentIndex = 2
+      && nextState.buttonQueueFrontiers.getD .K1 99 = 2)
+    "same-lane tap-family queues can recursively advance through multiple same-frame clicks"
+
+private def threeSameLaneTapQueueState : InputModel.GameState :=
+  let tap1 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 180 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 0 }
+  let tap2 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 181 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 1 }
+  let tap3 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 182 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 2 }
+  { currentTime := TimePoint.zero
+  , buttonQueueFrontiers := ButtonVec.ofFn (fun zone => if zone == .K1 then 0 else 0)
+  , tapQueues := ButtonVec.ofFn (fun zone =>
+      if zone == .K1 then { notes := [tap1, tap2, tap3] } else { notes := [] }) }
+
+def test_same_lane_tap_recursion_stops_when_clicks_exhausted : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+        , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed threeSameLaneTapQueueState batch
+  let queueAfter := nextState.tapQueues.getD .K1 { notes := [] }
+  let thirdStillWaiting :=
+    match queueAfter.peek with
+    | some note =>
+        let waiting := match note.state with | .Waiting => true | _ => false
+        note.params.noteIndex = 182 && waiting
+    | none => false
+  passCase "same_lane_tap_recursion_stops_when_clicks_exhausted"
+    (events.length = 2
+      && queueAfter.currentIndex = 2
+      && nextState.buttonQueueFrontiers.getD .K1 99 = 2
+      && thirdStillWaiting)
+    "tap recursion should not apply a no-input semantic step to the next queued head"
+
 def test_build_game_state_routes_slide_head_into_tap_queue : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
     { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 410, noteIndex := 510 }]
@@ -2971,6 +3118,67 @@ def test_same_area_touch_queue_blocks_second_note_until_first_advances : Runtime
   | _, _, _, _ =>
       passCase "same_area_touch_queue_blocks_second_note_until_first_advances" false "expected two ordered touch events across two frames"
 
+def test_same_area_touch_queue_consumes_multiple_same_frame_clicks : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed sameAreaTouchQueueState batch
+  let queueAfter := nextState.touchQueues.getD .A1 { notes := [] }
+  let judged82 :=
+    events.any (fun evt => evt.kind = .Touch && evt.noteIndex = 82 && evt.grade = .Perfect)
+  let judged83 :=
+    events.any (fun evt => evt.kind = .Touch && evt.noteIndex = 83 && evt.grade = .Perfect)
+  passCase "same_area_touch_queue_consumes_multiple_same_frame_clicks"
+    (events.length = 2
+      && judged82
+      && judged83
+      && queueAfter.currentIndex = 2
+      && nextState.touchQueueFrontiers.getD .A1 99 = 2)
+    "same-area touch queues can recursively advance through multiple same-frame sensor clicks"
+
+private def threeSameAreaTouchQueueState : InputModel.GameState :=
+  let touch1 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 183 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 0 }
+  let touch2 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 184 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 1 }
+  let touch3 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 185 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 2 }
+  { currentTime := TimePoint.zero
+  , touchQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [touch1, touch2, touch3] } else { notes := [] }) }
+
+def test_same_area_touch_recursion_stops_when_clicks_exhausted : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed threeSameAreaTouchQueueState batch
+  let queueAfter := nextState.touchQueues.getD .A1 { notes := [] }
+  let thirdStillWaiting :=
+    match queueAfter.peek with
+    | some note =>
+        let waiting := match note.state with | .Waiting => true | _ => false
+        note.params.noteIndex = 185 && waiting
+    | none => false
+  passCase "same_area_touch_recursion_stops_when_clicks_exhausted"
+    (events.length = 2
+      && queueAfter.currentIndex = 2
+      && nextState.touchQueueFrontiers.getD .A1 99 = 2
+      && thirdStillWaiting)
+    "touch recursion should not apply a no-input semantic step to the next queued head"
+
 private def sameLaneHoldThenTapState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 84 }
@@ -3305,6 +3513,58 @@ def test_same_area_extra_click_allows_touch_hold_head_after_touch : RuntimeCase 
         "with two same-frame touch clicks, touch consumes the first click, touch-hold head consumes the second, and the shared touch frontier advances twice"
   | _, _, _, _ =>
       passCase "same_area_extra_click_allows_touch_hold_head_after_touch" false "expected touch event plus a judged touch-hold head"
+
+private def sameAreaTwoTouchesThenTouchHoldState : InputModel.GameState :=
+  let touch1 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 176 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 0 }
+  let touch2 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 177 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 1 }
+  let touchHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 178 }
+    , start := .sensor .A1
+    , state := .HeadWaiting
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 2 }
+  { currentTime := TimePoint.zero
+  , touchQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [touch1, touch2] } else { notes := [] })
+  , touchHoldQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [touchHold] } else { notes := [] })
+  , activeTouchHolds := [(.A1, touchHold)] }
+
+def test_same_area_recursive_touches_precede_touch_hold_head : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed sameAreaTwoTouchesThenTouchHoldState batch
+  let touchQueue := nextState.touchQueues.getD .A1 { notes := [] }
+  let touchHoldQueue := nextState.touchHoldQueues.getD .A1 { notes := [] }
+  let judged176 := events.any (fun evt => evt.kind = .Touch && evt.noteIndex = 176)
+  let judged177 := events.any (fun evt => evt.kind = .Touch && evt.noteIndex = 177)
+  match nextState.activeTouchHolds with
+  | [(_, holdAfter)] =>
+      let holdJudgeable := match holdAfter.state with | .HeadJudgeable => true | _ => false
+      passCase "same_area_recursive_touches_precede_touch_hold_head"
+        (events.length = 2
+          && judged176
+          && judged177
+          && touchQueue.currentIndex = 2
+          && nextState.touchQueueFrontiers.getD .A1 99 = 2
+          && touchHoldQueue.currentIndex = 0
+          && holdJudgeable)
+        "recursive same-area touches consume available clicks before the later touch-hold head"
+  | _ =>
+      passCase "same_area_recursive_touches_precede_touch_hold_head" false
+        "expected both touches to judge and the touch-hold head to stay queued"
 
 private def sameAreaConsecutiveTouchHoldsState : InputModel.GameState :=
   let hold1 : Lifecycle.HoldNote :=
@@ -4141,6 +4401,9 @@ def all : List RuntimeCase :=
   , test_touch_waiting_large_delta_uses_reference_too_late_boundary
   , test_frame_zero_touch_hold_head_judges_same_frame
   , test_touch_ignores_outer_button_without_sensor_input
+  , test_too_late_tap_does_not_consume_button_click
+  , test_too_late_touch_does_not_consume_sensor_click
+  , test_modern_hold_release_grace_does_not_count_toward_release_time
   , test_touch_hold_head_ignores_outer_button_without_sensor_input
   , test_replay_frame_zero_tap_judges_same_frame
   , test_replay_frame_zero_touch_judges_same_frame
@@ -4153,7 +4416,11 @@ def all : List RuntimeCase :=
   , test_classic_slide_late_clear_keeps_existing_judged_wait
   , test_conn_slide_early_clear_uses_group_start_for_judged_wait
   , test_same_lane_tap_queue_blocks_second_note_until_first_advances
+  , test_same_lane_tap_queue_consumes_multiple_same_frame_clicks
+  , test_same_lane_tap_recursion_stops_when_clicks_exhausted
   , test_same_area_touch_queue_blocks_second_note_until_first_advances
+  , test_same_area_touch_queue_consumes_multiple_same_frame_clicks
+  , test_same_area_touch_recursion_stops_when_clicks_exhausted
   , test_build_game_state_routes_slide_head_into_tap_queue
   , test_game_state_json_preserves_tap_family_kind_for_slide_head
   , test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape
@@ -4173,6 +4440,7 @@ def all : List RuntimeCase :=
   , test_unlocked_button_frontier_still_allows_older_hold
   , test_same_area_touch_consumes_shared_click_before_touch_hold_head
   , test_same_area_extra_click_allows_touch_hold_head_after_touch
+  , test_same_area_recursive_touches_precede_touch_hold_head
   , test_same_area_consecutive_touch_holds_advance_shared_frontier
   , test_unlocked_touch_frontier_still_allows_older_touch_hold
   , test_touch_hold_head_can_resolve_from_shared_touch_group
@@ -4374,6 +4642,16 @@ theorem test_frame_zero_touch_hold_head_judges_same_frame_proof :
 theorem test_touch_ignores_outer_button_without_sensor_input_proof :
     test_touch_ignores_outer_button_without_sensor_input.passed = true := by native_decide
 
+theorem test_too_late_tap_does_not_consume_button_click_proof :
+    test_too_late_tap_does_not_consume_button_click.passed = true := by native_decide
+
+theorem test_too_late_touch_does_not_consume_sensor_click_proof :
+    test_too_late_touch_does_not_consume_sensor_click.passed = true := by native_decide
+
+theorem test_modern_hold_release_grace_does_not_count_toward_release_time_proof :
+    test_modern_hold_release_grace_does_not_count_toward_release_time.passed = true := by
+  native_decide
+
 theorem test_touch_hold_head_ignores_outer_button_without_sensor_input_proof :
     test_touch_hold_head_ignores_outer_button_without_sensor_input.passed = true := by native_decide
 
@@ -4410,6 +4688,13 @@ theorem test_conn_slide_early_clear_uses_group_start_for_judged_wait_proof :
 theorem test_same_lane_tap_queue_blocks_second_note_until_first_advances_proof :
     test_same_lane_tap_queue_blocks_second_note_until_first_advances.passed = true := by native_decide
 
+theorem test_same_lane_tap_queue_consumes_multiple_same_frame_clicks_proof :
+    test_same_lane_tap_queue_consumes_multiple_same_frame_clicks.passed = true := by native_decide
+
+theorem test_same_lane_tap_recursion_stops_when_clicks_exhausted_proof :
+    test_same_lane_tap_recursion_stops_when_clicks_exhausted.passed = true := by
+  native_decide
+
 theorem test_build_game_state_routes_slide_head_into_tap_queue_proof :
     test_build_game_state_routes_slide_head_into_tap_queue.passed = true := by native_decide
 
@@ -4443,6 +4728,14 @@ theorem test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order_pro
 theorem test_same_area_touch_queue_blocks_second_note_until_first_advances_proof :
     test_same_area_touch_queue_blocks_second_note_until_first_advances.passed = true := by native_decide
 
+theorem test_same_area_touch_queue_consumes_multiple_same_frame_clicks_proof :
+    test_same_area_touch_queue_consumes_multiple_same_frame_clicks.passed = true := by
+  native_decide
+
+theorem test_same_area_touch_recursion_stops_when_clicks_exhausted_proof :
+    test_same_area_touch_recursion_stops_when_clicks_exhausted.passed = true := by
+  native_decide
+
 theorem test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click_proof :
     test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click.passed = true := by native_decide
 
@@ -4472,6 +4765,9 @@ theorem test_unlocked_button_frontier_still_allows_older_hold_proof :
 
 theorem test_same_area_extra_click_allows_touch_hold_head_after_touch_proof :
     test_same_area_extra_click_allows_touch_hold_head_after_touch.passed = true := by native_decide
+
+theorem test_same_area_recursive_touches_precede_touch_hold_head_proof :
+    test_same_area_recursive_touches_precede_touch_hold_head.passed = true := by native_decide
 
 theorem test_same_area_consecutive_touch_holds_advance_shared_frontier_proof :
     test_same_area_consecutive_touch_holds_advance_shared_frontier.passed = true := by native_decide

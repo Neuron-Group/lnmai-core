@@ -319,6 +319,7 @@ Success payload:
     "holdCount": 0,
     "touchCount": 0,
     "touchHoldCount": 0,
+    "slideHeadCount": 0,
     "slideCount": 0
   }
 }
@@ -426,6 +427,7 @@ Runtime-state note:
 
 - `GameState.tapQueues` now contain tagged tap-family queue entries with `kind = "tap"` or `kind = "slideHead"`
 - slide heads still share the same button-queue frontier and click-competition semantics as taps and hold heads
+- `GameState.holdQueues`, `touchHoldQueues`, `activeHolds`, and `activeTouchHolds` contain `HoldNote` values whose `releaseIgnoreTime` is separate from scored `playerReleaseTime`
 
 ### `lnmai_get_game_state_json_by_handle`
 

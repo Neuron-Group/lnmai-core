@@ -1,8 +1,6 @@
 /-
   Exact timing constants for the game judgment engine.
-
   Values are represented in exact microsecond durations.
-  Naming matches the C# source from NoteDrop.cs and NoteLongDrop.cs.
 -/
 
 import LnmaiCore.Time
@@ -84,7 +82,6 @@ def SLIDE_JUDGE_SEG_1ST_GREAT_MSEC              : Duration := Duration.scaleNat 
 def SLIDE_JUDGE_SEG_2ND_GREAT_MSEC              : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 25
 def SLIDE_JUDGE_SEG_3RD_GREAT_MSEC              : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 29
 def SLIDE_JUDGE_GOOD_AREA_MSEC                  : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 36
-/-- MajdataPlay `SlideBase.Judge()` clamps modern late-good-or-worse clear wait to 0.05s. -/
 def SLIDE_JUDGED_LATE_CLEAR_WAIT                : Duration := Duration.fromMicros 50000
 
 def SLIDE_JUDGE_CLASSIC_FAST_SEG_1ST_PERFECT_MSEC : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 4

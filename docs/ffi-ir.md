@@ -491,8 +491,8 @@ Fields:
 - `buttonQueueFrontiers`: current consumption frontier for each button lane
 - `touchQueueFrontiers`: current consumption frontier for each touch area
 - `tapQueues`: per-button tap-family lifecycle queues containing tagged `TapFamilyNote` entries
-- `holdQueues`: per-button hold lifecycle queues
-- `touchHoldQueues`: per-sensor touch-hold lifecycle queues
+- `holdQueues`: per-button lifecycle queues containing `HoldNote` entries
+- `touchHoldQueues`: per-sensor touch-hold lifecycle queues containing `HoldNote` entries
 - `touchQueues`: per-sensor touch lifecycle queues
 - `slides`: list of active/runtime slide notes
 - `activeHolds`: currently active button holds
@@ -547,6 +547,40 @@ Notes:
 
 - `tapQueues` now preserve the runtime distinction between ordinary taps and slide heads
 - slide heads still share the same tap-family queue and click competition semantics as taps and hold heads
+
+### `HoldNote`
+
+Runtime queue / active-note item used inside `GameState.holdQueues`,
+`GameState.touchHoldQueues`, `GameState.activeHolds`, and
+`GameState.activeTouchHolds`.
+
+Fields:
+
+- `params`: `CommonNoteParams`
+- `start`: `HoldStart`
+- `state`: `HoldSubState`
+- `length`: `Duration`
+- `buttonQueueIndex`: shared button-queue index for button holds
+- `headDiff`: judged head timing delta
+- `headGrade`: judged head grade
+- `playerReleaseTime`: scored body-release time accumulated after release grace expires
+- `releaseIgnoreTime`: release-grace timer that does not count toward scored body-release time
+- `isClassic`: classic hold-mode flag
+- `isTouchHold`: whether this hold is running as a touch-hold
+- `touchQueueIndex`: shared touch-queue index for touch-holds
+- `touchGroupId`: optional touch-head sharing group id
+- `touchGroupSize`: optional touch-head sharing group size
+- `touchHoldGroupId`: optional touch-hold body sharing group id
+- `touchHoldGroupSize`: optional touch-hold body sharing group size
+- `touchHoldGroupTriggered`: whether this touch-hold is currently contributing pressed body state
+
+Notes:
+
+- `releaseIgnoreTime` is intentionally separate from `playerReleaseTime`, matching
+  MajdataPlay's distinction between the short release grace and release time that
+  hurts the final hold grade
+- Rust typed mirrors default a missing `releaseIgnoreTime` to `0` so older saved
+  `GameState` JSON can still be decoded
 
 ## Runtime Output Layer
 

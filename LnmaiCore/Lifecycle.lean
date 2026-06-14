@@ -297,6 +297,7 @@ structure HoldNote where
   headDiff   : Duration := Duration.zero      -- head timing diff
   headGrade  : JudgeGrade := JudgeGrade.Miss
   playerReleaseTime : Duration := Duration.zero -- accumulated release time
+  releaseIgnoreTime : Duration := Duration.zero -- grace timer before release hurts score
   isClassic  : Bool := false
   isTouchHold : Bool := false
   touchQueueIndex : Nat := 0
@@ -414,13 +415,47 @@ private def headJudgedShouldBypassReleaseIgnore (headGrade : JudgeGrade) : Bool 
   headGrade.isMissOrTooFast
 
 private def holdHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
-  let newRT := note.playerReleaseTime + delta
   if headJudgedShouldBypassReleaseIgnore note.headGrade then
-    ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
-  else if newRT ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
-    ({ note with playerReleaseTime := newRT }, none)
+    ({ note with
+        state := HoldSubState.BodyReleased
+      , playerReleaseTime := note.playerReleaseTime + delta
+      , releaseIgnoreTime := Duration.zero
+      , touchHoldGroupTriggered := false }, none)
   else
-    ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
+    if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
+      ({ note with
+          releaseIgnoreTime := note.releaseIgnoreTime + delta
+        , touchHoldGroupTriggered := false }, none)
+    else
+      ({ note with
+          state := HoldSubState.BodyReleased
+        , playerReleaseTime := note.playerReleaseTime + delta
+        , touchHoldGroupTriggered := false }, none)
+
+private def holdPressedTransition (note : HoldNote) : HoldNote :=
+  { note with
+    state := HoldSubState.BodyHeld
+  , playerReleaseTime := Duration.zero
+  , releaseIgnoreTime := Duration.zero
+  , touchHoldGroupTriggered := note.isTouchHold }
+
+private def holdKeepPressed (note : HoldNote) : HoldNote :=
+  { note with releaseIgnoreTime := Duration.zero, touchHoldGroupTriggered := note.isTouchHold }
+
+private def holdReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote :=
+  if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
+    { note with releaseIgnoreTime := note.releaseIgnoreTime + delta, touchHoldGroupTriggered := false }
+  else
+    { note with
+      state := HoldSubState.BodyReleased
+    , playerReleaseTime := note.playerReleaseTime + delta
+    , touchHoldGroupTriggered := false }
+
+private def holdReleasedStillOff (note : HoldNote) (delta : Duration) : HoldNote :=
+  { note with playerReleaseTime := note.playerReleaseTime + delta, touchHoldGroupTriggered := false }
+
+private def holdReleasedRecovered (note : HoldNote) : HoldNote :=
+  { note with state := HoldSubState.BodyHeld, releaseIgnoreTime := Duration.zero, touchHoldGroupTriggered := note.isTouchHold }
 
 /--
   Advance a hold note one frame.
@@ -482,7 +517,7 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
       -- past body check window → force end
       endHold note headGrade currentTime note.playerReleaseTime
     else if inputPressed then
-      ({ note with state := HoldSubState.BodyHeld, playerReleaseTime := Duration.zero, touchHoldGroupTriggered := note.isTouchHold }, none)
+      (holdPressedTransition note, none)
     else
       -- MajdataPlay skips the release-ignore grace after a missed/too-fast head by seeding
       -- `_releaseTime` to a sentinel immediately on head miss, so body release starts counting at once.
@@ -505,9 +540,9 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
     else if currentTime > bodyCheckEnd || diff >= note.length then
       endHold note note.headGrade currentTime note.playerReleaseTime
     else if inputPressed then
-      ({ note with touchHoldGroupTriggered := note.isTouchHold }, none)  -- still held
+      (holdKeepPressed note, none)  -- still held
     else
-      ({ note with state := HoldSubState.BodyReleased, playerReleaseTime := note.playerReleaseTime + delta, touchHoldGroupTriggered := false }, none)
+      (holdReleaseTransition note delta, none)
   | .BodyReleased =>
     -- released body can recover back to held if input/majority returns before force-end
     if bodyWindowDisabled then
@@ -520,10 +555,10 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
       let newRT := note.playerReleaseTime + delta
       endHold note note.headGrade currentTime newRT
     else if inputPressed then
-      ({ note with state := HoldSubState.BodyHeld, touchHoldGroupTriggered := note.isTouchHold }, none)
+      (holdReleasedRecovered note, none)
     else
       let newRT := note.playerReleaseTime + delta
-      ({ note with playerReleaseTime := newRT, touchHoldGroupTriggered := false }, none)
+      (holdReleasedStillOff note delta, none)
   | .Ended _ =>
     (note, none)
 
