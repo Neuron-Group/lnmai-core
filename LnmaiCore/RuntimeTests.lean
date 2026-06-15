@@ -784,7 +784,25 @@ def test_overlapping_slides_can_both_progress_from_one_sensor_hold : RuntimeCase
   let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
   let (nextState, _, _, renderCmds) := Scheduler.stepFrame overlappingSlideSharedSensorState input
   let clearedBoth := nextState.slides.all (fun slide => slide.judgeQueues.all List.isEmpty)
-  let renderedBoth := hasHideAllSlideBars renderCmds 43 && hasHideAllSlideBars renderCmds 44
+  let hidFinalBars :=
+    renderCmds.any (fun cmd =>
+      match cmd with
+      | .HideSlideBars 43 2 => true
+      | _ => false) &&
+    renderCmds.any (fun cmd =>
+      match cmd with
+      | .HideSlideBars 44 2 => true
+      | _ => false)
+  let renderedBoth :=
+    hidFinalBars &&
+      renderCmds.any (fun cmd =>
+        match cmd with
+        | .UpdateSlideProgress 43 0 => true
+        | _ => false) &&
+      renderCmds.any (fun cmd =>
+        match cmd with
+        | .UpdateSlideProgress 44 0 => true
+        | _ => false)
   passCase "overlapping_slides_can_both_progress_from_one_sensor_hold"
     (clearedBoth && renderedBoth)
     "MajdataPlay slide progress reads shared sensor status, so one held sensor may legitimately advance overlapping slides at once"
@@ -1061,8 +1079,6 @@ def test_conn_child_progress_force_finishes_parent : RuntimeCase :=
   | _ => passCase "conn_child_progress_force_finishes_parent" false "expected parent and child slides"
 
 private def activeFinishedSlideState : InputModel.GameState :=
-  let finishedArea : Lifecycle.SlideArea :=
-    { targetAreas := [.A1], isLast := true, wasOn := true }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 20 }
     , lane := .S1
@@ -1076,7 +1092,7 @@ private def activeFinishedSlideState : InputModel.GameState :=
     , initialQueueRemaining := 1
     , totalJudgeQueueLen := 1
     , isCheckable := true
-    , judgeQueues := [[finishedArea]] }
+    , judgeQueues := [[]] }
   { currentTime := tp 1184000
   , slides := [slide]
   , touchPanelOffset := dur 16000 }
@@ -1815,17 +1831,37 @@ private def activeWifiJudgedWaitState : InputModel.GameState :=
   { currentTime := secs 1
   , slides := [slide] }
 
-def test_wifi_judged_wait_emits_delayed_event_then_hides : RuntimeCase :=
+def test_wifi_judged_wait_crossing_zero_waits_one_more_frame : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [] (dur 16000)
-  let (_, events, _, renderCmds) := Scheduler.stepFrame activeWifiJudgedWaitState input
-  match events with
-  | [evt] =>
-      passCase "wifi_judged_wait_emits_delayed_event_then_hides"
-        (evt.kind = .Slide
+  let (nextState, events, _, renderCmds) := Scheduler.stepFrame activeWifiJudgedWaitState input
+  match nextState.slides with
+  | [slide] =>
+      let stillWaiting :=
+        match slide.state with
+        | .Judged .Perfect remaining judgeDiff =>
+            remaining = dur (-6000) && judgeDiff = dur 123000
+        | _ => false
+      passCase "wifi_judged_wait_crossing_zero_waits_one_more_frame"
+        (events.isEmpty && renderCmds.isEmpty && stillWaiting)
+        "MajdataPlay checks LastWaitTimeSec before subtracting DeltaTime, so crossing zero this frame still waits until the next SlideCheck"
+  | _ => passCase "wifi_judged_wait_crossing_zero_waits_one_more_frame" false "expected one wifi slide to remain in judged wait"
+
+def test_wifi_judged_wait_emits_when_nonpositive_at_frame_start : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (stateAfterCrossing, _, _, _) := Scheduler.stepFrame activeWifiJudgedWaitState input
+  let (nextState, events, _, renderCmds) := Scheduler.stepFrame stateAfterCrossing input
+  match nextState.slides, events with
+  | [slide], [evt] =>
+      let ended := match slide.state with | .Ended => true | _ => false
+      passCase "wifi_judged_wait_emits_when_nonpositive_at_frame_start"
+        (ended
+          && evt.kind = .Slide
           && evt.diff = Time.fromMillis 123
           && hasHideAllSlideBars renderCmds 52)
-        "wifi judged-wait preserves stored diff and emits the final slide event on expiry"
-  | _ => passCase "wifi_judged_wait_emits_delayed_event_then_hides" false "expected one final slide event"
+        "a judged slide emits only when the stored wait is already non-positive at frame start"
+  | _, _ =>
+      passCase "wifi_judged_wait_emits_when_nonpositive_at_frame_start" false
+        "expected one final slide event after the stored wait was non-positive at frame start"
 
 private def activeWifiJudgedWaitNotExpiredState : InputModel.GameState :=
   let slide : Lifecycle.SlideNote :=
@@ -2697,10 +2733,9 @@ def test_frame_zero_slide_can_start_progress_same_frame : RuntimeCase :=
   | [nextSlide] =>
       let cleared := nextSlide.judgeQueues.all List.isEmpty
       let checkable := nextSlide.isCheckable
-      let judged :=
+      let stillActive :=
         match nextSlide.state with
-        | .Judged .Perfect waitTime judgeDiff => waitTime = Duration.zero && judgeDiff = Duration.zero
-        | .Ended => true
+        | .Active waitTime => waitTime = Duration.zero
         | _ => false
       let hasProgress :=
         renderCmds.any (fun cmd =>
@@ -2713,13 +2748,60 @@ def test_frame_zero_slide_can_start_progress_same_frame : RuntimeCase :=
           | .HideSlideBars noteIndex trackIndex => noteIndex = 72 && trackIndex = 0
           | _ => false)
       passCase "frame_zero_slide_can_start_progress_same_frame"
-        (checkable && cleared && judged && events.isEmpty && hasProgress && hidesTrack && audioCmds.isEmpty)
-        "slide becomes checkable and consumes frame-zero sensor hold immediately"
+        (checkable && cleared && stillActive && events.isEmpty && hasProgress && hidesTrack && audioCmds.isEmpty)
+        "slide becomes checkable and consumes frame-zero sensor hold immediately, but MajdataPlay's SlideCheck observes the cleared queue next frame"
   | _ => passCase "frame_zero_slide_can_start_progress_same_frame" false "expected one slide after frame-zero step"
 
 theorem slide_frame_zero_becomes_checkable_and_progresses_same_frame :
     test_frame_zero_slide_can_start_progress_same_frame.passed = true := by
   native_decide
+
+def test_slide_cleared_queue_enters_judged_on_next_frame : RuntimeCase :=
+  let area : Lifecycle.SlideArea :=
+    { targetAreas := [.A1], isLast := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }
+  let slide : Lifecycle.SlideNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 720 }
+    , lane := .S1
+    , state := .Active Duration.zero
+    , length := dur 200000
+    , headTiming := TimePoint.zero
+    , startTiming := TimePoint.zero
+    , slideKind := .Single
+    , isClassic := false
+    , trackCount := 1
+    , initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1
+    , isCheckable := false
+    , judgeQueues := [[area]] }
+  let state : InputModel.GameState :=
+    { currentTime := TimePoint.zero
+    , slides := [slide] }
+  let firstBatch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.sensorHold TimePoint.zero .A1 true] }
+  let (stateAfterClear, firstEvents, _, _) := Scheduler.stepFrameTimed state firstBatch
+  let secondBatch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero + Constants.FRAME_LENGTH
+    , events := [] }
+  let (stateAfterJudge, secondEvents, _, _) := Scheduler.stepFrameTimed stateAfterClear secondBatch
+  match stateAfterClear.slides, stateAfterJudge.slides with
+  | [clearedSlide], [judgedSlide] =>
+      let clearedButActive :=
+        clearedSlide.judgeQueues.all List.isEmpty &&
+          match clearedSlide.state with
+          | .Active waitTime => waitTime = Duration.zero
+          | _ => false
+      let judgedNextFrame :=
+        match judgedSlide.state with
+        | .Judged .Perfect waitTime judgeDiff =>
+            waitTime = Duration.zero && judgeDiff = Constants.FRAME_LENGTH
+        | _ => false
+      passCase "slide_cleared_queue_enters_judged_on_next_frame"
+        (firstEvents.isEmpty && secondEvents.isEmpty && clearedButActive && judgedNextFrame)
+        "MajdataPlay's SensorCheck can clear the queue this frame, but SlideCheck judges that cleared queue on the next frame"
+  | _, _ =>
+      passCase "slide_cleared_queue_enters_judged_on_next_frame" false
+        "expected the cleared slide to remain active for one frame and enter judged on the next"
 
 def test_replay_slide_delays_final_event_after_internal_judged : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
@@ -2757,7 +2839,7 @@ def test_replay_slide_delays_final_event_after_internal_judged : RuntimeCase :=
     { currentTime := TimePoint.zero + Constants.FRAME_LENGTH
     , events := [] }
   let (stateAfterSecond, secondEvents, _, _) := Scheduler.stepFrameTimed stateAfterFirst secondBatch
-  let settleFrameCount := 12
+  let settleFrameCount := 14
   let rec advanceEmptyFrames (fuel : Nat) (state : InputModel.GameState) : InputModel.GameState × List JudgeEvent :=
     match fuel with
     | 0 => (state, [])
@@ -2773,13 +2855,14 @@ def test_replay_slide_delays_final_event_after_internal_judged : RuntimeCase :=
     simulateChartSpecWithTactic chart { events := [InputModel.TimedInputEvent.sensorHold TimePoint.zero .A1 true] }
   match stateAfterFirst.slides, stateAfterSecond.slides, settledState.slides, settleEvents, replayResult.events with
   | [firstSlide], [secondSlide], [settledSlide], [delayedEvt], [replayEvt] =>
-      let preSettledJudged :=
+      let firstClearedButActive :=
         match firstSlide.state with
-        | .Judged .Perfect waitTime judgeDiff => waitTime > Duration.zero && judgeDiff = Duration.zero
+        | .Active _ => firstSlide.judgeQueues.all List.isEmpty
         | _ => false
       let stillJudgedNextFrame :=
         match secondSlide.state with
-        | .Judged .Perfect waitTime judgeDiff => waitTime > Duration.zero && judgeDiff = Duration.zero
+        | .Judged .Perfect waitTime judgeDiff =>
+            waitTime > Duration.zero && judgeDiff = Constants.FRAME_LENGTH
         | _ => false
       let settledEnded :=
         match settledSlide.state with
@@ -2787,25 +2870,23 @@ def test_replay_slide_delays_final_event_after_internal_judged : RuntimeCase :=
         | _ => false
       passCase "replay_slide_delays_final_event_after_internal_judged"
         (firstEvents.isEmpty
-          && preSettledJudged
+          && firstClearedButActive
           && secondEvents.isEmpty
           && stillJudgedNextFrame
           && settledEnded
           && delayedEvt.kind = .Slide
           && delayedEvt.noteIndex = 73
           && delayedEvt.grade = .Perfect
-          && delayedEvt.diff = Duration.zero
+          && delayedEvt.diff = Constants.FRAME_LENGTH
           && replayEvt.kind = .Slide
           && replayEvt.noteIndex = 73
           && replayEvt.grade = .Perfect
-          && replayEvt.diff = Duration.zero)
+          && replayEvt.diff = Constants.FRAME_LENGTH)
         "slide replay preserves internal judged state before delayed final event emission"
   | _, _, _, _, _ =>
       passCase "replay_slide_delays_final_event_after_internal_judged" false "expected pre-settle judged slide and one delayed final slide event"
 
 private def finishedModernLateSlideState : InputModel.GameState :=
-  let finishedArea : Lifecycle.SlideArea :=
-    { targetAreas := [.A1], isLast := true, wasOn := true }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 74 }
     , lane := .S1
@@ -2819,7 +2900,7 @@ private def finishedModernLateSlideState : InputModel.GameState :=
     , initialQueueRemaining := 1
     , totalJudgeQueueLen := 1
     , isCheckable := true
-    , judgeQueues := [[finishedArea]] }
+    , judgeQueues := [[]] }
   { currentTime := tp 1584012
   , slides := [slide] }
 
@@ -2839,8 +2920,6 @@ def test_modern_slide_late_good_clamps_judged_wait_to_50ms : RuntimeCase :=
   | _ => passCase "modern_slide_late_good_clamps_judged_wait_to_50ms" false "expected one judged slide"
 
 private def finishedModernMajiLateGreatSlideState : InputModel.GameState :=
-  let finishedArea : Lifecycle.SlideArea :=
-    { targetAreas := [.A1], isLast := true, wasOn := true }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 77 }
     , lane := .S1
@@ -2854,7 +2933,7 @@ private def finishedModernMajiLateGreatSlideState : InputModel.GameState :=
     , initialQueueRemaining := 1
     , totalJudgeQueueLen := 1
     , isCheckable := true
-    , judgeQueues := [[finishedArea]] }
+    , judgeQueues := [[]] }
   { currentTime := tp 1284000
   , judgeStyle := .Maji
   , slides := [slide] }
@@ -2888,8 +2967,6 @@ def test_modern_slide_maji_reconverts_stored_judge_result_at_end : RuntimeCase :
         "expected one internally judged slide followed by one final slide event"
 
 private def finishedClassicLateSlideState : InputModel.GameState :=
-  let finishedArea : Lifecycle.SlideArea :=
-    { targetAreas := [.A1], isLast := true, wasOn := true }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 75 }
     , lane := .S1
@@ -2903,7 +2980,7 @@ private def finishedClassicLateSlideState : InputModel.GameState :=
     , initialQueueRemaining := 1
     , totalJudgeQueueLen := 1
     , isCheckable := true
-    , judgeQueues := [[finishedArea]] }
+    , judgeQueues := [[]] }
   { currentTime := tp 1584012
   , slides := [slide] }
 
@@ -2922,8 +2999,6 @@ def test_classic_slide_late_clear_keeps_existing_judged_wait : RuntimeCase :=
   | _ => passCase "classic_slide_late_clear_keeps_existing_judged_wait" false "expected one judged slide"
 
 private def finishedConnEndEarlyAgainstGroupStartState : InputModel.GameState :=
-  let finishedArea : Lifecycle.SlideArea :=
-    { targetAreas := [.A1], isLast := true, wasOn := true }
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := tp 850000, judgeOffset := Duration.zero, noteIndex := 76 }
     , lane := .S1
@@ -2942,7 +3017,7 @@ private def finishedConnEndEarlyAgainstGroupStartState : InputModel.GameState :=
     , initialQueueRemaining := 1
     , totalJudgeQueueLen := 1
     , isCheckable := true
-    , judgeQueues := [[finishedArea]] }
+    , judgeQueues := [[]] }
   { currentTime := tp 884000
   , slides := [slide] }
 
@@ -4841,7 +4916,8 @@ def all : List RuntimeCase :=
   , test_wifi_classic_tail_progress_uses_special_marker
   , test_wifi_center_cleared_progress_uses_special_marker
   , test_wifi_center_cleared_without_both_tails_uses_max_queue_marker
-  , test_wifi_judged_wait_emits_delayed_event_then_hides
+  , test_wifi_judged_wait_crossing_zero_waits_one_more_frame
+  , test_wifi_judged_wait_emits_when_nonpositive_at_frame_start
   , test_wifi_judged_wait_before_expiry_emits_nothing
   , test_wifi_too_late_ends_immediately
   , test_wifi_too_late_one_remaining_becomes_lategood
@@ -4866,6 +4942,7 @@ def all : List RuntimeCase :=
   , test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap
   , test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap
   , test_frame_zero_slide_can_start_progress_same_frame
+  , test_slide_cleared_queue_enters_judged_on_next_frame
   , test_replay_slide_delays_final_event_after_internal_judged
   , test_modern_slide_late_good_clamps_judged_wait_to_50ms
   , test_modern_slide_maji_reconverts_stored_judge_result_at_end
@@ -5068,8 +5145,13 @@ theorem test_wifi_center_cleared_progress_uses_special_marker_proof :
 theorem test_wifi_center_cleared_without_both_tails_uses_max_queue_marker_proof :
     test_wifi_center_cleared_without_both_tails_uses_max_queue_marker.passed = true := by native_decide
 
-theorem test_wifi_judged_wait_emits_delayed_event_then_hides_proof :
-    test_wifi_judged_wait_emits_delayed_event_then_hides.passed = true := by native_decide
+theorem test_wifi_judged_wait_crossing_zero_waits_one_more_frame_proof :
+    test_wifi_judged_wait_crossing_zero_waits_one_more_frame.passed = true := by
+  native_decide
+
+theorem test_wifi_judged_wait_emits_when_nonpositive_at_frame_start_proof :
+    test_wifi_judged_wait_emits_when_nonpositive_at_frame_start.passed = true := by
+  native_decide
 
 theorem test_wifi_judged_wait_before_expiry_emits_nothing_proof :
     test_wifi_judged_wait_before_expiry_emits_nothing.passed = true := by native_decide
@@ -5168,6 +5250,9 @@ theorem test_frame_zero_slide_can_start_progress_same_frame_proof :
 
 theorem test_replay_slide_delays_final_event_after_internal_judged_proof :
     test_replay_slide_delays_final_event_after_internal_judged.passed = true := by native_decide
+
+theorem test_slide_cleared_queue_enters_judged_on_next_frame_proof :
+    test_slide_cleared_queue_enters_judged_on_next_frame.passed = true := by native_decide
 
 theorem test_modern_slide_late_good_clamps_judged_wait_to_50ms_proof :
     test_modern_slide_late_good_clamps_judged_wait_to_50ms.passed = true := by native_decide

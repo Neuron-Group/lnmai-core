@@ -211,7 +211,8 @@ private def forceFinishRenderCmds (before after : List SlideNote) : List RenderC
     | _, [] => []
     | beforeSlide :: beforeRest, afterSlide :: afterRest =>
       let rest := go beforeRest afterRest
-      if slideRemaining beforeSlide > 0 && slideRemaining afterSlide == 0 then
+      if beforeSlide.isConnSlide && !beforeSlide.isGroupPartEnd &&
+          slideRemaining beforeSlide > 0 && slideRemaining afterSlide == 0 then
         hideSlideRenderCmds afterSlide ++ rest
       else
         rest

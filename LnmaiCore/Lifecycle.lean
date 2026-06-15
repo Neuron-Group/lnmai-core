@@ -957,10 +957,18 @@ private def buildSlideSemanticBase
   , oldRemaining := oldRemaining
   , newRemaining := newRemaining
   , trackOns := trackOns
-  , progressChanged := newRemaining != oldRemaining }
+  , progressChanged :=
+      newRemaining != oldRemaining || slideQueueRemaining updatedQueues != slideQueueRemaining note.judgeQueues }
 
-private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : SlideStepSemantic :=
-  let isCheckable := slideShouldBeCheckable note ctx.currentTime
+private def buildSlideStaticSemanticBase
+    (note : SlideNote) (isCheckable : Bool) : SlideStepSemantic :=
+  let remaining := slideProgressRemaining note.slideKind note.isClassic note.judgeQueues
+  { note := { note with isCheckable := isCheckable }
+  , oldRemaining := remaining
+  , newRemaining := remaining }
+
+private def buildSlideSensorSemanticBase
+    (note : SlideNote) (ctx : SlideStepContext) (isCheckable : Bool) : SlideStepSemantic :=
   let updatedQueuesWithCmds := slideUpdatedQueuesWithCmds note isCheckable ctx.sensorHeld
   let updatedQueues := updatedQueuesWithCmds.map Prod.fst
   let queueRenderCmds := flattenRenderCmds (updatedQueuesWithCmds.map Prod.snd)
@@ -968,22 +976,26 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
   let newRemaining := slideProgressRemaining note.slideKind note.isClassic updatedQueues
   let trackOns :=
     if isCheckable then collectNewSlideOnTracks 0 note.judgeQueues updatedQueues else []
-  let semanticBase :=
-    buildSlideSemanticBase { note with isCheckable := isCheckable } updatedQueues queueRenderCmds oldRemaining newRemaining trackOns
+  buildSlideSemanticBase { note with isCheckable := isCheckable } updatedQueues queueRenderCmds
+    oldRemaining newRemaining trackOns
+
+private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : SlideStepSemantic :=
+  let isCheckable := slideShouldBeCheckable note ctx.currentTime
   let isJudgable := note.isGroupPartEnd || !note.isConnSlide
   match note.state with
   | .Waiting =>
+    let semanticBase := buildSlideSensorSemanticBase note ctx isCheckable
     { semanticBase with
       shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
       emitProgressRender := semanticBase.progressChanged }
   | .Active waitTime =>
+    let staticBase := buildSlideStaticSemanticBase note isCheckable
     let isTooLate := ctx.currentTime > slideTooLateTiming note
     if !isCheckable then
-      { semanticBase with
+      { staticBase with
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
-        emitProgressRender := semanticBase.progressChanged }
-    else if isJudgable &&
-        (slideQueuesCleared note.judgeQueues || (slideQueuesCleared updatedQueues && !isTooLate)) then
+        emitProgressRender := staticBase.progressChanged }
+    else if isJudgable && slideQueuesCleared note.judgeQueues then
       let judgeDiff := slideCurrentJudgeDiff note ctx.currentTime ctx.touchPanelOffset
       let raw :=
         if note.isClassic then
@@ -996,36 +1008,39 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
         else
           Convert.convertGrade ctx.style raw
       let judgedWaitTime := slideAdjustedJudgedWaitTime note ctx.currentTime waitTime judgeDiff
-      { semanticBase with
-        note := { semanticBase.note with state := SlideState.Judged storedGrade judgedWaitTime judgeDiff }
+      { staticBase with
+        note := { staticBase.note with state := SlideState.Judged storedGrade judgedWaitTime judgeDiff }
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
         emitProgressRender := true }
     else if isJudgable && isTooLate then
       let raw := Judge.judgeSlideTooLate (slideQueueRemaining note.judgeQueues)
       let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
-      { semanticBase with
-        note := { semanticBase.note with state := SlideState.Ended }
+      { staticBase with
+        note := { staticBase.note with state := SlideState.Ended }
         event := some (slideJudgeEvent note grade slideTooLateJudgeDiff)
         hideSlide := true }
     else
+      let semanticBase := buildSlideSensorSemanticBase note ctx isCheckable
       { semanticBase with
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
         emitProgressRender := semanticBase.progressChanged }
   | .Judged grade waitTime storedJudgeDiff =>
-    let newWait := waitTime - ctx.delta
-    if newWait ≤ Duration.zero then
+    let staticBase := buildSlideStaticSemanticBase note isCheckable
+    if waitTime ≤ Duration.zero then
       let finalGrade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade grade
-      { semanticBase with
-        note := { semanticBase.note with state := SlideState.Ended }
+      { staticBase with
+        note := { staticBase.note with state := SlideState.Ended }
         event := some (slideJudgeEvent note finalGrade storedJudgeDiff)
         hideSlide := true }
     else
-      { semanticBase with
-        note := { semanticBase.note with state := SlideState.Judged grade newWait storedJudgeDiff }
+      let newWait := waitTime - ctx.delta
+      { staticBase with
+        note := { staticBase.note with state := SlideState.Judged grade newWait storedJudgeDiff }
         shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
-        emitProgressRender := semanticBase.progressChanged }
+        emitProgressRender := staticBase.progressChanged }
   | .Ended =>
-      { semanticBase with note := { semanticBase.note with state := SlideState.Ended } }
+      let staticBase := buildSlideStaticSemanticBase note isCheckable
+      { staticBase with note := { staticBase.note with state := SlideState.Ended } }
 
 private def slideSemanticAudioCmds (semantic : SlideStepSemantic) (currentTime : TimePoint) : List AudioCommand :=
   if semantic.shouldPlayTrackOns then
