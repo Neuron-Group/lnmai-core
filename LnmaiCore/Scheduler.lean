@@ -363,7 +363,14 @@ private def groupShareResult (groups : List GroupState) (groupId : Nat) : Option
       if hasStrictMajority group.count group.size then some (group.grade, group.diff) else none
   | none => none
 
-private def updateGroupState (groups : List GroupState) (groupId : Nat) (groupSize : Nat) (grade : JudgeGrade) (diff : Duration) : List GroupState :=
+/--
+  MajdataPlay's `TouchGroup.RegisterResult` is called from `RegisterGrade`, which
+  only runs after a member's own successful head check. Siblings that merely adopt
+  a majority result read the stored grade/diff but do not add another result.
+-/
+private def registerTouchGroupResult
+    (groups : List GroupState) (groupId : Nat) (groupSize : Nat)
+    (grade : JudgeGrade) (diff : Duration) : List GroupState :=
   let rec loop (items : List GroupState) : List GroupState :=
     match items with
     | [] => [{ groupId := groupId, count := 1, size := groupSize, grade := grade, diff := diff }]
@@ -583,23 +590,17 @@ private def processTouchHoldNotes
     let touchFrontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedTouchQueue touchFrontiers area else touchFrontiers
     let queues' := if enteredHeadJudged note.state newNote.state then advanceSensorQueueIfHead queues area newNote else queues
     let touchGroupStates' :=
-      match evt?, note.touchGroupId with
-      | some evt, some groupId =>
-          if evt.grade.isMissOrTooFast then
-            touchGroupStates
-          else
-            updateGroupState touchGroupStates groupId note.touchGroupSize evt.grade newNote.headDiff
-      | _, _ =>
-          match newNote.state with
-          | HoldSubState.HeadJudged grade =>
-              if grade.isMissOrTooFast then
-                touchGroupStates
-              else
-                match note.touchGroupId with
-                | some groupId =>
-                    updateGroupState touchGroupStates groupId note.touchGroupSize grade newNote.headDiff
-                | none => touchGroupStates
-          | _ => touchGroupStates
+      if usedSensor && enteredHeadJudged note.state newNote.state then
+        match newNote.state, note.touchGroupId with
+        | HoldSubState.HeadJudged grade, some groupId =>
+            if grade.isMissOrTooFast then
+              touchGroupStates
+            else
+              registerTouchGroupResult touchGroupStates groupId note.touchGroupSize grade
+                newNote.headDiff
+        | _, _ => touchGroupStates
+      else
+        touchGroupStates
     let touchHoldBodyGroups2 :=
       match note.touchHoldGroupId with
       | some groupId =>
@@ -655,10 +656,10 @@ private partial def processTouchQueue
       match touchStep note currentTime diff clicked sharedResult style with
       | (newNote, some evt) =>
           let groups' :=
-            if evt.grade.isMissOrTooFast then groups
+            if !clicked || evt.grade.isMissOrTooFast then groups
             else
               match note.touchGroupId with
-              | some groupId => updateGroupState groups groupId note.touchGroupSize evt.grade diff
+              | some groupId => registerTouchGroupResult groups groupId note.touchGroupSize evt.grade diff
               | none => groups
           match newNote.state with
           | TouchState.Ended =>
@@ -673,12 +674,7 @@ private partial def processTouchQueue
               ({ queue with notes := listSetAt queue.notes queue.currentIndex newNote },
                 frontiers, cursor2, groups', evt :: evsRev)
       | (newNote, none) =>
-          let groups' :=
-            match note.touchGroupId, newNote.state with
-            | some groupId, TouchState.Ended => groups
-            | some groupId, TouchState.Judged grade =>
-              if grade.isMissOrTooFast then groups else updateGroupState groups groupId note.touchGroupSize grade diff
-            | _, _ => groups
+          let groups' := groups
           match newNote.state with
           | TouchState.Ended =>
               let queue' := queue.advance

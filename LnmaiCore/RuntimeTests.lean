@@ -1095,7 +1095,7 @@ def test_touch_group_majority_shares_result_same_frame : RuntimeCase :=
   let (nextState, events, _, _) := Scheduler.stepFrame sharedTouchGroupState input
   let groupStored :=
     match nextState.touchGroupStates with
-    | [group] => group.groupId == 7 && group.count == 3 && group.size == 3
+    | [group] => group.groupId == 7 && group.count == 2 && group.size == 3
     | _ => false
   match events with
   | [evt1, evt2, evt3] =>
@@ -1111,7 +1111,7 @@ def test_touch_group_majority_shares_result_same_frame : RuntimeCase :=
           && evt2.grade = evt3.grade
           && evt1.diff = evt2.diff
           && evt2.diff = evt3.diff)
-        "grouped touch majority shares the judged result to the later sibling in the same frame"
+        "grouped touch majority shares the result without registering the shared sibling again"
   | _ => passCase "touch_group_majority_shares_result_same_frame" false "expected three touch events in one frame"
 
 private def touchGroupSharedConvertedGradeState : InputModel.GameState :=
@@ -3872,14 +3872,69 @@ private def touchHoldGroupShareState : InputModel.GameState :=
 def test_touch_hold_head_can_resolve_from_shared_touch_group : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame touchHoldGroupShareState input
-  match events, nextState.touchHoldQueues.getD .A3 { notes := [] }, nextState.activeTouchHolds with
-  | [], queueAfter, holdsAfter =>
-      let resolved := holdsAfter.any (fun entry => entry.1 == .A3 && match entry.2.state with | .HeadJudged .Perfect => true | _ => false)
+  match events, nextState.touchHoldQueues.getD .A3 { notes := [] },
+      nextState.activeTouchHolds, nextState.touchGroupStates with
+  | [], queueAfter, holdsAfter, [groupAfter] =>
+      let resolved :=
+        holdsAfter.any (fun entry =>
+          entry.1 == .A3 && match entry.2.state with | .HeadJudged .Perfect => true | _ => false)
+      let groupUnchanged := groupAfter.groupId = 12 && groupAfter.count = 2 && groupAfter.size = 3
       passCase "touch_hold_head_can_resolve_from_shared_touch_group"
-        (queueAfter.currentIndex = 1 && resolved)
-        "reference-style touch-hold head can resolve from the shared touch group majority without its own click"
-  | _, _, _ =>
-      passCase "touch_hold_head_can_resolve_from_shared_touch_group" false "expected silent head resolution with queue advance"
+        (queueAfter.currentIndex = 1 && resolved && groupUnchanged)
+        "touch-hold shared head resolution must not register another touch-group result"
+  | _, _, _, _ =>
+      passCase "touch_hold_head_can_resolve_from_shared_touch_group" false
+        "expected silent head resolution with queue advance"
+
+private def touchHoldDirectHeadSingleGroupMemberState : InputModel.GameState :=
+  let holdA1 : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 3700 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 800000
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchGroupId := some 370
+    , touchGroupSize := 2 }
+  let holdA2 : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 3701 }
+    , start := .sensor .A2
+    , state := .HeadJudgeable
+    , length := dur 800000
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchGroupId := some 370
+    , touchGroupSize := 2 }
+  { currentTime := tp 984000
+  , touchHoldQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [holdA1] }
+      else if area == .A2 then { notes := [holdA2] }
+      else { notes := [] })
+  , activeTouchHolds := [(.A1, holdA1), (.A2, holdA2)] }
+
+def test_touch_hold_head_registers_touch_group_only_on_direct_judgment_edge : RuntimeCase :=
+  let firstInput := mkButtonFrameInput [] [] [.A1] [] (dur 16000)
+  let (stateAfterFirst, firstEvents, _, _) :=
+    Scheduler.stepFrame touchHoldDirectHeadSingleGroupMemberState firstInput
+  let secondInput := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (stateAfterSecond, secondEvents, _, _) := Scheduler.stepFrame stateAfterFirst secondInput
+  let groupCountOk :=
+    match stateAfterSecond.touchGroupStates with
+    | [group] => group.groupId = 370 && group.count = 1 && group.size = 2
+    | _ => false
+  let firstStillJudged :=
+    stateAfterSecond.activeTouchHolds.any (fun entry =>
+      entry.1 = .A1 && match entry.2.state with | .HeadJudged .Perfect => true | _ => false)
+  let secondStillUnresolved :=
+    stateAfterSecond.activeTouchHolds.any (fun entry =>
+      entry.1 = .A2 && match entry.2.state with | .HeadJudgeable => true | _ => false)
+  passCase "touch_hold_head_registers_touch_group_only_on_direct_judgment_edge"
+    (firstEvents.isEmpty
+      && secondEvents.isEmpty
+      && groupCountOk
+      && firstStillJudged
+      && secondStillUnresolved)
+    "a judged touch-hold head must not re-register itself on later active frames"
 
 private def touchHoldHeadUsesTouchGroupNotBodyGroupState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
@@ -4685,6 +4740,7 @@ def all : List RuntimeCase :=
   , test_same_area_consecutive_touch_holds_advance_shared_frontier
   , test_unlocked_touch_frontier_still_allows_older_touch_hold
   , test_touch_hold_head_can_resolve_from_shared_touch_group
+  , test_touch_hold_head_registers_touch_group_only_on_direct_judgment_edge
   , test_touch_hold_head_share_uses_touch_group_not_body_group
   , test_touch_hold_head_share_does_not_resolve_from_body_group_state
   , test_touch_hold_head_share_does_not_consume_sensor_click
@@ -5038,6 +5094,10 @@ theorem test_same_area_consecutive_touch_holds_advance_shared_frontier_proof :
 
 theorem test_unlocked_touch_frontier_still_allows_older_touch_hold_proof :
     test_unlocked_touch_frontier_still_allows_older_touch_hold.passed = true := by native_decide
+
+theorem test_touch_hold_head_registers_touch_group_only_on_direct_judgment_edge_proof :
+    test_touch_hold_head_registers_touch_group_only_on_direct_judgment_edge.passed = true := by
+  native_decide
 
 theorem test_touch_hold_head_share_does_not_consume_sensor_click_proof :
     test_touch_hold_head_share_does_not_consume_sensor_click.passed = true := by native_decide
