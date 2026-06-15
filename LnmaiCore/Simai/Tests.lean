@@ -244,34 +244,43 @@ def test_slide_modifiers : ParityCase :=
       | _, _ => supportedCase "slide_modifiers" false "expected one slide token"
   | .error err => supportedCase "slide_modifiers" false s!"unexpected parse error: {err.message}"
 
-def test_slide_break_on_segment : ParityCase :=
-  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3b[4:1],\n" with
+private def slideBreakFlagsMatch (noteText : String) (headBreak bodyBreak : Bool) : Bool :=
+  match parseLevel1 s!"&first=0\n&inote_1=\n(120)\n{noteText},\n" with
   | .ok chart =>
-      match chart.inspection.tokens, chart.semantic.normalized.slides with
-      | tok :: _, slide :: _ =>
-          supportedCase "slide_break_on_segment"
-            (!tok.isBreak && tok.isSlideBreak && !slide.isBreak && slide.isSlideBreak)
-            "segment-local slide break is separate from head break"
-      | _, _ => supportedCase "slide_break_on_segment" false "expected one slide token"
-  | .error err => supportedCase "slide_break_on_segment" false s!"unexpected parse error: {err.message}"
+      match chart.inspection.tokens, chart.semantic.normalized.slides,
+          chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
+      | tok :: _, slide :: _, head :: _, body :: _ =>
+          (tok.isBreak == headBreak) &&
+          (tok.isSlideBreak == bodyBreak) &&
+          (slide.isBreak == headBreak) &&
+          (slide.isSlideBreak == bodyBreak) &&
+          (head.isBreak == headBreak) &&
+          (body.isBreak == bodyBreak)
+      | _, _, _, _ => false
+  | .error _ => false
+
+def test_slide_break_on_segment : ParityCase :=
+  supportedCase "slide_break_on_segment"
+    (slideBreakFlagsMatch "1-3b[4:1]" false true &&
+     slideBreakFlagsMatch "1>3b[4:1]" false true &&
+     slideBreakFlagsMatch "1w5b[4:1]" false true)
+    "segment-local slide break is separate from head break for line, circle, and wifi shapes"
 
 def test_lowered_slide_break_split_uses_segment_break_for_body : ParityCase :=
   let segmentBody :=
-    match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3b[4:1],\n" with
-    | .ok chart =>
-        match chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
-        | head :: _, body :: _ => !head.isBreak && body.isBreak
-        | _, _ => false
-    | .error _ => false
+    slideBreakFlagsMatch "1-3b[4:1]" false true &&
+    slideBreakFlagsMatch "1>3b[4:1]" false true &&
+    slideBreakFlagsMatch "1w5b[4:1]" false true
   let headOnlyBreak :=
-    match parseLevel1 "&first=0\n&inote_1=\n(120)\n1b-3[4:1],\n" with
-    | .ok chart =>
-        match chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
-        | head :: _, body :: _ => head.isBreak && !body.isBreak
-        | _, _ => false
-    | .error _ => false
+    slideBreakFlagsMatch "1b-3[4:1]" true false &&
+    slideBreakFlagsMatch "1b>3[4:1]" true false &&
+    slideBreakFlagsMatch "1bw5[4:1]" true false
+  let headAndBodyBreak :=
+    slideBreakFlagsMatch "1b-3b[4:1]" true true &&
+    slideBreakFlagsMatch "1b>3b[4:1]" true true &&
+    slideBreakFlagsMatch "1bw5b[4:1]" true true
   supportedCase "lowered_slide_break_split_uses_segment_break_for_body"
-    (segmentBody && headOnlyBreak)
+    (segmentBody && headOnlyBreak && headAndBodyBreak)
     "lowered slide heads use head break while lowered slide bodies use segment-local slide break"
 
 def test_simultaneous_notes_slash : ParityCase :=

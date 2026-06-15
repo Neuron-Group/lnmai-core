@@ -125,12 +125,18 @@ def splitTopLevel (sep : Char) (s : String) : List String :=
 def splitEntryTokens (entry : String) : List String :=
   (splitTopLevel '/' entry).map trim |>.filter (fun t => t ≠ "")
 
+private def takeUntilSlideMark (text : String) : String :=
+  let rec loop : List Char → List Char → String
+    | [], acc => String.ofList acc.reverse
+    | c :: rest, acc =>
+        if isSlideMarkChar c then String.ofList acc.reverse
+        else loop rest (c :: acc)
+  loop text.toList []
+
 def parseHeadBreak (token : String) : Bool :=
   let t := stripPrefixDirectives token
   if isSlideText t then
-    match splitTopLevel '-' t |>.head? with
-    | some pre => pre.contains 'b'
-    | none => t.contains 'b'
+    (takeUntilSlideMark t).contains 'b'
   else
     t.contains 'b'
 
