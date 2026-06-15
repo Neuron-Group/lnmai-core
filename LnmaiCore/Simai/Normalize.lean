@@ -134,8 +134,7 @@ private def applyConnectedSlideMetadata (slides : List NormalizedSlide) : List N
             loop rest none none none none ({ slide with isConnSlide := false, isGroupHead := false, isGroupEnd := false, parentNoteIndex := none } :: acc)
   loop slides none none none none []
 
-private def slideCanFoldMultiplicity (left right : NormalizedSlide) : Bool :=
-  left.sourceGroupId.isNone && right.sourceGroupId.isNone &&
+private def slideFoldFieldsMatch (left right : NormalizedSlide) : Bool :=
   left.headTiming == right.headTiming &&
   left.slot == right.slot &&
   left.length == right.length &&
@@ -154,19 +153,72 @@ private def slideCanFoldMultiplicity (left right : NormalizedSlide) : Bool :=
   left.isForceStar == right.isForceStar &&
   left.isFakeRotate == right.isFakeRotate &&
   left.isSlideBreak == right.isSlideBreak &&
+  left.sourceGroupIndex == right.sourceGroupIndex &&
+  left.sourceGroupSize == right.sourceGroupSize &&
   left.simaiShape == right.simaiShape
 
-private def insertFoldedSlideMultiplicity (slide : NormalizedSlide) :
-    List NormalizedSlide → List NormalizedSlide
-  | [] => [slide]
-  | head :: rest =>
-      if slideCanFoldMultiplicity head slide then
-        { head with multiple := head.multiple + slide.multiple } :: rest
+private def takeSameSourceGroup (gid : Nat) :
+    List NormalizedSlide → List NormalizedSlide × List NormalizedSlide
+  | [] => ([], [])
+  | slide :: rest =>
+      if slide.sourceGroupId == some gid then
+        let (group, remaining) := takeSameSourceGroup gid rest
+        (slide :: group, remaining)
       else
-        head :: insertFoldedSlideMultiplicity slide rest
+        ([], slide :: rest)
+
+private def splitSlideMultiplicityUnitsFuel :
+    Nat → List NormalizedSlide → List (List NormalizedSlide)
+  | 0, _ => []
+  | _ + 1, [] => []
+  | fuel + 1, slide :: rest =>
+      match slide.sourceGroupId with
+      | none => [slide] :: splitSlideMultiplicityUnitsFuel fuel rest
+      | some gid =>
+          let (groupTail, remaining) := takeSameSourceGroup gid rest
+          (slide :: groupTail) :: splitSlideMultiplicityUnitsFuel fuel remaining
+
+private def splitSlideMultiplicityUnits (slides : List NormalizedSlide) :
+    List (List NormalizedSlide) :=
+  splitSlideMultiplicityUnitsFuel slides.length slides
+
+private def slideMultiplicityUnitsCanFold
+    (left right : List NormalizedSlide) : Bool :=
+  match left, right with
+  | leftHead :: _, rightHead :: _ =>
+      match leftHead.sourceGroupId, rightHead.sourceGroupId with
+      | none, none =>
+          match left, right with
+          | [leftSlide], [rightSlide] => slideFoldFieldsMatch leftSlide rightSlide
+          | _, _ => false
+      | some leftGid, some rightGid =>
+          leftGid != rightGid &&
+          left.length == right.length &&
+          (List.zip left right).all (fun (leftSlide, rightSlide) =>
+            slideFoldFieldsMatch leftSlide rightSlide)
+      | _, _ => false
+  | _, _ => false
+
+private def mergeSlideMultiplicityUnit
+    (left right : List NormalizedSlide) : List NormalizedSlide :=
+  (List.zip left right).map (fun (leftSlide, rightSlide) =>
+    { leftSlide with multiple := leftSlide.multiple + rightSlide.multiple })
+
+private def insertFoldedSlideMultiplicityUnit (unit : List NormalizedSlide) :
+    List (List NormalizedSlide) → List (List NormalizedSlide)
+  | [] => [unit]
+  | head :: rest =>
+      if slideMultiplicityUnitsCanFold head unit then
+        mergeSlideMultiplicityUnit head unit :: rest
+      else
+        head :: insertFoldedSlideMultiplicityUnit unit rest
 
 private def foldSlideMultiplicity (slides : List NormalizedSlide) : List NormalizedSlide :=
-  slides.foldl (fun acc slide => insertFoldedSlideMultiplicity slide acc) []
+  let units :=
+    (splitSlideMultiplicityUnits slides).foldl
+      (fun acc unit => insertFoldedSlideMultiplicityUnit unit acc)
+      []
+  units.foldl (fun acc unit => acc ++ unit) []
 
 def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToken) : NormalizedChart × List SlideNoteSemantics :=
   let (_, taps, holds, touches, touchHolds, slides, slideDebug, slideSemantics) :=

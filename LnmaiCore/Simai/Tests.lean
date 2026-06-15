@@ -416,6 +416,51 @@ def test_identical_simultaneous_slides_fold_body_multiplicity : ParityCase :=
       supportedCase "identical_simultaneous_slides_fold_body_multiplicity" false
         s!"unexpected parse error: {err.message}"
 
+def test_identical_simultaneous_connected_slides_fold_group_multiplicity : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]/1-3[4:1]*>5[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides, chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
+      | [firstNormalized, secondNormalized], [head1, head2], [firstBody, secondBody] =>
+          supportedCase "identical_simultaneous_connected_slides_fold_group_multiplicity"
+            (chart.inspection.tokens.length = 4 &&
+             firstNormalized.multiple = 2 &&
+             secondNormalized.multiple = 2 &&
+             firstNormalized.isConnSlide &&
+             secondNormalized.isConnSlide &&
+             firstNormalized.isGroupHead &&
+             !firstNormalized.isGroupEnd &&
+             !secondNormalized.isGroupHead &&
+             secondNormalized.isGroupEnd &&
+             secondNormalized.parentNoteIndex = some firstNormalized.noteIndex &&
+             firstBody.multiple = 2 &&
+             secondBody.multiple = 2 &&
+             firstBody.isConnSlide &&
+             secondBody.isConnSlide &&
+             secondBody.parentNoteIndex = some firstBody.noteIndex &&
+             head1.logicalSlideId = firstBody.logicalSlideId &&
+             head2.logicalSlideId = firstBody.logicalSlideId &&
+             head1.noteIndex != head2.noteIndex)
+            "identical simultaneous connected slide chains fold as one MajdataPlay Multiple group"
+      | _, _, _ =>
+          supportedCase "identical_simultaneous_connected_slides_fold_group_multiplicity" false
+            "expected four source tokens, two folded connected bodies, and two lowered heads"
+  | .error err =>
+      supportedCase "identical_simultaneous_connected_slides_fold_group_multiplicity" false
+        s!"unexpected parse error: {err.message}"
+
+def test_connected_slide_multiplicity_requires_whole_group_match : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]/1-3[4:1]*>6[4:1],\n" with
+  | .ok chart =>
+      supportedCase "connected_slide_multiplicity_requires_whole_group_match"
+        (chart.semantic.normalized.slides.length = 4 &&
+         chart.semantic.lowered.slides.length = 4 &&
+         chart.semantic.normalized.slides.all (fun slide => slide.multiple = 1) &&
+         chart.semantic.lowered.slides.all (fun slide => slide.multiple = 1))
+        "connected slide folding compares the whole group and does not fold a shared prefix segment alone"
+  | .error err =>
+      supportedCase "connected_slide_multiplicity_requires_whole_group_match" false
+        s!"unexpected parse error: {err.message}"
+
 def test_lowered_headless_slide_has_body_only : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1?-3[4:1],\n" with
   | .ok chart =>
@@ -684,7 +729,7 @@ def test_reference_other_shape_realpaths : ParityCase :=
             (linePath = ["A1", "A2", "A3"] &&
              vPath = ["A1", "B1", "C", "B3", "A3"] &&
              ppPath = ["A1", "B1", "C", "B4", "A3"] &&
-             turnPath = ["A1", "A2", "A3", "A4", "A5"] &&
+             turnPath = ["A1", "B2", "A3", "B4", "A5"] &&
              sPath = ["A1", "B8", "B7", "C", "B3", "B4", "A5"])
             "non-circle slide families resolve to MajdataPlay single-track judge paths"
       | _ => supportedCase "reference_other_shape_realpaths" false "expected five slides"
@@ -755,10 +800,14 @@ def test_reference_mirrored_turn_realpaths : ParityCase :=
       | shortTurn :: longTurn :: _ =>
           let shortPath := shortTurn.judgeQueues.headD [] |> areaCodes
           let longPath := longTurn.judgeQueues.headD [] |> areaCodes
+          let shortGroups := shortTurn.judgeQueues.headD [] |> areaGroups
+          let longGroups := longTurn.judgeQueues.headD [] |> areaGroups
           supportedCase "reference_mirrored_turn_realpaths"
             (!shortTurn.simaiShape.mirrored && !longTurn.simaiShape.mirrored &&
-             shortPath = ["A1", "A8", "A7", "A7", "C", "B3", "A3"] &&
-             longPath = ["A1", "A8", "A7", "A6", "A5"])
+             shortPath = ["A1", "B8", "A7", "B7", "C", "B3", "A3"] &&
+             longPath = ["A1", "B8", "A7", "B6", "A5"] &&
+             shortGroups = [["Sensor A1"], ["Sensor B8", "Sensor A8"], ["Sensor A7"], ["Sensor B7"], ["Sensor C"], ["Sensor B3"], ["Sensor A3"]] &&
+             longGroups = [["Sensor A1"], ["Sensor B8", "Sensor A8"], ["Sensor A7"], ["Sensor B6", "Sensor A6"], ["Sensor A5"]])
             "turn-family slides currently resolve as direct `V` turns with the expected parser/runtime judge paths"
       | _ => supportedCase "reference_mirrored_turn_realpaths" false "expected two direct turn slides"
   | .error err => supportedCase "reference_mirrored_turn_realpaths" false s!"unexpected parse error: {err.message}"
@@ -863,6 +912,8 @@ def all : List ParityCase :=
   , test_same_head_slide_group_lowering
   , test_lowered_ordinary_slide_splits_head_and_body
   , test_identical_simultaneous_slides_fold_body_multiplicity
+  , test_identical_simultaneous_connected_slides_fold_group_multiplicity
+  , test_connected_slide_multiplicity_requires_whole_group_match
   , test_lowered_headless_slide_has_body_only
   , test_lowered_conn_group_has_one_head_for_first_body
   , test_same_head_wifi_group_rejected
@@ -933,6 +984,11 @@ theorem test_same_head_slide_group_lowering_proof : test_same_head_slide_group_l
 theorem test_lowered_ordinary_slide_splits_head_and_body_proof : test_lowered_ordinary_slide_splits_head_and_body.passed = true := by native_decide
 theorem test_identical_simultaneous_slides_fold_body_multiplicity_proof :
     test_identical_simultaneous_slides_fold_body_multiplicity.passed = true := by native_decide
+theorem test_identical_simultaneous_connected_slides_fold_group_multiplicity_proof :
+    test_identical_simultaneous_connected_slides_fold_group_multiplicity.passed = true := by
+  native_decide
+theorem test_connected_slide_multiplicity_requires_whole_group_match_proof :
+    test_connected_slide_multiplicity_requires_whole_group_match.passed = true := by native_decide
 theorem test_lowered_headless_slide_has_body_only_proof : test_lowered_headless_slide_has_body_only.passed = true := by native_decide
 theorem test_lowered_conn_group_has_one_head_for_first_body_proof : test_lowered_conn_group_has_one_head_for_first_body.passed = true := by native_decide
 theorem test_same_head_wifi_group_rejected_proof : test_same_head_wifi_group_rejected.passed = true := by native_decide
