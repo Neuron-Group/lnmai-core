@@ -464,9 +464,10 @@ private def holdReleasedRecovered (note : HoldNote) : HoldNote :=
 -/
 def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
+  let bodyTiming := if note.isTouchHold then note.params.judgeTiming else timing
   let diff := currentTime - timing
-  let bodyCheckStart := timing + headIgnore
-  let bodyCheckEnd   := timing + note.length - tailIgnore
+  let bodyCheckStart := bodyTiming + headIgnore
+  let bodyCheckEnd   := bodyTiming + note.length - tailIgnore
   let classicBodyCheckStart := timing - tapGoodMs
   let bodyWindowDisabled := !note.isClassic && note.length ≤ headIgnore + tailIgnore
   let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC)

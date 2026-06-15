@@ -375,6 +375,36 @@ def test_touch_hold_local_press_reactivates_released_note : RuntimeCase :=
     (events.isEmpty && recovered)
     "a released touch-hold should also recover when its own sensor is pressed again"
 
+private def touchHoldBodyRawTimingWithOffsetState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := dur 100000, noteIndex := 3600 }
+    , start := .sensor .A1
+    , state := .HeadJudged .Perfect
+    , length := dur 800000
+    , headDiff := Duration.zero
+    , headGrade := .Perfect
+    , isTouchHold := true
+    , touchQueueIndex := 0
+    , touchHoldGroupId := some 360
+    , touchHoldGroupSize := 1 }
+  { currentTime := tp 1240000
+  , activeTouchHolds := [(.A1, hold)] }
+
+def test_touch_hold_body_window_uses_raw_timing_despite_judge_offset : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
+  let (nextState, events, _, _) :=
+    Scheduler.stepFrame touchHoldBodyRawTimingWithOffsetState input
+  let recovered :=
+    nextState.activeTouchHolds.any (fun entry =>
+      entry.1 = .A1 && match entry.2.state with | .BodyHeld => true | _ => false)
+  let registeredBodyTrigger :=
+    match nextState.touchHoldGroupStates with
+    | [group] => group.groupId = 360 && group.triggeredNoteIndices.contains 3600
+    | _ => false
+  passCase "touch_hold_body_window_uses_raw_timing_despite_judge_offset"
+    (events.isEmpty && recovered && registeredBodyTrigger)
+    "MajdataPlay touch-hold body polling uses raw Timing, while head judgment still uses JudgeTimingWithOffset"
+
 private def breakTapState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, isBreak := true, noteIndex := 360 }
@@ -1212,6 +1242,74 @@ def test_touch_group_share_does_not_consume_sensor_click : RuntimeCase :=
   | _, _, _, _ =>
       passCase "touch_group_share_does_not_consume_sensor_click" false
         "expected the shared touch event and a judged touch-hold head"
+
+private def touchGroupShareBehindUnresolvedHeadState : InputModel.GameState :=
+  let head : Lifecycle.TouchNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 4300 }
+    , state := .Judgeable
+    , sensorPos := .A1
+    , touchQueueIndex := 0 }
+  let shared : Lifecycle.TouchNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 4301 }
+    , state := .Judgeable
+    , sensorPos := .A1
+    , touchGroupId := some 430
+    , touchGroupSize := 3
+    , touchQueueIndex := 1 }
+  { currentTime := tp 984000
+  , touchQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [head, shared] } else { notes := [] })
+  , touchGroupStates :=
+      [{ groupId := 430, count := 2, size := 3, grade := .Perfect, diff := Duration.zero }] }
+
+def test_touch_group_share_resolves_non_head_without_skipping_unresolved_head : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (nextState, events, _, _) :=
+    Scheduler.stepFrame touchGroupShareBehindUnresolvedHeadState input
+  let queueAfter := nextState.touchQueues.getD .A1 { notes := [] }
+  let headStillCurrent :=
+    match queueAfter.peek with
+    | some note =>
+        note.params.noteIndex = 4300 && match note.state with | .Judgeable => true | _ => false
+    | none => false
+  let sharedEnded :=
+    match queueAfter.notes[1]? with
+    | some note =>
+        note.params.noteIndex = 4301 && match note.state with | .Ended => true | _ => false
+    | none => false
+  match events with
+  | [evt] =>
+      passCase "touch_group_share_resolves_non_head_without_skipping_unresolved_head"
+        (evt.kind = .Touch
+          && evt.noteIndex = 4301
+          && evt.grade = .Perfect
+          && queueAfter.currentIndex = 0
+          && nextState.touchQueueFrontiers.getD .A1 99 = 1
+          && headStillCurrent
+          && sharedEnded)
+        "automatic touch-group resolution updates the sibling in place and advances only the shared unlock frontier"
+  | _ =>
+      passCase "touch_group_share_resolves_non_head_without_skipping_unresolved_head" false
+        "expected only the non-head shared touch to resolve"
+
+def test_touch_group_share_non_head_is_skipped_after_earlier_head_clears : RuntimeCase :=
+  let noInput := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (stateAfterShare, firstEvents, _, _) :=
+    Scheduler.stepFrame touchGroupShareBehindUnresolvedHeadState noInput
+  let clickInput := mkButtonFrameInput [] [] [.A1] [] (dur 16000)
+  let (nextState, secondEvents, _, _) := Scheduler.stepFrame stateAfterShare clickInput
+  let queueAfter := nextState.touchQueues.getD .A1 { notes := [] }
+  match firstEvents, secondEvents with
+  | [sharedEvt], [headEvt] =>
+      passCase "touch_group_share_non_head_is_skipped_after_earlier_head_clears"
+        (sharedEvt.noteIndex = 4301
+          && headEvt.noteIndex = 4300
+          && queueAfter.currentIndex = 2
+          && nextState.touchQueueFrontiers.getD .A1 99 = 2)
+        "once the earlier head clears, the family queue should normalize past the sibling already resolved by shared group state"
+  | _, _ =>
+      passCase "touch_group_share_non_head_is_skipped_after_earlier_head_clears" false
+        "expected shared sibling first, then the earlier head on its own click"
 
 private def pendingConnChildState : InputModel.GameState :=
   let parentArea : Lifecycle.SlideArea :=
@@ -4042,6 +4140,65 @@ def test_touch_hold_head_share_does_not_consume_sensor_click : RuntimeCase :=
       passCase "touch_hold_head_share_does_not_consume_sensor_click" false
         "expected one shared touch-hold head and one clicked touch-hold head"
 
+private def touchHoldGroupShareBehindUnresolvedHeadState : InputModel.GameState :=
+  let head : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 4400 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0 }
+  let shared : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 4401 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 1
+    , touchGroupId := some 440
+    , touchGroupSize := 3 }
+  { currentTime := tp (-16000)
+  , touchHoldQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [head, shared] } else { notes := [] })
+  , activeTouchHolds := [(.A1, head), (.A1, shared)]
+  , touchGroupStates :=
+      [{ groupId := 440, count := 2, size := 3, grade := .Perfect, diff := Duration.zero }] }
+
+def test_touch_hold_group_share_non_head_normalizes_after_earlier_head_clears :
+    RuntimeCase :=
+  let noInput := mkButtonFrameInput [] [] [] [] (dur 16000)
+  let (stateAfterShare, firstEvents, _, _) :=
+    Scheduler.stepFrame touchHoldGroupShareBehindUnresolvedHeadState noInput
+  let firstQueue := stateAfterShare.touchHoldQueues.getD .A1 { notes := [] }
+  let firstHeadStillCurrent :=
+    match firstQueue.peek with
+    | some note =>
+        note.params.noteIndex = 4400 && match note.state with | .HeadJudgeable => true | _ => false
+    | none => false
+  let sharedHeadResolved :=
+    stateAfterShare.activeTouchHolds.any (fun entry =>
+      entry.1 = .A1 && entry.2.params.noteIndex = 4401 &&
+        match entry.2.state with | .HeadJudged .Perfect => true | _ => false)
+  let clickInput := mkButtonFrameInput [] [] [.A1] [.A1] (dur 16000)
+  let (nextState, secondEvents, _, _) := Scheduler.stepFrame stateAfterShare clickInput
+  let queueAfter := nextState.touchHoldQueues.getD .A1 { notes := [] }
+  let bothResolved :=
+    nextState.activeTouchHolds.all (fun entry =>
+      match entry with
+      | (.A1, hold) => match hold.state with | .HeadJudged .Perfect => true | _ => false
+      | _ => false)
+  passCase "touch_hold_group_share_non_head_normalizes_after_earlier_head_clears"
+    (firstEvents.isEmpty
+      && secondEvents.isEmpty
+      && firstQueue.currentIndex = 0
+      && stateAfterShare.touchQueueFrontiers.getD .A1 99 = 1
+      && firstHeadStillCurrent
+      && sharedHeadResolved
+      && queueAfter.currentIndex = 2
+      && nextState.touchQueueFrontiers.getD .A1 99 = 2
+      && bothResolved)
+    "a touch-hold shared head may resolve behind an earlier head, then the family queue skips it after the earlier head clears"
+
 private def touchHoldHeadShareTooLateState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 396 }
@@ -4656,6 +4813,7 @@ def all : List RuntimeCase :=
   , test_classic_hold_late_boundary_is_strict
   , test_touch_hold_group_share_requires_strict_majority
   , test_touch_hold_body_group_exit_shrinks_majority_denominator
+  , test_touch_hold_body_window_uses_raw_timing_despite_judge_offset
   , test_conn_child_wifi_parent_pending_finish_becomes_checkable
   , test_wifi_too_late_two_single_tails_is_lategood_by_max_remaining
   , test_overlapping_slides_can_both_progress_from_one_sensor_hold
@@ -4671,6 +4829,8 @@ def all : List RuntimeCase :=
   , test_touch_group_share_reuses_converted_grade_without_second_conversion
   , test_touch_group_share_does_not_override_too_late_miss
   , test_touch_group_share_does_not_consume_sensor_click
+  , test_touch_group_share_resolves_non_head_without_skipping_unresolved_head
+  , test_touch_group_share_non_head_is_skipped_after_earlier_head_clears
   , test_conn_child_pending_finish_becomes_checkable
   , test_conn_child_finished_parent_becomes_checkable
   , test_conn_parent_not_force_finished_without_child_progress
@@ -4744,6 +4904,7 @@ def all : List RuntimeCase :=
   , test_touch_hold_head_share_uses_touch_group_not_body_group
   , test_touch_hold_head_share_does_not_resolve_from_body_group_state
   , test_touch_hold_head_share_does_not_consume_sensor_click
+  , test_touch_hold_group_share_non_head_normalizes_after_earlier_head_clears
   , test_touch_hold_head_share_does_not_override_too_late_miss
   , test_touch_hold_too_late_head_does_not_consume_sensor_click
   , test_scheduler_policy_touch_runs_before_touch_hold_group_share
@@ -4810,6 +4971,10 @@ theorem test_touch_hold_body_majority_reactivates_released_note_proof :
 theorem test_touch_hold_local_press_reactivates_released_note_proof :
     test_touch_hold_local_press_reactivates_released_note.passed = true := by native_decide
 
+theorem test_touch_hold_body_window_uses_raw_timing_despite_judge_offset_proof :
+    test_touch_hold_body_window_uses_raw_timing_despite_judge_offset.passed = true := by
+  native_decide
+
 theorem test_classic_hold_fast_boundary_is_strict_proof :
     test_classic_hold_fast_boundary_is_strict.passed = true := by native_decide
 
@@ -4818,6 +4983,10 @@ theorem test_classic_hold_late_boundary_is_strict_proof :
 
 theorem test_touch_hold_group_share_requires_strict_majority_proof :
     test_touch_hold_group_share_requires_strict_majority.passed = true := by native_decide
+
+theorem test_touch_hold_body_group_exit_shrinks_majority_denominator_proof :
+    test_touch_hold_body_group_exit_shrinks_majority_denominator.passed = true := by
+  native_decide
 
 theorem test_conn_child_wifi_parent_pending_finish_becomes_checkable_proof :
     test_conn_child_wifi_parent_pending_finish_becomes_checkable.passed = true := by native_decide
@@ -4872,6 +5041,14 @@ theorem test_touch_group_share_does_not_override_too_late_miss_proof :
 
 theorem test_touch_group_share_does_not_consume_sensor_click_proof :
     test_touch_group_share_does_not_consume_sensor_click.passed = true := by native_decide
+
+theorem test_touch_group_share_resolves_non_head_without_skipping_unresolved_head_proof :
+    test_touch_group_share_resolves_non_head_without_skipping_unresolved_head.passed = true := by
+  native_decide
+
+theorem test_touch_group_share_non_head_is_skipped_after_earlier_head_clears_proof :
+    test_touch_group_share_non_head_is_skipped_after_earlier_head_clears.passed = true := by
+  native_decide
 
 theorem test_conn_child_pending_finish_becomes_checkable_proof :
     test_conn_child_pending_finish_becomes_checkable.passed = true := by native_decide
@@ -5101,6 +5278,10 @@ theorem test_touch_hold_head_registers_touch_group_only_on_direct_judgment_edge_
 
 theorem test_touch_hold_head_share_does_not_consume_sensor_click_proof :
     test_touch_hold_head_share_does_not_consume_sensor_click.passed = true := by native_decide
+
+theorem test_touch_hold_group_share_non_head_normalizes_after_earlier_head_clears_proof :
+    test_touch_hold_group_share_non_head_normalizes_after_earlier_head_clears.passed = true := by
+  native_decide
 
 theorem test_touch_hold_head_share_does_not_override_too_late_miss_proof :
     test_touch_hold_head_share_does_not_override_too_late_miss.passed = true := by native_decide
