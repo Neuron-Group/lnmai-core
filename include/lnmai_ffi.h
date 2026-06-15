@@ -11,6 +11,8 @@ extern "C" {
 lean_object * initialize_lnmai_x2dcore_LnmaiCore(uint8_t builtin);
 lean_object * initialize_lnmai_x2dcore_LnmaiCore_FFI(uint8_t builtin);
 
+lean_object * lnmai_ffi_version_json(void);
+
 lean_object * lnmai_parse_frontend_chart_json(lean_object * content, uint32_t level_index);
 lean_object * lnmai_parse_frontend_semantic_chart_json(lean_object * content, uint32_t level_index);
 lean_object * lnmai_parse_frontend_inspection_chart_json(lean_object * content, uint32_t level_index);
@@ -36,6 +38,14 @@ lean_object * lnmai_step_game_state_handle_light(uint64_t handle, lean_object * 
 static inline uint8_t lnmai_initialize_runtime(void) {
   lean_initialize();
   lean_object * result = initialize_lnmai_x2dcore_LnmaiCore(1);
+  if (lean_io_result_is_error(result)) {
+    lean_io_result_show_error(result);
+    lean_dec_ref(result);
+    return 0;
+  }
+  lean_dec_ref(result);
+
+  result = initialize_lnmai_x2dcore_LnmaiCore_FFI(1);
   if (lean_io_result_is_error(result)) {
     lean_io_result_show_error(result);
     lean_dec_ref(result);

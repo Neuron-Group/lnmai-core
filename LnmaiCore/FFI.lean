@@ -16,6 +16,8 @@ namespace LnmaiCore.FFI
 
 open Std
 
+def ffiAbiVersion : Nat := 1
+
 private def jsonString (json : Json) : String :=
   Json.compress json
 
@@ -88,6 +90,11 @@ initialize runtimeRegistryMutex : Std.Mutex RuntimeRegistry ← Std.Mutex.new {}
 
 private def makeHandleJson (handle : UInt64) : Json :=
   Json.mkObj [("handle", toJson handle)]
+
+private def makeVersionJson : Json :=
+  Json.mkObj
+    [ ("abiVersion", toJson ffiAbiVersion)
+    , ("schema", Json.str "lnmai-core-ffi-json") ]
 
 private def makeLoadedChartSummary (chartSpec : ChartLoader.ChartSpec) : LoadedChartSummary :=
   { tapCount := chartSpec.taps.length
@@ -231,6 +238,10 @@ private def eraseHandleState (handle : UInt64) : IO Bool := do
       let nextRegistry : RuntimeRegistry := { registry with sessions := registry.sessions.erase handle }
       set nextRegistry
     pure present
+
+@[export lnmai_ffi_version_json]
+def ffiVersionJson : IO String :=
+  pure <| jsonString <| okJson makeVersionJson
 
 @[export lnmai_parse_frontend_chart_json]
 def parseFrontendChartJson (content : @& String) (levelIndex : UInt32) : String :=
