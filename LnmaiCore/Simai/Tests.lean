@@ -220,6 +220,98 @@ def test_touch_note : ParityCase :=
         "touch and touch-hold tokenize and lower"
   | .error err => supportedCase "touch_note" false s!"unexpected parse error: {err.message}"
 
+def test_slash_each_touch_allocates_touch_group : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\nA1/D1,\n" with
+  | .ok chart =>
+      let state := ChartLoader.buildGameState chart.semantic.lowered
+      match chart.semantic.lowered.touches,
+          (InputModel.sensorQueueAt state.touchQueues SensorArea.A1).notes,
+          (InputModel.sensorQueueAt state.touchQueues SensorArea.D1).notes with
+      | [left, right], [runtimeLeft], [runtimeRight] =>
+          supportedCase "slash_each_touch_allocates_touch_group"
+            (left.sourceGroupId.isSome &&
+             left.sourceGroupId = right.sourceGroupId &&
+             runtimeLeft.touchGroupId.isSome &&
+             runtimeLeft.touchGroupId = runtimeRight.touchGroupId &&
+             runtimeLeft.touchGroupSize = 2 &&
+             runtimeRight.touchGroupSize = 2)
+            "slash-simultaneous connected touches should receive MajdataPlay-style touch groups"
+      | _, _, _ =>
+          supportedCase "slash_each_touch_allocates_touch_group" false
+            "expected two lowered touches and one runtime touch per sensor"
+  | .error err =>
+      supportedCase "slash_each_touch_allocates_touch_group" false
+        s!"unexpected parse error: {err.message}"
+
+def test_slash_each_touchhold_allocates_head_and_body_groups : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\nA1h[4:1]/D1h[4:1],\n" with
+  | .ok chart =>
+      let state := ChartLoader.buildGameState chart.semantic.lowered
+      match chart.semantic.lowered.touchHolds,
+          (InputModel.sensorQueueAt state.touchHoldQueues SensorArea.A1).notes,
+          (InputModel.sensorQueueAt state.touchHoldQueues SensorArea.D1).notes,
+          state.touchHoldGroupStates with
+      | [left, right], [runtimeLeft], [runtimeRight], [bodyGroup] =>
+          supportedCase "slash_each_touchhold_allocates_head_and_body_groups"
+            (left.sourceGroupId.isSome &&
+             left.sourceGroupId = right.sourceGroupId &&
+             runtimeLeft.touchGroupId.isSome &&
+             runtimeLeft.touchGroupId = runtimeRight.touchGroupId &&
+             runtimeLeft.touchGroupSize = 2 &&
+             runtimeRight.touchGroupSize = 2 &&
+             runtimeLeft.touchHoldGroupId.isSome &&
+             runtimeLeft.touchHoldGroupId = runtimeRight.touchHoldGroupId &&
+             runtimeLeft.touchHoldGroupSize = 2 &&
+             runtimeRight.touchHoldGroupSize = 2 &&
+             bodyGroup.memberNoteIndices.length = 2)
+            "slash-simultaneous touch-holds should receive both head touch groups and body groups"
+      | _, _, _, _ =>
+          supportedCase "slash_each_touchhold_allocates_head_and_body_groups" false
+            "expected two lowered touch-holds, runtime queue entries, and one body group"
+  | .error err =>
+      supportedCase "slash_each_touchhold_allocates_head_and_body_groups" false
+        s!"unexpected parse error: {err.message}"
+
+def test_touch_nohead_slide_each_suppression_matches_reference : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\nA1/1?-3[4:1],\n" with
+  | .ok chart =>
+      let state := ChartLoader.buildGameState chart.semantic.lowered
+      match chart.semantic.lowered.touches,
+          (InputModel.sensorQueueAt state.touchQueues SensorArea.A1).notes with
+      | [touch], [runtimeTouch] =>
+          supportedCase "touch_nohead_slide_each_suppression_matches_reference"
+            (touch.sourceGroupId.isNone && runtimeTouch.touchGroupId.isNone)
+            "MajdataPlay suppresses touch Each when only no-head slides accompany one touch"
+      | _, _ =>
+          supportedCase "touch_nohead_slide_each_suppression_matches_reference" false
+            "expected one lowered and runtime touch"
+  | .error err =>
+      supportedCase "touch_nohead_slide_each_suppression_matches_reference" false
+        s!"unexpected parse error: {err.message}"
+
+def test_touchhold_nohead_slide_still_allocates_each_group : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\nA1h[4:1]/1?-3[4:1],\n" with
+  | .ok chart =>
+      let state := ChartLoader.buildGameState chart.semantic.lowered
+      match chart.semantic.lowered.touchHolds,
+          (InputModel.sensorQueueAt state.touchHoldQueues SensorArea.A1).notes,
+          state.touchHoldGroupStates with
+      | [touchHold], [runtimeHold], [bodyGroup] =>
+          supportedCase "touchhold_nohead_slide_still_allocates_each_group"
+            (touchHold.sourceGroupId.isSome &&
+             runtimeHold.touchGroupId.isSome &&
+             runtimeHold.touchGroupSize = 1 &&
+             runtimeHold.touchHoldGroupId.isSome &&
+             runtimeHold.touchHoldGroupSize = 1 &&
+             bodyGroup.memberNoteIndices.length = 1)
+            "MajdataPlay keeps touch-hold Each grouping when a no-head slide is the only companion"
+      | _, _, _ =>
+          supportedCase "touchhold_nohead_slide_still_allocates_each_group" false
+            "expected one lowered touch-hold, one runtime touch-hold, and one body group"
+  | .error err =>
+      supportedCase "touchhold_nohead_slide_still_allocates_each_group" false
+        s!"unexpected parse error: {err.message}"
+
 def test_modifiers : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1bfx$,\n2h[4:1]b!,\n" with
   | .ok chart =>
@@ -907,6 +999,10 @@ def all : List ParityCase :=
   , test_slide_note_custom_bpm_star_and_duration
   , test_slide_note_absolute_star_wait_no_hash_and_duration
   , test_touch_note
+  , test_slash_each_touch_allocates_touch_group
+  , test_slash_each_touchhold_allocates_head_and_body_groups
+  , test_touch_nohead_slide_each_suppression_matches_reference
+  , test_touchhold_nohead_slide_still_allocates_each_group
   , test_modifiers
   , test_slide_modifiers
   , test_slide_break_on_segment
@@ -977,6 +1073,14 @@ theorem test_slide_note_duration_and_star_wait_proof : test_slide_note_duration_
 theorem test_slide_note_custom_bpm_star_and_duration_proof : test_slide_note_custom_bpm_star_and_duration.passed = true := by native_decide
 theorem test_slide_note_absolute_star_wait_no_hash_and_duration_proof : test_slide_note_absolute_star_wait_no_hash_and_duration.passed = true := by native_decide
 theorem test_touch_note_proof : test_touch_note.passed = true := by native_decide
+theorem test_slash_each_touch_allocates_touch_group_proof :
+    test_slash_each_touch_allocates_touch_group.passed = true := by native_decide
+theorem test_slash_each_touchhold_allocates_head_and_body_groups_proof :
+    test_slash_each_touchhold_allocates_head_and_body_groups.passed = true := by native_decide
+theorem test_touch_nohead_slide_each_suppression_matches_reference_proof :
+    test_touch_nohead_slide_each_suppression_matches_reference.passed = true := by native_decide
+theorem test_touchhold_nohead_slide_still_allocates_each_group_proof :
+    test_touchhold_nohead_slide_still_allocates_each_group.passed = true := by native_decide
 theorem test_modifiers_proof : test_modifiers.passed = true := by native_decide
 theorem test_slide_modifiers_proof : test_slide_modifiers.passed = true := by native_decide
 theorem test_slide_break_on_segment_proof : test_slide_break_on_segment.passed = true := by native_decide

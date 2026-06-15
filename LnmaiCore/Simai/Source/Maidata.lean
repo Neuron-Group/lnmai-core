@@ -8,6 +8,67 @@ namespace LnmaiCore.Simai
 private def sameEventKey (token : RawNoteToken) (timing : TimePoint) (bpm hSpeed : Rat) (divisor : Nat) : Bool :=
   token.timing == timing && token.bpm == bpm && token.hSpeed == hSpeed && token.divisor == divisor
 
+private def isExpandedSlideGroupChild (token : RawNoteToken) : Bool :=
+  token.kind == .slide &&
+    match token.sourceGroupIndex with
+    | some index => index != 0
+    | none => false
+
+private def majdataTimingNoteCount (tokens : List RawNoteToken) : Nat :=
+  (tokens.filter (fun token => !isExpandedSlideGroupChild token)).length
+
+private def majdataNoHeadSlideCount (tokens : List RawNoteToken) : Nat :=
+  (tokens.filter (fun token =>
+    !isExpandedSlideGroupChild token && token.kind == .slide && token.isSlideNoHead)).length
+
+-- MajdataPlay derives touch Each from the whole timing point, but suppresses
+-- ordinary touch Each when no-head slides are the only companions. Touch-holds
+-- keep Each in that case and join both touch-head and touch-hold body groups.
+private def tagTouchEachGroup (groupId : Nat) (tokens : List RawNoteToken) : List RawNoteToken :=
+  let timingNoteCount := majdataTimingNoteCount tokens
+  let nonNoHeadCount := timingNoteCount - majdataNoHeadSlideCount tokens
+  let touchIsEach := timingNoteCount > 1 && nonNoHeadCount != 1
+  let touchHoldIsEach := timingNoteCount > 1
+  let rec loop (index : Nat) : List RawNoteToken → List RawNoteToken
+    | [] => []
+    | token :: rest =>
+        let shouldTag :=
+          match token.kind with
+          | .touch => touchIsEach
+          | .touchHold => touchHoldIsEach
+          | _ => false
+        if shouldTag then
+          { token with
+            sourceGroupId := some groupId
+            , sourceGroupIndex := some index
+            , sourceGroupSize := some timingNoteCount } :: loop (index + 1) rest
+        else
+          token :: loop index rest
+  loop 0 tokens
+
+private partial def takeSameEventRest
+    (timing : TimePoint) (bpm hSpeed : Rat) (divisor : Nat) :
+    List RawNoteToken → List RawNoteToken × List RawNoteToken
+  | [] => ([], [])
+  | token :: rest =>
+      if sameEventKey token timing bpm hSpeed divisor then
+        let (same, remaining) := takeSameEventRest timing bpm hSpeed divisor rest
+        (token :: same, remaining)
+      else
+        ([], token :: rest)
+
+private partial def annotateTouchEachGroupsFrom (groupId : Nat) :
+    List RawNoteToken → List RawNoteToken
+  | [] => []
+  | token :: rest =>
+      let (same, remaining) :=
+        takeSameEventRest token.timing token.bpm token.hSpeed token.divisor rest
+      let eventTokens := token :: same
+      tagTouchEachGroup groupId eventTokens ++ annotateTouchEachGroupsFrom (groupId + 1) remaining
+
+private def annotateTouchEachGroups (tokens : List RawNoteToken) : List RawNoteToken :=
+  annotateTouchEachGroupsFrom 0 tokens
+
 private def sourceChartFromTokens (tokens : List RawNoteToken) : SourceChart :=
   let rec loop (remaining : List RawNoteToken) (current : Option (TimePoint × Rat × Rat × Nat × List SourceNote)) (acc : List SourceEvent) :=
     match remaining, current with
@@ -79,7 +140,8 @@ def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Exc
     | none => TimePoint.zero
   let cleanedBody := stripComments block.rawBody
   let segments := cleanedBody.splitOn ","
-  let tokens ← parseSegments segments firstOffset baseBpm 1 4 []
+  let rawTokens ← parseSegments segments firstOffset baseBpm 1 4 []
+  let tokens := annotateTouchEachGroups rawTokens
   let _ ← typecheckSlides tokens
   let source := sourceChartFromTokens tokens
   let (normalized, slideNotes) := lowerRawTokens (fun bpm => Time.durationFromRatMicros (Time.bpmMeasureMicrosRat bpm)) tokens
