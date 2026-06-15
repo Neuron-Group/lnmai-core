@@ -2,7 +2,8 @@ namespace MajdataHarness;
 
 public static class ReferenceLikeLogic
 {
-    private const float DeluxeHoldReleaseIgnoreTimeSec = 0.15f;
+    private const float FrameLengthSec = 1f / 60f;
+    private const float DeluxeHoldReleaseIgnoreTimeSec = 2f * FrameLengthSec;
     private const float SlideCheckableLeadTimeSec = 0.05f;
     private const float FloatBoundaryEpsilon = 0.000001f;
 

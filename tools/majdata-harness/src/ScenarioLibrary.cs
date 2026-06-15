@@ -72,6 +72,11 @@ public static class ScenarioLibrary
         },
         new Scenario
         {
+            Name = "Modern hold release past two-frame ignore enters released state",
+            Run = RunModernHoldBodyReleasePastIgnore
+        },
+        new Scenario
+        {
             Name = "Modern hold release before end degrades final result shape",
             Run = RunModernHoldBodyReleasedThenEnded
         },
@@ -544,7 +549,7 @@ public static class ScenarioLibrary
             isHeadJudged: true,
             isButtonPressed: false,
             isSensorPressed: false,
-            priorReleaseTimeSec: 0.10f,
+            priorReleaseTimeSec: 1f / 60f,
             playerReleaseTimeSec: 0f,
             deltaTimeSec: 1f / 60f,
             forceEnd: false);
@@ -555,6 +560,27 @@ public static class ScenarioLibrary
             Tap = new TapResult { IsJudged = false },
             Hold = new HoldHeadResult { IsJudged = true, Grade = JudgeGrade.Perfect, QueueAdvanced = true },
             HoldBody = holdBody
+        };
+    }
+
+    private static ScenarioResult RunModernHoldBodyReleasePastIgnore()
+    {
+        var holdBody = ReferenceLikeLogic.RunModernHoldBodyFrame(
+            isHeadJudged: true,
+            isButtonPressed: false,
+            isSensorPressed: false,
+            priorReleaseTimeSec: 0.10f,
+            playerReleaseTimeSec: 0f,
+            deltaTimeSec: 1f / 60f,
+            forceEnd: false);
+
+        return new ScenarioResult
+        {
+            Name = "modern-hold-release-past-ignore",
+            Tap = new TapResult { IsJudged = false },
+            Hold = new HoldHeadResult { IsJudged = true, Grade = JudgeGrade.Perfect, QueueAdvanced = true },
+            HoldBody = holdBody,
+            Note = "MajdataPlay uses a two-frame deluxe hold release-ignore window; 100ms is already outside it."
         };
     }
 
