@@ -409,7 +409,7 @@ private def groupShareResult (groups : List GroupState) (groupId : Nat) : Option
   | none => none
 
 /--
-  MajdataPlay's `TouchGroup.RegisterResult` is called from `RegisterGrade`, which
+  `TouchGroup.RegisterResult` is called from `RegisterGrade`, which
   only runs after a member's own successful head check. Siblings that merely adopt
   a majority result read the stored grade/diff but do not add another result.
 -/

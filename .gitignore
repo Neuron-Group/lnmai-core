@@ -2,7 +2,9 @@
 /reference
 /tools/**/bin/
 /tools/**/obj/
+/tools/majdata-harness/.vs/
 /tools/MaiMuriDX/
 /tools/collections/
 /tools/simai-parser-server/
+/reference/MaiMuriDX/.idea/
 .DS_Store

@@ -3133,6 +3133,73 @@ def test_same_lane_tap_recursion_stops_when_clicks_exhausted : RuntimeCase :=
       && thirdStillWaiting)
     "tap recursion should not apply a no-input semantic step to the next queued head"
 
+private def fiveSameLaneTapQueueState : InputModel.GameState :=
+  let tap1 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 190 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 0 }
+  let tap2 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 191 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 1 }
+  let tap3 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 192 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 2 }
+  let tap4 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 193 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 3 }
+  let tap5 : Lifecycle.TapNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 194 }
+    , lane := .S1
+    , state := .Waiting
+    , buttonQueueIndex := 4 }
+  { currentTime := TimePoint.zero
+  , buttonQueueFrontiers := ButtonVec.ofFn (fun zone => if zone == .K1 then 0 else 0)
+  , tapQueues := ButtonVec.ofFn (fun zone =>
+      if zone == .K1 then { notes := [tap1, tap2, tap3, tap4, tap5] } else { notes := [] }) }
+
+def test_same_lane_five_taps_two_clicks_leave_three_unjudged : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+        , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed fiveSameLaneTapQueueState batch
+  let queueAfter := nextState.tapQueues.getD .K1 { notes := [] }
+  let remainingNoteIndices := (queueAfter.notes.drop queueAfter.currentIndex).map (fun note => note.params.noteIndex)
+  passCase "same_lane_five_taps_two_clicks_leave_three_unjudged"
+    (events.length = 2
+      && eventNoteIndices events = [190, 191]
+      && queueAfter.currentIndex = 2
+      && nextState.buttonQueueFrontiers.getD .K1 99 = 2
+      && remainingNoteIndices = [192, 193, 194])
+    "when five same-lane taps become judgeable together, two same-frame clicks should judge only two and leave three queued"
+
+def test_same_lane_three_taps_five_clicks_consume_only_three : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+        , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+        , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+        , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1
+        , InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed threeSameLaneTapQueueState batch
+  let queueAfter := nextState.tapQueues.getD .K1 { notes := [] }
+  passCase "same_lane_three_taps_five_clicks_consume_only_three"
+    (events.length = 3
+      && eventNoteIndices events = [180, 181, 182]
+      && queueAfter.currentIndex = 3
+      && nextState.buttonQueueFrontiers.getD .K1 99 = 3
+      && queueAfter.peek.isNone)
+    "when only three same-lane taps are queued, extra same-frame clicks must remain unused after the third judgment"
+
 def test_build_game_state_routes_slide_head_into_tap_queue : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
     { slideHeads := [{ timing := TimePoint.zero, slot := .S1, logicalSlideId := 410, noteIndex := 510 }]
@@ -3535,6 +3602,72 @@ def test_same_area_touch_recursion_stops_when_clicks_exhausted : RuntimeCase :=
       && nextState.touchQueueFrontiers.getD .A1 99 = 2
       && thirdStillWaiting)
     "touch recursion should not apply a no-input semantic step to the next queued head"
+
+private def fiveSameAreaTouchQueueState : InputModel.GameState :=
+  let touch1 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 195 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 0 }
+  let touch2 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 196 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 1 }
+  let touch3 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 197 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 2 }
+  let touch4 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 198 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 3 }
+  let touch5 : Lifecycle.TouchNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 199 }
+    , state := .Waiting
+    , sensorPos := .A1
+    , touchQueueIndex := 4 }
+  { currentTime := TimePoint.zero
+  , touchQueues := SensorVec.ofFn (fun area =>
+      if area == .A1 then { notes := [touch1, touch2, touch3, touch4, touch5] } else { notes := [] }) }
+
+def test_same_area_five_touches_two_clicks_leave_three_unjudged : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed fiveSameAreaTouchQueueState batch
+  let queueAfter := nextState.touchQueues.getD .A1 { notes := [] }
+  let remainingNoteIndices := (queueAfter.notes.drop queueAfter.currentIndex).map (fun note => note.params.noteIndex)
+  passCase "same_area_five_touches_two_clicks_leave_three_unjudged"
+    (events.length = 2
+      && eventNoteIndices events = [195, 196]
+      && queueAfter.currentIndex = 2
+      && nextState.touchQueueFrontiers.getD .A1 99 = 2
+      && remainingNoteIndices = [197, 198, 199])
+    "when five same-area touches become judgeable together, two same-frame sensor clicks should judge only two and leave three queued"
+
+def test_same_area_three_touches_five_clicks_consume_only_three : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events :=
+        [ InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
+        , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1 ] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed threeSameAreaTouchQueueState batch
+  let queueAfter := nextState.touchQueues.getD .A1 { notes := [] }
+  passCase "same_area_three_touches_five_clicks_consume_only_three"
+    (events.length = 3
+      && eventNoteIndices events = [183, 184, 185]
+      && queueAfter.currentIndex = 3
+      && nextState.touchQueueFrontiers.getD .A1 99 = 3
+      && queueAfter.peek.isNone)
+    "when only three same-area touches are queued, extra same-frame sensor clicks must remain unused after the third judgment"
 
 private def sameLaneHoldThenTapState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
@@ -4951,9 +5084,13 @@ def all : List RuntimeCase :=
   , test_same_lane_tap_queue_blocks_second_note_until_first_advances
   , test_same_lane_tap_queue_consumes_multiple_same_frame_clicks
   , test_same_lane_tap_recursion_stops_when_clicks_exhausted
+  , test_same_lane_five_taps_two_clicks_leave_three_unjudged
+  , test_same_lane_three_taps_five_clicks_consume_only_three
   , test_same_area_touch_queue_blocks_second_note_until_first_advances
   , test_same_area_touch_queue_consumes_multiple_same_frame_clicks
   , test_same_area_touch_recursion_stops_when_clicks_exhausted
+  , test_same_area_five_touches_two_clicks_leave_three_unjudged
+  , test_same_area_three_touches_five_clicks_consume_only_three
   , test_build_game_state_routes_slide_head_into_tap_queue
   , test_game_state_json_preserves_tap_family_kind_for_slide_head
   , test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape
@@ -5277,6 +5414,14 @@ theorem test_same_lane_tap_recursion_stops_when_clicks_exhausted_proof :
     test_same_lane_tap_recursion_stops_when_clicks_exhausted.passed = true := by
   native_decide
 
+theorem test_same_lane_five_taps_two_clicks_leave_three_unjudged_proof :
+    test_same_lane_five_taps_two_clicks_leave_three_unjudged.passed = true := by
+  native_decide
+
+theorem test_same_lane_three_taps_five_clicks_consume_only_three_proof :
+    test_same_lane_three_taps_five_clicks_consume_only_three.passed = true := by
+  native_decide
+
 theorem test_build_game_state_routes_slide_head_into_tap_queue_proof :
     test_build_game_state_routes_slide_head_into_tap_queue.passed = true := by native_decide
 
@@ -5316,6 +5461,14 @@ theorem test_same_area_touch_queue_consumes_multiple_same_frame_clicks_proof :
 
 theorem test_same_area_touch_recursion_stops_when_clicks_exhausted_proof :
     test_same_area_touch_recursion_stops_when_clicks_exhausted.passed = true := by
+  native_decide
+
+theorem test_same_area_five_touches_two_clicks_leave_three_unjudged_proof :
+    test_same_area_five_touches_two_clicks_leave_three_unjudged.passed = true := by
+  native_decide
+
+theorem test_same_area_three_touches_five_clicks_consume_only_three_proof :
+    test_same_area_three_touches_five_clicks_consume_only_three.passed = true := by
   native_decide
 
 theorem test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click_proof :
