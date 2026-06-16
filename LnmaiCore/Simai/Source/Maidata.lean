@@ -46,7 +46,7 @@ private def tagTouchEachGroup (groupId : Nat) (tokens : List RawNoteToken) : Lis
           token :: loop index rest
   loop 0 tokens
 
-private partial def takeSameEventRest
+private def takeSameEventRest
     (timing : TimePoint) (bpm hSpeed : Rat) (divisor : Nat) :
     List RawNoteToken → List RawNoteToken × List RawNoteToken
   | [] => ([], [])
@@ -57,14 +57,20 @@ private partial def takeSameEventRest
       else
         ([], token :: rest)
 
-private partial def annotateTouchEachGroupsFrom (groupId : Nat) :
+private def annotateTouchEachGroupsFromFuel (fuel : Nat) (groupId : Nat) :
     List RawNoteToken → List RawNoteToken
   | [] => []
   | token :: rest =>
-      let (same, remaining) :=
-        takeSameEventRest token.timing token.bpm token.hSpeed token.divisor rest
-      let eventTokens := token :: same
-      tagTouchEachGroup groupId eventTokens ++ annotateTouchEachGroupsFrom (groupId + 1) remaining
+      match fuel with
+      | 0 => token :: rest
+      | fuel + 1 =>
+          let (same, remaining) :=
+            takeSameEventRest token.timing token.bpm token.hSpeed token.divisor rest
+          let eventTokens := token :: same
+          tagTouchEachGroup groupId eventTokens ++ annotateTouchEachGroupsFromFuel fuel (groupId + 1) remaining
+
+private def annotateTouchEachGroupsFrom (groupId : Nat) (tokens : List RawNoteToken) : List RawNoteToken :=
+  annotateTouchEachGroupsFromFuel tokens.length groupId tokens
 
 private def annotateTouchEachGroups (tokens : List RawNoteToken) : List RawNoteToken :=
   annotateTouchEachGroupsFrom 0 tokens
@@ -95,7 +101,7 @@ private def parseKeyValueLine (line : String) : Option (String × String) :=
   | key :: rest => some (trim key, trim (String.intercalate "=" rest))
   | _ => none
 
-private partial def collectChartBody (lines : List String) (acc : List String) : List String × List String :=
+private def collectChartBody (lines : List String) (acc : List String) : List String × List String :=
   match lines with
   | [] => (acc.reverse, [])
   | line :: rest =>
@@ -103,26 +109,37 @@ private partial def collectChartBody (lines : List String) (acc : List String) :
         (acc.reverse, line :: rest)
       else
         collectChartBody rest (line :: acc)
+termination_by lines.length
+decreasing_by
+  simp_wf
 
-private partial def parseMaidataLines (lines : List String) (fields : List (String × String)) (charts : List MaidataChartBlock) : MaidataFile :=
+private def parseMaidataLinesFuel
+    (fuel : Nat) (lines : List String) (fields : List (String × String)) (charts : List MaidataChartBlock) :
+    MaidataFile :=
   match lines with
   | [] => { metadata := { fields := fields.reverse }, charts := charts.reverse }
   | line :: rest =>
-      if trim line = "" then
-        parseMaidataLines rest fields charts
-      else if startsWithAmp line then
-        match parseKeyValueLine line with
-        | some (key, value) =>
-            if key.startsWith "&inote_" then
-              let levelIndex := ((key.drop 7).toString.toNat?).getD 0
-              let (bodyLines, remaining) := collectChartBody rest [value]
-              let body := String.intercalate "\n" bodyLines
-              parseMaidataLines remaining fields ({ levelIndex := levelIndex, rawBody := body } :: charts)
-            else
-              parseMaidataLines rest ((key, value) :: fields) charts
-        | none => parseMaidataLines rest fields charts
-      else
-        parseMaidataLines rest fields charts
+      match fuel with
+      | 0 => { metadata := { fields := fields.reverse }, charts := charts.reverse }
+      | fuel + 1 =>
+          if trim line = "" then
+            parseMaidataLinesFuel fuel rest fields charts
+          else if startsWithAmp line then
+            match parseKeyValueLine line with
+            | some (key, value) =>
+                if key.startsWith "&inote_" then
+                  let levelIndex := ((key.drop 7).toString.toNat?).getD 0
+                  let (bodyLines, remaining) := collectChartBody rest [value]
+                  let body := String.intercalate "\n" bodyLines
+                  parseMaidataLinesFuel fuel remaining fields ({ levelIndex := levelIndex, rawBody := body } :: charts)
+                else
+                  parseMaidataLinesFuel fuel rest ((key, value) :: fields) charts
+            | none => parseMaidataLinesFuel fuel rest fields charts
+          else
+            parseMaidataLinesFuel fuel rest fields charts
+
+private def parseMaidataLines (lines : List String) (fields : List (String × String)) (charts : List MaidataChartBlock) : MaidataFile :=
+  parseMaidataLinesFuel (lines.length + 1) lines fields charts
 
 private def metadataField (md : MaidataMetadata) (key : String) : Option String :=
   match md.fields.find? (fun pair => pair.1 = key) with

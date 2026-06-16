@@ -60,7 +60,7 @@ def benchmarkCheckpoint (checkpoint : Checkpoint) : IO Unit := do
       IO.println s!"  avgMicrosPerNote: {microsPerNoteString avgNanos noteCount}"
       IO.println s!"  grades: {formatGradeSummary gradeSummary}"
 
-partial def benchmarkAll : List Checkpoint → IO Unit
+def benchmarkAll : List Checkpoint → IO Unit
   | [] => pure ()
   | checkpoint :: rest => do
       benchmarkCheckpoint checkpoint

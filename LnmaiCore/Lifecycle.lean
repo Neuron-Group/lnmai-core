@@ -775,52 +775,61 @@ def flattenSlideQueues : List SlideQueue → SlideQueue
   | q :: qs => q ++ flattenSlideQueues qs
 
 /-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
-private partial def slideQueueCore
+private def slideQueueCoreFuel
+    (fuel : Nat)
     (noteIndex : Nat) (trackIndex : Option Nat) (emitCmds : Bool) (queue : SlideQueue) (sensorHeld : SensorVec Bool) :
     SlideQueue × List RenderCommand :=
   match queue with
   | [] => ([], [])
   | first :: rest =>
-    let first' := updateSlideArea first sensorHeld
-    match rest with
-    | [] =>
-      if first'.isFinished then
-        let cmds := if emitCmds then [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished] else []
-        ([], cmds)
-      else if first'.on then
-        let cmds := if emitCmds then [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenOn] else []
-        ([first'], cmds)
-      else
-        ([first'], [])
-    | second :: rest2 =>
-      if first'.isSkippable || first'.on then
-        let second' := updateSlideArea second sensorHeld
-        if second'.isFinished then
-          let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds rest2 sensorHeld
-          let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenFinished :: restCmds else []
-          (restQueue, cmds)
-        else if second'.on then
-          let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds (second' :: rest2) sensorHeld
-          let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenOn :: restCmds else []
-          (restQueue, cmds)
-        else if first'.isFinished then
-          let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds (second' :: rest2) sensorHeld
-          let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds else []
-          (restQueue, cmds)
-        else
-          ([first', second'] ++ rest2, [])
-      else if first'.isFinished then
-        let (restQueue, restCmds) := slideQueueCore noteIndex trackIndex emitCmds rest sensorHeld
-        let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds else []
-        (restQueue, cmds)
-      else
-        ([first'] ++ rest, [])
+    match fuel with
+    | 0 => (queue, [])
+    | fuel + 1 =>
+        let first' := updateSlideArea first sensorHeld
+        match rest with
+        | [] =>
+          if first'.isFinished then
+            let cmds := if emitCmds then [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished] else []
+            ([], cmds)
+          else if first'.on then
+            let cmds := if emitCmds then [slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenOn] else []
+            ([first'], cmds)
+          else
+            ([first'], [])
+        | second :: rest2 =>
+          if first'.isSkippable || first'.on then
+            let second' := updateSlideArea second sensorHeld
+            if second'.isFinished then
+              let (restQueue, restCmds) := slideQueueCoreFuel fuel noteIndex trackIndex emitCmds rest2 sensorHeld
+              let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenFinished :: restCmds else []
+              (restQueue, cmds)
+            else if second'.on then
+              let (restQueue, restCmds) := slideQueueCoreFuel fuel noteIndex trackIndex emitCmds (second' :: rest2) sensorHeld
+              let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex second'.arrowProgressWhenOn :: restCmds else []
+              (restQueue, cmds)
+            else if first'.isFinished then
+              let (restQueue, restCmds) := slideQueueCoreFuel fuel noteIndex trackIndex emitCmds (second' :: rest2) sensorHeld
+              let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds else []
+              (restQueue, cmds)
+            else
+              ([first', second'] ++ rest2, [])
+          else if first'.isFinished then
+            let (restQueue, restCmds) := slideQueueCoreFuel fuel noteIndex trackIndex emitCmds rest sensorHeld
+            let cmds := if emitCmds then slideHideBarCmd noteIndex trackIndex first'.arrowProgressWhenFinished :: restCmds else []
+            (restQueue, cmds)
+          else
+            ([first'] ++ rest, [])
+
+private def slideQueueCore
+    (noteIndex : Nat) (trackIndex : Option Nat) (emitCmds : Bool) (queue : SlideQueue) (sensorHeld : SensorVec Bool) :
+    SlideQueue × List RenderCommand :=
+  slideQueueCoreFuel (queue.length + 1) noteIndex trackIndex emitCmds queue sensorHeld
 
 /-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
-partial def replaySlideQueue (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue :=
+def replaySlideQueue (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue :=
   (slideQueueCore 0 none false queue sensorHeld).1
 
-private partial def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue × List RenderCommand :=
+private def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue × List RenderCommand :=
   slideQueueCore noteIndex trackIndex true queue sensorHeld
 
 private def updateSlideQueue (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue × List RenderCommand :=

@@ -39,23 +39,32 @@ private def invalidConnGroupError (token : RawNoteToken) : ParseError :=
   , rawText := token.rawText
   , message := "invalid connection slide group metadata" }
 
-private partial def collectConnGroup
-    (gid : Nat) (expectedSize : Nat) (acc : List TypedSlidePart) (remaining : List RawNoteToken) :
+private def collectConnGroupFuel
+    (fuel : Nat) (gid : Nat) (expectedSize : Nat) (acc : List TypedSlidePart) (remaining : List RawNoteToken) :
     Except ParseError (List TypedSlidePart × List RawNoteToken) := do
   if acc.length = expectedSize then
     pure (acc.reverse, remaining)
   else
-    match remaining with
-    | [] => Except.error <| invalidConnGroupError (acc.head?.map TypedSlidePart.token |>.getD default)
-    | token :: rest =>
-        match token.kind, token.sourceGroupId with
-        | .slide, some tokenGid =>
-            if tokenGid = gid then
-              let part ← typedSlidePart? token
-              collectConnGroup gid expectedSize (part :: acc) rest
-            else
-              Except.error <| invalidConnGroupError token
-        | _, _ => Except.error <| invalidConnGroupError token
+    match fuel with
+    | 0 =>
+        Except.error <| invalidConnGroupError (acc.head?.map TypedSlidePart.token |>.getD default)
+    | fuel + 1 =>
+        match remaining with
+        | [] => Except.error <| invalidConnGroupError (acc.head?.map TypedSlidePart.token |>.getD default)
+        | token :: rest =>
+            match token.kind, token.sourceGroupId with
+            | .slide, some tokenGid =>
+                if tokenGid = gid then
+                  let part ← typedSlidePart? token
+                  collectConnGroupFuel fuel gid expectedSize (part :: acc) rest
+                else
+                  Except.error <| invalidConnGroupError token
+            | _, _ => Except.error <| invalidConnGroupError token
+
+private def collectConnGroup
+    (gid : Nat) (expectedSize : Nat) (acc : List TypedSlidePart) (remaining : List RawNoteToken) :
+    Except ParseError (List TypedSlidePart × List RawNoteToken) :=
+  collectConnGroupFuel remaining.length gid expectedSize acc remaining
 
 private def validateConnGroup (parts : List TypedSlidePart) : Except ParseError TypedSlideExpr := do
   if parts.any (fun part => part.semantics.shape.kind = .wifi) then
@@ -63,32 +72,36 @@ private def validateConnGroup (parts : List TypedSlidePart) : Except ParseError 
   else
     pure (.conn parts)
 
-private partial def buildTypedSlides : List RawNoteToken → Except ParseError (List TypedSlideExpr)
-  | [] => pure []
-  | token :: rest =>
+private def buildTypedSlidesFuel : Nat → List RawNoteToken → Except ParseError (List TypedSlideExpr)
+  | 0, _ => pure []
+  | _ + 1, [] => pure []
+  | fuel + 1, token :: rest =>
       match token.kind with
       | .slide =>
           match token.sourceGroupId, token.sourceGroupIndex, token.sourceGroupSize with
           | some gid, some 0, some size => do
               let part ← typedSlidePart? token
               if size ≤ 1 then
-                let tail ← buildTypedSlides rest
+                let tail ← buildTypedSlidesFuel fuel rest
                 pure (.single part :: tail)
               else
                 let (parts, remaining) ← collectConnGroup gid size [part] rest
                 let expr ← validateConnGroup parts
-                let tail ← buildTypedSlides remaining
+                let tail ← buildTypedSlidesFuel fuel remaining
                 pure (expr :: tail)
           | some _, some idx, some _ =>
               if idx = 0 then
                 Except.error <| invalidConnGroupError token
               else
-                buildTypedSlides rest
+                buildTypedSlidesFuel fuel rest
           | _, _, _ => do
               let part ← typedSlidePart? token
-              let tail ← buildTypedSlides rest
+              let tail ← buildTypedSlidesFuel fuel rest
               pure (.single part :: tail)
-      | _ => buildTypedSlides rest
+      | _ => buildTypedSlidesFuel fuel rest
+
+private def buildTypedSlides (tokens : List RawNoteToken) : Except ParseError (List TypedSlideExpr) :=
+  buildTypedSlidesFuel tokens.length tokens
 
 def typecheckSlides (tokens : List RawNoteToken) : Except ParseError (List TypedSlideExpr) :=
   buildTypedSlides tokens

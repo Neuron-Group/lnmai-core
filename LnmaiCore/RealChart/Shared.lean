@@ -99,7 +99,7 @@ def verifyCheckpoint (checkpoint : Checkpoint) : IO Bool := do
       IO.println s!"  grades: {formatGradeSummary gradeSummary}"
       pure missing.isEmpty
 
-partial def verifyAll : List Checkpoint → IO Bool
+def verifyAll : List Checkpoint → IO Bool
   | [] => pure true
   | checkpoint :: rest => do
       let okHere ← verifyCheckpoint checkpoint

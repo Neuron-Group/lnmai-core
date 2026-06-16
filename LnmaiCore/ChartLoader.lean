@@ -371,49 +371,77 @@ private def touchHoldNeighbors : SensorArea → List SensorArea
 private def containsArea (items : List SensorArea) (value : SensorArea) : Bool :=
   items.any (fun item => item == value)
 
-partial def collectTouchHoldComponent (pending : List SensorArea) (remaining : List SensorArea) (component : List SensorArea) : List SensorArea :=
+private def collectTouchHoldComponentFuel
+    (fuel : Nat) (pending : List SensorArea) (remaining : List SensorArea) (component : List SensorArea) :
+    List SensorArea :=
   match pending with
   | [] => component
   | area :: rest =>
-    if containsArea component area then
-      collectTouchHoldComponent rest remaining component
-    else
-      let neighbors := touchHoldNeighbors area
-      let newlyReached := remaining.filter (fun candidate => containsArea neighbors candidate)
-      let remaining' := remaining.filter (fun candidate => candidate != area && !containsArea neighbors candidate)
-      collectTouchHoldComponent (rest ++ newlyReached) remaining' (area :: component)
+    match fuel with
+    | 0 => component
+    | fuel + 1 =>
+        if containsArea component area then
+          collectTouchHoldComponentFuel fuel rest remaining component
+        else
+          let neighbors := touchHoldNeighbors area
+          let newlyReached := remaining.filter (fun candidate => containsArea neighbors candidate)
+          let remaining' := remaining.filter (fun candidate => candidate != area && !containsArea neighbors candidate)
+          collectTouchHoldComponentFuel fuel (rest ++ newlyReached) remaining' (area :: component)
 
-private partial def assignTouchHoldGroupsLoop (allNotes : List TouchHoldChartNote) (remaining : List SensorArea) (groupId : Nat) (acc : List TouchHoldChartNote) : List TouchHoldChartNote :=
+def collectTouchHoldComponent (pending : List SensorArea) (remaining : List SensorArea) (component : List SensorArea) : List SensorArea :=
+  collectTouchHoldComponentFuel (pending.length + remaining.length + 1) pending remaining component
+
+private def assignTouchHoldGroupsLoopFuel
+    (fuel : Nat) (allNotes : List TouchHoldChartNote) (remaining : List SensorArea) (groupId : Nat)
+    (acc : List TouchHoldChartNote) : List TouchHoldChartNote :=
   match remaining with
   | [] => acc
   | area :: rest =>
-    let component := collectTouchHoldComponent [area] remaining []
-    let componentSize := List.length (allNotes.filter (fun note => containsArea component note.sensorPos))
-    let nextAcc := acc.map (fun note =>
-      if containsArea component note.sensorPos then
-        { note with touchHoldGroupId := some groupId, touchHoldGroupSize := some componentSize }
-      else
-        note)
-    let remaining' := rest.filter (fun candidate => !containsArea component candidate)
-    assignTouchHoldGroupsLoop allNotes remaining' (groupId + 1) nextAcc
+    match fuel with
+    | 0 => acc
+    | fuel + 1 =>
+        let component := collectTouchHoldComponent [area] remaining []
+        let componentSize := List.length (allNotes.filter (fun note => containsArea component note.sensorPos))
+        let nextAcc := acc.map (fun note =>
+          if containsArea component note.sensorPos then
+            { note with touchHoldGroupId := some groupId, touchHoldGroupSize := some componentSize }
+          else
+            note)
+        let remaining' := rest.filter (fun candidate => !containsArea component candidate)
+        assignTouchHoldGroupsLoopFuel fuel allNotes remaining' (groupId + 1) nextAcc
+
+private def assignTouchHoldGroupsLoop
+    (allNotes : List TouchHoldChartNote) (remaining : List SensorArea) (groupId : Nat)
+    (acc : List TouchHoldChartNote) : List TouchHoldChartNote :=
+  assignTouchHoldGroupsLoopFuel (remaining.length + 1) allNotes remaining groupId acc
 
 private def assignTouchHoldGroupsForBatch (notes : List TouchHoldChartNote) : List TouchHoldChartNote :=
   let sensorTypes := notes.foldl (fun acc note => if containsArea acc note.sensorPos then acc else note.sensorPos :: acc) []
   assignTouchHoldGroupsLoop notes sensorTypes 0 notes
 
-private partial def assignTouchGroupsLoop (allNotes : List TouchChartNote) (remaining : List SensorArea) (groupId : Nat) (acc : List TouchChartNote) : List TouchChartNote :=
+private def assignTouchGroupsLoopFuel
+    (fuel : Nat) (allNotes : List TouchChartNote) (remaining : List SensorArea) (groupId : Nat)
+    (acc : List TouchChartNote) : List TouchChartNote :=
   match remaining with
   | [] => acc
   | area :: rest =>
-    let component := collectTouchHoldComponent [area] remaining []
-    let componentSize := List.length (allNotes.filter (fun note => containsArea component note.sensorPos))
-    let nextAcc := acc.map (fun note =>
-      if containsArea component note.sensorPos then
-        { note with touchGroupId := some groupId, touchGroupSize := some componentSize }
-      else
-        note)
-    let remaining' := rest.filter (fun candidate => !containsArea component candidate)
-    assignTouchGroupsLoop allNotes remaining' (groupId + 1) nextAcc
+    match fuel with
+    | 0 => acc
+    | fuel + 1 =>
+        let component := collectTouchHoldComponent [area] remaining []
+        let componentSize := List.length (allNotes.filter (fun note => containsArea component note.sensorPos))
+        let nextAcc := acc.map (fun note =>
+          if containsArea component note.sensorPos then
+            { note with touchGroupId := some groupId, touchGroupSize := some componentSize }
+          else
+            note)
+        let remaining' := rest.filter (fun candidate => !containsArea component candidate)
+        assignTouchGroupsLoopFuel fuel allNotes remaining' (groupId + 1) nextAcc
+
+private def assignTouchGroupsLoop
+    (allNotes : List TouchChartNote) (remaining : List SensorArea) (groupId : Nat)
+    (acc : List TouchChartNote) : List TouchChartNote :=
+  assignTouchGroupsLoopFuel (remaining.length + 1) allNotes remaining groupId acc
 
 private def assignTouchGroupsForBatch (notes : List TouchChartNote) : List TouchChartNote :=
   let sensorTypes := notes.foldl (fun acc note => if containsArea acc note.sensorPos then acc else note.sensorPos :: acc) []

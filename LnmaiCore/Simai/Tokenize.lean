@@ -160,29 +160,35 @@ def parseHSpeedDirective (text : String) (current : Rat) : Rat :=
       if body.startsWith "S*" then (body.drop 2).toString else body
     parseRatDef valueText current
 
-partial def applyInlineDirective (bpm : Rat) (divisor : Nat) (hSpeed : Rat) (segment : String) : Rat × Nat × Rat × String :=
+private def applyInlineDirectiveFuel (fuel : Nat) (bpm : Rat) (divisor : Nat) (hSpeed : Rat) (segment : String) : Rat × Nat × Rat × String :=
   let t := trim segment
-  if t.startsWith "(" then
-    let after := (t.drop 1).toString
-    match after.splitOn ")" with
-    | inside :: rest =>
-        let nextBpm := parseRatDef inside bpm
-        applyInlineDirective nextBpm divisor hSpeed (String.intercalate ")" rest)
-    | _ => (bpm, divisor, hSpeed, t)
-  else if t.startsWith "{" then
-    let after := (t.drop 1).toString
-    match after.splitOn "}" with
-    | inside :: rest =>
-        applyInlineDirective bpm (parseNatDef inside divisor) hSpeed (String.intercalate "}" rest)
-    | _ => (bpm, divisor, hSpeed, t)
-  else if t.startsWith "<H" then
-    let after :=
-      match t.splitOn ">" with
-      | _ :: rest => String.intercalate ">" rest
-      | [] => t
-    applyInlineDirective bpm divisor (parseHSpeedDirective t hSpeed) after
-  else
-    (bpm, divisor, hSpeed, t)
+  match fuel with
+  | 0 => (bpm, divisor, hSpeed, t)
+  | fuel + 1 =>
+      if t.startsWith "(" then
+        let after := (t.drop 1).toString
+        match after.splitOn ")" with
+        | inside :: rest =>
+            let nextBpm := parseRatDef inside bpm
+            applyInlineDirectiveFuel fuel nextBpm divisor hSpeed (String.intercalate ")" rest)
+        | _ => (bpm, divisor, hSpeed, t)
+      else if t.startsWith "{" then
+        let after := (t.drop 1).toString
+        match after.splitOn "}" with
+        | inside :: rest =>
+            applyInlineDirectiveFuel fuel bpm (parseNatDef inside divisor) hSpeed (String.intercalate "}" rest)
+        | _ => (bpm, divisor, hSpeed, t)
+      else if t.startsWith "<H" then
+        let after :=
+          match t.splitOn ">" with
+          | _ :: rest => String.intercalate ">" rest
+          | [] => t
+        applyInlineDirectiveFuel fuel bpm divisor (parseHSpeedDirective t hSpeed) after
+      else
+        (bpm, divisor, hSpeed, t)
+
+def applyInlineDirective (bpm : Rat) (divisor : Nat) (hSpeed : Rat) (segment : String) : Rat × Nat × Rat × String :=
+  applyInlineDirectiveFuel (segment.length + 1) bpm divisor hSpeed segment
 
 def mkRawToken (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (token : String) : RawNoteToken :=
   let t := trim token
@@ -232,14 +238,19 @@ private def readDigitChar (rawText : String) : List Char → Except ParseError (
       else Except.error <| chainSyntaxError rawText "invalid connected slide syntax"
   | [] => Except.error <| chainSyntaxError rawText "invalid connected slide syntax"
 
-private partial def readBracketSuffix (rawText : String) : List Char → List Char → Except ParseError (String × List Char)
+private def readBracketSuffixFuel (fuel : Nat) (rawText : String) : List Char → List Char → Except ParseError (String × List Char)
   | [], _ => Except.error <| chainSyntaxError rawText "unterminated slide timing spec"
   | c :: rest, acc =>
       let acc := acc.concat c
       if c = ']' then
         pure (String.ofList acc, rest)
       else
-        readBracketSuffix rawText rest acc
+        match fuel with
+        | 0 => Except.error <| chainSyntaxError rawText "unterminated slide timing spec"
+        | fuel + 1 => readBracketSuffixFuel fuel rawText rest acc
+
+private def readBracketSuffix (rawText : String) (chars acc : List Char) : Except ParseError (String × List Char) :=
+  readBracketSuffixFuel (chars.length + 1) rawText chars acc
 
 private def parseSlideShapeChars (rawText : String) (op : Char) (rest : List Char) : Except ParseError (String × List Char) := do
   if op = 'V' then
@@ -261,26 +272,33 @@ private def parseSlideShapeChars (rawText : String) (op : Char) (rest : List Cha
     let (finish, rest) ← readDigitChar rawText rest
     pure (shapeText ++ String.singleton finish, rest)
 
-private partial def parseContinuousSlideSegmentsCore
-    (rawText : String) (currentStart : Char) : List Char → Except ParseError (List ContinuousChainSegment)
+private def parseContinuousSlideSegmentsCoreFuel
+    (fuel : Nat) (rawText : String) (currentStart : Char) : List Char → Except ParseError (List ContinuousChainSegment)
   | [] => pure []
   | c :: rest =>
-      if c.isDigit then
-        Except.error <| chainSyntaxError rawText "connected slide chain cannot contain a fresh numeric head"
-      else if !isSlideMarkChar c then
-        Except.error <| chainSyntaxError rawText "invalid connected slide syntax"
-      else do
-        let (shapeAndEnd, rest) ← parseSlideShapeChars rawText c rest
-        let segmentCore := String.singleton currentStart ++ shapeAndEnd
-        let (timingSuffix, rest, hasTiming) ←
-          match rest with
-          | '[' :: tail =>
-              let (suffix, rest') ← readBracketSuffix rawText tail ['[']
-              pure (suffix, rest', true)
-          | _ => pure ("", rest, false)
-        let endChar := shapeAndEnd.toList.reverse.head?.getD currentStart
-        let tail ← parseContinuousSlideSegmentsCore rawText endChar rest
-        pure ({ rawText := segmentCore ++ timingSuffix, hasTiming := hasTiming } :: tail)
+      match fuel with
+      | 0 => Except.error <| chainSyntaxError rawText "invalid connected slide syntax"
+      | fuel + 1 =>
+          if c.isDigit then
+            Except.error <| chainSyntaxError rawText "connected slide chain cannot contain a fresh numeric head"
+          else if !isSlideMarkChar c then
+            Except.error <| chainSyntaxError rawText "invalid connected slide syntax"
+          else do
+            let (shapeAndEnd, rest) ← parseSlideShapeChars rawText c rest
+            let segmentCore := String.singleton currentStart ++ shapeAndEnd
+            let (timingSuffix, rest, hasTiming) ←
+              match rest with
+              | '[' :: tail =>
+                  let (suffix, rest') ← readBracketSuffix rawText tail ['[']
+                  pure (suffix, rest', true)
+              | _ => pure ("", rest, false)
+            let endChar := shapeAndEnd.toList.reverse.head?.getD currentStart
+            let tail ← parseContinuousSlideSegmentsCoreFuel fuel rawText endChar rest
+            pure ({ rawText := segmentCore ++ timingSuffix, hasTiming := hasTiming } :: tail)
+
+private def parseContinuousSlideSegmentsCore
+    (rawText : String) (currentStart : Char) (chars : List Char) : Except ParseError (List ContinuousChainSegment) :=
+  parseContinuousSlideSegmentsCoreFuel (chars.length + 1) rawText currentStart chars
 
 private def parseContinuousSlideSegments? (token : String) : Except ParseError (Option (List ContinuousChainSegment)) := do
   let sanitized := sanitizeSlideToken token
@@ -469,7 +487,7 @@ def parseSegmentNotes (segment : String) (time : TimePoint) (bpm : Rat) (hSpeed 
   else
     expandTokenList 0 time bpm hSpeed divisor 0 (splitEntryTokens normalized)
 
-partial def parseSegments (segments : List String) (time : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (acc : List RawNoteToken) : Except ParseError (List RawNoteToken) :=
+def parseSegments (segments : List String) (time : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (acc : List RawNoteToken) : Except ParseError (List RawNoteToken) :=
   match segments with
   | [] => pure acc.reverse
   | segment :: rest => do
@@ -478,5 +496,8 @@ partial def parseSegments (segments : List String) (time : TimePoint) (bpm : Rat
       let newTokens ← parseSegmentNotes body time bpm' hSpeed' divisor'
       let nextTime := time + noteTimingIncrement bpm' divisor'
       parseSegments rest nextTime bpm' hSpeed' divisor' (newTokens.reverse ++ acc)
+termination_by segments.length
+decreasing_by
+  simp_wf
 
 end LnmaiCore.Simai
