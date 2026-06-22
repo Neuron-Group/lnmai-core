@@ -7,7 +7,7 @@ structure RealChartCheckpoint where
   assetPath : System.FilePath
   level : Nat
 
-def realChartCheckpoints : List RealChartCheckpoint :=
+def realChartCheckpoints : List  :=
   [ { name := "100524_[協]Hand in Hand"
     , assetPath := "tools/assets/100524_[協]Hand in Hand/maidata.txt"
     , level := 7 }

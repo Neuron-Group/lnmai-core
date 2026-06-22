@@ -1,4 +1,5 @@
 import Verification.Generated
+import Verification.Bridge
 import LnmaiCore.Areas
 import LnmaiCore.Types
 import LnmaiCore.Time
@@ -9,9 +10,10 @@ open Aeneas Aeneas.Std
 namespace Verification.Iso
 
 open aeneas_core_verify
+open Verification.Bridge
 
 ----------------------------------------------------------------------------
--- SensorArea isomorphism
+-- SensorArea isomorphism (uses Bridge.toLnmDuration etc)
 ----------------------------------------------------------------------------
 
 def toLnmSensorArea : areas.SensorArea → LnmaiCore.SensorArea
@@ -151,26 +153,21 @@ theorem noteType_roundtrip_r (n : types.NoteType) : ofLnmNoteType (toLnmNoteType
   cases n <;> rfl
 
 ----------------------------------------------------------------------------
--- Duration / TimePoint isomorphism (integer-wrapping types)
---   Generated:  time.Duration { micros : Std.I64 } / time.TimePoint { micros : Std.I64 }
---   LnmaiCore:  Duration { ticks : TimeTick { val : ℤ } } / TimePoint analog
--- Both sides wrap i64 values. We axiomatize the bijection since
--- Std.I64 is a bounded model whereas LnmaiCore uses ℤ.
+-- Duration / TimePoint isomorphism — NOW CONSTRUCTIVE
+-- Uses Bridge.toLnmDuration which extracts Std.I64.val (the ℤ value)
+-- The reverse direction (ofLnmDuration) still needs bounds checking,
+-- so it remains axiomatized for now.
 ----------------------------------------------------------------------------
 
-axiom toLnmDuration (d : time.Duration) : LnmaiCore.Duration
+-- toLnmDuration is defined in Bridge.lean using d.micros.val
 
+-- ofLnmDuration still requires bounds proof: the Lean Duration uses ℤ,
+-- but we can only construct an I64 if the value is within bounds
 axiom ofLnmDuration (d : LnmaiCore.Duration) : time.Duration
-
-axiom duration_roundtrip_r (d : time.Duration) : ofLnmDuration (toLnmDuration d) = d
 
 axiom duration_roundtrip_l (d : LnmaiCore.Duration) : toLnmDuration (ofLnmDuration d) = d
 
-axiom toLnmTimePoint (p : time.TimePoint) : LnmaiCore.TimePoint
-
 axiom ofLnmTimePoint (p : LnmaiCore.TimePoint) : time.TimePoint
-
-axiom timePoint_roundtrip_r (p : time.TimePoint) : ofLnmTimePoint (toLnmTimePoint p) = p
 
 axiom timePoint_roundtrip_l (p : LnmaiCore.TimePoint) : toLnmTimePoint (ofLnmTimePoint p) = p
 

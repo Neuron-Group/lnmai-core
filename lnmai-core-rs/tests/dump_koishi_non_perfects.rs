@@ -440,3 +440,44 @@ fn test_achieves_ap() {
     ];
     assert!(!achieves_ap(&non_ap_events));
 }
+
+// ============================================================================
+// Direct comparison test: calls pure judge/score functions directly
+// These are the core functions proven equivalent in verification/Equiv.lean
+// ============================================================================
+
+#[test]
+fn test_dump_non_perfects_direct() {
+    // Simulate 5 tap notes with various timing offsets
+    // Note index 0: Perfect (0μs diff)
+    // Note index 1: LatePerfect2nd (+20000μs)
+    // Note index 2: FastGreat (-70000μs)
+    // Note index 3: LateGood (+120000μs)
+    // Note index 4: Perfect (0μs diff)
+
+    let diffs = [
+        (0, lnmai_core::time::Duration::from_micros(0)),
+        (1, lnmai_core::time::Duration::from_micros(20000)),
+        (2, lnmai_core::time::Duration::from_micros(-70000)),
+        (3, lnmai_core::time::Duration::from_micros(120000)),
+        (4, lnmai_core::time::Duration::from_micros(0)),
+    ];
+
+    println!("=== Rust DumpKoishiNonPerfects (direct judge functions) ===");
+    println!("Judged events:");
+    for (idx, diff) in &diffs {
+        let grade = lnmai_core::judge::judge_tap(*diff, false);
+        let is_perfect = grade == JudgeGrade::Perfect;
+        println!("  note {}: {:?} | diff: {}μs | perfect: {}",
+            idx, grade, diff.to_micros(), is_perfect);
+    }
+
+    let non_p: Vec<_> = diffs.iter()
+        .map(|(idx, diff)| (*idx, lnmai_core::judge::judge_tap(*diff, false)))
+        .filter(|(_, g)| *g != JudgeGrade::Perfect)
+        .collect();
+
+    println!("\nNon-perfect events: {:?}", non_p);
+    println!("Expected: note 1=LatePerfect2nd, note 2=FastGreat, note 3=LateGood");
+    assert_eq!(non_p.len(), 3);
+}

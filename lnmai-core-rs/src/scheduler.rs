@@ -297,24 +297,34 @@ fn process_hold_queues(
 
                 let entered_head_judged = matches!(note_ref.state, HoldSubState::HeadWaiting | HoldSubState::HeadJudgeable)
                     && matches!(updated_note.state, HoldSubState::HeadJudged);
+                let is_ended = matches!(updated_note.state, HoldSubState::Ended);
+                let is_active = matches!(updated_note.state, HoldSubState::HeadJudged | HoldSubState::BodyHeld | HoldSubState::BodyReleased);
 
                 if entered_head_judged {
                     state.button_queue_frontiers = advance_shared_button_queue(&state.button_queue_frontiers, *zone);
                     q.replace_and_advance(updated_note.clone());
-                } else if matches!(updated_note.state, HoldSubState::Ended) {
+                } else if is_ended {
                     q.advance();
                 } else {
+                    let prev_state = note_ref.state;
+                    let new_state = updated_note.state;
                     q.replace_current(updated_note.clone());
+                    processed = !matches!((prev_state, new_state),
+                        (HoldSubState::HeadWaiting, HoldSubState::HeadWaiting) |
+                        (HoldSubState::HeadJudgeable, HoldSubState::HeadJudgeable));
+                    if !processed { break; }
                 }
 
-                if matches!(updated_note.state, HoldSubState::HeadJudged | HoldSubState::BodyHeld | HoldSubState::BodyReleased) {
+                if is_active {
                     state.active_holds.push((*zone, updated_note));
                 }
 
                 if let Some(e) = evt {
                     events.push(e);
                 }
-                processed = true;
+                if entered_head_judged || is_ended {
+                    processed = true;
+                }
             }
         }
         state.hold_queues = state.hold_queues.set(*zone, q);
@@ -446,12 +456,15 @@ fn process_touch_queues(
                         state.touch_queue_frontiers = advance_shared_touch_queue(&state.touch_queue_frontiers, *area);
                         q.advance();
                         events.push(e.clone());
+                        processed = true;
                     }
                     None => {
-                        match updated_note.state {
+                        let state_is = updated_note.state;
+                        match state_is {
                             TouchState::TouchEnded => {
                                 state.touch_queue_frontiers = advance_shared_touch_queue(&state.touch_queue_frontiers, *area);
                                 q.advance();
+                                processed = true;
                             }
                             TouchState::TouchJudged(grade) => {
                                 if !grade.is_miss_or_too_fast() {
@@ -465,15 +478,21 @@ fn process_touch_queues(
                                         );
                                     }
                                 }
-                                // still advance since judged
+                                state.touch_queue_frontiers = advance_shared_touch_queue(&state.touch_queue_frontiers, *area);
+                                q.advance();
+                                processed = true;
                             }
                             _ => {
+                                let prev_state = note_ref.state;
                                 q.replace_current(updated_note);
+                                // Only loop if state actually changed (e.g., Waiting→Judgeable)
+                                processed = !matches!((prev_state, state_is),
+                                    (TouchState::TouchWaiting, TouchState::TouchWaiting) |
+                                    (TouchState::TouchJudgeable, TouchState::TouchJudgeable));
                             }
                         }
                     }
                 }
-                processed = true;
             }
         }
         state.touch_queues = state.touch_queues.set(*area, q);
@@ -551,17 +570,25 @@ fn process_touch_hold_queues(
 
                 let entered_head_judged = matches!(note_ref.state, HoldSubState::HeadWaiting | HoldSubState::HeadJudgeable)
                     && matches!(updated_note.state, HoldSubState::HeadJudged);
+                let is_ended = matches!(updated_note.state, HoldSubState::Ended);
+                let is_active = matches!(updated_note.state, HoldSubState::HeadJudged | HoldSubState::BodyHeld | HoldSubState::BodyReleased);
 
                 if entered_head_judged {
                     state.touch_queue_frontiers = advance_shared_touch_queue(&state.touch_queue_frontiers, *area);
                     q.replace_and_advance(updated_note.clone());
-                } else if matches!(updated_note.state, HoldSubState::Ended) {
+                } else if is_ended {
                     q.advance();
                 } else {
+                    let prev_state = note_ref.state;
+                    let new_state = updated_note.state;
                     q.replace_current(updated_note.clone());
+                    processed = !matches!((prev_state, new_state),
+                        (HoldSubState::HeadWaiting, HoldSubState::HeadWaiting) |
+                        (HoldSubState::HeadJudgeable, HoldSubState::HeadJudgeable));
+                    if !processed { break; }
                 }
 
-                if matches!(updated_note.state, HoldSubState::HeadJudged | HoldSubState::BodyHeld | HoldSubState::BodyReleased) {
+                if is_active {
                     state.active_touch_holds.push((*area, updated_note));
                 }
 
@@ -579,7 +606,9 @@ fn process_touch_hold_queues(
                     }
                     events.push(e.clone());
                 }
-                processed = true;
+                if entered_head_judged || is_ended {
+                    processed = true;
+                }
             }
         }
         state.touch_hold_queues = state.touch_hold_queues.set(*area, q);

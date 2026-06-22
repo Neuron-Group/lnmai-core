@@ -33,6 +33,7 @@ pub mod lifecycle;
 pub mod input_model;
 pub mod chart_loader;
 pub mod scheduler;
+pub mod simai;
 pub mod aeneas_test;
 
 // Re-export main types for convenience

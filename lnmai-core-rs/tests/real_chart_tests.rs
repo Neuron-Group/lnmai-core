@@ -49,7 +49,7 @@ fn sensor_flag_vec(pressed: &[SensorArea]) -> SensorVec<bool> {
 fn button_count_vec(clicks: &[ButtonZone]) -> ButtonVec<u32> {
     let mut vec = ButtonVec::replicate(0);
     for zone in clicks {
-        let count = vec.get(*zone);
+        let count = vec.get_d(*zone, 0);
         vec = vec.set(*zone, count + 1);
     }
     vec
@@ -58,7 +58,7 @@ fn button_count_vec(clicks: &[ButtonZone]) -> ButtonVec<u32> {
 fn sensor_count_vec(clicks: &[SensorArea]) -> SensorVec<u32> {
     let mut vec = SensorVec::replicate(0);
     for area in clicks {
-        let count = vec.get(*area);
+        let count = vec.get_d(*area, 0);
         vec = vec.set(*area, count + 1);
     }
     vec
@@ -111,7 +111,7 @@ fn test_button_tap_can_use_matching_a_sensor() {
         },
     );
 
-    let state = GameState {
+    let mut state = GameState {
         current_time: tp(984000).to_micros(),
         tap_queues,
         ..Default::default()
@@ -120,7 +120,7 @@ fn test_button_tap_can_use_matching_a_sensor() {
     // Input: A1 sensor clicked
     let input = mk_button_frame_input(&[], &[], &[SensorArea::A1], &[], dur(16000));
 
-    let result = step_frame(&state, &input);
+    let result = step_frame(&mut state, &input);
 
     // Expect: One tap event at K1
     assert_eq!(result.events.len(), 1, "expected one tap event");
@@ -152,7 +152,7 @@ fn test_classic_hold_matching_a_sensor_keeps_body_pressed() {
         touch_group_count: None,
     };
 
-    let state = GameState {
+    let mut state = GameState {
         current_time: tp(1050000).to_micros(),
         active_holds: vec![(ButtonZone::K1, hold)],
         prev_sensor: sensor_flag_vec(&[SensorArea::A1]),
@@ -162,7 +162,7 @@ fn test_classic_hold_matching_a_sensor_keeps_body_pressed() {
     // Input: A1 sensor held
     let input = mk_button_frame_input(&[], &[], &[], &[SensorArea::A1], dur(16000));
 
-    let result = step_frame(&state, &input);
+    let result = step_frame(&mut state, &input);
 
     // Expect: Hold remains active, no events
     assert_eq!(result.events.len(), 0, "expected no events");
@@ -193,7 +193,7 @@ fn test_modern_hold_head_miss_can_end_as_late_good() {
         touch_group_count: None,
     };
 
-    let state = GameState {
+    let mut state = GameState {
         current_time: tp(1700000).to_micros(),
         active_holds: vec![(ButtonZone::K1, hold)],
         ..Default::default()
@@ -202,7 +202,7 @@ fn test_modern_hold_head_miss_can_end_as_late_good() {
     // Input: K1 button held
     let input = mk_button_frame_input(&[], &[ButtonZone::K1], &[], &[], dur(16000));
 
-    let result = step_frame(&state, &input);
+    let result = step_frame(&mut state, &input);
 
     // Expect: Hold ends with LateGood grade
     assert_eq!(result.state.active_holds.len(), 0, "expected hold to end");
