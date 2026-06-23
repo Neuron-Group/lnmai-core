@@ -915,6 +915,9 @@ private def slideTooLateJudgeDiff : Duration :=
   -- MajdataPlay's SlideBase.TooLateJudge leaves NoteDrop.JudgeDiff at its default -1ms.
   Duration.fromMicros (-1000)
 
+private def slideInitialWaitTime (note : SlideNote) : Duration :=
+  note.startTiming + note.length - note.params.judgeTiming
+
 private def slideShouldBeCheckable (note : SlideNote) (currentTime : TimePoint) : Bool :=
   let headTiming := currentTime - note.headTiming
   if note.isCheckable then
@@ -988,51 +991,59 @@ private def buildSlideSensorSemanticBase
   buildSlideSemanticBase { note with isCheckable := isCheckable } updatedQueues queueRenderCmds
     oldRemaining newRemaining trackOns
 
+private def buildSlideDormantSemanticBase (note : SlideNote) : SlideStepSemantic :=
+  { note := { note with state := SlideState.Waiting, isCheckable := false } }
+
+private def slideActiveStepSemantic
+    (note : SlideNote) (ctx : SlideStepContext) (isJudgable : Bool) (waitTime : Duration) :
+    SlideStepSemantic :=
+  let activeNote := { note with state := SlideState.Active waitTime, isCheckable := true }
+  let staticBase := buildSlideStaticSemanticBase activeNote true
+  let isTooLate := ctx.currentTime > slideTooLateTiming activeNote
+  if isJudgable && slideQueuesCleared activeNote.judgeQueues then
+    let judgeDiff := slideCurrentJudgeDiff activeNote ctx.currentTime ctx.touchPanelOffset
+    let raw :=
+      if activeNote.isClassic then
+        Judge.judgeSlideClassic judgeDiff
+      else
+        Judge.judgeSlideModern judgeDiff waitTime activeNote.params.isEX
+    let storedGrade :=
+      if activeNote.isClassic then
+        raw
+      else
+        Convert.convertGrade ctx.style raw
+    let judgedWaitTime := slideAdjustedJudgedWaitTime activeNote ctx.currentTime waitTime judgeDiff
+    { staticBase with
+      note := { staticBase.note with state := SlideState.Judged storedGrade judgedWaitTime judgeDiff }
+      shouldPlayTrackOns := activeNote.isGroupPartHead || !activeNote.isConnSlide
+      emitProgressRender := true }
+  else if isJudgable && isTooLate then
+    let raw := Judge.judgeSlideTooLate (slideQueueRemaining activeNote.judgeQueues)
+    let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
+    { staticBase with
+      note := { staticBase.note with state := SlideState.Ended }
+      event := some (slideJudgeEvent activeNote grade slideTooLateJudgeDiff)
+      hideSlide := true }
+  else
+    let semanticBase := buildSlideSensorSemanticBase activeNote ctx true
+    { semanticBase with
+      shouldPlayTrackOns := activeNote.isGroupPartHead || !activeNote.isConnSlide
+      emitProgressRender := semanticBase.progressChanged }
+
 private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : SlideStepSemantic :=
   let isCheckable := slideShouldBeCheckable note ctx.currentTime
   let isJudgable := note.isGroupPartEnd || !note.isConnSlide
   match note.state with
   | .Waiting =>
-    let semanticBase := buildSlideSensorSemanticBase note ctx isCheckable
-    { semanticBase with
-      shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
-      emitProgressRender := semanticBase.progressChanged }
-  | .Active waitTime =>
-    let staticBase := buildSlideStaticSemanticBase note isCheckable
-    let isTooLate := ctx.currentTime > slideTooLateTiming note
-    if !isCheckable then
-      { staticBase with
-        shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
-        emitProgressRender := staticBase.progressChanged }
-    else if isJudgable && slideQueuesCleared note.judgeQueues then
-      let judgeDiff := slideCurrentJudgeDiff note ctx.currentTime ctx.touchPanelOffset
-      let raw :=
-        if note.isClassic then
-          Judge.judgeSlideClassic judgeDiff
-        else
-          Judge.judgeSlideModern judgeDiff waitTime note.params.isEX
-      let storedGrade :=
-        if note.isClassic then
-          raw
-        else
-          Convert.convertGrade ctx.style raw
-      let judgedWaitTime := slideAdjustedJudgedWaitTime note ctx.currentTime waitTime judgeDiff
-      { staticBase with
-        note := { staticBase.note with state := SlideState.Judged storedGrade judgedWaitTime judgeDiff }
-        shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
-        emitProgressRender := true }
-    else if isJudgable && isTooLate then
-      let raw := Judge.judgeSlideTooLate (slideQueueRemaining note.judgeQueues)
-      let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
-      { staticBase with
-        note := { staticBase.note with state := SlideState.Ended }
-        event := some (slideJudgeEvent note grade slideTooLateJudgeDiff)
-        hideSlide := true }
+    if isCheckable then
+      slideActiveStepSemantic note ctx isJudgable (slideInitialWaitTime note)
     else
-      let semanticBase := buildSlideSensorSemanticBase note ctx isCheckable
-      { semanticBase with
-        shouldPlayTrackOns := note.isGroupPartHead || !note.isConnSlide
-        emitProgressRender := semanticBase.progressChanged }
+      buildSlideDormantSemanticBase note
+  | .Active waitTime =>
+    if !isCheckable then
+      buildSlideDormantSemanticBase note
+    else
+      slideActiveStepSemantic note ctx isJudgable waitTime
   | .Judged grade waitTime storedJudgeDiff =>
     let staticBase := buildSlideStaticSemanticBase note isCheckable
     if waitTime ≤ Duration.zero then

@@ -609,13 +609,12 @@ private def buildSlide (slideSkipping : Bool) (note : SlideChartNote) : SlideNot
       | [queue] => [applySingleTrackConnRules note queue]
       | _ => queues
   let judgeTiming := note.judgeAt.getD note.headTiming
-  let waitTime := note.startTiming + note.length - judgeTiming
   let rec maxQueueLength : List (List SlideArea) → Nat
     | [] => 0
     | queue :: rest => Nat.max queue.length (maxQueueLength rest)
   { params := { judgeTiming := judgeTiming, judgeOffset := Constants.JUDGE_OFFSET, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
   , lane := note.slot
-  , state := SlideState.Active waitTime
+  , state := SlideState.Waiting
   , length := note.length
   , headTiming := note.headTiming
   , startTiming := note.startTiming

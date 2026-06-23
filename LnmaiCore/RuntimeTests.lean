@@ -2108,7 +2108,7 @@ private def wifiPreCheckableState : InputModel.GameState :=
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 57 }
     , lane := .S1
-    , state := .Active (dur 100000)
+    , state := .Waiting
     , length := dur 200000
     , headTiming := tp 1200000
     , startTiming := tp 1200000
@@ -2125,12 +2125,13 @@ private def wifiPreCheckableState : InputModel.GameState :=
 
 def test_wifi_not_checkable_before_minus_50ms : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
-  let (nextState, events, _, _) := Scheduler.stepFrame wifiPreCheckableState input
+  let (nextState, events, audioCmds, renderCmds) := Scheduler.stepFrame wifiPreCheckableState input
   match nextState.slides with
-  | [_slide] =>
+  | [slide] =>
+      let waiting := match slide.state with | .Waiting => true | _ => false
       passCase "wifi_not_checkable_before_minus_50ms"
-        (events = [])
-        "MajdataPlay wifi becomes checkable from head timing >= -50ms, even before star movement startTiming"
+        (events = [] && audioCmds = [] && renderCmds = [] && waiting && !slide.isCheckable)
+        "pre-checkable wifi body remains dormant until the MajdataPlay -50ms head boundary"
   | _ =>
       passCase "wifi_not_checkable_before_minus_50ms" false "expected one wifi slide"
 
@@ -2138,7 +2139,7 @@ private def wifiAtCheckableBoundaryState : InputModel.GameState :=
   let slide : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 58 }
     , lane := .S1
-    , state := .Active (dur 100000)
+    , state := .Waiting
     , length := dur 200000
     , headTiming := tp 1200000
     , startTiming := tp 1200000
@@ -2165,6 +2166,75 @@ def test_wifi_exact_minus_50ms_becomes_checkable : RuntimeCase :=
         "MajdataPlay wifi head-time checkability boundary is inclusive at -50ms"
   | _ =>
       passCase "wifi_exact_minus_50ms_becomes_checkable" false "expected one wifi slide"
+
+private def dormantPrestartSlideChart : ChartLoader.ChartSpec :=
+  { slideHeads :=
+      [ { timing := tp 360000
+        , slot := .S1
+        , logicalSlideId := 600
+        , noteIndex := 599 } ]
+  , slides :=
+      [ { headTiming := tp 360000
+        , slot := .S1
+        , length := dur 500000
+        , startTiming := tp 360000
+        , slideKind := .Single
+        , totalJudgeQueueLen := 1
+        , trackCount := 1
+        , judgeAt := some (tp 860000)
+        , logicalSlideId := 600
+        , noteIndex := 600
+        , judgeQueues :=
+            [[{ targetAreas := [.A1]
+              , policy := .Or
+              , isLast := true
+              , isSkippable := true
+              , arrowProgressWhenOn := 0
+              , arrowProgressWhenFinished := 1 }]] } ]
+  , slideSkipping := true }
+
+def test_build_game_state_initializes_slide_bodies_dormant : RuntimeCase :=
+  let state := ChartLoader.buildGameState dormantPrestartSlideChart
+  match state.slides with
+  | [slide] =>
+      let waiting := match slide.state with | .Waiting => true | _ => false
+      passCase "build_game_state_initializes_slide_bodies_dormant"
+        (waiting && !slide.isCheckable && Lifecycle.slideQueueRemaining slide.judgeQueues = 1)
+        "loaded slide bodies should exist but remain dormant before MajdataPlay marks them checkable"
+  | _ =>
+      passCase "build_game_state_initializes_slide_bodies_dormant" false "expected one slide body"
+
+private def stepEmptyTimedFrames
+    (state : InputModel.GameState) : List TimePoint →
+    InputModel.GameState × List JudgeEvent × List AudioCommand × List RenderCommand
+  | [] => (state, [], [], [])
+  | currentTime :: rest =>
+      let batch : InputModel.TimedInputBatch := { currentTime := currentTime, events := [] }
+      let (nextState, events, audioCmds, renderCmds) := Scheduler.stepFrameTimed state batch
+      let (finalState, restEvents, restAudioCmds, restRenderCmds) :=
+        stepEmptyTimedFrames nextState rest
+      (finalState, events ++ restEvents, audioCmds ++ restAudioCmds,
+        renderCmds ++ restRenderCmds)
+
+def test_prestart_slide_empty_frames_stay_dormant : RuntimeCase :=
+  let initialState := ChartLoader.buildGameState dormantPrestartSlideChart
+  let frameTimes :=
+    [ tp 0, tp 16667, tp 33334, tp 50001, tp 66668, tp 83335, tp 100002 ]
+  let (finalState, events, audioCmds, renderCmds) := stepEmptyTimedFrames initialState frameTimes
+  match finalState.slides with
+  | [slide] =>
+      let waiting := match slide.state with | .Waiting => true | _ => false
+      passCase "prestart_slide_empty_frames_stay_dormant"
+        (finalState.currentTime = tp 100002
+          && events = []
+          && audioCmds = []
+          && renderCmds = []
+          && waiting
+          && !slide.isCheckable
+          && Lifecycle.slideQueueRemaining slide.judgeQueues = 1)
+        "empty frames before the first slide head boundary must not activate or traverse slide bodies"
+  | _ =>
+      passCase "prestart_slide_empty_frames_stay_dormant" false "expected one dormant slide"
 
 private def wifiExactTooLateBoundaryState : InputModel.GameState :=
   let unfinished : Lifecycle.SlideArea :=
@@ -2254,6 +2324,14 @@ theorem wifi_head_checkability_boundary_excludes_before_minus_50ms :
 
 theorem wifi_head_checkability_boundary_includes_exact_minus_50ms :
     test_wifi_exact_minus_50ms_becomes_checkable.passed = true := by
+  native_decide
+
+theorem build_game_state_initializes_slide_bodies_dormant :
+    test_build_game_state_initializes_slide_bodies_dormant.passed = true := by
+  native_decide
+
+theorem prestart_slide_empty_frames_stay_dormant :
+    test_prestart_slide_empty_frames_stay_dormant.passed = true := by
   native_decide
 
 theorem wifi_exact_too_late_boundary_preserved :
@@ -3393,7 +3471,7 @@ def test_build_game_state_ignores_debug_simai_metadata_for_runtime_shape : Runti
   | [slide] =>
       let stateOk :=
         match slide.state with
-        | .Active waitTime => waitTime = dur 200000
+        | .Waiting => !slide.isCheckable && slide.startTiming + slide.length = tp 200000
         | _ => false
       let queueShapeOk :=
         match slide.judgeQueues with
@@ -5058,6 +5136,8 @@ def all : List RuntimeCase :=
   , test_slide_too_late_lategood_counts_as_fast_from_default_diff
   , test_wifi_not_checkable_before_minus_50ms
   , test_wifi_exact_minus_50ms_becomes_checkable
+  , test_build_game_state_initializes_slide_bodies_dormant
+  , test_prestart_slide_empty_frames_stay_dormant
   , test_wifi_exact_too_late_boundary_does_not_judge
   , test_frame_zero_tap_judges_same_frame
   , test_frame_zero_hold_head_judges_same_frame

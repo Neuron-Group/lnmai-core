@@ -101,7 +101,6 @@ static inline int lnmai_session_load_chart_from_text(
     char **out_json) {
   lean_object *content_obj = lnmai_mk_string(content);
   lean_object *result = lnmai_load_chart_into_session_from_text(empty_handle.raw, content_obj, level_index);
-  lnmai_dec_result(content_obj);
   char *json = lnmai_session_take_json(result);
   if (out_json) {
     *out_json = json;
@@ -120,7 +119,6 @@ static inline int lnmai_session_load_chart_from_json(
     char **out_json) {
   lean_object *chart_obj = lnmai_mk_string(chart_spec_json);
   lean_object *result = lnmai_load_chart_into_session_from_json(empty_handle.raw, chart_obj);
-  lnmai_dec_result(chart_obj);
   char *json = lnmai_session_take_json(result);
   if (out_json) {
     *out_json = json;
@@ -156,14 +154,12 @@ static inline char * lnmai_session_get_lowered_chart_json(lnmai_loaded_handle lo
 static inline char * lnmai_session_advance_frame_light(lnmai_loaded_handle loaded_handle, char const *batch_json) {
   lean_object *batch_obj = lnmai_mk_string(batch_json);
   lean_object *result = lnmai_step_game_state_handle_light(loaded_handle.raw, batch_obj);
-  lnmai_dec_result(batch_obj);
   return lnmai_session_take_json(result);
 }
 
 static inline char * lnmai_session_advance_frame_full(lnmai_loaded_handle loaded_handle, char const *batch_json) {
   lean_object *batch_obj = lnmai_mk_string(batch_json);
   lean_object *result = lnmai_step_game_state_handle(loaded_handle.raw, batch_obj);
-  lnmai_dec_result(batch_obj);
   return lnmai_session_take_json(result);
 }
 
