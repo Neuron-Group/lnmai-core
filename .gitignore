@@ -1,4 +1,5 @@
 /.lake
+/.codegraph
 /reference
 /tools/**/bin/
 /tools/**/obj/
@@ -6,5 +7,8 @@
 /tools/MaiMuriDX/
 /tools/collections/
 /tools/simai-parser-server/
+/tools/codegraph/
+/tools/tree-sitter-lean/
+/tools/codegraph-workdir/
 /reference/MaiMuriDX/.idea/
 .DS_Store
