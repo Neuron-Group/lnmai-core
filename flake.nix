@@ -2,9 +2,12 @@
   description = "lnmai-core";
 
   inputs = {
-    nixpkgs.follows = "lean4-nix/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    lean4-nix.url = "github:lenianiva/lean4-nix";
+    lean4-nix = {
+      url = "github:lenianiva/lean4-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, flake-utils, lean4-nix }:
@@ -31,10 +34,30 @@
           inherit system;
           overlays = [ leanOverlay ];
         };
+        lib = pkgs.lib;
+        cleanSource = lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type:
+            let
+              rel = lib.removePrefix "${toString ./.}/" (toString path);
+            in
+              !(
+                rel == ".git"
+                || lib.hasPrefix ".git/" rel
+                || rel == ".lake"
+                || lib.hasPrefix ".lake/" rel
+                || rel == "target"
+                || lib.hasPrefix "target/" rel
+                || rel == "result"
+                || lib.hasPrefix "result/" rel
+                || rel == ".codegraph"
+                || lib.hasPrefix ".codegraph/" rel
+              );
+        };
 
         lake2nix = pkgs.callPackage lean4-nix.lake {};
         lakeDeps = lake2nix.buildDeps {
-          src = ./.;
+          src = cleanSource;
           depOverride = {
             proofwidgets = {
               nativeBuildInputs = [ pkgs.nodejs_24 ];
@@ -57,12 +80,17 @@
         };
         commonArgs = {
           inherit lakeDeps;
-          src = ./.;
+          src = cleanSource;
         };
 
         lnmaiCoreLib = lake2nix.mkPackage (commonArgs // {
           name = "LnmaiCore";
           buildLibrary = true;
+          installArtifacts = false;
+          postInstall = ''
+            mkdir -p "$out/.lake"
+            cp -rP .lake/build "$out/.lake/"
+          '';
         });
 
         ffiArtifacts = lake2nix.mkPackage (commonArgs // {
@@ -86,6 +114,24 @@
                 substituteInPlace "$rsp" --replace-fail "$PWD" "$out"
               fi
             done
+
+            raw_rsp="$out/bin/lnmai-core.rsp"
+            if [ ! -f "$raw_rsp" ] && [ -f "$out/.lake/build/bin/lnmai-core.rsp" ]; then
+              raw_rsp="$out/.lake/build/bin/lnmai-core.rsp"
+            fi
+            if [ -f "$raw_rsp" ]; then
+              mkdir -p "$out/share/lnmai-core"
+              awk '
+                BEGIN { have_prev = 0; skip_next = 0 }
+                $0 == "\"--sysroot\"" { skip_next = 1; next }
+                skip_next { skip_next = 0; next }
+                $0 == "\"-lc_nonshared\"" || $0 == "\"-l:ld.so\"" || $0 == "\"-lpthread_nonshared\"" { next }
+                have_prev && prev == "\"-L\"" && $0 ~ /\/lib\/glibc"$/ { have_prev = 0; prev = ""; next }
+                have_prev { print prev }
+                { prev = $0; have_prev = 1 }
+                END { if (have_prev) print prev }
+              ' "$raw_rsp" > "$out/share/lnmai-core/ffi-link.rsp"
+            fi
           '';
         });
 
