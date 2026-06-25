@@ -80,6 +80,12 @@
             fi
             mkdir -p "$out/include"
             cp -R include/. "$out/include/"
+
+            for rsp in "$out"/bin/*.rsp "$out"/.lake/build/bin/*.rsp; do
+              if [ -f "$rsp" ]; then
+                substituteInPlace "$rsp" --replace-fail "$PWD" "$out"
+              fi
+            done
           '';
         });
 
