@@ -1,63 +1,54 @@
 {
   description = "lnmai-core";
 
+  nixConfig = {
+    extra-substituters = [ "https://lnmai-core.cachix.org" ];
+    extra-trusted-public-keys = [ "lnmai-core.cachix.org-1:rYcjvGbYnD1X9NWUExTn2dly2tFFzuamDEj02rJG7F8=" ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
     lean4-nix = {
       url = "github:lenianiva/lean4-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, lean4-nix }:
-    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
-      let
-        leanManifestBase = import "${lean4-nix}/manifests/v4.30.0.nix";
-        # lean4-nix does not ship a v4.30.0-rc2 manifest, so we reuse the
-        # nearby v4.30.0 bootstrap/build logic and pin the rc2 binary toolchain.
-        leanManifest = leanManifestBase // {
-          tag = "v4.30.0-rc2";
-          rev = "3dc1a088b6d2d8eafe25a7cd7ec7b58d731bd7cc";
-          toolchain = {
-            x86_64-linux = {
-              url = "https://github.com/leanprover/lean4/releases/download/v4.30.0-rc2/lean-4.30.0-rc2-linux.tar.zst";
-              hash = "sha256-W1FiXxVPChOze9iS8dlfeen9W58NCVtBJiFe4ryNvoY=";
-            };
-          };
-        };
-        leanOverlay = final: prev: {
-          lean = (final.callPackage "${lean4-nix}/lib/toolchain.nix" {}).fetchBinaryLean leanManifest;
-        };
-
+  outputs = { self, nixpkgs, lean4-nix }:
+    let
+      forAllSystems = nixpkgs.lib.genAttrs [ "x86_64-linux" ];
+      mkSystem = system: let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ leanOverlay ];
+          overlays = [ (lean4-nix.readToolchainFile ./lean-toolchain) ];
         };
         lib = pkgs.lib;
-        cleanSource = lib.cleanSourceWith {
-          src = ./.;
-          filter = path: type:
-            let
-              rel = lib.removePrefix "${toString ./.}/" (toString path);
-            in
-              !(
-                rel == ".git"
-                || lib.hasPrefix ".git/" rel
-                || rel == ".lake"
-                || lib.hasPrefix ".lake/" rel
-                || rel == "target"
-                || lib.hasPrefix "target/" rel
-                || rel == "result"
-                || lib.hasPrefix "result/" rel
-                || rel == ".codegraph"
-                || lib.hasPrefix ".codegraph/" rel
-              );
+        coreFiles = lib.fileset.unions [
+          ./LnmaiCore
+          ./LnmaiCore.lean
+          ./lakefile.toml
+          ./lake-manifest.json
+          ./lean-toolchain
+        ];
+        coreSource = lib.fileset.toSource {
+          root = ./.;
+          fileset = coreFiles;
+        };
+        ffiSource = lib.fileset.toSource {
+          root = ./.;
+          fileset = lib.fileset.unions [
+            coreFiles
+            ./Main.lean
+            ./include
+          ];
         };
 
         lake2nix = pkgs.callPackage lean4-nix.lake {};
         lakeDeps = lake2nix.buildDeps {
-          src = cleanSource;
+          # buildDeps reads only the manifest, so avoid coupling expensive
+          # dependency derivations to every project source change.
+          src = ./lake-manifest.json;
+          manifestFile = ./lake-manifest.json;
           depOverride = {
             proofwidgets = {
               nativeBuildInputs = [ pkgs.nodejs_24 ];
@@ -80,11 +71,15 @@
         };
         commonArgs = {
           inherit lakeDeps;
-          src = cleanSource;
+        };
+        lakeDepsBundle = pkgs.symlinkJoin {
+          name = "lnmai-core-lake-deps";
+          paths = builtins.attrValues lakeDeps;
         };
 
         lnmaiCoreLib = lake2nix.mkPackage (commonArgs // {
           name = "LnmaiCore";
+          src = coreSource;
           buildLibrary = true;
           installArtifacts = false;
           postInstall = ''
@@ -95,6 +90,7 @@
 
         ffiArtifacts = lake2nix.mkPackage (commonArgs // {
           name = "lnmai-core";
+          src = ffiSource;
           lakeArtifacts = lnmaiCoreLib;
           buildPhase = ''
             runHook preBuild
@@ -150,9 +146,13 @@
           '';
         };
       in {
-        packages.default = ffiArtifacts;
-        packages.ffi-artifacts = ffiArtifacts;
-        packages.lnmai-core-lib = lnmaiCoreLib;
+        packages = {
+          default = ffiArtifacts;
+          ffi-artifacts = ffiArtifacts;
+          lnmai-core-lib = lnmaiCoreLib;
+          mathlib = lakeDeps.mathlib;
+          lake-deps = lakeDepsBundle;
+        };
 
         apps.default = {
           type = "app";
@@ -174,5 +174,10 @@
             echo "Bootstrap local CodeGraph with: bash tools/bootstrap_codegraph.sh"
           '';
         };
-      });
+      };
+    in {
+      packages = forAllSystems (system: (mkSystem system).packages);
+      apps = forAllSystems (system: (mkSystem system).apps);
+      devShells = forAllSystems (system: (mkSystem system).devShells);
+    };
 }
