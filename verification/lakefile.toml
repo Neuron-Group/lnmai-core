@@ -1,0 +1,17 @@
+name = "verification"
+version = "0.1.0"
+defaultTargets = ["Verification"]
+precompileModules = false
+
+[[require]]
+name = "aeneas"
+path = "/Users/pingfanh/bin/aeneas/backends/lean"
+
+[[require]]
+name = "lnmai-core"
+path = ".."
+
+[[lean_lib]]
+name = "Verification"
+globs = ["Verification", "Verification.*"]
+precompileModules = false

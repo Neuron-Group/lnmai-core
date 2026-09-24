@@ -12,3 +12,7 @@
 /tools/codegraph-workdir/
 /reference/MaiMuriDX/.idea/
 .DS_Store
+/.idea/
+/verification/.lake/
+/*.llbc
+/lnmai-core-rs/.idea/

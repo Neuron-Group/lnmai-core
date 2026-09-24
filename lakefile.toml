@@ -35,6 +35,10 @@ name = "simai-parser-cli"
 root = "Apps.SimaiParserCli"
 
 [[lean_exe]]
+name = "runtime-step-cli"
+root = "Apps.RuntimeStepCli"
+
+[[lean_exe]]
 name = "probe-koishi-touch54"
 root = "Apps.ProbeKoishiTouch54"
 
