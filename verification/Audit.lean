@@ -19,6 +19,10 @@ import Verification.Score
 #print axioms Verification.JudgeProof.judge_touch_equiv
 #print axioms Verification.JudgeProof.judge_slide_classic_equiv
 #print axioms Verification.JudgeProof.judge_slide_too_late_equiv
+#print axioms Verification.JudgeProof.is_too_late_slide_equiv
+#print axioms Verification.JudgeProof.judge_slide_modern_equiv
 #print axioms Verification.Bridge.scale_nat_spec
 #print axioms Verification.Bridge.div_nat_spec
 #print axioms Verification.ScoreProof.base_score_equiv
+#print axioms Verification.ScoreProof.score_non_break_equiv
+#print axioms Verification.ScoreProof.update_combo_equiv

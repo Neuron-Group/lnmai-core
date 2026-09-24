@@ -173,6 +173,30 @@ theorem div_nat_spec (d : time.Duration) (divisor : Std.U32)
     rw [i1_post, hcast_i64_val]
     simp [hnz2]
 
+/-- Equality form of the `div_nat` value spec. -/
+theorem div_nat_eq (d : time.Duration) (divisor : Std.U32)
+    (hNoOverflow : ¬ (d.micros.val = IScalar.min .I64 ∧ (divisor.val : ℤ) = -1)) :
+    ∃ r : time.Duration, time.Duration.div_nat d divisor = ok r ∧
+      r.micros.val = (if divisor.val = 0 then 0
+        else Int.tdiv d.micros.val (divisor.val : ℤ)) := by
+  have h := div_nat_spec d divisor hNoOverflow
+  cases hf : time.Duration.div_nat d divisor with
+  | ok x => refine ⟨x, rfl, ?_⟩; rw [hf, WP.spec_ok] at h; exact h
+  | fail e => simp [hf, WP.spec_fail] at h
+  | div => simp [hf, WP.spec_div] at h
+
+/-- Equality form of the `scale_nat` value spec. -/
+theorem scale_nat_eq (d : time.Duration) (factor : Std.U32)
+    (hlo : IScalar.min .I64 ≤ d.micros.val * (factor.val : ℤ))
+    (hhi : d.micros.val * (factor.val : ℤ) ≤ IScalar.max .I64) :
+    ∃ r : time.Duration, time.Duration.scale_nat d factor = ok r ∧
+      r.micros.val = d.micros.val * (factor.val : ℤ) := by
+  have h := scale_nat_spec d factor hlo hhi
+  cases hf : time.Duration.scale_nat d factor with
+  | ok x => refine ⟨x, rfl, ?_⟩; rw [hf, WP.spec_ok] at h; exact h
+  | fail e => simp [hf, WP.spec_fail] at h
+  | div => simp [hf, WP.spec_div] at h
+
 /-! ## `Duration` value projections (used by the modern-slide proof) -/
 
 theorem Duration.toMicros_add (a b : LnmaiCore.Duration) :
@@ -201,6 +225,16 @@ theorem Duration.toMicros_divNat (a : LnmaiCore.Duration) (k : Nat) :
       LnmaiCore.Duration.ofInt, LnmaiCore.Duration.ofTick, LnmaiCore.TimeTick.ofInt]
   · simp [LnmaiCore.Duration.toMicros, LnmaiCore.Duration.toInt,
       LnmaiCore.Duration.ofInt, LnmaiCore.Duration.ofTick, LnmaiCore.TimeTick.ofInt]
+
+/-- `i64` addition equality (no-overflow), for the `+` used by the model. -/
+theorem i64_add_eq (a b : Std.I64)
+    (hlo : IScalar.min .I64 ≤ a.val + b.val) (hhi : a.val + b.val ≤ IScalar.max .I64) :
+    ∃ r : Std.I64, a + b = ok r ∧ r.val = a.val + b.val := by
+  have h := IScalar.add_spec (ty := .I64) hlo hhi
+  cases hf : a + b with
+  | ok x => exact ⟨x, rfl, by rw [hf, WP.spec_ok] at h; exact h⟩
+  | fail e => simp [hf, WP.spec_fail] at h
+  | div => simp [hf, WP.spec_div] at h
 
 end Bridge
 

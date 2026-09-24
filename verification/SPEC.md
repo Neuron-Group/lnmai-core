@@ -86,7 +86,7 @@ Status: ✅ Verification/Judge.lean (judge_slide_classic_equiv); standard axioms
 ```
 Precondition: diff stay_time : Duration, isEX : Bool, stay_time.micros ≥ 0
 Postcondition: dynamic extension based on stay_time
-Status: ❌ not yet proved (all arithmetic infrastructure is ready)
+Status: ✅ Verification/Judge.lean (judge_slide_modern_equiv); under `stay_time ≥ 0`
 Proof obligation: model extraction + threshold alignment (see TODO P0/P2)
 ```
 
@@ -125,7 +125,7 @@ Postcondition:
   - Good → (b/2, b - b/2)  (50%)
   - Great → (b*4/5, b - b*4/5)  (80%)
   - Perfect → (b, 0)  (100%)
-Status: ❌ not yet proved
+Status: ✅ Verification/Score.lean (score_non_break_equiv); no-overflow preconditions
 Proof obligation: Bounded U32 arithmetic matches Nat for game values
 ```
 
@@ -138,7 +138,7 @@ Postcondition:
   - Great → combo increments, pCombo/cPCombo reset
   - Good → combo increments, pCombo/cPCombo reset
   - Miss/TooFast → combo resets to 0
-Status: ❌ not yet proved
+Status: ✅ Verification/Score.lean (update_combo_equiv)
 ```
 
 ### dxScoreRank
@@ -156,7 +156,7 @@ Status: ❌ not yet proved (U32/Nat discrepancy)
 |---|---|---|
 | `duration_abs_exists` axiom | Obsolete | replaced by `abs_spec`/`abs_eq`; judgeTap & judgeSlideClassic proved without it |
 | `ofLnmDuration` constructive definition | Axiom | Duration roundtrip |
-| Bounded U32 ↔ unbounded Nat bridge | Deferred | scoreNonBreak, dxScoreRank |
+| Bounded U32 ↔ unbounded Nat bridge | Partial | done for scoreNonBreak/updateCombo (no-overflow preconditions); pending scoreBreak/dxScoreRank/countFastLate |
 | Duration arithmetic bridge (+/*/div) | Deferred | judgeSlideModern |
 | press_band arithmetic | Deferred | judgeHoldEnd |
 | TimePoint ↔ I64 conversion | Deferred | judgeHoldClassicEnd |

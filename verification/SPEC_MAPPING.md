@@ -88,13 +88,13 @@ the modern-slide equivalence is stated with `0 ≤ stay_time.micros.val`.
 |---|---|---|
 | `judgeTap (diff : Duration) (isEX : Bool) → JudgeGrade` | `judge_tap(diff, is_ex) → JudgeGrade` | Equiv: `judgeTap_equiv` ✅ |
 | `judgeTouch (diff) (isEX) → Option JudgeGrade` | `judge_touch(diff, is_ex) → Option<JudgeGrade>` | Equiv: `judgeTouch_equiv` ✅ |
-| `judgeSlideModern (diff) (stay_time) (isEX)` | `judge_slide_modern(diff, stay_time, is_ex)` | Equiv: `judgeSlideModern_equiv` ❌ (sorry) |
+| `judgeSlideModern (diff) (stay_time) (isEX)` | `judge_slide_modern(diff, stay_time, is_ex)` | Equiv: `judge_slide_modern_equiv` ✅ (`stay_time ≥ 0`) |
 | `judgeSlideClassic (diff) → JudgeGrade` | `judge_slide_classic(diff) → JudgeGrade` | Equiv: `judgeSlideClassic_equiv` ✅ |
 | `correctSlideGrade : JudgeGrade → JudgeGrade` | `correct_slide_grade(grade) → JudgeGrade` | Equiv: `correctSlideGrade_equiv` ✅ |
 | `judgeHoldEnd (headGrade) ...` | `judge_hold_end(...)` | Equiv: `judgeHoldEnd_equiv` ❌ (sorry) |
 | `judgeHoldClassicEnd (headGrade) ...` | `judge_hold_classic_end(...)` | Equiv: `judgeHoldClassicEnd_equiv` ❌ (sorry) |
 | `judgeSlideTooLate (queueRemaining : Nat)` | `judge_slide_too_late(queue_remaining: u32)` | Equiv: `judgeSlideTooLate_equiv` ✅ |
-| `isTooLateSlide (diff) (userOffset)` | `is_too_late_slide(diff, user_offset)` | Equiv: `isTooLateSlide_equiv` ❌ (pending: `+` value bridge) |
+| `isTooLateSlide (diff) (userOffset)` | `is_too_late_slide(diff, user_offset)` | Equiv: `is_too_late_slide_equiv` ✅ (no-overflow precondition) |
 
 ---
 
@@ -103,9 +103,9 @@ the modern-slide equivalence is stated with `0 ≤ stay_time.micros.val`.
 | Lean (LnmaiCore/Score.lean) | Rust | Verification |
 |---|---|---|
 | `baseScore (nt : NoteType) : Nat` | `base_score(nt) → u32` | Equiv: `baseScore_equiv` ✅ |
-| `scoreNonBreak (baseScore) (grade) (multiple) : Nat × Nat` | `score_non_break(base, grade, multiple) → (u32, u32)` | ❌ not yet proved |
+| `scoreNonBreak (baseScore) (grade) (multiple) : Nat × Nat` | `score_non_break(base, grade, multiple) → (u32, u32)` | Equiv: `score_non_break_equiv` ✅ (no-overflow preconditions) |
 | `scoreBreak (grade) (multiple) : ...` | `score_break(grade, multiple)` | ❌ not yet proved |
-| `updateCombo (combo, pCombo, cPCombo, dXScoreLost, grade, multiple) → ComboDelta` | `update_combo(...) → ComboDelta` | ❌ not yet proved |
+| `updateCombo (combo, pCombo, cPCombo, dXScoreLost, grade, multiple) → ComboDelta` | `update_combo(...) → ComboDelta` | Equiv: `update_combo_equiv` ✅ (no-overflow preconditions) |
 | `dxScoreRank (achievedDxScore) (maxDxScore) : Nat` | `dx_score_rank(achieved, max) → u32` | ❌ not yet proved |
 | `countFastLate (grade) (diff) (display) : Bool × Bool` | `count_fast_late(grade, diff, display)` | Not yet modeled |
 | `computeAccRates ... : AccRates` | `compute_acc_rates(score) → AccRates` | Not yet modeled |
@@ -118,13 +118,13 @@ the modern-slide equivalence is stated with `0 ≤ stay_time.micros.val`.
 |---|---|---|
 | Sum-type isomorphisms | 9 types | All proved ✅ |
 | Convert functions | 4 functions | All proved ✅ |
-| Judge functions | 9 functions | 5 proved (`judgeTap`, `judgeTouch`, `judgeSlideClassic`, `judgeSlideTooLate`, `correctSlideGrade`); 4 pending (`isTooLateSlide`, `judgeSlideModern`, both hold-ends) |
-| Score functions | 7 functions | 1 proved (`baseScore`); 4 pending; 2 not modeled |
+| Judge functions | 9 functions | 7 proved (`judgeTap`, `judgeTouch`, `judgeSlideClassic`, `judgeSlideModern`, `judgeSlideTooLate`, `isTooLateSlide`, `correctSlideGrade`); 2 pending (both hold-ends) |
+| Score functions | 7 functions | 3 proved (`baseScore`, `scoreNonBreak`, `updateCombo`); 3 pending (`scoreBreak`, `dxScoreRank`, `countFastLate`); 1 not modeled (`computeAccRates`) |
 | Axioms in use | 0 | The active `Verification` library proves everything from standard axioms only |
 
 ## Remaining Gaps
 
-1. **Bounded/Unbounded Arithmetic Bridge**: U32 arithmetic in Rust differs from Nat in Lean for overflow cases. Game values are within bounds but proofs are pending.
+1. **Bounded/Unbounded Arithmetic Bridge**: U32 arithmetic in Rust differs from Nat in Lean for overflow cases. `score_non_break_equiv` and `update_combo_equiv` are proved with explicit no-overflow preconditions; `scoreBreak`/`dxScoreRank`/`countFastLate` remain.
 2. **judgeSlideModern**: needs `Duration.divNat`/`scaleNat` (P2).
 3. **judgeHoldEnd / judgeHoldClassicEnd**: complex structural proofs pending (`Duration` arithmetic/comparison bridges).
 4. **computeAccRates**: Uses `f64` in Rust vs `Rat` in Lean — rational number bridge needed.

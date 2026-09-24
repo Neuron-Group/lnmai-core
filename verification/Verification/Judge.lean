@@ -336,6 +336,199 @@ theorem judge_slide_too_late_equiv (queue_remaining : Std.U32) :
       intro h; exact hq (by rw [h]; rfl)
     simp [h1, hq, ofLnmJudgeGrade]
 
+/-! ## Slide too-late check -/
+
+@[simp] theorem slideGood_model : constants.SLIDE_GOOD.micros.val = (600012 : ℤ) := by
+  simp [constants.SLIDE_GOOD]
+
+@[simp] theorem slideGood_spec :
+    LnmaiCore.Constants.SLIDE_JUDGE_GOOD_AREA_MSEC.toMicros = 600012 := by
+  decide
+
+/-- M1d: `is_too_late_slide` equivalence. -/
+theorem is_too_late_slide_equiv (diff user_offset : time.Duration)
+    (hlo : IScalar.min .I64 ≤ 600012 + min user_offset.micros.val 0)
+    (hhi : 600012 + min user_offset.micros.val 0 ≤ IScalar.max .I64) :
+    judge.is_too_late_slide diff user_offset =
+      ok (LnmaiCore.Judge.isTooLateSlide (toLnmDuration diff) (toLnmDuration user_offset)) := by
+  unfold judge.is_too_late_slide LnmaiCore.Judge.isTooLateSlide
+  by_cases hu : user_offset.micros.val < 0
+  · have hlt : user_offset.micros < (0#i64 : Std.I64) := by
+      simpa [i64_lt_iff, i64_zero_val] using hu
+    have hminu : min user_offset.micros.val 0 = user_offset.micros.val :=
+      min_eq_left (by omega)
+    rw [if_pos hlt]
+    simp only [bind_tc_ok]
+    obtain ⟨iv, hiv, hivv⟩ := i64_add_eq constants.SLIDE_GOOD.micros user_offset.micros
+      (by rw [slideGood_model]; simpa [hminu] using hlo)
+      (by rw [slideGood_model]; simpa [hminu] using hhi)
+    rw [hiv]
+    simp only [bind_tc_ok]
+    have hthr : (LnmaiCore.Constants.SLIDE_JUDGE_GOOD_AREA_MSEC +
+        toLnmDuration user_offset ⊓ LnmaiCore.Duration.zero).toMicros = iv.val := by
+      rw [Duration.toMicros_add, Duration.toMicros_min, slideGood_spec, toLnmDuration_toMicros,
+        zero_toMicros, hminu, hivv, slideGood_model]
+    congr 1
+    rw [decide_eq_decide]
+    simp only [GT.gt, i64_lt_iff]
+    rw [← LnmaiCore.Duration.toMicros_lt_toMicros, toLnmDuration_toMicros, hthr]
+  · push Not at hu
+    have hnlt : ¬ (user_offset.micros < (0#i64 : Std.I64)) := by
+      rw [i64_lt_iff, i64_zero_val]; omega
+    have hminu : min user_offset.micros.val 0 = (0 : ℤ) := min_eq_right (by omega)
+    rw [if_neg hnlt]
+    simp only [time.Duration.zero, bind_tc_ok]
+    obtain ⟨iv, hiv, hivv⟩ := i64_add_eq constants.SLIDE_GOOD.micros (0#i64 : Std.I64)
+      (by rw [slideGood_model]; scalar_tac) (by rw [slideGood_model]; scalar_tac)
+    rw [hiv]
+    simp only [bind_tc_ok]
+    have hthr : (LnmaiCore.Constants.SLIDE_JUDGE_GOOD_AREA_MSEC +
+        toLnmDuration user_offset ⊓ LnmaiCore.Duration.zero).toMicros = iv.val := by
+      rw [Duration.toMicros_add, Duration.toMicros_min, slideGood_spec, toLnmDuration_toMicros,
+        zero_toMicros, hminu, hivv, i64_zero_val, slideGood_model]
+    congr 1
+    rw [decide_eq_decide]
+    simp only [GT.gt, i64_lt_iff]
+    rw [← LnmaiCore.Duration.toMicros_lt_toMicros, toLnmDuration_toMicros, hthr]
+
+
+/-! ## Modern slide -/
+
+@[simp] theorem slideP3_model : constants.SLIDE_PERFECT_3RD.micros.val = (233338 : ℤ) := by
+  simp [constants.SLIDE_PERFECT_3RD]
+@[simp] theorem slideMaxExt_model : constants.SLIDE_MAX_EXT.micros.val = (366674 : ℤ) := by
+  simp [constants.SLIDE_MAX_EXT]
+@[simp] theorem slideG1_model : constants.SLIDE_GREAT_1ST.micros.val = (350007 : ℤ) := by
+  simp [constants.SLIDE_GREAT_1ST]
+@[simp] theorem slideG2_model : constants.SLIDE_GREAT_2ND.micros.val = (416675 : ℤ) := by
+  simp [constants.SLIDE_GREAT_2ND]
+@[simp] theorem slideG3_model : constants.SLIDE_GREAT_3RD.micros.val = (483343 : ℤ) := by
+  simp [constants.SLIDE_GREAT_3RD]
+
+@[simp] theorem slideB3_spec : LnmaiCore.Constants.SLIDE_JUDGE_SEG_BASE_3RD_PERFECT_MSEC.toMicros = 233338 := by decide
+@[simp] theorem slideMaxExt_spec : LnmaiCore.Constants.SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC.toMicros = 366674 := by decide
+@[simp] theorem slideG1_spec : LnmaiCore.Constants.SLIDE_JUDGE_SEG_1ST_GREAT_MSEC.toMicros = 350007 := by decide
+@[simp] theorem slideG2_spec : LnmaiCore.Constants.SLIDE_JUDGE_SEG_2ND_GREAT_MSEC.toMicros = 416675 := by decide
+@[simp] theorem slideG3_spec : LnmaiCore.Constants.SLIDE_JUDGE_SEG_3RD_GREAT_MSEC.toMicros = 483343 := by decide
+
+theorem judgeSlideModern_expand (d s : LnmaiCore.Duration) (is_ex : Bool) :
+    LnmaiCore.Judge.judgeSlideModern d s is_ex =
+      (let isFast := d < LnmaiCore.Duration.zero
+       let diffMSec := LnmaiCore.Duration.abs d
+       let ext := min (LnmaiCore.Duration.divNat s 4)
+         LnmaiCore.Constants.SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC
+       let seg3rd := LnmaiCore.Constants.SLIDE_JUDGE_SEG_BASE_3RD_PERFECT_MSEC + ext
+       let seg1st := LnmaiCore.Duration.divNat seg3rd 3
+       let seg2nd := LnmaiCore.Duration.divNat (LnmaiCore.Duration.scaleNat seg3rd 2) 3
+       if diffMSec ≤ seg1st then LnmaiCore.JudgeGrade.Perfect
+       else if diffMSec ≤ seg2nd then (if isFast then LnmaiCore.JudgeGrade.FastPerfect2nd else LnmaiCore.JudgeGrade.LatePerfect2nd)
+       else if diffMSec ≤ seg3rd then (if isFast then LnmaiCore.JudgeGrade.FastPerfect3rd else LnmaiCore.JudgeGrade.LatePerfect3rd)
+       else if diffMSec ≤ LnmaiCore.Constants.SLIDE_JUDGE_SEG_1ST_GREAT_MSEC then (if isFast then LnmaiCore.JudgeGrade.FastGreat else LnmaiCore.JudgeGrade.LateGreat)
+       else if diffMSec ≤ LnmaiCore.Constants.SLIDE_JUDGE_SEG_2ND_GREAT_MSEC then (if isFast then LnmaiCore.JudgeGrade.FastGreat2nd else LnmaiCore.JudgeGrade.LateGreat2nd)
+       else if diffMSec ≤ LnmaiCore.Constants.SLIDE_JUDGE_SEG_3RD_GREAT_MSEC then (if isFast then LnmaiCore.JudgeGrade.FastGreat3rd else LnmaiCore.JudgeGrade.LateGreat3rd)
+       else (if isFast then LnmaiCore.JudgeGrade.FastGood else LnmaiCore.JudgeGrade.LateGood)) := by
+  simp only [LnmaiCore.Judge.judgeSlideModern]
+  rfl
+
+theorem judge_slide_modern_equiv (diff stay_time : time.Duration) (is_ex : Bool)
+    (hmin : diff.micros ≠ IScalar.min .I64) (hstay : 0 ≤ stay_time.micros.val)
+    (hstay_hi : stay_time.micros.val ≤ 2^40) :
+    judge.judge_slide_modern diff stay_time is_ex =
+      ok (ofLnmJudgeGrade
+        (LnmaiCore.Judge.judgeSlideModern (toLnmDuration diff) (toLnmDuration stay_time) is_ex)) := by
+  obtain ⟨v, hv, hvv⟩ := abs_eq diff hmin
+  rw [judgeSlideModern_expand]
+  simp only [judge.judge_slide_modern]
+  rw [hv]; simp only [bind_tc_ok]
+  obtain ⟨sd4, hsd4, hsd4v⟩ := div_nat_eq stay_time 4#u32 (by simp)
+  rw [hsd4]; simp only [bind_tc_ok]
+  set S : LnmaiCore.Duration :=
+    LnmaiCore.Constants.SLIDE_JUDGE_SEG_BASE_3RD_PERFECT_MSEC +
+      min (LnmaiCore.Duration.divNat (toLnmDuration stay_time) 4)
+        LnmaiCore.Constants.SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC with hS
+  have hsdediv : stay_time.micros.val / 4 = sd4.micros.val := by
+    have h' : sd4.micros.val = (stay_time.micros.val).tdiv 4 := by simpa using hsd4v
+    rw [h']; exact (Int.tdiv_eq_ediv_of_nonneg hstay).symm
+  by_cases hext : sd4.micros < constants.SLIDE_MAX_EXT.micros
+  · have hextv : sd4.micros.val < 366674 := by simpa [slideMaxExt_model] using hext
+    rw [if_pos hext]; simp only [bind_tc_ok]
+    obtain ⟨iv, hiv, hivv⟩ := i64_add_eq constants.SLIDE_PERFECT_3RD.micros sd4.micros
+      (by rw [slideP3_model]; (first | omega | scalar_tac)) (by rw [slideP3_model]; (first | omega | scalar_tac))
+    rw [hiv]; simp only [bind_tc_ok]
+    obtain ⟨s1, hs1, hs1v⟩ := div_nat_eq { micros := iv } 3#u32 (by simp)
+    rw [hs1]; simp only [bind_tc_ok]
+    obtain ⟨d, hd, hdv⟩ := scale_nat_eq { micros := iv } 2#u32
+      (by rw [hivv, slideP3_model]; (first | omega | scalar_tac))
+      (by rw [hivv, slideP3_model]; (first | omega | scalar_tac))
+    rw [hd]; simp only [bind_tc_ok]
+    obtain ⟨s2, hs2, hs2v⟩ := div_nat_eq d 3#u32 (by simp)
+    rw [hs2]; simp only [bind_tc_ok]
+    have hivnn : 0 ≤ iv.val := by rw [hivv, slideP3_model]; omega
+    have hidv : d.micros.val = iv.val * 2 := by simpa using hdv
+    have hs3 : S.toMicros = iv.val := by
+      rw [hS, Duration.toMicros_add, Duration.toMicros_min, Duration.toMicros_divNat,
+        slideB3_spec, slideMaxExt_spec, toLnmDuration_toMicros,
+        if_neg (by norm_num : ¬ (4:Nat) = 0), Nat.cast_ofNat, hsdediv,
+        min_eq_left (by omega : sd4.micros.val ≤ 366674), hivv, slideP3_model]
+    have hs1eq : (LnmaiCore.Duration.divNat S 3).toMicros = s1.micros.val := by
+      rw [Duration.toMicros_divNat, hs3, if_neg (by norm_num : ¬ (3:Nat) = 0)]
+      have h' : s1.micros.val = (iv.val).tdiv 3 := by simpa using hs1v
+      rw [h']; exact (Int.tdiv_eq_ediv_of_nonneg hivnn).symm
+    have hs2eq : (LnmaiCore.Duration.divNat (LnmaiCore.Duration.scaleNat S 2) 3).toMicros = s2.micros.val := by
+      rw [Duration.toMicros_divNat, Duration.toMicros_scaleNat, hs3,
+        if_neg (by norm_num : ¬ (3:Nat) = 0)]
+      have h' : s2.micros.val = (d.micros.val).tdiv 3 := by simpa using hs2v
+      rw [h', hidv]
+      exact (Int.tdiv_eq_ediv_of_nonneg (by omega)).symm
+    simp only [lnmDuration_le_iff_toMicros, duration_abs_toMicros, hs3, hs1eq, hs2eq,
+      slideG1_spec, slideG2_spec, slideG3_spec,
+      slideG1_model, slideG2_model, slideG3_model, toLnmDuration_lt_zero,
+      i64_le_iff, i64_lt_iff, i64_zero_val]
+    rw [← hvv]
+    simp only [ofLnmJudgeGrade_ite]
+    simp only [ok_ite]
+    repeat (first | rfl | split)
+  · have hge : 366674 ≤ sd4.micros.val := by
+      have h := not_lt.mp hext; simpa [slideMaxExt_model] using h
+    rw [if_neg hext]; simp only [bind_tc_ok]
+    obtain ⟨iv, hiv, hivv⟩ := i64_add_eq constants.SLIDE_PERFECT_3RD.micros constants.SLIDE_MAX_EXT.micros
+      (by rw [slideP3_model, slideMaxExt_model]; (first | omega | scalar_tac))
+      (by rw [slideP3_model, slideMaxExt_model]; (first | omega | scalar_tac))
+    rw [hiv]; simp only [bind_tc_ok]
+    obtain ⟨s1, hs1, hs1v⟩ := div_nat_eq { micros := iv } 3#u32 (by simp)
+    rw [hs1]; simp only [bind_tc_ok]
+    obtain ⟨d, hd, hdv⟩ := scale_nat_eq { micros := iv } 2#u32
+      (by rw [hivv, slideP3_model, slideMaxExt_model]; (first | omega | scalar_tac))
+      (by rw [hivv, slideP3_model, slideMaxExt_model]; (first | omega | scalar_tac))
+    rw [hd]; simp only [bind_tc_ok]
+    obtain ⟨s2, hs2, hs2v⟩ := div_nat_eq d 3#u32 (by simp)
+    rw [hs2]; simp only [bind_tc_ok]
+    have hivnn : 0 ≤ iv.val := by rw [hivv, slideP3_model, slideMaxExt_model]; omega
+    have hidv : d.micros.val = iv.val * 2 := by simpa using hdv
+    have hs3 : S.toMicros = iv.val := by
+      rw [hS, Duration.toMicros_add, Duration.toMicros_min, Duration.toMicros_divNat,
+        slideB3_spec, slideMaxExt_spec, toLnmDuration_toMicros,
+        if_neg (by norm_num : ¬ (4:Nat) = 0), Nat.cast_ofNat, hsdediv,
+        min_eq_right (by omega : 366674 ≤ sd4.micros.val), hivv, slideP3_model, slideMaxExt_model]
+    have hs1eq : (LnmaiCore.Duration.divNat S 3).toMicros = s1.micros.val := by
+      rw [Duration.toMicros_divNat, hs3, if_neg (by norm_num : ¬ (3:Nat) = 0)]
+      have h' : s1.micros.val = (iv.val).tdiv 3 := by simpa using hs1v
+      rw [h']; exact (Int.tdiv_eq_ediv_of_nonneg hivnn).symm
+    have hs2eq : (LnmaiCore.Duration.divNat (LnmaiCore.Duration.scaleNat S 2) 3).toMicros = s2.micros.val := by
+      rw [Duration.toMicros_divNat, Duration.toMicros_scaleNat, hs3,
+        if_neg (by norm_num : ¬ (3:Nat) = 0)]
+      have h' : s2.micros.val = (d.micros.val).tdiv 3 := by simpa using hs2v
+      rw [h', hidv]
+      exact (Int.tdiv_eq_ediv_of_nonneg (by omega)).symm
+    simp only [lnmDuration_le_iff_toMicros, duration_abs_toMicros, hs3, hs1eq, hs2eq,
+      slideG1_spec, slideG2_spec, slideG3_spec,
+      slideG1_model, slideG2_model, slideG3_model, toLnmDuration_lt_zero,
+      i64_le_iff, i64_lt_iff, i64_zero_val]
+    rw [← hvv]
+    simp only [ofLnmJudgeGrade_ite]
+    simp only [ok_ite]
+    repeat (first | rfl | split)
+
 end JudgeProof
 
 end Verification

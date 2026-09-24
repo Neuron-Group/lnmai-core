@@ -56,8 +56,8 @@ attempt against a pre-`lnmai-core-rs` model. They are not part of the
 | Convert | ✅ | `convert_maji/gachi/gori/grade` ✅ | M1d |
 | Constants | — | values transcribed | M1c |
 | Time | — | `Duration.abs` ✅ (`abs_spec`, `abs_eq`); `duration_abs_fromMicros` ✅; `scale_nat`/`div_nat` value specs ✅ (with u32→i64 `hcast` bridge); `toMicros_add/min/scaleNat/divNat` ✅ | M1b/P2 |
-| Judge | — | `correct_slide_grade` ✅; `judge_tap` ✅, `judge_touch` ✅, `judge_slide_classic` ✅; modern/holds pending | M1d |
-| Score | — | `base_score` ✅, arithmetic pending | M1d |
+| Judge | — | `correct_slide_grade` ✅; `judge_tap` ✅, `judge_touch` ✅, `judge_slide_classic` ✅, `judge_slide_modern` ✅, `judge_slide_too_late` ✅, `is_too_late_slide` ✅; hold-ends pending | M1d |
+| Score | — | `base_score` ✅, `score_non_break` ✅, `update_combo` ✅; `score_break`/`dx_score_rank`/`count_fast_late` pending | M1d |
 
 ### Handling the `Duration.abs` bind (previously a blocker)
 

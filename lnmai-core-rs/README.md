@@ -128,10 +128,12 @@ against Lean, field-by-field.
 Areas isomorphisms/index/conversions; Types predicates; Convert functions;
 `Duration.abs` value (`abs_spec`) and equality (`abs_eq`) specs;
 `duration_abs_fromMicros`; six `decide`-checked constant lemmas;
-`ofLnmJudgeGrade_ite`; and the windowed judge equivalences
-`judge_tap_equiv`, `judge_touch_equiv` and `judge_slide_classic_equiv` (all free
-of custom axioms). See `../verification/README.md` for the module table and the
-remaining judge functions.
+`ofLnmJudgeGrade_ite`; the judge equivalences
+`judge_tap_equiv`, `judge_touch_equiv`, `judge_slide_classic_equiv`,
+`judge_slide_modern_equiv`, `judge_slide_too_late_equiv` and
+`is_too_late_slide_equiv`; and the score equivalences `score_non_break_equiv`
+and `update_combo_equiv` (all free of custom axioms; see
+`../verification/README.md` for the module table and the remaining functions).
 
 **Remaining work → `TODO.md`.**
 

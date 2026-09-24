@@ -32,6 +32,9 @@ is_too_late_slide_equiv, judge_slide_too_late_equiv
 - `judge_tap_equiv` ✅
 - `judge_touch_equiv` ✅ (with `judgeTouch_expand`, `option_map_ite`)
 - `judge_slide_classic_equiv` ✅ (with `judgeSlideClassic_expand`)
+- `judge_slide_too_late_equiv` ✅
+- `is_too_late_slide_equiv` ✅ (with `Bridge.i64_add_eq`, `Duration.toMicros_{add,min}`)
+- `judge_slide_modern_equiv` ✅ (with `Bridge.div_nat_eq`/`scale_nat_eq`, `Duration.toMicros_{add,min,scaleNat,divNat}`, `judgeSlideModern_expand`; under `stay_time ≥ 0`)
 
 Already available (proven):
 - `abs_spec` / `abs_eq` for `time.Duration.abs`
@@ -57,19 +60,24 @@ that works for `judge_tap`/`judge_touch`/`judge_slide_classic`:
    (`option_map_ite`); split the sign with `by_cases` and use
    `hfast`/`(diff.micros.val < 0) = False` to reduce the model branch.
 
-**Remaining.** `judge_slide_modern` needs `Duration.divNat`/`scaleNat` (P2); the
-two hold-end functions need duration comparisons/additions
-(`TimePoint ↔ I64`).
+**Remaining.** The two hold-end functions: `judge_hold_end` needs `TimePoint`
+comparisons / `press_band` multiplication arithmetic; `judge_hold_classic_end`
+needs `TimePoint ↔ I64` conversion plus the `distFromPerfect` comparison.
 
 ## P1 — Score functions (`LnmaiCore/Score.lean`)
 
 Target: `scoreNonBreak_equiv`, `scoreBreak_equiv`, `updateCombo_equiv`,
 `countFastLate_equiv`, `dxScoreRank_equiv`.
 
-`base_score_equiv` is already proven. The others combine `u32` arithmetic with
-enum dispatch. Strategy: state each with explicit no-overflow preconditions
-(e.g. `base.val * multiple.val < 2^32`, `b.val * 4 < 2^32`) and use the Aeneas
-`U32.*_spec` lemmas; the differential tests already fix the expected values.
+**Done (`sorry`-free, standard axioms only):**
+- `base_score_equiv` ✅
+- `score_non_break_equiv` ✅ (with `u32_mul_eq`/`u32_div_eq`/`u32_sub_eq`)
+- `update_combo_equiv` ✅
+
+The remaining ones combine `u32` arithmetic with enum dispatch. State each with
+explicit no-overflow preconditions (e.g. `base.val * multiple.val < 2^32`,
+`b.val * 4 < 2^32`) and use the Aeneas `U32.*_spec` lemmas (via `step*` plus
+`u32_*_eq`); the differential tests already fix the expected values.
 
 `countFastLate` needs `Duration` comparisons (`== 0`, `< 0`) — reuse the
 `I64` comparison simp lemmas.
@@ -89,8 +97,9 @@ Notes / progress:
 - Bridge lemma `(UScalar.hcast IScalarTy.I64 x).val = x.val` (u32→i64) is
   proved (`Bridge.hcast_i64_val`).
 - `scale_nat` and `div_nat` value specs are proved (`Bridge.scale_nat_spec`,
-  `Bridge.div_nat_spec`), together with `Duration.toMicros_{add,min,scaleNat,
-  divNat}` and `u32_eq_zero_iff`.
+  `Bridge.div_nat_spec`) with equality forms `Bridge.scale_nat_eq`/
+  `Bridge.div_nat_eq`, together with `Duration.toMicros_{add,min,scaleNat,
+  divNat}`, `i64_add_eq` and `u32_eq_zero_iff`.
 - **`div_nat` does NOT mirror `Int.ediv`.** Aeneas's division spec
   (`IScalar.div_spec`) is `Int.tdiv` (truncation toward zero), while the spec's
   `Duration.divNat` uses Lean `Int./`, i.e. Euclidean division. They coincide
@@ -124,8 +133,10 @@ are done). Add them as `@[simp]` lemmas so later proofs normalize constants.
      lowered in reverse order (fixed; regression test
      `multi_measure_body_keeps_source_order`).
   With both fixed the Rust parse now matches Lean for **every** level of that
-  chart, and the default tactic is byte-identical. Add a differential case that
-  parses a captured real `&inote_N` block so this stays covered.
+  chart, and the default tactic is byte-identical. `CHARTS` in
+  `tests/differential.rs` now includes multi-measure and multi-level synthetic
+  bodies (verified against the Lean CLIs), and `multi_measure_body_keeps_source_order`
+  pins the exact Lean timings.
 - Add charts for: classic holds, `#`-timed segments, `$`/`!`/`?` flags,
   same-head `*` groups under chords, large slide chains.
 - Longer random sessions (hundreds of frames) and multiple charts per run.
