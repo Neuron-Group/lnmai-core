@@ -15,7 +15,7 @@ lnmai-core-rs/
     lnmai-core/                   # full port + FFI (JSON API + C ABI)
       src/{areas,time,types,constants,convert,judge,score}.rs   (re-exported)
       src/{storage,symmetry,rat,time,input_model,lifecycle,
-           chart_loader,runtime_score,scheduler,events,ffi,cabi}.rs
+           chart_loader,runtime_score,scheduler,events,default_tactic,ffi,cabi}.rs
       src/simai/{syntax,timing,shape,slide_tables,slide_parser,
                  tokenize,typecheck,ir,normalize,maidata,frontend}.rs
       tests/differential.rs       # Rust vs Lean
@@ -107,7 +107,8 @@ them the tests skip and pass.
   (`create_empty_session_handle`, `load_chart_into_session_from_text/json`,
   `unload_chart_from_session`, `get_lowered_chart_json_by_handle`,
   `free_game_state_handle`, `step_game_state_handle[_light]`,
-  `parse_lowered/normalized/frontend_semantic_chart_json`), returning
+  `parse_lowered/normalized/frontend_semantic_chart_json`,
+  `default_tactic_from_chart_json`), returning
   `{"ok":true,"result":…}` / `{"ok":false,"error":{…}}`.
 - `cabi.rs` + `include/lnmai_ffi.h` — the same surface as a C-string ABI
   (symbols mirror `LnmaiCore/FFI.lean`; free results with `lnmai_string_free`).
@@ -127,8 +128,10 @@ against Lean, field-by-field.
 Areas isomorphisms/index/conversions; Types predicates; Convert functions;
 `Duration.abs` value (`abs_spec`) and equality (`abs_eq`) specs;
 `duration_abs_fromMicros`; six `decide`-checked constant lemmas;
-`ofLnmJudgeGrade_ite`. See `../verification/README.md` for the module table and
-the current blocker for the windowed judge/score proofs.
+`ofLnmJudgeGrade_ite`; and the windowed judge equivalences
+`judge_tap_equiv`, `judge_touch_equiv` and `judge_slide_classic_equiv` (all free
+of custom axioms). See `../verification/README.md` for the module table and the
+remaining judge functions.
 
 **Remaining work → `TODO.md`.**
 

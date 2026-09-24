@@ -28,6 +28,9 @@ char *lnmai_parse_lowered_chart_json(const char *content, uint32_t level_index);
 char *lnmai_parse_normalized_chart_json(const char *content, uint32_t level_index);
 char *lnmai_parse_frontend_semantic_chart_json(const char *content, uint32_t level_index);
 
+/* Default autoplay tactic (ChartSpec JSON -> TimedInputEvent list). */
+char *lnmai_default_tactic_from_chart_json(const char *chart_spec_json);
+
 /* Session runtime APIs (preferred gameplay surface). */
 char *lnmai_create_empty_session_handle(void);
 char *lnmai_load_chart_into_session_from_text(uint64_t handle, const char *content, uint32_t level_index);

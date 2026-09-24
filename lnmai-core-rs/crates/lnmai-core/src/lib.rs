@@ -16,6 +16,7 @@ pub use lnmai_core_verify::{areas, constants, convert, judge, score, types};
 
 pub mod cabi;
 pub mod chart_loader;
+pub mod default_tactic;
 pub mod events;
 pub mod ffi;
 pub mod input_model;

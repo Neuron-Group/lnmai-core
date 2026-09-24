@@ -79,6 +79,15 @@ pub extern "C" fn lnmai_create_empty_session_handle() -> *mut c_char {
 }
 
 /// # Safety
+/// `chart_spec_json` must be a valid NUL-terminated UTF-8 C string.
+#[no_mangle]
+pub unsafe extern "C" fn lnmai_default_tactic_from_chart_json(
+    chart_spec_json: *const c_char,
+) -> *mut c_char {
+    to_c(ffi::default_tactic_from_chart_json(&unsafe { from_c(chart_spec_json) }))
+}
+
+/// # Safety
 /// `content` must be a valid NUL-terminated UTF-8 C string.
 #[no_mangle]
 pub unsafe extern "C" fn lnmai_load_chart_into_session_from_text(
@@ -159,6 +168,21 @@ mod tests {
 
             let freed = lnmai_free_game_state_handle(handle);
             lnmai_string_free(freed);
+        }
+    }
+
+    #[test]
+    fn cabi_default_tactic() {
+        unsafe {
+            let content = CString::new("&first=0\n&inote_1=\n(120)\n1,\n").unwrap();
+            let lowered = lnmai_parse_lowered_chart_json(content.as_ptr(), 1);
+            let tactic = lnmai_default_tactic_from_chart_json(lowered);
+            let tactic_str = CStr::from_ptr(tactic).to_str().unwrap().to_string();
+            lnmai_string_free(lowered);
+            lnmai_string_free(tactic);
+            let v: serde_json::Value = serde_json::from_str(&tactic_str).unwrap();
+            assert_eq!(v["result"]["events"][0]["buttonClick"]["zone"], "K1");
+            assert_eq!(v["result"]["events"][0]["buttonClick"]["tp"], 0);
         }
     }
 }

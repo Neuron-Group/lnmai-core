@@ -513,6 +513,23 @@ pub fn parse_frontend_semantic_chart_json(content: &str, level_index: u32) -> St
     }
 }
 
+/// `lnmai_default_tactic_from_chart_json`.
+///
+/// Decodes a `ChartSpec` JSON (as produced by `lnmai_parse_lowered_chart_json`)
+/// and returns the default autoplay tactic:
+/// `{"ok":true,"result":{"events":[ ...TimedInputEvent... ]}}`.
+pub fn default_tactic_from_chart_json(chart_spec_json: &str) -> String {
+    match parse_chart_spec_json(chart_spec_json) {
+        Ok(spec) => {
+            let events = crate::default_tactic::default_tactic_from_chart(&spec);
+            ok_json(json!({
+                "events": events.iter().map(timed_event_json).collect::<Vec<_>>(),
+            }))
+        }
+        Err(e) => error_json("invalid_chart_spec_json", &e),
+    }
+}
+
 /// `lnmai_create_empty_session_handle`.
 pub fn create_empty_session_handle() -> String {
     let handle = next_handle();
@@ -633,6 +650,33 @@ fn parse_slot(s: &str) -> Option<OuterSlot> {
     })
 }
 
+fn parse_slide_area_spec(v: &Value) -> Result<crate::simai::slide_tables::SlideAreaSpec, String> {
+    let mut target_areas = Vec::new();
+    if let Some(arr) = v.get("targetAreas").and_then(Value::as_array) {
+        for a in arr {
+            target_areas.push(a.as_str().and_then(parse_sensor).ok_or("invalid targetAreas")?);
+        }
+    }
+    let policy = match v.get("policy").and_then(Value::as_str) {
+        Some("And") => crate::types::AreaPolicy::And,
+        _ => crate::types::AreaPolicy::Or,
+    };
+    Ok(crate::simai::slide_tables::SlideAreaSpec {
+        target_areas,
+        policy,
+        is_last: v.get("isLast").and_then(Value::as_bool).unwrap_or(false),
+        is_skippable: v.get("isSkippable").and_then(Value::as_bool).unwrap_or(false),
+        arrow_progress_when_on: v
+            .get("arrowProgressWhenOn")
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as usize,
+        arrow_progress_when_finished: v
+            .get("arrowProgressWhenFinished")
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as usize,
+    })
+}
+
 fn parse_chart_spec_json(content: &str) -> Result<ChartSpec, String> {
     let v: Value = serde_json::from_str(content).map_err(|e| e.to_string())?;
     // Accept either the envelope or the bare ChartSpec.
@@ -740,6 +784,18 @@ fn parse_chart_spec_json(content: &str) -> Result<ChartSpec, String> {
             note.multiple = n["multiple"].as_u64().unwrap_or(1) as usize;
             note.logical_slide_id = n["logicalSlideId"].as_u64().unwrap_or(0) as usize;
             note.note_index = n["noteIndex"].as_u64().unwrap_or(0) as usize;
+            note.judge_at = n.get("judgeAt").and_then(Value::as_i64).map(TimePoint::from_micros);
+            if let Some(queues) = n.get("judgeQueues").and_then(Value::as_array) {
+                for q in queues {
+                    let mut queue = Vec::new();
+                    if let Some(specs) = q.as_array() {
+                        for a in specs {
+                            queue.push(parse_slide_area_spec(a)?);
+                        }
+                    }
+                    note.judge_queues.push(queue);
+                }
+            }
             spec.slides.push(note);
         }
     }

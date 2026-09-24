@@ -164,7 +164,8 @@ fn collect_chart_body(lines: &[String], mut acc: Vec<String>) -> (Vec<String>, V
         acc.push(lines[i].clone());
         i += 1;
     }
-    acc.reverse();
+    // `acc` is already in source order (`Lean` prepends then reverses; here we
+    // append, so no reversal is needed).
     (acc, lines[i..].to_vec())
 }
 
@@ -199,8 +200,8 @@ fn parse_maidata_lines(lines: &[String], fields: Vec<(String, String)>, charts: 
             rest.remove(0);
         }
     }
-    fields.reverse();
-    charts.reverse();
+    // `fields`/`charts` are appended in source order above; Lean builds them by
+    // prepending and then reverses, so no extra reversal is needed here.
     MaidataFile { metadata: MaidataMetadata { fields }, charts }
 }
 
@@ -269,6 +270,7 @@ pub fn parse_and_lower_source_maidata(content: &str, level_index: usize) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::areas::OuterSlot;
 
     const MAIDATA: &str = "&title=Test\n&wholebpm=120\n&first=0\n&inote_1=\n(120)\n1,2,3,\n";
 
@@ -286,5 +288,20 @@ mod tests {
     fn key_value_line() {
         assert_eq!(parse_key_value_line("&title=A=B"), Some(("&title".to_string(), "A=B".to_string())));
         assert_eq!(parse_key_value_line("bare"), Some(("bare".to_string(), "".to_string())));
+    }
+
+    #[test]
+    fn multi_measure_body_keeps_source_order() {
+        // Regression: `collect_chart_body` used to reverse the body lines, so
+        // later measures were lowered before earlier ones.
+        let content = "&first=0\n&inote_1=\n(120)\n1,\n2,\n3,\n4,\n";
+        let result = parse_and_lower_source_maidata(content, 1).unwrap();
+        let taps = &result.semantic.lowered.taps;
+        assert_eq!(taps.len(), 4);
+        let slots: Vec<_> = taps.iter().map(|t| t.slot).collect();
+        assert_eq!(slots, vec![OuterSlot::S1, OuterSlot::S2, OuterSlot::S3, OuterSlot::S4]);
+        assert!(taps[0].timing.to_micros() < taps[1].timing.to_micros());
+        assert!(taps[1].timing.to_micros() < taps[2].timing.to_micros());
+        assert!(taps[2].timing.to_micros() < taps[3].timing.to_micros());
     }
 }

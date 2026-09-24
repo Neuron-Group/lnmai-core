@@ -28,43 +28,38 @@ judge_slide_modern_equiv, judge_hold_end_equiv, judge_hold_classic_end_equiv,
 is_too_late_slide_equiv, judge_slide_too_late_equiv
 ```
 
+**Done (`sorry`-free, standard axioms only):**
+- `judge_tap_equiv` ✅
+- `judge_touch_equiv` ✅ (with `judgeTouch_expand`, `option_map_ite`)
+- `judge_slide_classic_equiv` ✅ (with `judgeSlideClassic_expand`)
+
 Already available (proven):
 - `abs_spec` / `abs_eq` for `time.Duration.abs`
   (precondition `d.micros ≠ IScalar.min .I64`).
 - `judgeTapCore` — the shared ℤ-level branch structure.
 - `ofLnmJudgeGrade_ite`, `toLnmDuration_toMicros`, `duration_abs_fromMicros`,
-  and six `decide`-checked constant lemmas
-  (`tapPerfect1Ms_val` … `tapGreat3Ms_val`).
+  and `decide`-checked constant lemmas for all tap/touch/slide-classic windows.
 
-**Known blocker.** `judge.judge_tap` binds `time.Duration.abs` (a `Result`).
-Aeneas `step` stops at that bind and leaves a `spec_general`-style goal
-(`r_post : r = expected`); closing it from that hypothesis is circular.
+**Resolved blocker (was: the `Duration.abs` `Result` bind).** The proof pattern
+that works for `judge_tap`/`judge_touch`/`judge_slide_classic`:
 
-**Recommended approach (proven viable, partially done).**
-1. Extract the abs value: `obtain ⟨v, hv, hvv⟩ := abs_eq diff hmin`.
-2. `rw [judge.judge_tap, hv]`, then reduce the bind. NOTE: Aeneas's
-   `bind_ok` is `@[simp]`; the `do`-block only reduces if the rewrite actually
-   fired — verify `hv` matched (it must appear as `time.Duration.abs diff`).
-3. Split on `is_ex` (`cases hb : is_ex` — Bool yields `false` first!), then
-   `by_cases hm : diff.micros.val < 0`, then split the remaining threshold
-   ifs. Normalize `v.val` with `hvv` and the model constants
-   (`constants.TAP_PERFECT_1ST`, …), and distribute
-   `ofLnmJudgeGrade` with `ofLnmJudgeGrade_ite`.
-4. Close each branch with `rfl`.
+1. `obtain ⟨v, hv, hvv⟩ := abs_eq diff hmin`
+   (`hv : diff.abs = ok ⟨v⟩`, `hvv : v.val = if … then -… else …`).
+2. `rw [judge.judge_tap]`, `rw [hv]`, `simp only [bind_tc_ok]`.
+3. Rewrite the spec with an `…_expand` lemma proved by `rfl` that exposes
+   `LnmaiCore.Duration.abs` (the private `absDiff` is definitionally equal).
+4. Normalize to µs-level `ℤ` comparisons using `duration_abs_toMicros`,
+   `lnmDuration_le/lt_iff_toMicros`, `i64_le/lt_iff`, the model-constant value
+   lemmas, and `← hvv`; then `ofLnmJudgeGrade_ite`, `ok_ite`, and
+   `repeat (first | rfl | split)`.
+5. For `judge_touch`, additionally eliminate the Bool `&&` guard via
+   `Bool.and_eq_true` + `decide_eq_true_eq`, and push `Option.map` through `if`
+   (`option_map_ite`); split the sign with `by_cases` and use
+   `hfast`/`(diff.micros.val < 0) = False` to reduce the model branch.
 
-If the tactic-of-blind-simp approach keeps failing, do it **exhaustively and
-manually**: a 6-deep `by_cases` on the thresholds with a `rfl` per leaf. It is
-verbose but does not depend on `simp` heuristics. Each build is minutes, so
-prepare the whole proof before building.
-
-Alternative (may be simpler): make the Rust `Duration.abs` avoid the `Result`
-bind (return the struct directly) in `crates/lnmai-core-verify/src/time.rs`,
-regenerate, and re-prove `abs_spec`. This trades proof pain for a model change;
-check that `step` can then execute `judge_tap` outright.
-
-`judge_slide_classic` uses the same shape with different constants
-(`SLIDE_JUDGE_CLASSIC_*`), and `judge_slide_modern` adds
-`Duration.divNat`/`scaleNat` — prove those `Time` ops first (P2).
+**Remaining.** `judge_slide_modern` needs `Duration.divNat`/`scaleNat` (P2); the
+two hold-end functions need duration comparisons/additions
+(`TimePoint ↔ I64`).
 
 ## P1 — Score functions (`LnmaiCore/Score.lean`)
 
@@ -88,8 +83,21 @@ Prove value specs mirroring `abs_spec`, i.e.
 time.Duration.scale_nat d factor ⦃ r => r.micros.val = d.micros.val * factor.val ⦄
 ```
 
-with overflow preconditions or an `I64`-range argument. `div_nat` mirrors
-`Int.ediv` (truncation toward zero) and returns `0` for divisor `0`.
+with overflow preconditions or an `I64`-range argument.
+
+Notes / progress:
+- Bridge lemma `(UScalar.hcast IScalarTy.I64 x).val = x.val` (u32→i64) is
+  proved (`Bridge.hcast_i64_val`).
+- `scale_nat` and `div_nat` value specs are proved (`Bridge.scale_nat_spec`,
+  `Bridge.div_nat_spec`), together with `Duration.toMicros_{add,min,scaleNat,
+  divNat}` and `u32_eq_zero_iff`.
+- **`div_nat` does NOT mirror `Int.ediv`.** Aeneas's division spec
+  (`IScalar.div_spec`) is `Int.tdiv` (truncation toward zero), while the spec's
+  `Duration.divNat` uses Lean `Int./`, i.e. Euclidean division. They coincide
+  exactly when the dividend is `≥ 0`. State the equivalence with
+  `0 ≤ dividend.micros.val` (modern slides pass a nonnegative `stay_time`).
+  The model returns `0` for divisor `0`; the spec does too.
+- `Add`/`Sub`/`from_millis` are still open.
 
 ## P3 — Areas.rotate
 
@@ -106,6 +114,18 @@ are done). Add them as `@[simp]` lemmas so later proofs normalize constants.
 
 ## P5 — Broaden differential coverage (fast, always worth it)
 
+- The harness only feeds **single-difficulty synthetic** charts (all
+  `&inote_1=`) that are mostly one measure. FFI testing against a real
+  multi-difficulty, multi-measure chart
+  (`~/.maichart/324_Jack-the-Ripper◆`) exposed — and then fixed — two bugs:
+  1. the Rust port had no `default_tactic_from_chart` (implemented in
+     `src/default_tactic.rs` + FFI/C ABI);
+  2. `collect_chart_body` reversed the chart body lines, so measures were
+     lowered in reverse order (fixed; regression test
+     `multi_measure_body_keeps_source_order`).
+  With both fixed the Rust parse now matches Lean for **every** level of that
+  chart, and the default tactic is byte-identical. Add a differential case that
+  parses a captured real `&inote_N` block so this stays covered.
 - Add charts for: classic holds, `#`-timed segments, `$`/`!`/`?` flags,
   same-head `*` groups under chords, large slide chains.
 - Longer random sessions (hundreds of frames) and multiple charts per run.
