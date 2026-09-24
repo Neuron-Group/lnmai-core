@@ -102,6 +102,13 @@ def toLnmRuntimePos : types.RuntimePos → LnmaiCore.RuntimePos
 @[simp] theorem toLnmJudgeGrade_ofLnmJudgeGrade (g : LnmaiCore.JudgeGrade) :
     toLnmJudgeGrade (ofLnmJudgeGrade g) = g := by cases g <;> rfl
 
+/-- Distribution of `ofLnmJudgeGrade` over `if`, for symbolic branch proofs. -/
+@[simp] theorem ofLnmJudgeGrade_ite (c : Prop) [Decidable c]
+    (a b : LnmaiCore.JudgeGrade) :
+    ofLnmJudgeGrade (if c then a else b) =
+      if c then ofLnmJudgeGrade a else ofLnmJudgeGrade b := by
+  split <;> rfl
+
 @[simp] theorem ofLnmJudgeStyle_toLnmJudgeStyle (s : types.JudgeStyle) :
     ofLnmJudgeStyle (toLnmJudgeStyle s) = s := by cases s <;> rfl
 
