@@ -121,6 +121,87 @@ def toLnmRuntimePos : types.RuntimePos → LnmaiCore.RuntimePos
 @[simp] theorem toLnmNoteType_ofLnmNoteType (n : LnmaiCore.NoteType) :
     toLnmNoteType (ofLnmNoteType n) = n := by cases n <;> rfl
 
+/-! ## Time arithmetic value bridges -/
+
+/-- A `u32 → i64` cast (`UScalar.hcast`) preserves the value. -/
+theorem hcast_i64_val (x : Std.U32) :
+    (UScalar.hcast IScalarTy.I64 x).val = (x.val : ℤ) := by
+  have h := UScalar.hcast_inBounds_spec IScalarTy.I64 x (by scalar_tac)
+  simpa [lift, WP.spec_ok] using h
+
+/-- `Duration.scale_nat` value spec: `r.micros = d.micros * factor` when the
+product stays in `i64` range. -/
+theorem scale_nat_spec (d : time.Duration) (factor : Std.U32)
+    (hlo : IScalar.min .I64 ≤ d.micros.val * (factor.val : ℤ))
+    (hhi : d.micros.val * (factor.val : ℤ) ≤ IScalar.max .I64) :
+    time.Duration.scale_nat d factor ⦃ r =>
+      r.micros.val = d.micros.val * (factor.val : ℤ) ⦄ := by
+  unfold time.Duration.scale_nat
+  step
+  · step <;> simp_all [hcast_i64_val]
+
+/-- `x = 0#u32` iff its value is `0`. -/
+theorem u32_eq_zero_iff (x : Std.U32) : (x = 0#u32) ↔ x.val = 0 := by
+  constructor
+  · intro h; rw [h]; rfl
+  · intro h; exact UScalar.eq_of_val_eq (by simpa using h)
+
+/-- `Duration.div_nat` value spec. Note the model divides with truncation
+toward zero (`Int.tdiv`), matching Rust; the spec's `Duration.divNat` uses
+Lean's Euclidean `/`. Use only with a nonnegative dividend. -/
+theorem div_nat_spec (d : time.Duration) (divisor : Std.U32)
+    (hNoOverflow : ¬ (d.micros.val = IScalar.min .I64 ∧ (divisor.val : ℤ) = -1)) :
+    time.Duration.div_nat d divisor ⦃ r =>
+      r.micros.val = (if divisor.val = 0 then 0
+        else Int.tdiv d.micros.val (divisor.val : ℤ)) ⦄ := by
+  unfold time.Duration.div_nat
+  split
+  · rename_i hdiv
+    have hz : divisor.val = 0 := (u32_eq_zero_iff divisor).mp hdiv
+    simp [hz]
+  · rename_i hdiv
+    have hnz2 : divisor.val ≠ 0 := fun h => hdiv ((u32_eq_zero_iff divisor).mpr h)
+    have hnz : (UScalar.hcast IScalarTy.I64 divisor).val ≠ (0 : ℤ) := by
+      rw [hcast_i64_val]
+      intro h
+      exact hnz2 (by omega)
+    have hno : ¬ (d.micros.val = IScalar.min .I64 ∧
+        (UScalar.hcast IScalarTy.I64 divisor).val = -1) := by
+      rw [hcast_i64_val]; exact hNoOverflow
+    simp only [lift, bind_tc_ok]
+    step
+    rw [i1_post, hcast_i64_val]
+    simp [hnz2]
+
+/-! ## `Duration` value projections (used by the modern-slide proof) -/
+
+theorem Duration.toMicros_add (a b : LnmaiCore.Duration) :
+    (a + b).toMicros = a.toMicros + b.toMicros := rfl
+
+theorem Duration.toMicros_min (a b : LnmaiCore.Duration) :
+    (a ⊓ b).toMicros = min a.toMicros b.toMicros := by
+  show (if a ≤ b then a else b).toMicros = min a.toMicros b.toMicros
+  by_cases h : a ≤ b
+  · rw [if_pos h]
+    exact (min_eq_left h).symm
+  · rw [if_neg h]
+    exact (min_eq_right (le_of_lt (not_le.mp h))).symm
+
+theorem Duration.toMicros_scaleNat (a : LnmaiCore.Duration) (k : Nat) :
+    (LnmaiCore.Duration.scaleNat a k).toMicros = a.toMicros * (k : ℤ) := by
+  simp [LnmaiCore.Duration.scaleNat, LnmaiCore.Duration.toMicros, LnmaiCore.Duration.toInt,
+    LnmaiCore.Duration.ofInt, LnmaiCore.Duration.ofTick, LnmaiCore.TimeTick.ofInt]
+
+theorem Duration.toMicros_divNat (a : LnmaiCore.Duration) (k : Nat) :
+    (LnmaiCore.Duration.divNat a k).toMicros =
+      (if k = 0 then 0 else a.toMicros / (k : ℤ)) := by
+  simp only [LnmaiCore.Duration.divNat]
+  split
+  · simp [LnmaiCore.Duration.zero, LnmaiCore.Duration.toMicros, LnmaiCore.Duration.toInt,
+      LnmaiCore.Duration.ofInt, LnmaiCore.Duration.ofTick, LnmaiCore.TimeTick.ofInt]
+  · simp [LnmaiCore.Duration.toMicros, LnmaiCore.Duration.toInt,
+      LnmaiCore.Duration.ofInt, LnmaiCore.Duration.ofTick, LnmaiCore.TimeTick.ofInt]
+
 end Bridge
 
 end Verification

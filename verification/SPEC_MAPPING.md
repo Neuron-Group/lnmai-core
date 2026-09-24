@@ -21,18 +21,26 @@ Generated: 2026-06-10 | LnmaiCore v0.1.0
 
 | Lean (LnmaiCore/Time.lean) | Rust (aeneas-core-verify/src/time.rs) | Verification |
 |---|---|---|
-| `Duration { ticks : TimeTick { val : ℤ } }` | `Duration { micros : i64 }` | Iso: `toLnmDuration` (constructive) ✅, `ofLnmDuration` (axiom) |
-| `TimePoint { ticks : TimeTick { val : ℤ } }` | `TimePoint { micros : i64 }` | Iso: `toLnmTimePoint` (constructive) ✅, `ofLnmTimePoint` (axiom) |
+| `Duration { ticks : TimeTick { val : ℤ } }` | `Duration { micros : i64 }` | Iso: `toLnmDuration` (constructive) ✅ |
+| `TimePoint { ticks : TimeTick { val : ℤ } }` | `TimePoint { micros : i64 }` | Iso: `toLnmTimePoint` (constructive) ✅ |
 | `Duration.zero` | `Duration::zero()` | Bridge ✅ |
-| `Duration.abs` | `Duration::abs()` → `core::num::i64::abs` | Bridge: `duration_abs_exists` axiom |
-| `Duration.scaleNat` | `Duration::scale_nat` | Generated.lean |
-| `Duration.divNat` | `Duration::div_nat` | Generated.lean |
+| `Duration.abs` | `Duration::abs()` → `core::num::i64::abs` | Bridge: `abs_spec` + `abs_eq` (no overflow at `i64::MIN`) ✅ |
+| `Duration.scaleNat` | `Duration::scale_nat` | Value spec ✅ (`Bridge.scale_nat_spec`, `Bridge.hcast_i64_val`) |
+| `Duration.divNat` | `Duration::div_nat` | Value spec ✅ (`Bridge.div_nat_spec`); **see division-semantics caveat below** |
 
 **Integer semantics:**
 - Lean `Duration` uses `ℤ` (unbounded)
 - Rust `Duration` uses `i64` (bounded, modeled as `Std.I64 = IScalar .I64` in Aeneas)
 - Bridge: `IScalar.val` extracts `ℤ` from bounded type
-- Gap: `core.num.I64.abs` is axiomatized in Aeneas; our `duration_abs_exists` axiom captures its game-range behavior
+- Gap: `core.num.I64.abs` is modeled by Aeneas; `abs_spec`/`abs_eq` give its
+  behavior for all inputs except `i64::MIN` (which game diffs never reach).
+
+**Division-semantics caveat (`divNat`).** The spec's `Duration.divNat` uses
+Lean's `/` on `ℤ`, which is *Euclidean* division (`(-7)/2 = -4`), while the
+Rust/model `/` is Aeneas `IScalar.div_spec`'s `Int.tdiv`, which truncates toward
+zero (`(-7).tdiv 2 = -3`). The two agree exactly when the dividend is
+nonnegative. Callers pass a wait/segment duration (`stay_time`, nonnegative), so
+the modern-slide equivalence is stated with `0 ≤ stay_time.micros.val`.
 
 ---
 
@@ -78,15 +86,15 @@ Generated: 2026-06-10 | LnmaiCore v0.1.0
 
 | Lean (LnmaiCore/Judge.lean) | Rust | Verification |
 |---|---|---|
-| `judgeTap (diff : Duration) (isEX : Bool) → JudgeGrade` | `judge_tap(diff, is_ex) → JudgeGrade` | Equiv: `judgeTap_equiv` ✅ (axiom-dep) |
-| `judgeTouch (diff) (isEX) → Option JudgeGrade` | `judge_touch(diff, is_ex) → Option<JudgeGrade>` | Equiv: `judgeTouch_equiv` ✅ (axiom-dep) |
+| `judgeTap (diff : Duration) (isEX : Bool) → JudgeGrade` | `judge_tap(diff, is_ex) → JudgeGrade` | Equiv: `judgeTap_equiv` ✅ |
+| `judgeTouch (diff) (isEX) → Option JudgeGrade` | `judge_touch(diff, is_ex) → Option<JudgeGrade>` | Equiv: `judgeTouch_equiv` ✅ |
 | `judgeSlideModern (diff) (stay_time) (isEX)` | `judge_slide_modern(diff, stay_time, is_ex)` | Equiv: `judgeSlideModern_equiv` ❌ (sorry) |
-| `judgeSlideClassic (diff) → JudgeGrade` | `judge_slide_classic(diff) → JudgeGrade` | Equiv: `judgeSlideClassic_equiv` ✅ (axiom-dep) |
+| `judgeSlideClassic (diff) → JudgeGrade` | `judge_slide_classic(diff) → JudgeGrade` | Equiv: `judgeSlideClassic_equiv` ✅ |
 | `correctSlideGrade : JudgeGrade → JudgeGrade` | `correct_slide_grade(grade) → JudgeGrade` | Equiv: `correctSlideGrade_equiv` ✅ |
 | `judgeHoldEnd (headGrade) ...` | `judge_hold_end(...)` | Equiv: `judgeHoldEnd_equiv` ❌ (sorry) |
 | `judgeHoldClassicEnd (headGrade) ...` | `judge_hold_classic_end(...)` | Equiv: `judgeHoldClassicEnd_equiv` ❌ (sorry) |
 | `judgeSlideTooLate (queueRemaining : Nat)` | `judge_slide_too_late(queue_remaining: u32)` | Equiv: `judgeSlideTooLate_equiv` ✅ |
-| `isTooLateSlide (diff) (userOffset)` | `is_too_late_slide(diff, user_offset)` | Equiv: `isTooLateSlide_equiv` ✅ |
+| `isTooLateSlide (diff) (userOffset)` | `is_too_late_slide(diff, user_offset)` | Equiv: `isTooLateSlide_equiv` ❌ (pending: `+` value bridge) |
 
 ---
 
@@ -95,10 +103,10 @@ Generated: 2026-06-10 | LnmaiCore v0.1.0
 | Lean (LnmaiCore/Score.lean) | Rust | Verification |
 |---|---|---|
 | `baseScore (nt : NoteType) : Nat` | `base_score(nt) → u32` | Equiv: `baseScore_equiv` ✅ |
-| `scoreNonBreak (baseScore) (grade) (multiple) : Nat × Nat` | `score_non_break(base, grade, multiple) → (u32, u32)` | Equiv: `scoreNonBreak_equiv` ❌ (sorry) |
-| `scoreBreak (grade) (multiple) : ...` | `score_break(grade, multiple)` | Equiv: `scoreBreak_equiv` ✅ |
-| `updateCombo (combo, pCombo, cPCombo, dXScoreLost, grade, multiple) → ComboDelta` | `update_combo(...) → ComboDelta` | Equiv: `updateCombo_equiv` ✅ |
-| `dxScoreRank (achievedDxScore) (maxDxScore) : Nat` | `dx_score_rank(achieved, max) → u32` | Equiv: `dxScoreRank_equiv` ❌ (sorry) |
+| `scoreNonBreak (baseScore) (grade) (multiple) : Nat × Nat` | `score_non_break(base, grade, multiple) → (u32, u32)` | ❌ not yet proved |
+| `scoreBreak (grade) (multiple) : ...` | `score_break(grade, multiple)` | ❌ not yet proved |
+| `updateCombo (combo, pCombo, cPCombo, dXScoreLost, grade, multiple) → ComboDelta` | `update_combo(...) → ComboDelta` | ❌ not yet proved |
+| `dxScoreRank (achievedDxScore) (maxDxScore) : Nat` | `dx_score_rank(achieved, max) → u32` | ❌ not yet proved |
 | `countFastLate (grade) (diff) (display) : Bool × Bool` | `count_fast_late(grade, diff, display)` | Not yet modeled |
 | `computeAccRates ... : AccRates` | `compute_acc_rates(score) → AccRates` | Not yet modeled |
 
@@ -110,14 +118,14 @@ Generated: 2026-06-10 | LnmaiCore v0.1.0
 |---|---|---|
 | Sum-type isomorphisms | 9 types | All proved ✅ |
 | Convert functions | 4 functions | All proved ✅ |
-| Judge functions | 8 functions | 4 proved, 4 sorried |
-| Score functions | 7 functions | 3 proved, 2 sorried, 2 not modeled |
-| Axioms in use | 3 | `duration_abs_exists`, `ofLnmDuration`, `ofLnmTimePoint` |
+| Judge functions | 9 functions | 5 proved (`judgeTap`, `judgeTouch`, `judgeSlideClassic`, `judgeSlideTooLate`, `correctSlideGrade`); 4 pending (`isTooLateSlide`, `judgeSlideModern`, both hold-ends) |
+| Score functions | 7 functions | 1 proved (`baseScore`); 4 pending; 2 not modeled |
+| Axioms in use | 0 | The active `Verification` library proves everything from standard axioms only |
 
 ## Remaining Gaps
 
 1. **Bounded/Unbounded Arithmetic Bridge**: U32 arithmetic in Rust differs from Nat in Lean for overflow cases. Game values are within bounds but proofs are pending.
-2. **`core.num.I64.abs` Semantics**: Axiomatized in Aeneas; our `duration_abs_exists` captures game-range behavior.
-3. **judgeHoldEnd / judgeSlideModern**: Complex structural proofs pending.
+2. **judgeSlideModern**: needs `Duration.divNat`/`scaleNat` (P2).
+3. **judgeHoldEnd / judgeHoldClassicEnd**: complex structural proofs pending (`Duration` arithmetic/comparison bridges).
 4. **computeAccRates**: Uses `f64` in Rust vs `Rat` in Lean — rational number bridge needed.
 5. **ChartLoader, Lifecycle, Scheduler, Storage, Domain, InputModel**: Not yet verified.

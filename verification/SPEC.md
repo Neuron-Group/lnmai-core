@@ -62,41 +62,39 @@ Bridge: i64_le_ok lemma in Bridge.lean
 
 ### judgeTap boundaries
 ```
-Precondition: diff : Duration, isEX : Bool
+Precondition: diff : Duration, isEX : Bool, diff.micros ≠ i64::MIN
 Postcondition: returns one of 7 grades (Perfect through Good, on fast or late side)
-Status: ✅ Equiv.lean (judgeTap_equiv)
-
-Remaining proof obligation:
-  - duration_abs_exists axiom: prove core.num.I64.abs returns |x| for game-range values
+Status: ✅ Verification/Judge.lean (judge_tap_equiv); standard axioms only
+  `Duration.abs` handled via abs_eq (no duration_abs_exists axiom needed)
 ```
 
 ### judgeTouch boundaries
 ```
-Precondition: diff : Duration, isEX : Bool
+Precondition: diff : Duration, isEX : Bool, diff.micros ≠ i64::MIN
 Postcondition: returns Option JudgeGrade (none if too-early fast)
-Status: ✅ Equiv.lean (judgeTouch_equiv)
+Status: ✅ Verification/Judge.lean (judge_touch_equiv); standard axioms only
 ```
 
 ### judgeSlideClassic
 ```
-Precondition: diff : Duration
+Precondition: diff : Duration, diff.micros ≠ i64::MIN
 Postcondition: uses fixed fast/late threshold tables
-Status: ✅ Equiv.lean (judgeSlideClassic_equiv)
+Status: ✅ Verification/Judge.lean (judge_slide_classic_equiv); standard axioms only
 ```
 
 ### judgeSlideModern
 ```
-Precondition: diff stay_time : Duration, isEX : Bool
+Precondition: diff stay_time : Duration, isEX : Bool, stay_time.micros ≥ 0
 Postcondition: dynamic extension based on stay_time
-Status: ❌ Sorried in judgeSlideModern_equiv
-Proof obligation: Duration arithmetic bridge (+ / * / div)
+Status: ❌ not yet proved (all arithmetic infrastructure is ready)
+Proof obligation: model extraction + threshold alignment (see TODO P0/P2)
 ```
 
 ### judgeHoldEnd
 ```
 Precondition: headGrade : JudgeGrade, judgeDiff length ignoreTime playerReleaseTime : Duration
 Postcondition: press-band lookup (0-4) determines final grade
-Status: ❌ Sorried in judgeHoldEnd_equiv
+Status: ❌ not yet proved
 Proof obligation: press_band arithmetic (multiplication comparisons)
 ```
 
@@ -104,7 +102,7 @@ Proof obligation: press_band arithmetic (multiplication comparisons)
 ```
 Precondition: headGrade : JudgeGrade, timing : TimePoint, length : Duration, releaseTiming : TimePoint
 Postcondition: worse of head vs end grade by distFromPerfect
-Status: ❌ Sorried in judgeHoldClassicEnd_equiv
+Status: ❌ not yet proved
 Proof obligation: TimePoint ↔ I64 conversion
 ```
 
@@ -116,7 +114,7 @@ Proof obligation: TimePoint ↔ I64 conversion
 ```
 Precondition: nt : NoteType
 Postcondition: baseScore ∈ {500, 1000, 1500, 2500}
-Status: ✅ Equiv.lean (baseScore_equiv)
+Status: ✅ Verification/Score.lean (base_score_equiv)
 ```
 
 ### scoreNonBreak proportions
@@ -127,7 +125,7 @@ Postcondition:
   - Good → (b/2, b - b/2)  (50%)
   - Great → (b*4/5, b - b*4/5)  (80%)
   - Perfect → (b, 0)  (100%)
-Status: ❌ Sorried in scoreNonBreak_equiv
+Status: ❌ not yet proved
 Proof obligation: Bounded U32 arithmetic matches Nat for game values
 ```
 
@@ -140,14 +138,14 @@ Postcondition:
   - Great → combo increments, pCombo/cPCombo reset
   - Good → combo increments, pCombo/cPCombo reset
   - Miss/TooFast → combo resets to 0
-Status: ✅ Equiv.lean (updateCombo_equiv)
+Status: ❌ not yet proved
 ```
 
 ### dxScoreRank
 ```
 Precondition: achievedDxScore maxDxScore : Nat
 Postcondition: result ∈ {0,1,2,3,4,5} by percentage thresholds (97/95/93/90/85)
-Status: ❌ Sorried in dxScoreRank_equiv (U32/Nat discrepancy)
+Status: ❌ not yet proved (U32/Nat discrepancy)
 ```
 
 ---
@@ -156,7 +154,7 @@ Status: ❌ Sorried in dxScoreRank_equiv (U32/Nat discrepancy)
 
 | Obligation | Status | Blocking |
 |---|---|---|
-| `duration_abs_exists` axiom | Deferred | judgeTap, judgeTouch, judgeSlideClassic proofs |
+| `duration_abs_exists` axiom | Obsolete | replaced by `abs_spec`/`abs_eq`; judgeTap & judgeSlideClassic proved without it |
 | `ofLnmDuration` constructive definition | Axiom | Duration roundtrip |
 | Bounded U32 ↔ unbounded Nat bridge | Deferred | scoreNonBreak, dxScoreRank |
 | Duration arithmetic bridge (+/*/div) | Deferred | judgeSlideModern |

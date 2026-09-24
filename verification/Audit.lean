@@ -15,4 +15,10 @@ import Verification.Score
 #print axioms Verification.TypesProof.noteType_base_score_equiv
 #print axioms Verification.ConvertProof.convert_grade_equiv
 #print axioms Verification.JudgeProof.correct_slide_grade_equiv
+#print axioms Verification.JudgeProof.judge_tap_equiv
+#print axioms Verification.JudgeProof.judge_touch_equiv
+#print axioms Verification.JudgeProof.judge_slide_classic_equiv
+#print axioms Verification.JudgeProof.judge_slide_too_late_equiv
+#print axioms Verification.Bridge.scale_nat_spec
+#print axioms Verification.Bridge.div_nat_spec
 #print axioms Verification.ScoreProof.base_score_equiv

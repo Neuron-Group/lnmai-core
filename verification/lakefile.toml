@@ -5,7 +5,7 @@ precompileModules = false
 
 [[require]]
 name = "aeneas"
-path = "/Users/pingfanh/bin/aeneas/backends/lean"
+path = "/home/pingfanh/aeneas/backends/lean"
 
 [[require]]
 name = "lnmai-core"
