@@ -37,6 +37,13 @@ const CHARTS: &[(&str, u32)] = &[
     ("&first=0\n&inote_1=\n(120)\n1-3[4:1]/5-7[4:1],\n", 1),
     ("&first=0\n&inote_1=\n(120)\n1-3[4:1]!,5-7[4:1],\n", 1),
     ("&first=0\n&inote_1=\n(120)\n1-3[8:1][8:1],\n", 1),
+    // multi-measure bodies (regression: body lines used to be reversed) and
+    // inline `{n}` subdivision changes across a line break.
+    ("&first=0\n&inote_1=\n(120)\n1,\n2,\n3,\n4,\n", 1),
+    ("&first=0\n&inote_1=\n(210){4},{8},,,,,,,,6,\n5,4,3,4,5,\n", 1),
+    ("&first=0\n&inote_1=\n(120)\n1,2,3,4,\n5,6,7,8,\n1h[4:1],\n2-4[2:1],\n", 1),
+    // second difficulty block (multi-level selection).
+    ("&first=0\n&inote_1=\n(120)\n1,\n&inote_2=\n(120)\n2,\n3,\n", 2),
 ];
 
 /// `(name, chart, frame batches)` runtime scenarios.

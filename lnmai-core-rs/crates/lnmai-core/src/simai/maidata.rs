@@ -293,15 +293,18 @@ mod tests {
     #[test]
     fn multi_measure_body_keeps_source_order() {
         // Regression: `collect_chart_body` used to reverse the body lines, so
-        // later measures were lowered before earlier ones.
-        let content = "&first=0\n&inote_1=\n(120)\n1,\n2,\n3,\n4,\n";
+        // later measures were lowered before earlier ones. Expected timings are
+        // the ones Lean (`compileRuntimeChartSection`) produces for this body.
+        let content = "&first=0\n&inote_1=\n(210){4},{8},,,,,,,,6,\n5,4,3,4,5,\n";
         let result = parse_and_lower_source_maidata(content, 1).unwrap();
         let taps = &result.semantic.lowered.taps;
-        assert_eq!(taps.len(), 4);
+        assert_eq!(taps.len(), 6);
         let slots: Vec<_> = taps.iter().map(|t| t.slot).collect();
-        assert_eq!(slots, vec![OuterSlot::S1, OuterSlot::S2, OuterSlot::S3, OuterSlot::S4]);
-        assert!(taps[0].timing.to_micros() < taps[1].timing.to_micros());
-        assert!(taps[1].timing.to_micros() < taps[2].timing.to_micros());
-        assert!(taps[2].timing.to_micros() < taps[3].timing.to_micros());
+        assert_eq!(
+            slots,
+            vec![OuterSlot::S6, OuterSlot::S5, OuterSlot::S4, OuterSlot::S3, OuterSlot::S4, OuterSlot::S5]
+        );
+        let times: Vec<i64> = taps.iter().map(|t| t.timing.to_micros()).collect();
+        assert_eq!(times, vec![1_428_570, 1_571_427, 1_714_284, 1_857_141, 1_999_998, 2_142_855]);
     }
 }
