@@ -143,4 +143,50 @@ def judgeQueuesForShape (shape : SlideShape) (isClassic : Bool := false) : Optio
     | none => none
   base.map (transformJudgeQueues shape.symmetry)
 
+/- MajDataPlay's connected-slide timing uses the number of visual path
+   children in each slide prefab, rather than the number of judge-queue
+   entries. Keep this separate from judge queues: queues are runtime input,
+   while these weights are only for proportional whole-chain timing. -/
+def slideBarCountForShapeKey (shapeKey : String) : Option Nat :=
+  match stripMirrorPrefix shapeKey with
+  | "circle1" => some 64
+  | "circle2" => some 8
+  | "circle3" => some 16
+  | "circle4" => some 24
+  | "circle5" => some 32
+  | "circle6" => some 40
+  | "circle7" => some 48
+  | "circle8" => some 56
+  | "line3" => some 14
+  | "line4" => some 19
+  | "line5" => some 20
+  | "line6" => some 19
+  | "line7" => some 14
+  | "v1" => some 21
+  | "v2" | "v3" | "v4" | "v6" | "v7" | "v8" => some 20
+  | "ppqq1" => some 36
+  | "ppqq2" => some 29
+  | "ppqq3" => some 23
+  | "ppqq4" | "ppqq5" => some 50
+  | "ppqq6" => some 49
+  | "ppqq7" => some 47
+  | "ppqq8" => some 42
+  | "pq1" => some 34
+  | "pq2" => some 31
+  | "pq3" => some 28
+  | "pq4" => some 25
+  | "pq5" => some 22
+  | "pq6" => some 43
+  | "pq7" => some 41
+  | "pq8" => some 37
+  | "L2" => some 33
+  | "L3" => some 35
+  | "L4" => some 33
+  | "L5" => some 29
+  | "s" => some 31
+  | _ => none
+
+def slideBarCountForShape (shape : SlideShape) : Option Nat :=
+  slideBarCountForShapeKey (canonicalShapeKey shape)
+
 end LnmaiCore.Simai

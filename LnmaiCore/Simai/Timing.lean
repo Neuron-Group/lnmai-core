@@ -65,16 +65,17 @@ def extractBracketContents (token : String) : List String :=
     | [] => acc.reverse
     | '[' :: rest =>
         if inside then
-          loop rest inside ('[' :: current) acc
+          -- Preserve the existing nested-bracket behavior on malformed input.
+          loop rest inside (current.concat '[') acc
         else
           loop rest true [] acc
     | ']' :: rest =>
         if inside then
-          loop rest false [] (String.ofList current :: acc)
+          loop rest false [] (String.ofList current.reverse :: acc)
         else
           loop rest inside current acc
     | c :: rest =>
-        if inside then loop rest inside (current.concat c) acc else loop rest inside current acc
+        if inside then loop rest inside (c :: current) acc else loop rest inside current acc
   loop token.toList false [] []
 
 def splitHash2 (s : String) : Option (String × String × String) :=
@@ -87,78 +88,69 @@ def splitHash1 (s : String) : Option (String × String) :=
   | [a, b] => some (a, b)
   | _ => none
 
-def parseNdDuration (bpm : Rat) (timing : String) : Option Duration :=
+private def parseNdMicros (bpm : Rat) (timing : String) : Option Rat :=
   match timing.splitOn ":" with
   | [numStr, denStr] =>
       match parseNatString? numStr, parseNatString? denStr with
       | some beatDivision, some numBeats =>
           if beatDivision = 0 then none
-          else
-            let noteMicros := Time.bpmMeasureMicrosRat bpm * Int.ofNat numBeats / Int.ofNat beatDivision
-            some <| Time.durationFromRatMicros noteMicros
+          else some (Time.bpmMeasureMicrosRat bpm * Int.ofNat numBeats / Int.ofNat beatDivision)
       | _, _ => none
   | _ => none
+
+def parseNdDuration (bpm : Rat) (timing : String) : Option Duration :=
+  (parseNdMicros bpm timing).map Time.durationFromRatMicros
 
 def parseNdDurationExact (bpm : Rat) (timing : String) : Option Duration :=
   parseNdDuration bpm timing
 
+private def parseSecondsMicros (text : String) : Option Rat :=
+  (parseSecondsRatString? text).map (· * Time.microsPerSecond)
+
+private def parseRatioOrSecondsMicros (bpm : Rat) (text : String) : Option Rat :=
+  (parseNdMicros bpm text).orElse (fun _ => parseSecondsMicros text)
+
+private def durationBpm (currentBpm : Rat) (text : String) : Rat :=
+  match parseRatString? text with
+  | some value => if value > 0 then value else currentBpm
+  | none => currentBpm
+
+private def parseDurationInnerMicros (currentBpm : Rat) (inner : String) : Option Rat :=
+  match inner.splitOn "#" with
+  | [timing] => parseRatioOrSecondsMicros currentBpm timing
+  | ["", seconds] => parseSecondsMicros seconds
+  | [customBpm, timing] =>
+      parseRatioOrSecondsMicros (durationBpm currentBpm customBpm) timing
+  | [_, _, timing] => parseRatioOrSecondsMicros currentBpm timing
+  | [_, _, customBpm, timing] => parseNdMicros (durationBpm currentBpm customBpm) timing
+  | _ => none
+
 def parseDurationInner (currentBpm : Rat) (inner : String) : Option Duration :=
-  if inner.startsWith "#" && inner.count '#' = 1 && !inner.contains ':' then
-    parseDurationString? ((inner.drop 1).toString)
-  else if inner.count '#' = 2 then
-    match splitHash2 inner with
-    | some (_, _, durationPart) => parseDurationString? durationPart
-    | none => none
-  else if inner.count '#' = 1 then
-    match splitHash1 inner with
-    | some (customBpmStr, timingStr) =>
-        let segBpm :=
-          match parseRatString? customBpmStr with
-          | some v => if v > 0 then v else currentBpm
-          | none => currentBpm
-        match parseNdDurationExact segBpm timingStr with
-        | some duration => some duration
-        | none => parseDurationString? timingStr
-    | none => none
-  else
-    match parseNdDurationExact currentBpm inner with
-    | some duration => some duration
-    | none =>
-        if !inner.startsWith "#" then parseDurationString? inner else none
+  (parseDurationInnerMicros currentBpm inner).map Time.durationFromRatMicros
 
 def parseDurationSpec (bpm : Rat) (token : String) : Option Duration :=
-  let contents := extractBracketContents token
-  contents.foldl
+  -- Sum exact durations before rounding, including continuous chains.
+  let total := (extractBracketContents token).foldl
     (fun acc inner =>
-      match acc, parseDurationInner bpm inner with
+      match acc, parseDurationInnerMicros bpm inner with
       | some sum, some duration => some (sum + duration)
       | some sum, none => some sum
       | none, some duration => some duration
       | none, none => none)
     none
+  total.map Time.durationFromRatMicros
 
 def parseStarWaitSpec (bpm : Rat) (token : String) : Option Duration :=
-  match extractBracketContents token |>.head? with
-  | none => some (beatSec bpm)
-  | some inner =>
-      if inner.count '#' = 2 then
-        match splitHash2 inner with
-        | some (waitPart, _, _) =>
-            if waitPart = "" then some (beatSec bpm)
-            else
-              match parseSecondsRatString? waitPart with
-              | some waitSeconds => some (Time.durationFromSecondsRat waitSeconds)
-              | none => parseDurationString? waitPart
-        | none => some (beatSec bpm)
-      else if inner.count '#' = 1 then
-        match splitHash1 inner with
-        | some (waitBpmStr, _) =>
-            match parseRatString? waitBpmStr with
-            | some waitBpm => if waitBpm > 0 then some (beatSec waitBpm) else some (beatSec bpm)
-            | none => some (beatSec bpm)
-        | none => some (beatSec bpm)
-      else
-        some (beatSec bpm)
+  -- MajSimai uses the first custom BPM or wait across all brackets.
+  let custom := (extractBracketContents token).findSome? fun inner =>
+    match inner.splitOn "#" with
+    | [customBpm, _] =>
+        (parseRatString? customBpm).map fun value =>
+          if value > 0 then beatSec value else beatSec bpm
+    | [wait, _, _] | [wait, _, _, _] =>
+        (parseSecondsRatString? wait).map Time.durationFromSecondsRat
+    | _ => none
+  some (custom.getD (beatSec bpm))
 
 def noteTimingIncrement (bpm : Rat) (divisor : Nat) : Duration :=
   if bpm > 0 && divisor > 0 then

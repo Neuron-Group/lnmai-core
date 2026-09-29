@@ -906,10 +906,11 @@ def test_chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish : Runtime
     "future same-lane taps must not pre-consume clicks needed by short hold heads"
 
 private def chartBuiltSameHeadConnPair : ChartLoader.ChartSpec :=
-  simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1],\n"
+  -- These replay assertions require a connected chain; `*` branches are simultaneous.
+  simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1]>5[4:1],\n"
 
 private def chartBuiltSameHeadConnThreePartChain : ChartLoader.ChartSpec :=
-  simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]*<7[4:1],\n"
+  simai_lowered_chart! "&first=0\n&inote_1=\n(120)\n1-3[4:1]>5[4:1]<7[4:1],\n"
 
 private def fallbackDemoChartLevel6 : String :=
   "&title=Fallback Demo Chart\n&artist=\n&first=0\n&wholebpm=180\n&lv_6=?\n&inote_6=(180){16},,,,,,,,,\n{64}3qq7qq5[192#30:109],,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,{1},,,,,\nE"

@@ -1,5 +1,6 @@
 import LnmaiCore.Simai
 import LnmaiCore.Simai.DSL
+import LnmaiCore.Simai.SlideTables
 import LnmaiCore.Proofs.Simai
 import Lean.Data.Json
 
@@ -355,8 +356,10 @@ def test_slide_break_on_segment : ParityCase :=
   supportedCase "slide_break_on_segment"
     (slideBreakFlagsMatch "1-3b[4:1]" false true &&
      slideBreakFlagsMatch "1>3b[4:1]" false true &&
-     slideBreakFlagsMatch "1w5b[4:1]" false true)
-    "segment-local slide break is separate from head break for line, circle, and wifi shapes"
+     slideBreakFlagsMatch "1w5b[4:1]" false true &&
+     slideBreakFlagsMatch "1-3[4:1]b" false true &&
+     slideBreakFlagsMatch "1b-3[4:1]b" true true)
+    "MajSimai recognizes slide breaks before timing brackets and after the complete timing spec"
 
 def test_lowered_slide_break_split_uses_segment_break_for_body : ParityCase :=
   let segmentBody :=
@@ -439,7 +442,7 @@ def test_unfit_bpm_quantizes_consistently : ParityCase :=
           supportedCase "unfit_bpm_quantizes_consistently"
             (first.timing = TimePoint.zero &&
              second.timing = TimePoint.fromMicros 333333 &&
-             third.timing = TimePoint.fromMicros 666666)
+             third.timing = TimePoint.fromMicros 666667)
             "non-integral beat durations quantize once per absolute event with stable nearest-microsecond results"
       | _ => supportedCase "unfit_bpm_quantizes_consistently" false "expected three taps"
   | .error err => supportedCase "unfit_bpm_quantizes_consistently" false s!"unexpected parse error: {err.message}"
@@ -462,22 +465,23 @@ def test_rational_inspection_json_is_stable : ParityCase :=
 def test_same_head_slide_group_lowering : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1],\n" with
   | .ok chart =>
-      match chart.inspection.tokens, chart.semantic.normalized.slides, chart.semantic.lowered.slides with
-      | tok1 :: tok2 :: _, slide1 :: slide2 :: _, lowered1 :: lowered2 :: _ =>
+      match chart.inspection.tokens, chart.semantic.normalized.slides,
+          chart.semantic.lowered.slides with
+      | [tok1, tok2], [first, second], [body1, body2] =>
           supportedCase "same_head_slide_group_lowering"
             (chart.inspection.source.events.length = 1 &&
-             tok1.sourceGroupSize = some 2 && tok1.sourceGroupIndex = some 0 &&
-             tok2.sourceGroupSize = some 2 && tok2.sourceGroupIndex = some 1 && tok2.isSlideNoHead &&
-             slide1.isConnSlide && slide2.isConnSlide &&
-             slide1.isGroupHead && !slide1.isGroupEnd &&
-             !slide2.isGroupHead && slide2.isGroupEnd &&
-             slide1.slideKind = LnmaiCore.SlideKind.ConnPart && slide2.slideKind = LnmaiCore.SlideKind.ConnPart &&
-             slide2.parentNoteIndex = some slide1.noteIndex &&
-             lowered1.isConnSlide && lowered2.isConnSlide &&
-             lowered2.parentNoteIndex = some lowered1.noteIndex)
-            "same-head `*` groups lower to connected slides"
-      | _, _, _ => supportedCase "same_head_slide_group_lowering" false "expected grouped slide tokens"
-  | .error err => supportedCase "same_head_slide_group_lowering" false s!"unexpected parse error: {err.message}"
+             tok1.sourceGroupId.isNone && tok2.sourceGroupId.isNone &&
+             !tok1.isSlideNoHead && tok2.isSlideNoHead &&
+             !first.isConnSlide && !second.isConnSlide &&
+             first.slot = .S1 && second.slot = .S1 &&
+             first.startTiming = TimePoint.fromMicros 500000 &&
+             second.startTiming = first.startTiming &&
+             first.parentNoteIndex.isNone && second.parentNoteIndex.isNone &&
+             !body1.isConnSlide && !body2.isConnSlide &&
+             chart.semantic.lowered.slideHeads.length = 1)
+            "MajSimai * branches share a head and run simultaneously without parent links"
+      | _, _, _ => supportedCase "same_head_slide_group_lowering" false "expected two branches"
+  | .error err => supportedCase "same_head_slide_group_lowering" false err.message
 
 def test_lowered_ordinary_slide_splits_head_and_body : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1],\n" with
@@ -518,7 +522,7 @@ def test_identical_simultaneous_slides_fold_body_multiplicity : ParityCase :=
         s!"unexpected parse error: {err.message}"
 
 def test_identical_simultaneous_connected_slides_fold_group_multiplicity : ParityCase :=
-  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]/1-3[4:1]*>5[4:1],\n" with
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]>5[4:1]/1-3[4:1]>5[4:1],\n" with
   | .ok chart =>
       match chart.semantic.normalized.slides, chart.semantic.lowered.slideHeads, chart.semantic.lowered.slides with
       | [firstNormalized, secondNormalized], [head1, head2], [firstBody, secondBody] =>
@@ -550,7 +554,7 @@ def test_identical_simultaneous_connected_slides_fold_group_multiplicity : Parit
         s!"unexpected parse error: {err.message}"
 
 def test_connected_slide_multiplicity_requires_whole_group_match : ParityCase :=
-  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]/1-3[4:1]*>6[4:1],\n" with
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]>5[4:1]/1-3[4:1]>6[4:1],\n" with
   | .ok chart =>
       supportedCase "connected_slide_multiplicity_requires_whole_group_match"
         (chart.semantic.normalized.slides.length = 4 &&
@@ -591,20 +595,22 @@ def test_lowered_conn_group_has_one_head_for_first_body : ParityCase :=
       | _, _, _ => supportedCase "lowered_conn_group_has_one_head_for_first_body" false "expected two normalized slides plus one lowered slide head and two lowered slide bodies"
   | .error err => supportedCase "lowered_conn_group_has_one_head_for_first_body" false s!"unexpected parse error: {err.message}"
 
-def test_same_head_wifi_group_rejected : ParityCase :=
+def test_same_head_wifi_group_accepted : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1w5[4:1]*-3[4:1],\n" with
-  | .ok _ => supportedCase "same_head_wifi_group_rejected" false "expected wifi connection group to be rejected"
-  | .error err =>
-      supportedCase "same_head_wifi_group_rejected"
-        (err.message.contains "wifi slide cannot be part of a connection slide group")
-        "wifi connection groups are rejected during typed Simai validation, matching MajdataPlay"
+  | .ok chart =>
+      supportedCase "same_head_wifi_group_accepted"
+        (chart.semantic.normalized.slides.length = 2 &&
+         chart.semantic.normalized.slides.all (fun s => !s.isConnSlide) &&
+         chart.semantic.lowered.slideHeads.length = 1)
+        "wifi is legal in simultaneous branches"
+  | .error err => supportedCase "same_head_wifi_group_accepted" false err.message
 
 def test_same_head_conn_child_start_inherits_parent_end : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1<5[4:1]*1>5[4:1],\n" with
   | .ok _ => supportedCase "same_head_conn_child_start_inherits_parent_end" false "expected malformed same-head group to be rejected"
   | .error err =>
       supportedCase "same_head_conn_child_start_inherits_parent_end"
-        (err.message.contains "expected digit at 2")
+        (err.kind = .invalidSyntax)
         "typed validation preserves rejection of malformed same-head connection syntax before lowering"
 
 def test_normalized_slide_topology_attached : ParityCase :=
@@ -643,19 +649,21 @@ theorem test_normalized_line3_has_protected_middle_segment_proof :
     test_normalized_line3_has_protected_middle_segment.passed = true := by native_decide
 
 def test_normalized_short_conn_skip_rule : ParityCase :=
-  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>2[4:1],\n" with
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1^2[4:1]^3[4:1],\n" with
   | .ok chart =>
       match chart.semantic.normalized.slides with
       | first :: second :: _ =>
           supportedCase "normalized_short_conn_skip_rule"
-            (first.totalJudgeQueueLen < 4 && second.totalJudgeQueueLen < 4 &&
-             !first.judgeQueues.isEmpty && !second.judgeQueues.isEmpty)
-            "short connected-slide topology is attached during normalization"
+            (first.isConnSlide && second.isConnSlide &&
+             first.totalJudgeQueueLen = 3 && second.totalJudgeQueueLen = 3 &&
+             queueSkippableFlags (first.judgeQueues.headD []) = [true, false] &&
+             queueSkippableFlags (second.judgeQueues.headD []) = [false, true])
+            "short connected groups fold shared endpoints once and protect the interior entry"
       | _ => supportedCase "normalized_short_conn_skip_rule" false "expected grouped slides"
   | .error err => supportedCase "normalized_short_conn_skip_rule" false s!"unexpected parse error: {err.message}"
 
-def test_same_head_conn_three_part_parent_chain : ParityCase :=
-  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]*>5[4:1]*<7[4:1],\n" with
+def test_continuous_conn_three_part_parent_chain : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]>5[4:1]<7[4:1],\n" with
   | .ok chart =>
       match chart.semantic.normalized.slides, chart.semantic.lowered.slides with
       | first :: second :: third :: _, loweredFirst :: loweredSecond :: loweredThird :: _ =>
@@ -688,11 +696,12 @@ def test_same_head_with_tap_head_matches_python_flattening : ParityCase :=
       | tap :: _, first :: second :: _ =>
           supportedCase "same_head_with_tap_head_matches_python_flattening"
             (tap.slot = .S1 &&
-             first.isConnSlide && second.isConnSlide &&
-             first.isGroupHead && !first.isGroupEnd && first.parentNoteIndex = none &&
-             !second.isGroupHead && second.isGroupEnd && second.parentNoteIndex = some first.noteIndex &&
+             !first.isConnSlide && !second.isConnSlide &&
+             first.parentNoteIndex.isNone && second.parentNoteIndex.isNone &&
+             first.startTiming = second.startTiming &&
+             first.isSlideNoHead && second.isSlideNoHead &&
              first.noteIndex < second.noteIndex)
-            "head-only first `*` part stays a tap; grouping starts at the first actual slide"
+            "head-only first * part stays a tap with simultaneous headless slide branches"
       | _, _ => supportedCase "same_head_with_tap_head_matches_python_flattening" false "expected tap plus two grouped slides"
   | .error err => supportedCase "same_head_with_tap_head_matches_python_flattening" false s!"unexpected parse error: {err.message}"
 
@@ -721,14 +730,36 @@ def test_continuous_conn_qq_chain_matches_majdataplay : ParityCase :=
              !second.isGroupHead && second.isGroupEnd &&
              second.parentNoteIndex = some first.noteIndex &&
              second.startTiming = first.startTiming + first.length &&
-             first.length = Duration.fromMicros 3027778 &&
-             second.length = Duration.fromMicros 1513889 &&
+             first.length = Duration.fromMicros 3110731 &&
+             second.length = Duration.fromMicros 1430936 &&
+             first.headTiming = TimePoint.zero && second.headTiming = TimePoint.zero &&
+             first.startTiming = TimePoint.fromMicros 312500 &&
+             first.length + second.length = Duration.fromMicros 4541667 &&
              loweredSecond.startTiming = loweredFirst.startTiming + loweredFirst.length)
             "MajdataPlay-style continuous qq chains split into connected slide parts and preserve proportional whole-chain timing"
       | _, _, _ =>
           supportedCase "continuous_conn_qq_chain_matches_majdataplay" false "expected two connected qq slide parts"
   | .error err =>
       supportedCase "continuous_conn_qq_chain_matches_majdataplay" false s!"unexpected parse error: {err.message}"
+
+def test_continuous_chain_timing_uses_prefab_bar_counts : ParityCase :=
+  match parseLevel1 "&first=0\n&inote_1=\n(120)\n1-3[4:1]>5[4:1],\n" with
+  | .ok chart =>
+      match chart.semantic.normalized.slides with
+      | first :: second :: _ =>
+          supportedCase "continuous_chain_timing_uses_prefab_bar_counts"
+            (slideBarCountForShapeKey "line3" = some 14 &&
+             slideBarCountForShapeKey "circle7" = some 48 &&
+             (judgeQueuesForShapeKey "line3" |>.getD []).head!.length = 3 &&
+             first.length = Duration.fromMicros 225806 &&
+             second.length = Duration.fromMicros 774194 &&
+             first.totalJudgeQueueLen = 9 && second.totalJudgeQueueLen = 9 &&
+             second.startTiming = first.startTiming + first.length)
+            "whole-chain timing weights match MajDataPlay prefab children, not judge queue entries"
+      | _ =>
+          supportedCase "continuous_chain_timing_uses_prefab_bar_counts" false "expected two connected slide parts"
+  | .error err =>
+      supportedCase "continuous_chain_timing_uses_prefab_bar_counts" false s!"unexpected parse error: {err.message}"
 
 def test_normalized_topology_comes_from_typed_shape : ParityCase :=
   match parseLevel1 "&first=0\n&inote_1=\n(120)\n1<5[4:1],\n" with
@@ -983,6 +1014,150 @@ def test_just_right_is_debug_not_normalized_authority : ParityCase :=
       | _, _ => supportedCase "just_right_is_debug_not_normalized_authority" false "expected one wifi slide"
   | .error err => supportedCase "just_right_is_debug_not_normalized_authority" false s!"unexpected parse error: {err.message}"
 
+def test_long_connected_queue_skip_rule : ParityCase :=
+  match parseLevel1 "&inote_1=(120)1-3[4:1]-5[4:1]," with
+  | .ok chart =>
+      supportedCase "long_connected_queue_skip_rule"
+        (chart.semantic.normalized.slides.length = 2 &&
+         chart.semantic.normalized.slides.all (fun s =>
+         s.totalJudgeQueueLen = 5 && s.judgeQueues.all (fun queue => queue.all (fun area => area.isSkippable))) &&
+         chart.semantic.lowered.slides.all (fun s =>
+         s.totalJudgeQueueLen = 5 && s.judgeQueues.all (fun queue => queue.all (fun area => area.isSkippable))))
+  | .error err => supportedCase "long_connected_queue_skip_rule" false err.message
+
+def test_break_truth_table : ParityCase :=
+  let cases : List (String × Bool × Bool) :=
+    [("1-3[4:1]", false, false), ("1b-3[4:1]", true, false),
+     ("1-3b[4:1]", false, true), ("1b-3b[4:1]", true, true),
+     ("1b>3[4:1]", true, false), ("1>3b[4:1]", false, true),
+     ("1bw5[4:1]", true, false), ("1w5b[4:1]", false, true),
+     ("1-3bx[4:1]", false, false), ("1-3xb[4:1]", false, true),
+     ("1b-3[4:1]b", true, true), ("1b-3[4:1]>5b[4:1]", true, true),
+     ("1b-3[4:1]>5[4:1]", true, false)]
+  supportedCase "break_truth_table" (cases.all (fun (text, headBreak, bodyBreak) =>
+    match parseLevel1 s!"&inote_1=(120){text}," with
+    | .ok chart =>
+        !chart.semantic.normalized.slides.isEmpty &&
+        chart.semantic.normalized.slides.all (fun s =>
+          s.isBreak == headBreak && s.isSlideBreak == bodyBreak) &&
+        chart.semantic.lowered.slideHeads.all (fun s => s.isBreak == headBreak) &&
+        chart.semantic.lowered.slides.all (fun s => s.isBreak == bodyBreak)
+    | .error _ => false))
+
+def test_simultaneous_branch_breaks_are_independent : ParityCase :=
+  match parseLevel1 "&inote_1=(120)1b-3[4:1]*>5b[4:1]," with
+  | .ok chart =>
+      supportedCase "simultaneous_branch_breaks_are_independent"
+        (match chart.semantic.normalized.slides with
+         | [a, b] =>
+             a.isBreak && !a.isSlideBreak && !b.isBreak && b.isSlideBreak &&
+             a.hasHeadNote && !b.hasHeadNote && !a.isConnSlide && !b.isConnSlide &&
+             a.startTiming = b.startTiming && b.parentNoteIndex.isNone
+         | _ => false)
+  | .error err => supportedCase "simultaneous_branch_breaks_are_independent" false err.message
+
+def test_nested_branch_chains_have_distinct_groups : ParityCase :=
+  match parseLevel1 "&inote_1=(120)1-3[4:1]>5[4:1]*-5[4:1]>7[4:1]/2-4-6[2:1]," with
+  | .ok chart =>
+      supportedCase "nested_branch_chains_have_distinct_groups"
+        (match chart.semantic.normalized.slides with
+         | [a, b, c, d, e, f] =>
+             a.sourceGroupId != c.sourceGroupId && c.sourceGroupId != e.sourceGroupId &&
+             a.sourceGroupId != e.sourceGroupId &&
+             b.parentNoteIndex = some a.noteIndex && d.parentNoteIndex = some c.noteIndex &&
+             f.parentNoteIndex = some e.noteIndex &&
+             a.parentNoteIndex.isNone && c.parentNoteIndex.isNone && e.parentNoteIndex.isNone &&
+             a.hasHeadNote && !c.hasHeadNote && e.hasHeadNote &&
+             b.startTiming = a.startTiming + a.length &&
+             d.startTiming = c.startTiming + c.length &&
+             chart.semantic.lowered.slideHeads.length = 2
+         | _ => false)
+  | .error err => supportedCase "nested_branch_chains_have_distinct_groups" false err.message
+
+def test_repeated_event_chains_keep_separate_queue_totals : ParityCase :=
+  match parseLevel1 "&inote_1=(120)1-3-5[2:1],1-3>5[2:1]," with
+  | .ok chart =>
+      supportedCase "repeated_event_chains_keep_separate_queue_totals"
+        (match chart.semantic.normalized.slides with
+         | [a, b, c, d] =>
+             a.totalJudgeQueueLen = 5 && b.totalJudgeQueueLen = 5 &&
+             c.totalJudgeQueueLen = 9 && d.totalJudgeQueueLen = 9 &&
+             c.parentNoteIndex.isNone && d.parentNoteIndex = some c.noteIndex &&
+             a.headTiming != c.headTiming
+         | _ => false)
+  | .error err => supportedCase "repeated_event_chains_keep_separate_queue_totals" false err.message
+
+def test_whitespace_and_backtick_shorthand : ParityCase :=
+  match parseLevel1 "  &title=Whitespace\n  &first=0\n  &inote_1=(120)1 2`3\t4,\n" with
+  | .ok chart =>
+      supportedCase "whitespace_and_backtick_shorthand"
+        (chart.inspection.metadata.fields.contains ("&title", "Whitespace") &&
+         chart.semantic.normalized.taps.map (·.slot) = [.S1, .S2, .S3, .S4] &&
+         chart.semantic.normalized.taps.map (·.timing.toMicros) = [0, 0, 15625, 15625])
+  | .error err => supportedCase "whitespace_and_backtick_shorthand" false err.message
+
+def test_unsupported_modifiers_are_explicit_errors : ParityCase :=
+  supportedCase "unsupported_modifiers_are_explicit_errors"
+    (["1m", "1c", "1@-3[4:1]", "1K3[4:1]"].all (fun text =>
+      match parseLevel1 s!"&inote_1=(120){text}," with
+      | .error err => err.kind = .invalidSyntax && err.rawText = text &&
+          err.message.startsWith "unsupported"
+      | .ok _ => false))
+
+def test_malformed_connected_groups_rejected : ParityCase :=
+  supportedCase "malformed_connected_groups_rejected"
+    (["1-3[4:1]>5", "1-3[4:1]>5<7[4:1]", "1-3>5", "1-3[4:1]>5[4:1",
+      "1w5>7[4:1]", "1-3w7[4:1]", "1-3[4:1]*1>5[4:1]"].all (fun text =>
+      match parseLevel1 s!"&inote_1=(120){text}," with
+      | .error err => err.kind = .invalidSyntax
+      | .ok _ => false))
+
+def test_custom_chain_wait_and_duration_forms : ParityCase :=
+  supportedCase "custom_chain_wait_and_duration_forms"
+    ([("1-3[0.25##4:1]", 250000, 500000),
+      ("1-3[0.25##240#4:1]", 250000, 250000),
+      ("1-3[4:1]>5[240#4:1]", 250000, 750000)].all
+      (fun (text, wait, duration) =>
+        match parseLevel1 s!"&inote_1=(120){text}," with
+        | .ok chart =>
+            (chart.inspection.tokens.head?.bind (·.starWait)).map Duration.toMicros = some wait &&
+            (chart.semantic.normalized.slides.map (·.length.toMicros)).sum = duration
+        | .error _ => false))
+
+def test_chain_duration_rounds_total_once : ParityCase :=
+  match parseLevel1 "&inote_1=(180)1-3[4:1]>5[4:1]," with
+  | .ok chart => supportedCase "chain_duration_rounds_total_once"
+      ((chart.semantic.normalized.slides.map (·.length.toMicros)).sum = 666667)
+  | .error err => supportedCase "chain_duration_rounds_total_once" false err.message
+
+def test_long_timeline_and_backticks_round_absolute_times : ParityCase :=
+  let body := String.intercalate "," (List.replicate 300 "")
+  match parseLevel1 s!"&inote_1=(180),{body},1``2`3," with
+  | .ok chart => supportedCase "long_timeline_and_backticks_round_absolute_times"
+      (chart.semantic.normalized.taps.map (·.timing.toMicros) =
+        [100333333, 100343750, 100354167])
+  | .error err => supportedCase "long_timeline_and_backticks_round_absolute_times" false err.message
+
+def test_mid_segment_directive_resets_pending_note : ParityCase :=
+  match parseLevel1 "&inote_1=(120)c,3\n{8}5x<1p4[8:12]/3x," with
+  | .ok chart => supportedCase "mid_segment_directive_resets_pending_note"
+      (chart.semantic.normalized.slides.length = 2 &&
+       chart.semantic.normalized.slides.head?.map (·.slot) = some .S5 &&
+       chart.semantic.normalized.taps.length = 1)
+  | .error err => supportedCase "mid_segment_directive_resets_pending_note" false err.message
+
+def majDataPlayRegressionCases : List ParityCase :=
+  [test_long_connected_queue_skip_rule, test_break_truth_table,
+   test_simultaneous_branch_breaks_are_independent, test_nested_branch_chains_have_distinct_groups,
+   test_repeated_event_chains_keep_separate_queue_totals, test_whitespace_and_backtick_shorthand,
+   test_unsupported_modifiers_are_explicit_errors, test_malformed_connected_groups_rejected,
+   test_custom_chain_wait_and_duration_forms, test_chain_duration_rounds_total_once,
+   test_long_timeline_and_backticks_round_absolute_times,
+   test_mid_segment_directive_resets_pending_note]
+
+theorem majDataPlayRegressionCases_pass : majDataPlayRegressionCases.all (·.passed) = true := by
+  native_decide
+
 def all : List ParityCase :=
   [ test_simai_chart_dsl_smoke
   , test_simai_slide_dsl_smoke
@@ -1021,14 +1196,15 @@ def all : List ParityCase :=
   , test_connected_slide_multiplicity_requires_whole_group_match
   , test_lowered_headless_slide_has_body_only
   , test_lowered_conn_group_has_one_head_for_first_body
-  , test_same_head_wifi_group_rejected
+  , test_same_head_wifi_group_accepted
   , test_same_head_conn_child_start_inherits_parent_end
   , test_normalized_slide_topology_attached
   , test_normalized_short_conn_skip_rule
-  , test_same_head_conn_three_part_parent_chain
+  , test_continuous_conn_three_part_parent_chain
   , test_same_head_with_tap_head_matches_python_flattening
   , test_same_head_subsequent_parts_are_headless
   , test_continuous_conn_qq_chain_matches_majdataplay
+  , test_continuous_chain_timing_uses_prefab_bar_counts
   , test_normalized_topology_comes_from_typed_shape
   , test_current_slide_strings_parse_strictly
   , test_strict_line2_acceptance
@@ -1045,7 +1221,7 @@ def all : List ParityCase :=
   , test_reference_wifi_realpaths
   , test_reference_wifi_classic_center_path
   , test_reference_wifi_multi_area_tails
-  , test_just_right_is_debug_not_normalized_authority ]
+  , test_just_right_is_debug_not_normalized_authority ] ++ majDataPlayRegressionCases
 
 def leanMirroredCaseNames : List String :=
   all.map (fun c => s!"test_{c.name}")
@@ -1104,14 +1280,16 @@ theorem test_connected_slide_multiplicity_requires_whole_group_match_proof :
     test_connected_slide_multiplicity_requires_whole_group_match.passed = true := by native_decide
 theorem test_lowered_headless_slide_has_body_only_proof : test_lowered_headless_slide_has_body_only.passed = true := by native_decide
 theorem test_lowered_conn_group_has_one_head_for_first_body_proof : test_lowered_conn_group_has_one_head_for_first_body.passed = true := by native_decide
-theorem test_same_head_wifi_group_rejected_proof : test_same_head_wifi_group_rejected.passed = true := by native_decide
+theorem test_same_head_wifi_group_accepted_proof : test_same_head_wifi_group_accepted.passed = true := by native_decide
 theorem test_same_head_conn_child_start_inherits_parent_end_proof : test_same_head_conn_child_start_inherits_parent_end.passed = true := by native_decide
 theorem test_normalized_slide_topology_attached_proof : test_normalized_slide_topology_attached.passed = true := by native_decide
 theorem test_normalized_short_conn_skip_rule_proof : test_normalized_short_conn_skip_rule.passed = true := by native_decide
-theorem test_same_head_conn_three_part_parent_chain_proof : test_same_head_conn_three_part_parent_chain.passed = true := by native_decide
+theorem test_continuous_conn_three_part_parent_chain_proof : test_continuous_conn_three_part_parent_chain.passed = true := by native_decide
 theorem test_same_head_with_tap_head_matches_python_flattening_proof : test_same_head_with_tap_head_matches_python_flattening.passed = true := by native_decide
 theorem test_same_head_subsequent_parts_are_headless_proof : test_same_head_subsequent_parts_are_headless.passed = true := by native_decide
 theorem test_continuous_conn_qq_chain_matches_majdataplay_proof : test_continuous_conn_qq_chain_matches_majdataplay.passed = true := by native_decide
+theorem test_continuous_chain_timing_uses_prefab_bar_counts_proof :
+    test_continuous_chain_timing_uses_prefab_bar_counts.passed = true := by native_decide
 theorem test_normalized_topology_comes_from_typed_shape_proof : test_normalized_topology_comes_from_typed_shape.passed = true := by native_decide
 theorem test_current_slide_strings_parse_strictly_proof : test_current_slide_strings_parse_strictly.passed = true := by native_decide
 theorem test_strict_line2_acceptance_proof : test_strict_line2_acceptance.passed = true := by native_decide

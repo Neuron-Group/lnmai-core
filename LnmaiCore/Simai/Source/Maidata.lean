@@ -92,9 +92,7 @@ private def sourceChartFromTokens (tokens : List RawNoteToken) : SourceChart :=
   loop tokens none []
 
 private def startsWithAmp (s : String) : Bool :=
-  match s.toList with
-  | '&' :: _ => true
-  | _ => false
+  (trim s).startsWith "&"
 
 private def parseKeyValueLine (line : String) : Option (String × String) :=
   match line.splitOn "=" with

@@ -25,17 +25,22 @@ private def applySingleTrackConnRulesNormalized (slide : NormalizedSlide) (queue
         { second with isSkippable := slide.isGroupEnd } ::
         rest
   else
-    queue
+    queue.map (fun area => { area with isSkippable := true })
 
 private def attachJudgeQueues (slide : NormalizedSlide) : NormalizedSlide :=
   let rawQueues := judgeQueuesForShape slide.simaiShape slide.isClassic |>.getD []
   let placedQueues := rotateJudgeQueues slide.slot.toIndex rawQueues
-  let withLen := { slide with totalJudgeQueueLen := totalJudgeQueueLen placedQueues }
-  let queues :=
-    match placedQueues with
-    | [queue] => [applySingleTrackConnRulesNormalized withLen queue]
-    | _ => placedQueues
-  { withLen with judgeQueues := queues, totalJudgeQueueLen := totalJudgeQueueLen queues }
+  { slide with totalJudgeQueueLen := totalJudgeQueueLen placedQueues, judgeQueues := placedQueues }
+
+private def applyConnectedQueueRules (group : List NormalizedSlide) : List NormalizedSlide :=
+  -- Each shared endpoint belongs to both neighboring tables but only once to
+  -- the connected group's queue length (NoteLoader.CreateSlideGroup).
+  let total := group.foldl (fun acc slide => acc + slide.totalJudgeQueueLen) 0 -
+    (group.length - 1)
+  group.map (fun slide =>
+    let withLen := { slide with totalJudgeQueueLen := total }
+    { withLen with judgeQueues :=
+        withLen.judgeQueues.map (applySingleTrackConnRulesNormalized withLen) })
 
 private def slideDebugFor (chart : NormalizedChart) (noteIndex : Nat) : Option NormalizedSlideDebug :=
   chart.slideDebug.find? (fun dbg => dbg.noteIndex = noteIndex)
@@ -161,7 +166,7 @@ private def takeSameSourceGroup (gid : Nat) :
     List NormalizedSlide → List NormalizedSlide × List NormalizedSlide
   | [] => ([], [])
   | slide :: rest =>
-      if slide.sourceGroupId == some gid then
+      if slide.sourceGroupId == some gid && slide.sourceGroupIndex != some 0 then
         let (group, remaining) := takeSameSourceGroup gid rest
         (slide :: group, remaining)
       else
@@ -218,7 +223,7 @@ private def foldSlideMultiplicity (slides : List NormalizedSlide) : List Normali
     (splitSlideMultiplicityUnits slides).foldl
       (fun acc unit => insertFoldedSlideMultiplicityUnit unit acc)
       []
-  units.foldl (fun acc unit => acc ++ unit) []
+  units.flatten
 
 def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToken) : NormalizedChart × List SlideNoteSemantics :=
   let (_, taps, holds, touches, touchHolds, slides, slideDebug, slideSemantics) :=
@@ -280,8 +285,8 @@ def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToke
             | none => state
         | _ => state)
       (1, [], [], [], [], [], [], [])
-  let loweredSlides :=
-    (applyConnectedSlideMetadata (foldSlideMultiplicity slides.reverse)).map attachJudgeQueues
+  let attached := (applyConnectedSlideMetadata (foldSlideMultiplicity slides.reverse)).map attachJudgeQueues
+  let loweredSlides := (splitSlideMultiplicityUnits attached).flatMap applyConnectedQueueRules
   ({ taps := taps.reverse, holds := holds.reverse, touches := touches.reverse, touchHolds := touchHolds.reverse, slides := loweredSlides, slideDebug := slideDebug.reverse, slideSkipping := true }, slideSemantics.reverse)
 
 def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=

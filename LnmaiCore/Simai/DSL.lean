@@ -560,3 +560,8 @@ end LnmaiCore.Simai
 -- #eval simai_slide_ir! "4<7>6[205.7143#8:13]"
 -- #eval simai_normalized_slide_ir! "4<7>6[205.7143#8:13]"
 -- #eval simai_normalized_slide_ir! "4<7[205.7143#8:13]"
+
+-- #eval simai_normalized_slide_ir! "1-4[1:8]*-6[1:8]"
+-- #eval simai_normalized_slide_ir! "1-4-6[1:8]"
+
+-- #eval simai_normalized_slide_ir! "4-8<4b[1:8]*-8>4b[1:8]"
