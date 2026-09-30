@@ -564,4 +564,4 @@ end LnmaiCore.Simai
 -- #eval simai_normalized_slide_ir! "1-4[1:8]*-6[1:8]"
 -- #eval simai_normalized_slide_ir! "1-4-6[1:8]"
 
--- #eval simai_normalized_slide_ir! "4-8<4b[1:8]*-8>4b[1:8]"
+-- #eval simai_normalized_slide_ir! "4-8<4b[2:1]*-8>4b[2:1]"

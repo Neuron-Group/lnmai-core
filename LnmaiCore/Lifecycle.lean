@@ -994,6 +994,16 @@ private def buildSlideSensorSemanticBase
 private def buildSlideDormantSemanticBase (note : SlideNote) : SlideStepSemantic :=
   { note := { note with state := SlideState.Waiting, isCheckable := false } }
 
+private def slideTooLateStepSemantic
+    (note : SlideNote) (ctx : SlideStepContext) (isCheckable : Bool) : SlideStepSemantic :=
+  let staticBase := buildSlideStaticSemanticBase note isCheckable
+  let raw := Judge.judgeSlideTooLate (slideQueueRemaining note.judgeQueues)
+  let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
+  { staticBase with
+    note := { staticBase.note with state := SlideState.Ended }
+    event := some (slideJudgeEvent note grade slideTooLateJudgeDiff)
+    hideSlide := true }
+
 private def slideActiveStepSemantic
     (note : SlideNote) (ctx : SlideStepContext) (isJudgable : Bool) (waitTime : Duration) :
     SlideStepSemantic :=
@@ -1018,12 +1028,7 @@ private def slideActiveStepSemantic
       shouldPlayTrackOns := activeNote.isGroupPartHead || !activeNote.isConnSlide
       emitProgressRender := true }
   else if isJudgable && isTooLate then
-    let raw := Judge.judgeSlideTooLate (slideQueueRemaining activeNote.judgeQueues)
-    let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
-    { staticBase with
-      note := { staticBase.note with state := SlideState.Ended }
-      event := some (slideJudgeEvent activeNote grade slideTooLateJudgeDiff)
-      hideSlide := true }
+    slideTooLateStepSemantic activeNote ctx true
   else
     let semanticBase := buildSlideSensorSemanticBase activeNote ctx true
     { semanticBase with
@@ -1037,11 +1042,16 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
   | .Waiting =>
     if isCheckable then
       slideActiveStepSemantic note ctx isJudgable (slideInitialWaitTime note)
+    else if isJudgable && ctx.currentTime > slideTooLateTiming note then
+      slideTooLateStepSemantic note ctx false
     else
       buildSlideDormantSemanticBase note
   | .Active waitTime =>
     if !isCheckable then
-      buildSlideDormantSemanticBase note
+      if isJudgable && ctx.currentTime > slideTooLateTiming note then
+        slideTooLateStepSemantic note ctx false
+      else
+        buildSlideDormantSemanticBase note
     else
       slideActiveStepSemantic note ctx isJudgable waitTime
   | .Judged grade waitTime storedJudgeDiff =>

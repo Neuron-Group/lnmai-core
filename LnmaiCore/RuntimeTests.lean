@@ -1660,6 +1660,59 @@ def test_conn_non_end_part_does_not_too_late_judge : RuntimeCase :=
       passCase "conn_non_end_part_does_not_too_late_judge" false
         "expected parent slide"
 
+private def untouchedConnChainState : InputModel.GameState :=
+  let areas : Lifecycle.SlideQueue :=
+    [ { targetAreas := [.A1], isLast := false }
+    , { targetAreas := [.A2], isLast := true } ]
+  let mkPart (noteIndex : Nat) (parentIndex : Option Nat)
+      (startTiming : TimePoint) (isHead isEnd : Bool) : Lifecycle.SlideNote :=
+    { params :=
+        { judgeTiming := startTiming + dur 400000
+        , judgeOffset := Duration.zero
+        , noteIndex := noteIndex }
+    , lane := .S1
+    , state := .Waiting
+    , length := dur 400000
+    , headTiming := tp 600000
+    , startTiming := startTiming
+    , slideKind := .ConnPart
+    , isConnSlide := true
+    , parentNoteIndex := parentIndex
+    , isGroupPartHead := isHead
+    , isGroupPartEnd := isEnd
+    , initialQueueRemaining := 2
+    , totalJudgeQueueLen := 4
+    , judgeQueues := [areas] }
+  { currentTime := tp 1900000
+  , slides :=
+      [ mkPart 80 none (tp 600000) true false
+      , mkPart 81 (some 80) (secs 1) false false
+      , mkPart 82 (some 81) (tp 1400000) false true ] }
+
+def test_untouched_conn_chain_too_late_ends_and_hides_every_part : RuntimeCase :=
+  let (beforeExpiry, earlyEvents, earlyAudio, earlyRender) :=
+    Scheduler.stepFrame untouchedConnChainState (mkButtonFrameInput [] [] [] [] (dur 100000))
+  let (afterExpiry, events, _, renderCmds) :=
+    Scheduler.stepFrame beforeExpiry (mkButtonFrameInput [] [] [] [] (dur 1000000))
+  let (_, repeatedEvents, _, repeatedRender) :=
+    Scheduler.stepFrame afterExpiry (mkButtonFrameInput [] [] [] [] (dur 16000))
+  let beforeEndWaiting :=
+    match beforeExpiry.slides.getLast? with
+    | some slide => match slide.state with | .Waiting => !slide.isCheckable | _ => false
+    | none => false
+  let allEnded := afterExpiry.slides.all (fun slide =>
+    match slide.state with | .Ended => true | _ => false)
+  let queuesUntouched := afterExpiry.slides.all (fun slide =>
+    Lifecycle.slideQueueRemaining slide.judgeQueues = 2)
+  let hiddenIndices := renderCmds.filterMap (fun cmd =>
+    match cmd with | .HideAllSlideBars noteIndex => some noteIndex | _ => none)
+  passCase "untouched_conn_chain_too_late_ends_and_hides_every_part"
+    (beforeEndWaiting && earlyEvents.isEmpty && earlyAudio.isEmpty && earlyRender.isEmpty
+      && eventNoteIndices events = [82] && eventGrades events = [.Miss]
+      && hiddenIndices = [82, 81, 80] && allEnded && queuesUntouched
+      && repeatedEvents.isEmpty && repeatedRender.isEmpty)
+    "MajdataPlay checks the group-end timeout without input, then End recursively disables every parent"
+
 private def progressedConnSlidesState : InputModel.GameState :=
   let parent : Lifecycle.SlideNote :=
     { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 73 }
@@ -5124,6 +5177,7 @@ def all : List RuntimeCase :=
   , test_conn_child_progress_only_force_finishes_direct_parent
   , test_conn_non_end_part_does_not_judge_when_finished
   , test_conn_non_end_part_does_not_too_late_judge
+  , test_untouched_conn_chain_too_late_ends_and_hides_every_part
   , test_conn_already_progressed_child_does_not_re_force_finish_parent
   , test_wifi_classic_tail_progress_uses_special_marker
   , test_wifi_center_cleared_progress_uses_special_marker
@@ -5404,6 +5458,10 @@ theorem test_conn_non_end_part_does_not_judge_when_finished_proof :
 
 theorem test_conn_non_end_part_does_not_too_late_judge_proof :
     test_conn_non_end_part_does_not_too_late_judge.passed = true := by native_decide
+
+theorem test_untouched_conn_chain_too_late_ends_and_hides_every_part_proof :
+    test_untouched_conn_chain_too_late_ends_and_hides_every_part.passed = true := by
+  native_decide
 
 theorem test_conn_already_progressed_child_does_not_re_force_finish_parent_proof :
     test_conn_already_progressed_child_does_not_re_force_finish_parent.passed = true := by native_decide

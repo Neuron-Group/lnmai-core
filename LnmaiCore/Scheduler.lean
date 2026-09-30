@@ -204,6 +204,42 @@ private def hideSlideRenderCmds (slide : SlideNote) : List RenderCommand :=
   | SlideKind.Single => [RenderCommand.HideAllSlideBars slide.params.noteIndex]
   | SlideKind.Wifi | SlideKind.ConnPart => [RenderCommand.HideAllSlideBars slide.params.noteIndex]
 
+private def endSlideAncestorsFuel
+    (fuel : Nat) (slides : List SlideNote) (parentIndex : Option Nat) :
+    List SlideNote × List RenderCommand :=
+  match fuel, parentIndex with
+  | 0, _ => (slides, [])
+  | _, none => (slides, [])
+  | fuel + 1, some noteIndex =>
+      match slides.find? (fun slide => slide.params.noteIndex == noteIndex) with
+      | none => (slides, [])
+      | some parent =>
+          match parent.state with
+          | .Ended => (slides, [])
+          | _ =>
+              let slides' := slides.map (fun slide =>
+                if slide.params.noteIndex == noteIndex then
+                  { slide with state := .Ended }
+                else
+                  slide)
+              let (endedSlides, ancestorCmds) :=
+                endSlideAncestorsFuel fuel slides' parent.parentNoteIndex
+              (endedSlides, hideSlideRenderCmds parent ++ ancestorCmds)
+
+private def endSlideAncestors
+    (before after : List SlideNote) : List SlideNote × List RenderCommand :=
+  let newlyEnded := after.filter (fun slide =>
+    match slide.state with
+    | .Ended =>
+        match before.find? (fun old => old.params.noteIndex == slide.params.noteIndex) with
+        | some old => match old.state with | .Ended => false | _ => true
+        | none => false
+    | _ => false)
+  newlyEnded.foldl (fun (slides, cmds) slide =>
+    let (endedSlides, parentCmds) :=
+      endSlideAncestorsFuel slides.length slides slide.parentNoteIndex
+    (endedSlides, cmds ++ parentCmds)) (after, [])
+
 private def forceFinishRenderCmds (before after : List SlideNote) : List RenderCommand :=
   let rec go (before after : List SlideNote) : List RenderCommand :=
     match before, after with
@@ -998,6 +1034,7 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
     processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
   let slideNotes := forceFinishParentSlides slideNotes
+  let (slideNotes, ancestorHideCommands) := endSlideAncestors resolvedSlides slideNotes
   let slideNotes := updateSlideParentFlags slideNotes
   let forceFinishCommands := forceFinishRenderCmds resolvedSlides slideNotes
 
@@ -1005,7 +1042,9 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let newScore :=
     foldEventsIntoScore st.noteFastLateDisplay st.breakFastLateDisplay st.score allEvents
   let audioCommands := slideAudioCommands ++ eventsToAudioCommands allEvents newTime
-  let renderCommands := slideRenderCommands ++ forceFinishCommands ++ eventsToRenderCommands allEvents
+  let renderCommands :=
+    slideRenderCommands ++ ancestorHideCommands ++ forceFinishCommands ++
+      eventsToRenderCommands allEvents
 
   ({ st with
       currentTime := newTime
