@@ -198,6 +198,9 @@ structure RawNoteToken where
   isForceStar : Bool := false
   isFakeRotate : Bool := false
   isSlideBreak : Bool := false
+  -- Simai inline FX: raw `type(params)` string (without the leading `@`).
+  -- Populated for `<head>fx@type(params)`; `none` for every other note.
+  fxEffect : Option String := none
   sourceGroupId : Option Nat := none
   sourceGroupIndex : Option Nat := none
   sourceGroupSize : Option Nat := none

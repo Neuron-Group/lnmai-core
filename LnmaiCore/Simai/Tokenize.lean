@@ -94,20 +94,61 @@ def isSlideMarkChar (c : Char) : Bool :=
 def isSlideText (t : String) : Bool :=
   t.toList.any isSlideMarkChar
 
+-- Simai inline FX note head: `<digit>fx` → hold, `<area>fx` → touchHold.
+-- Checked before the ordinary heuristics so e.g. `1fx@gate` is not classified
+-- as a tap, and `1fx@hpf` / `A3fx@sidechain` are not misread.
+def fxHeadKind (t : String) : Option RawNoteKind :=
+  match t.toList with
+  | c :: rest =>
+      if c.isDigit then
+        match rest with
+        | 'f' :: 'x' :: _ => some .hold
+        | _ => none
+      else if isTouchAreaChar c then
+        let afterArea :=
+          match c, rest with
+          | 'C', _ => rest
+          | _, d :: r => if d.isDigit then r else rest
+          | _, _ => rest
+        match afterArea with
+        | 'f' :: 'x' :: _ => some .touchHold
+        | _ => none
+      else
+        none
+  | [] => none
+
 def inferKind (token : String) : RawNoteKind :=
   let t := stripPrefixDirectives token
-  if t = "" then .rest
-  else if leadingDigit? t |>.isSome then
-    if isSlideText t then .slide
-    else if t.contains 'h' then .hold
-    else .tap
-  else
-    match t.toList with
-    | area :: _ =>
-        if isTouchAreaChar area then
-          if t.contains 'h' then .touchHold else .touch
-        else .unknown
-    | _ => .unknown
+  match fxHeadKind t with
+  | some kind => kind
+  | none =>
+      if t = "" then .rest
+      else if leadingDigit? t |>.isSome then
+        if isSlideText t then .slide
+        else if t.contains 'h' then .hold
+        else .tap
+      else
+        match t.toList with
+        | area :: _ =>
+            if isTouchAreaChar area then
+              if t.contains 'h' then .touchHold else .touch
+            else .unknown
+        | _ => .unknown
+
+-- Extract the raw `type(params)` after the first `@`, dropping the trailing
+-- `[timing]`. Returns `none` when the token carries no FX marker.
+def fxEffectOf (token : String) : Option String :=
+  let t := stripPrefixDirectives token
+  match t.splitOn "@" with
+  | _ :: rest =>
+      let after := String.intercalate "@" rest
+      let body :=
+        match after.splitOn "[" with
+        | head :: _ => head
+        | [] => after
+      let b := trim body
+      if b = "" then none else some b
+  | _ => none
 
 def splitTopLevel (sep : Char) (s : String) : List String :=
   let rec loop (chars : List Char) (depth : Nat) (current : List Char) (acc : List String) : List String :=
@@ -115,6 +156,8 @@ def splitTopLevel (sep : Char) (s : String) : List String :=
     | [] => (String.ofList current.reverse :: acc).reverse
     | '[' :: rest => loop rest (depth + 1) ('[' :: current) acc
     | ']' :: rest => loop rest (depth - 1) (']' :: current) acc
+    | '(' :: rest => loop rest (depth + 1) ('(' :: current) acc
+    | ')' :: rest => loop rest (depth - 1) (')' :: current) acc
     | c :: rest =>
         if c = sep && depth = 0 then
           loop rest depth [] (String.ofList current.reverse :: acc)
@@ -185,6 +228,10 @@ private def applyInlineDirectiveFuel (fuel : Nat) (bpm : Rat) (divisor : Nat) (h
           | _ :: rest => String.intercalate ">" rest
           | [] => t
         applyInlineDirectiveFuel fuel bpm divisor (parseHSpeedDirective t hSpeed) after
+      else if t.contains '@' then
+        -- Inline FX: the `(...)` after `@` are effect parameters, not a BPM
+        -- directive; keep the whole note text intact.
+        (bpm, divisor, hSpeed, t)
       else
         -- MajSimai clears the pending note when a BPM/divisor directive is encountered,
         -- even if note text precedes it in the comma segment.
@@ -197,6 +244,8 @@ def applyInlineDirective (bpm : Rat) (divisor : Nat) (hSpeed : Rat) (segment : S
 
 def mkRawToken (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (token : String) : RawNoteToken :=
   let t := trim token
+  let fxEffect := fxEffectOf t
+  let isFx := fxEffect.isSome
   let kind := inferKind t
   let parsedText := if kind = .slide then sanitizeSlideToken t else t
   let slot := leadingDigit? parsedText >>= (fun n => OuterSlot.ofIndex? (n - 1))
@@ -204,9 +253,11 @@ def mkRawToken (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (
   let slideBody := if kind = .slide then parseSlideBodyFromText parsedText |>.toOption else none
   let length := parseDurationSpec bpm t
   let starWait := if kind = .slide then parseStarWaitSpec bpm t else none
-  let isBreak := parseHeadBreak t
-  let isEX := t.contains 'x'
-  let isHanabi := t.contains 'f'
+  -- FX heuristics must be overridden: `bit_crusher` contains 'b' (break),
+  -- `fx` contains 'f' (hanabi) and `x` (EX). FX heads are EX (design §5).
+  let isBreak := if isFx then false else parseHeadBreak t
+  let isEX := if isFx then true else t.contains 'x'
+  let isHanabi := if isFx then false else t.contains 'f'
   let isSlideNoHead := t.contains '!' || t.contains '?'
   let isForceStar := t.contains '$'
   let isFakeRotate := (t.toList.filter (fun c => c = '$')).length >= 2
@@ -228,7 +279,8 @@ def mkRawToken (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (
   , isSlideNoHead := isSlideNoHead
   , isForceStar := isForceStar
   , isFakeRotate := isFakeRotate
-  , isSlideBreak := isSlideBreak }
+  , isSlideBreak := isSlideBreak
+  , fxEffect := fxEffect }
 
 private structure ContinuousChainSegment where
   rawText : String
@@ -453,7 +505,10 @@ private def expandSameHeadGroup (groupId : Nat) (timing : TimePoint) (bpm : Rat)
 private def expandTokenList (baseGroupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) : Nat → List String → Except ParseError (List RawNoteToken)
   | _, [] => pure []
   | idx, tokText :: rest => do
-      if inferKind tokText != .unknown &&
+      -- FX notes legitimately contain `@` and effect letters (`c`, `m`, ...);
+      -- exempt them from the extended-modifier rejection.
+      if fxHeadKind (stripPrefixDirectives tokText) == none &&
+          inferKind tokText != .unknown &&
           tokText.toList.any (fun c => c == 'K' || c == '@' || c == 'c' || c == 'm') then
         throw <| chainSyntaxError tokText "unsupported extended slide or note modifier (K, @, c, m)"
       let current ←
