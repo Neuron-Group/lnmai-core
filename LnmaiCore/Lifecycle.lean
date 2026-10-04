@@ -176,6 +176,7 @@ private def isTooLateForTapLike (currentTime timing lateLimit : TimePoint) : Boo
 private def tapLikeMissEvent (params : CommonNoteParams) (lane : OuterSlot) (style : JudgeStyle) : JudgeEvent :=
   let grade := Convert.convertGrade style JudgeGrade.Miss
   { kind := .Tap
+  , phase := .head
   , grade := grade
   , diff := Duration.fromMicros (-1000)
   , position := .button lane.toButtonZone
@@ -184,6 +185,7 @@ private def tapLikeMissEvent (params : CommonNoteParams) (lane : OuterSlot) (sty
 
 private def tapLikeJudgeEvent (params : CommonNoteParams) (lane : OuterSlot) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Tap
+  , phase := .head
   , grade := grade
   , diff := judgeDiff
   , position := .button lane.toButtonZone
@@ -329,6 +331,23 @@ private def judgeHoldHeadTapNow (note : HoldNote) (style : JudgeStyle) (judgeDif
   let grade := Convert.convertGrade style raw
   holdHeadJudged note grade judgeDiff
 
+private def holdHeadJudgeEvent (note : HoldNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
+  { kind := .Hold
+  , phase := .head
+  , grade := grade
+  , diff := judgeDiff
+  , position := note.position
+  , noteIndex := note.params.noteIndex
+  , isBreak := note.params.isBreak }
+
+private def holdHeadMissEvent (note : HoldNote) (judgeDiff : Duration) : JudgeEvent :=
+  holdHeadJudgeEvent note (Convert.convertGrade JudgeStyle.Default JudgeGrade.Miss) judgeDiff
+
+private def judgeHoldHeadTapNow? (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote × Option JudgeEvent :=
+  let raw := Judge.judgeTap judgeDiff note.params.isEX
+  let grade := Convert.convertGrade style raw
+  (holdHeadJudged note grade judgeDiff, some (holdHeadJudgeEvent note grade judgeDiff))
+
 private def judgeHoldHeadTouchNow? (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote × Option JudgeEvent :=
   match Judge.judgeTouch judgeDiff note.params.isEX with
   | some raw =>
@@ -388,10 +407,10 @@ private def stepRegularHoldHeadWaiting
     (inputClicked : Bool)
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if currentTime > timing + tapGoodMs then
-    (holdHeadMiss note tapGoodMs, none)
+    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note tapGoodMs))
   else if canEnterJudgeable currentTime judgeableStart then
     if inputClicked then
-      (judgeHoldHeadTapNow note style judgeDiff, none)
+      judgeHoldHeadTapNow? note style judgeDiff
     else
       ({ note with state := HoldSubState.HeadJudgeable }, none)
   else
@@ -405,9 +424,9 @@ private def stepRegularHoldHeadJudgeable
     (inputClicked : Bool)
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if inputClicked && canEnterJudgeable currentTime judgeableStart then
-    (judgeHoldHeadTapNow note style judgeDiff, none)
+    judgeHoldHeadTapNow? note style judgeDiff
   else if currentTime > timing + tapGoodMs then
-    (holdHeadMiss note tapGoodMs, none)
+    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note tapGoodMs))
   else
     (note, none)
 
@@ -482,6 +501,7 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
     let eventDiff := if note.headDiff == Duration.zero && headGrade == Miss then Time.fromMillis 150 else note.headDiff
     let evt : JudgeEvent :=
       { kind := .Hold
+      , phase := .tail
       , grade := finalGrade'
       , diff := eventDiff
       , position := note.position
@@ -586,6 +606,7 @@ deriving Inhabited, Repr, ToJson, FromJson
 
 private def touchMissEvent (note : TouchNote) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
+  , phase := .head
   , grade := Miss
   , diff := judgeDiff
   , position := .sensor note.sensorPos
@@ -597,6 +618,7 @@ private def touchTooLateMissEvent (note : TouchNote) : JudgeEvent :=
 
 private def touchJudgeEvent (note : TouchNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
+  , phase := .head
   , grade := grade
   , diff := judgeDiff
   , position := .sensor note.sensorPos
@@ -954,6 +976,7 @@ private def slideAdjustedJudgedWaitTime
 
 private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Slide
+  , phase := .head
   , grade := grade
   , diff := judgeDiff
   , position := note.position

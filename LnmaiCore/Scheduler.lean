@@ -950,6 +950,9 @@ private def eventScoreDeltas (evt : JudgeEvent) (multiple : Nat) :
 private def foldEventIntoScore
     (noteDisplay breakDisplay : JudgeDisplayOption) (s : ScoreState) (evt : JudgeEvent) :
     ScoreState :=
+  if evt.kind == .Hold && evt.phase == .head then
+    s
+  else
   let multiple : Nat := max 1 evt.multiple
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
   let (earnedBaseDelta, earnedExtraDelta, earnedClassicExtraDelta, lostBaseDelta, lostExtraDelta,
@@ -993,20 +996,26 @@ private def foldEventsIntoScore
         (foldEventIntoScore noteDisplay breakDisplay s evt) rest
 
 private def eventToAudioCommands (evt : JudgeEvent) (timePoint : TimePoint) : List AudioCommand :=
-  [ AudioCommand.PlayJudgeSfx evt.kind evt.grade evt.isBreak timePoint evt.noteIndex ]
+  if evt.kind == .Hold && evt.phase == .head && evt.grade.isMissOrTooFast then
+    []
+  else if evt.kind == .Hold && evt.phase == .head then
+    [ AudioCommand.PlayJudgeSfx .Tap evt.grade evt.isBreak timePoint evt.noteIndex ]
+  else
+    [ AudioCommand.PlayJudgeSfx evt.kind evt.grade evt.isBreak timePoint evt.noteIndex ]
 
-private def eventToRenderCommands (evt : JudgeEvent) : List RenderCommand :=
-  [ RenderCommand.ShowJudgeResult evt.kind evt.grade evt.isBreak evt.diff evt.noteIndex ]
+private def eventToRenderCommands (displayHoldHead : Bool) (evt : JudgeEvent) : List RenderCommand :=
+  if evt.kind == .Hold && evt.phase == .head && !displayHoldHead then []
+  else [ RenderCommand.ShowJudgeResult evt.kind evt.grade evt.isBreak evt.diff evt.noteIndex ]
 
 private def eventsToAudioCommands (events : List JudgeEvent) (timePoint : TimePoint) : List AudioCommand :=
   match events with
   | [] => []
   | evt :: rest => eventToAudioCommands evt timePoint ++ eventsToAudioCommands rest timePoint
 
-private def eventsToRenderCommands (events : List JudgeEvent) : List RenderCommand :=
+private def eventsToRenderCommands (displayHoldHead : Bool) (events : List JudgeEvent) : List RenderCommand :=
   match events with
   | [] => []
-  | evt :: rest => eventToRenderCommands evt ++ eventsToRenderCommands rest
+  | evt :: rest => eventToRenderCommands displayHoldHead evt ++ eventsToRenderCommands displayHoldHead rest
 
 ----------------------------------------------------------------------------
 -- Frame Step: advance all active notes one frame (entry point)
@@ -1044,7 +1053,7 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let audioCommands := slideAudioCommands ++ eventsToAudioCommands allEvents newTime
   let renderCommands :=
     slideRenderCommands ++ ancestorHideCommands ++ forceFinishCommands ++
-      eventsToRenderCommands allEvents
+      eventsToRenderCommands st.displayHoldHeadJudgeResult allEvents
 
   ({ st with
       currentTime := newTime

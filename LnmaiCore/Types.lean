@@ -481,8 +481,22 @@ inductive JudgeEventKind where
   | Tap    | Hold | Slide | Touch | Break
 deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
+/--
+  The phase of a multi-stage judgment event.
+
+  Hold heads are represented by the gameplay-family `.Hold` together with
+  `.head`; the completed hold result uses `.tail`.  Other gameplay families
+  currently use the phase supplied by their event producer (normally
+  `.head`).
+-/
+inductive JudgePhase where
+  | head
+  | tail
+deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
+
 structure JudgeEvent where
   kind      : JudgeEventKind
+  phase     : JudgePhase
   grade     : JudgeGrade
   diff      : Duration
   position  : RuntimePos
@@ -494,6 +508,7 @@ deriving Repr, Inhabited, ToJson
 instance : FromJson JudgeEvent where
   fromJson? json := do
     let kind ← json.getObjValAs? JudgeEventKind "kind"
+    let phase ← json.getObjValAs? JudgePhase "phase"
     let grade ← json.getObjValAs? JudgeGrade "grade"
     let diff ← json.getObjValAs? Duration "diff"
     let position ← json.getObjValAs? RuntimePos "position"
@@ -501,6 +516,7 @@ instance : FromJson JudgeEvent where
     let isBreak ← getObjValAsD? json "isBreak" false
     let multiple ← getObjValAsD? json "multiple" 1
     pure { kind := kind
+         , phase := phase
          , grade := grade
          , diff := diff
          , position := position

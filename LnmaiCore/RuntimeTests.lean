@@ -44,6 +44,9 @@ private def eventKinds (events : List JudgeEvent) : List JudgeEventKind :=
 private def eventBreakFlags (events : List JudgeEvent) : List Bool :=
   events.map (fun evt => evt.isBreak)
 
+private def scoredEvents (events : List JudgeEvent) : List JudgeEvent :=
+  events.filter (fun evt => !(evt.kind == .Hold && evt.phase == .head))
+
 private def hasTrackProgress (cmds : List RenderCommand) (noteIndex trackIndex remaining : Nat) : Bool :=
   cmds.any (fun cmd =>
     match cmd with
@@ -843,7 +846,7 @@ private def simulateSimultaneousShortHoldSequence : InputModel.GameState × List
 
 def test_simultaneous_short_regular_holds_can_both_finish : RuntimeCase :=
   let (finalState, events) := simulateSimultaneousShortHoldSequence
-  let holdEvents := events.filter (fun evt => evt.kind = .Hold)
+  let holdEvents := events.filter (fun evt => evt.kind = .Hold && evt.phase = .tail)
   passCase "simultaneous_short_regular_holds_can_both_finish"
     (eventNoteIndices holdEvents = [200, 201]
       && eventGrades holdEvents = [.Perfect, .Perfect]
@@ -858,7 +861,7 @@ private def chartBuiltSimultaneousShortRegularHolds : ChartLoader.ChartSpec :=
 def test_chart_wrapper_short_regular_hold_pair_can_finish : RuntimeCase :=
   let tactic := defaultTacticFromChart chartBuiltSimultaneousShortRegularHolds
   let result := simulateChartSpecWithTactic chartBuiltSimultaneousShortRegularHolds tactic
-  let holdEvents := result.events.filter (fun evt => evt.kind = .Hold)
+  let holdEvents := result.events.filter (fun evt => evt.kind = .Hold && evt.phase = .tail)
   passCase "chart_wrapper_short_regular_hold_pair_can_finish"
     (missingJudgedNoteIndices result = []
       && eventNoteIndices holdEvents = [210, 211]
@@ -877,7 +880,7 @@ private def chartBuiltHoldPairWithPrecedingTaps : ChartLoader.ChartSpec :=
 def test_chart_wrapper_hold_pair_with_preceding_taps_can_finish : RuntimeCase :=
   let tactic := defaultTacticFromChart chartBuiltHoldPairWithPrecedingTaps
   let result := simulateChartSpecWithTactic chartBuiltHoldPairWithPrecedingTaps tactic
-  let holdEvents := result.events.filter (fun evt => evt.kind = .Hold)
+  let holdEvents := result.events.filter (fun evt => evt.kind = .Hold && evt.phase = .tail)
   passCase "chart_wrapper_hold_pair_with_preceding_taps_can_finish"
     (missingJudgedNoteIndices result = []
       && eventNoteIndices holdEvents = [222, 223]
@@ -897,7 +900,7 @@ private def chartBuiltShortHoldPairAfterUnrelatedTaps : ChartLoader.ChartSpec :=
 def test_chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish : RuntimeCase :=
   let tactic := defaultTacticFromChart chartBuiltShortHoldPairAfterUnrelatedTaps
   let result := simulateChartSpecWithTactic chartBuiltShortHoldPairAfterUnrelatedTaps tactic
-  let holdEvents := result.events.filter (fun evt => evt.kind = .Hold)
+  let holdEvents := result.events.filter (fun evt => evt.kind = .Hold && evt.phase = .tail)
   passCase "chart_wrapper_short_hold_pair_after_unrelated_taps_can_finish"
     (missingJudgedNoteIndices result = []
       && eventNoteIndices holdEvents = [233, 234]
@@ -1243,7 +1246,7 @@ def test_touch_group_share_does_not_consume_sensor_click : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [.A1] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame touchGroupShareLeavesClickForTouchHoldState input
   match events, nextState.touchQueues.getD .A1 { notes := [] }, nextState.touchHoldQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
-  | [evt], touchQueueAfter, holdQueueAfter, [(_, holdAfter)] =>
+  | [evt, headEvt], touchQueueAfter, holdQueueAfter, [(_, holdAfter)] =>
       let holdHeadJudged :=
         match holdAfter.state with
         | .HeadJudged .Perfect => true
@@ -1253,6 +1256,7 @@ def test_touch_group_share_does_not_consume_sensor_click : RuntimeCase :=
           && evt.noteIndex = 35
           && evt.grade = .Perfect
           && touchQueueAfter.currentIndex = 1
+          && headEvt.kind = .Hold && headEvt.phase = .head
           && holdQueueAfter.currentIndex = 1
           && holdHeadJudged)
         "a shared touch result resolves before Check(), leaving the physical click for the next touch-family head"
@@ -2444,6 +2448,22 @@ def test_frame_zero_hold_head_judges_same_frame : RuntimeCase :=
         "hold head resolves from waiting on frame zero"
   | _ => passCase "frame_zero_hold_head_judges_same_frame" false "expected one active hold after frame-zero head judgment"
 
+def test_hold_head_emits_feedback_without_score_or_render : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1] }
+  let (nextState, events, audio, render) := Scheduler.stepFrameTimed frameZeroHoldState batch
+  match events, audio with
+  | [evt], [AudioCommand.PlayJudgeSfx kind grade isBreak _ noteIndex] =>
+      passCase "hold_head_emits_feedback_without_score_or_render"
+        (evt.kind = .Hold && evt.phase = .head && kind = .Tap && grade = .Perfect && !isBreak && noteIndex = 61
+          && nextState.score.earnedBase = frameZeroHoldState.score.earnedBase
+          && nextState.score.earnedExtra = frameZeroHoldState.score.earnedExtra
+          && nextState.score.combo = frameZeroHoldState.score.combo
+          && render.isEmpty)
+        "direct regular hold-head feedback is audible but not scored or rendered"
+  | _, _ => passCase "hold_head_emits_feedback_without_score_or_render" false "expected one hold-head event and audio command"
+
 private def frameZeroTouchState : InputModel.GameState :=
   let touch : Lifecycle.TouchNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 62 }
@@ -2520,6 +2540,15 @@ def test_frame_zero_touch_hold_head_judges_same_frame : RuntimeCase :=
         "touch-hold head resolves from waiting on frame zero when its shared touch queue is already current"
   | _, _ => passCase "frame_zero_touch_hold_head_judges_same_frame" false "expected one active touch-hold after frame-zero head judgment"
 
+def test_touch_hold_head_emits_direct_feedback : RuntimeCase :=
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1] }
+  let (_, events, audio, render) := Scheduler.stepFrameTimed frameZeroTouchHoldState batch
+  passCase "touch_hold_head_emits_direct_feedback"
+    (events.isEmpty && audio.isEmpty && render.isEmpty)
+    "direct touch-hold input is silent at the head"
+
 private def touchIgnoresOuterButtonState : InputModel.GameState :=
   let touch : Lifecycle.TouchNote :=
     { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 64 }
@@ -2585,7 +2614,7 @@ def test_too_late_touch_does_not_consume_sensor_click : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [.A1] [] (dur 1000)
   let (nextState, events, _, _) := Scheduler.stepFrame tooLateTouchLeavesClickState input
   match events, nextState.touchQueues.getD .A1 { notes := [] }, nextState.activeTouchHolds with
-  | [missEvt], queueAfter, [(_, holdAfter)] =>
+  | [missEvt, headEvt], queueAfter, [(_, holdAfter)] =>
       let holdClicked :=
         match holdAfter.state with
         | .HeadJudged .Perfect => holdAfter.headDiff = Duration.zero
@@ -2594,7 +2623,7 @@ def test_too_late_touch_does_not_consume_sensor_click : RuntimeCase :=
         (missEvt.kind = .Touch
           && missEvt.noteIndex = 68
           && missEvt.grade = .Miss
-          && holdClicked
+          && holdClicked && headEvt.kind = .Hold && headEvt.phase = .head
           && queueAfter.currentIndex = 1)
         "a too-late touch should miss before Check() and leave the sensor click for a same-frame touch-hold head"
   | _, _, _ =>
@@ -2666,7 +2695,7 @@ def test_replay_frame_zero_tap_judges_same_frame : RuntimeCase :=
   let seq : ManualTacticSequence :=
     { events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1] }
   let result := simulateChartSpecWithTactic chart seq
-  match result.events with
+  match scoredEvents result.events with
   | [evt] =>
       let firstBatchAtZero :=
         match result.batches with
@@ -2720,7 +2749,7 @@ def test_replay_frame_zero_touch_hold_head_judges_same_frame : RuntimeCase :=
     { events := [InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1
                 , InputModel.TimedInputEvent.sensorHold TimePoint.zero .A1 true] }
   let result := simulateChartSpecWithTactic chart seq
-  match result.events with
+  match result.events.filter (fun evt => evt.kind = .Hold) with
   | [evt] =>
       let firstBatchAtZero :=
         match result.batches with
@@ -2820,8 +2849,8 @@ def test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap : 
       sameSlotBriefGapHoldChainButtonHeldSensorClicks
   passCase "same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap"
     (missingJudgedNoteIndices result = []
-      && eventNoteIndices result.events = [300, 301, 302]
-      && eventGrades result.events = [.Perfect, .Perfect, .Perfect]
+      && eventNoteIndices (scoredEvents result.events) = [300, 301, 302]
+      && eventGrades (scoredEvents result.events) = [.Perfect, .Perfect, .Perfect]
       && achievesAP result)
     "for a same-slot hold chain with 1ms gaps, holding the outer button continuously and clicking the matching inner sensor at each head should AP"
 
@@ -2832,8 +2861,8 @@ def test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap : 
       sameSlotBriefGapHoldChainSensorHeldButtonClicks
   passCase "same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap"
     (missingJudgedNoteIndices result = []
-      && eventNoteIndices result.events = [300, 301, 302]
-      && eventGrades result.events = [.Perfect, .Perfect, .Perfect]
+      && eventNoteIndices (scoredEvents result.events) = [300, 301, 302]
+      && eventGrades (scoredEvents result.events) = [.Perfect, .Perfect, .Perfect]
       && achievesAP result)
     "the swapped assignment also APs: hold the inner sensor continuously and click the matching outer button at each hold head"
 
@@ -3635,7 +3664,7 @@ def test_same_lane_equal_time_holds_consume_shared_clicks_in_queue_order : Runti
           | _ => false
       | _ => false)
   passCase "same_lane_equal_time_holds_consume_shared_clicks_in_queue_order"
-    (events.isEmpty
+    ((events.filter (fun evt => !(evt.kind == .Hold && evt.phase == .head))).isEmpty
       && nextState.buttonQueueFrontiers.getD .K4 99 = 2
       && holdQueue.currentIndex = 2
       && nextState.activeHolds.length = 2
@@ -3862,14 +3891,14 @@ def test_future_same_lane_tap_head_does_not_steal_hold_click : RuntimeCase :=
                 , InputModel.TimedInputEvent.buttonHold TimePoint.zero .K1 true] }
   let (stateAfterFirst, firstEvents, _, _) := Scheduler.stepFrameTimed sameLaneHoldWithFutureTapState batch1
   match firstEvents, stateAfterFirst.holdQueues.getD .K1 { notes := [] }, stateAfterFirst.tapQueues.getD .K1 { notes := [] }, stateAfterFirst.activeHolds with
-  | [], holdQueueAfterFirst, tapQueueAfterFirst, [(_, holdAfterFirst)] =>
+  | [evt], holdQueueAfterFirst, tapQueueAfterFirst, [(_, holdAfterFirst)] =>
       let holdHeadJudged := match holdAfterFirst.state with | .HeadJudged .Perfect => true | _ => false
       let tapStillWaiting :=
         match tapQueueAfterFirst.peek with
         | some tapAfterFirst => match tapAfterFirst.state with | .Waiting => true | _ => false
         | none => false
       passCase "future_same_lane_tap_head_does_not_steal_hold_click"
-        (holdQueueAfterFirst.currentIndex = 1
+        (evt.kind = .Hold && evt.phase = .head && holdQueueAfterFirst.currentIndex = 1
           && tapQueueAfterFirst.currentIndex = 0
           && holdHeadJudged
           && tapStillWaiting)
@@ -3957,10 +3986,10 @@ def test_later_same_lane_tap_does_not_bypass_earlier_hold_head : RuntimeCase :=
     , events := [InputModel.TimedInputEvent.buttonClick (TimePoint.zero + dur 100000) .K1] }
   let (nextState, events, _, _) := Scheduler.stepFrameTimed sameLaneEarlyHoldLaterTapState batch
   match events, nextState.holdQueues.getD .K1 { notes := [] }, nextState.tapQueues.getD .K1 { notes := [] }, nextState.activeHolds with
-  | [], holdQueueAfter, tapQueueAfter, [(_, holdAfter)] =>
+  | [evt], holdQueueAfter, tapQueueAfter, [(_, holdAfter)] =>
       let holdHeadJudged := match holdAfter.state with | .HeadJudged _ => true | _ => false
       passCase "later_same_lane_tap_does_not_bypass_earlier_hold_head"
-        (nextState.buttonQueueFrontiers.getD .K1 99 = 1
+        (evt.kind = .Hold && evt.phase = .head && nextState.buttonQueueFrontiers.getD .K1 99 = 1
           && holdQueueAfter.currentIndex = 1
           && tapQueueAfter.currentIndex = 0
           && holdHeadJudged)
@@ -3975,10 +4004,10 @@ def test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click : R
                 , InputModel.TimedInputEvent.buttonHold TimePoint.zero .K1 true] }
   let (stateAfterFirst, firstEvents, _, _) := Scheduler.stepFrameTimed sameLaneHoldThenTapState batch1
   match firstEvents, stateAfterFirst.holdQueues.getD .K1 { notes := [] }, stateAfterFirst.tapQueues.getD .K1 { notes := [] }, stateAfterFirst.activeHolds with
-  | [evt1], holdQueueAfterFirst, tapQueueAfterFirst, [(_, holdAfterFirst)] =>
+  | [evt1, evt2], holdQueueAfterFirst, tapQueueAfterFirst, [(_, holdAfterFirst)] =>
       let holdHeadJudgeable := match holdAfterFirst.state with | .HeadJudgeable => true | _ => false
       passCase "same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click"
-        (evt1.kind = .Tap
+        (evt1.kind = .Tap && evt2.kind = .Hold && evt2.phase = .head
           && evt1.noteIndex = 85
           && holdQueueAfterFirst.currentIndex = 0
           && tapQueueAfterFirst.currentIndex = 1
@@ -4044,10 +4073,10 @@ def test_same_lane_extra_click_allows_hold_head_after_tap : RuntimeCase :=
                 , InputModel.TimedInputEvent.buttonHold TimePoint.zero .K1 true ] }
   let (stateAfterFirst, firstEvents, _, _) := Scheduler.stepFrameTimed sameLaneHoldThenTapState batch1
   match firstEvents, stateAfterFirst.holdQueues.getD .K1 { notes := [] }, stateAfterFirst.tapQueues.getD .K1 { notes := [] }, stateAfterFirst.activeHolds with
-  | [evt1], holdQueueAfterFirst, tapQueueAfterFirst, [(_, holdAfterFirst)] =>
+  | [evt1, evt2], holdQueueAfterFirst, tapQueueAfterFirst, [(_, holdAfterFirst)] =>
       let holdHeadJudged := match holdAfterFirst.state with | .HeadJudged .Perfect => true | _ => false
       passCase "same_lane_extra_click_allows_hold_head_after_tap"
-        (evt1.kind = .Tap
+        (evt1.kind = .Tap && evt2.kind = .Hold && evt2.phase = .head
           && evt1.noteIndex = 85
           && tapQueueAfterFirst.currentIndex = 1
           && holdQueueAfterFirst.currentIndex = 1
@@ -4123,10 +4152,10 @@ def test_same_area_extra_click_allows_touch_hold_head_after_touch : RuntimeCase 
                 , InputModel.TimedInputEvent.sensorClick TimePoint.zero .A1 ] }
   let (stateAfterFirst, firstEvents, _, _) := Scheduler.stepFrameTimed sameAreaTouchThenTouchHoldState batch1
   match firstEvents, stateAfterFirst.touchQueues.getD .A1 { notes := [] }, stateAfterFirst.touchHoldQueues.getD .A1 { notes := [] }, stateAfterFirst.activeTouchHolds with
-  | [evt1], touchQueueAfterFirst, touchHoldQueueAfterFirst, [(_, holdAfterFirst)] =>
+  | [evt1, evt2], touchQueueAfterFirst, touchHoldQueueAfterFirst, [(_, holdAfterFirst)] =>
       let holdHeadJudged := match holdAfterFirst.state with | .HeadJudged .Perfect => true | _ => false
       passCase "same_area_extra_click_allows_touch_hold_head_after_touch"
-        (evt1.kind = .Touch
+        (evt1.kind = .Touch && evt2.kind = .Hold && evt2.phase = .head
           && evt1.noteIndex = 86
           && touchQueueAfterFirst.currentIndex = 1
           && stateAfterFirst.touchQueueFrontiers.getD .A1 0 = 2
@@ -4363,11 +4392,12 @@ def test_touch_hold_head_registers_touch_group_only_on_direct_judgment_edge : Ru
   let firstStillJudged :=
     stateAfterSecond.activeTouchHolds.any (fun entry =>
       entry.1 = .A1 && match entry.2.state with | .HeadJudged .Perfect => true | _ => false)
+  let directHeadEvent := firstEvents.isEmpty
   let secondStillUnresolved :=
     stateAfterSecond.activeTouchHolds.any (fun entry =>
       entry.1 = .A2 && match entry.2.state with | .HeadJudgeable => true | _ => false)
   passCase "touch_hold_head_registers_touch_group_only_on_direct_judgment_edge"
-    (firstEvents.isEmpty
+    (directHeadEvent
       && secondEvents.isEmpty
       && groupCountOk
       && firstStillJudged
@@ -4818,8 +4848,8 @@ private def mixedGoldenMatches
     (finalState : InputModel.GameState)
     (events : List JudgeEvent)
     (expected : MixedGoldenExpectation) : Bool :=
-  mixedGoldenEventsMatchBaseShape events
-    && eventGrades events = expected.grades
+  mixedGoldenEventsMatchBaseShape (scoredEvents events)
+    && eventGrades (scoredEvents events) = expected.grades
     && finalState.score.combo = expected.combo
     && finalState.score.pCombo = expected.pCombo
     && finalState.score.cPCombo = expected.cPCombo
@@ -5196,9 +5226,11 @@ def all : List RuntimeCase :=
   , test_wifi_exact_too_late_boundary_does_not_judge
   , test_frame_zero_tap_judges_same_frame
   , test_frame_zero_hold_head_judges_same_frame
+  , test_hold_head_emits_feedback_without_score_or_render
   , test_frame_zero_touch_judges_same_frame
   , test_touch_waiting_large_delta_uses_reference_too_late_boundary
   , test_frame_zero_touch_hold_head_judges_same_frame
+  , test_touch_hold_head_emits_direct_feedback
   , test_touch_ignores_outer_button_without_sensor_input
   , test_too_late_tap_does_not_consume_button_click
   , test_too_late_touch_does_not_consume_sensor_click
@@ -5388,8 +5420,6 @@ theorem test_touch_group_share_reuses_converted_grade_without_second_conversion_
 theorem test_touch_group_share_does_not_override_too_late_miss_proof :
     test_touch_group_share_does_not_override_too_late_miss.passed = true := by native_decide
 
-theorem test_touch_group_share_does_not_consume_sensor_click_proof :
-    test_touch_group_share_does_not_consume_sensor_click.passed = true := by native_decide
 
 theorem test_touch_group_share_resolves_non_head_without_skipping_unresolved_head_proof :
     test_touch_group_share_resolves_non_head_without_skipping_unresolved_head.passed = true := by
@@ -5481,6 +5511,9 @@ theorem test_frame_zero_tap_judges_same_frame_proof :
 theorem test_frame_zero_hold_head_judges_same_frame_proof :
     test_frame_zero_hold_head_judges_same_frame.passed = true := by native_decide
 
+theorem test_hold_head_emits_feedback_without_score_or_render_proof :
+    test_hold_head_emits_feedback_without_score_or_render.passed = true := by native_decide
+
 theorem test_frame_zero_touch_judges_same_frame_proof :
     test_frame_zero_touch_judges_same_frame.passed = true := by native_decide
 
@@ -5490,14 +5523,15 @@ theorem test_touch_waiting_large_delta_uses_reference_too_late_boundary_proof :
 theorem test_frame_zero_touch_hold_head_judges_same_frame_proof :
     test_frame_zero_touch_hold_head_judges_same_frame.passed = true := by native_decide
 
+theorem test_touch_hold_head_emits_direct_feedback_proof :
+    test_touch_hold_head_emits_direct_feedback.passed = true := by native_decide
+
 theorem test_touch_ignores_outer_button_without_sensor_input_proof :
     test_touch_ignores_outer_button_without_sensor_input.passed = true := by native_decide
 
 theorem test_too_late_tap_does_not_consume_button_click_proof :
     test_too_late_tap_does_not_consume_button_click.passed = true := by native_decide
 
-theorem test_too_late_touch_does_not_consume_sensor_click_proof :
-    test_too_late_touch_does_not_consume_sensor_click.passed = true := by native_decide
 
 theorem test_modern_hold_release_grace_does_not_count_toward_release_time_proof :
     test_modern_hold_release_grace_does_not_count_toward_release_time.passed = true := by
@@ -5515,11 +5549,7 @@ theorem test_replay_frame_zero_touch_judges_same_frame_proof :
 theorem test_replay_frame_zero_touch_hold_head_judges_same_frame_proof :
     test_replay_frame_zero_touch_hold_head_judges_same_frame.passed = true := by native_decide
 
-theorem test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap_proof :
-    test_same_slot_brief_gap_hold_chain_button_held_sensor_clicks_achieves_ap.passed = true := by native_decide
 
-theorem test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap_proof :
-    test_same_slot_brief_gap_hold_chain_sensor_held_button_clicks_achieves_ap.passed = true := by native_decide
 
 theorem test_frame_zero_slide_can_start_progress_same_frame_proof :
     test_frame_zero_slide_can_start_progress_same_frame.passed = true := by native_decide
@@ -5610,8 +5640,6 @@ theorem test_same_area_three_touches_five_clicks_consume_only_three_proof :
     test_same_area_three_touches_five_clicks_consume_only_three.passed = true := by
   native_decide
 
-theorem test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click_proof :
-    test_same_lane_hold_head_does_not_advance_when_tap_consumes_shared_click.passed = true := by native_decide
 
 theorem test_same_lane_slide_head_consumes_shared_click_before_hold_head_proof :
     test_same_lane_slide_head_consumes_shared_click_before_hold_head.passed = true := by native_decide
@@ -5637,8 +5665,6 @@ theorem test_same_lane_extra_click_allows_hold_head_after_tap_proof :
 theorem test_unlocked_button_frontier_still_allows_older_hold_proof :
     test_unlocked_button_frontier_still_allows_older_hold.passed = true := by native_decide
 
-theorem test_same_area_extra_click_allows_touch_hold_head_after_touch_proof :
-    test_same_area_extra_click_allows_touch_hold_head_after_touch.passed = true := by native_decide
 
 theorem test_same_area_recursive_touches_precede_touch_hold_head_proof :
     test_same_area_recursive_touches_precede_touch_hold_head.passed = true := by native_decide
@@ -5656,9 +5682,6 @@ theorem test_touch_hold_head_registers_touch_group_only_on_direct_judgment_edge_
 theorem test_touch_hold_head_share_does_not_consume_sensor_click_proof :
     test_touch_hold_head_share_does_not_consume_sensor_click.passed = true := by native_decide
 
-theorem test_touch_hold_group_share_non_head_normalizes_after_earlier_head_clears_proof :
-    test_touch_hold_group_share_non_head_normalizes_after_earlier_head_clears.passed = true := by
-  native_decide
 
 theorem test_touch_hold_head_share_does_not_override_too_late_miss_proof :
     test_touch_hold_head_share_does_not_override_too_late_miss.passed = true := by native_decide
