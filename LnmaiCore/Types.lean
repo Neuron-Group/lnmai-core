@@ -481,37 +481,57 @@ inductive JudgeEventKind where
   | Tap    | Hold | Slide | Touch | Break
 deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
 
+/--
+  The phase of a multi-stage judgment event.
+
+  Hold heads are represented by the gameplay-family `.Hold` together with
+  `.head`; the completed hold result uses `.tail`.  Other gameplay families
+  currently use the phase supplied by their event producer (normally
+  `.head`).
+-/
+inductive JudgePhase where
+  | head
+  | tail
+deriving DecidableEq, Repr, Inhabited, ToJson, FromJson
+
 structure JudgeEvent where
   kind      : JudgeEventKind
+  phase     : JudgePhase
   grade     : JudgeGrade
   diff      : Duration
   position  : RuntimePos
   noteIndex : Nat
   isBreak   : Bool := false
+  isEX      : Bool := false
   multiple  : Nat := 1
 deriving Repr, Inhabited, ToJson
 
 instance : FromJson JudgeEvent where
   fromJson? json := do
     let kind ← json.getObjValAs? JudgeEventKind "kind"
+    let phase ← json.getObjValAs? JudgePhase "phase"
     let grade ← json.getObjValAs? JudgeGrade "grade"
     let diff ← json.getObjValAs? Duration "diff"
     let position ← json.getObjValAs? RuntimePos "position"
     let noteIndex ← json.getObjValAs? Nat "noteIndex"
     let isBreak ← getObjValAsD? json "isBreak" false
+    let isEX ← getObjValAsD? json "isEX" false
     let multiple ← getObjValAsD? json "multiple" 1
     pure { kind := kind
+         , phase := phase
          , grade := grade
          , diff := diff
          , position := position
          , noteIndex := noteIndex
          , isBreak := isBreak
+         , isEX := isEX
          , multiple := multiple }
 
 inductive AudioCommand where
   | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (isBreak : Bool)
       (atTime : TimePoint) (noteIndex : Nat)
   | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (isBreak : Bool) (atTime : TimePoint)
+  | PlayTouchHoldBody (noteIndex : Nat) (atTime : TimePoint)
 deriving Repr, Inhabited, ToJson, FromJson
 
 inductive RenderCommand where

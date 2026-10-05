@@ -229,7 +229,7 @@ def computeAccRates (totalBase : Nat) (currentBase : Nat) (lostBase : Nat)
   let cc : Rat := Int.ofNat currentExtraClassic
   let hundred : Rat := 100
   let earnedBase := tb - lb
-  let earnedExtra := te - le
+  let earnedExtra := Int.ofNat totalExtra - le
   if totalBase == 0 then
     { classicAccPlus    := 0
     , classicAccMinus   := 0

@@ -176,6 +176,7 @@ private def isTooLateForTapLike (currentTime timing lateLimit : TimePoint) : Boo
 private def tapLikeMissEvent (params : CommonNoteParams) (lane : OuterSlot) (style : JudgeStyle) : JudgeEvent :=
   let grade := Convert.convertGrade style JudgeGrade.Miss
   { kind := .Tap
+  , phase := .head
   , grade := grade
   , diff := Duration.fromMicros (-1000)
   , position := .button lane.toButtonZone
@@ -184,6 +185,7 @@ private def tapLikeMissEvent (params : CommonNoteParams) (lane : OuterSlot) (sty
 
 private def tapLikeJudgeEvent (params : CommonNoteParams) (lane : OuterSlot) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Tap
+  , phase := .head
   , grade := grade
   , diff := judgeDiff
   , position := .button lane.toButtonZone
@@ -329,11 +331,29 @@ private def judgeHoldHeadTapNow (note : HoldNote) (style : JudgeStyle) (judgeDif
   let grade := Convert.convertGrade style raw
   holdHeadJudged note grade judgeDiff
 
+private def holdHeadJudgeEvent (note : HoldNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
+  { kind := .Hold
+  , phase := .head
+  , grade := grade
+  , diff := judgeDiff
+  , position := note.position
+  , noteIndex := note.params.noteIndex
+  , isBreak := note.params.isBreak
+  , isEX := note.params.isEX }
+
+private def holdHeadMissEvent (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : JudgeEvent :=
+  holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) judgeDiff
+
+private def judgeHoldHeadTapNow? (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote × Option JudgeEvent :=
+  let raw := Judge.judgeTap judgeDiff note.params.isEX
+  let grade := Convert.convertGrade style raw
+  (holdHeadJudged note grade judgeDiff, some (holdHeadJudgeEvent note grade judgeDiff))
+
 private def judgeHoldHeadTouchNow? (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote × Option JudgeEvent :=
   match Judge.judgeTouch judgeDiff note.params.isEX with
   | some raw =>
       let grade := Convert.convertGrade style raw
-      (holdHeadJudged note grade judgeDiff, none)
+      (holdHeadJudged note grade judgeDiff, some (holdHeadJudgeEvent note grade judgeDiff))
   | none =>
       (note, none)
 
@@ -346,7 +366,8 @@ private def stepTouchHoldHeadWaiting
     (sharedResult : Option (JudgeGrade × Duration))
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if currentTime > timing + touchGoodMs then
-    (holdHeadMiss note touchGoodMs, none)
+    let missed := holdHeadMiss note touchGoodMs
+    (missed, some (holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) touchGoodMs))
   else
     match sharedResult with
     | some (grade, sharedDiff) =>
@@ -369,7 +390,8 @@ private def stepTouchHoldHeadJudgeable
     (sharedResult : Option (JudgeGrade × Duration))
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if currentTime > timing + touchGoodMs then
-    (holdHeadMiss note touchGoodMs, none)
+    let missed := holdHeadMiss note touchGoodMs
+    (missed, some (holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) touchGoodMs))
   else
     match sharedResult with
     | some (grade, sharedDiff) =>
@@ -388,10 +410,10 @@ private def stepRegularHoldHeadWaiting
     (inputClicked : Bool)
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if currentTime > timing + tapGoodMs then
-    (holdHeadMiss note tapGoodMs, none)
+    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note style tapGoodMs))
   else if canEnterJudgeable currentTime judgeableStart then
     if inputClicked then
-      (judgeHoldHeadTapNow note style judgeDiff, none)
+      judgeHoldHeadTapNow? note style judgeDiff
     else
       ({ note with state := HoldSubState.HeadJudgeable }, none)
   else
@@ -405,32 +427,23 @@ private def stepRegularHoldHeadJudgeable
     (inputClicked : Bool)
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if inputClicked && canEnterJudgeable currentTime judgeableStart then
-    (judgeHoldHeadTapNow note style judgeDiff, none)
+    judgeHoldHeadTapNow? note style judgeDiff
   else if currentTime > timing + tapGoodMs then
-    (holdHeadMiss note tapGoodMs, none)
+    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note style tapGoodMs))
   else
     (note, none)
 
-private def headJudgedShouldBypassReleaseIgnore (headGrade : JudgeGrade) : Bool :=
-  headGrade.isMissOrTooFast
-
 private def holdHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
-  if headJudgedShouldBypassReleaseIgnore note.headGrade then
+  if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
     ({ note with
-        state := HoldSubState.BodyReleased
-      , playerReleaseTime := note.playerReleaseTime + delta
-      , releaseIgnoreTime := Duration.zero
+        releaseIgnoreTime := note.releaseIgnoreTime + delta
       , touchHoldGroupTriggered := false }, none)
   else
-    if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
-      ({ note with
-          releaseIgnoreTime := note.releaseIgnoreTime + delta
-        , touchHoldGroupTriggered := false }, none)
-    else
-      ({ note with
-          state := HoldSubState.BodyReleased
-        , playerReleaseTime := note.playerReleaseTime + delta
-        , touchHoldGroupTriggered := false }, none)
+    ({ note with
+        state := HoldSubState.BodyReleased
+      , playerReleaseTime := note.playerReleaseTime + note.releaseIgnoreTime + delta
+      , releaseIgnoreTime := Duration.zero
+      , touchHoldGroupTriggered := false }, none)
 
 private def holdPressedTransition (note : HoldNote) : HoldNote :=
   { note with
@@ -448,7 +461,8 @@ private def holdReleaseTransition (note : HoldNote) (delta : Duration) : HoldNot
   else
     { note with
       state := HoldSubState.BodyReleased
-    , playerReleaseTime := note.playerReleaseTime + delta
+    , playerReleaseTime := note.playerReleaseTime + note.releaseIgnoreTime + delta
+    , releaseIgnoreTime := Duration.zero
     , touchHoldGroupTriggered := false }
 
 private def holdReleasedStillOff (note : HoldNote) (delta : Duration) : HoldNote :=
@@ -462,7 +476,7 @@ private def holdReleasedRecovered (note : HoldNote) : HoldNote :=
   `inputPressed` = button/sensor is held this frame.
   `inputClicked` = button/sensor just pressed this frame (edge).
 -/
-def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
+private def holdStepFuel (fuel : Nat) (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   let bodyTiming := if note.isTouchHold then note.params.judgeTiming else timing
   let diff := currentTime - timing
@@ -482,6 +496,7 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
     let eventDiff := if note.headDiff == Duration.zero && headGrade == Miss then Time.fromMillis 150 else note.headDiff
     let evt : JudgeEvent :=
       { kind := .Hold
+      , phase := .tail
       , grade := finalGrade'
       , diff := eventDiff
       , position := note.position
@@ -490,15 +505,39 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
     ({ note with state := HoldSubState.Ended finalGrade', touchHoldGroupTriggered := false }, some evt)
   match note.state with
   | .HeadWaiting =>
-    if note.isTouchHold then
-      stepTouchHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
-    else
-      stepRegularHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    let (next, evt) :=
+      if note.isTouchHold then
+        stepTouchHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
+      else
+        stepRegularHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    match next.state with
+    | .HeadWaiting | .HeadJudgeable => (next, evt)
+    | .HeadJudged grade =>
+        if note.isTouchHold && !inputClicked then
+          (next, evt)
+        else if currentTime ≥ bodyCheckStart then
+          if diff ≥ note.length then endHold next grade currentTime next.playerReleaseTime
+          else if inputPressed then (holdPressedTransition next, evt)
+          else (holdHeadReleaseTransition { next with headGrade := grade } delta).1 |> fun n => (n, evt)
+        else (next, evt)
+    | .BodyHeld | .BodyReleased | .Ended _ => (next, evt)
   | .HeadJudgeable =>
-    if note.isTouchHold then
-      stepTouchHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
-    else
-      stepRegularHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    let (next, evt) :=
+      if note.isTouchHold then
+        stepTouchHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
+      else
+        stepRegularHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    match next.state with
+    | .HeadWaiting | .HeadJudgeable => (next, evt)
+    | .HeadJudged grade =>
+        if note.isTouchHold && !inputClicked then
+          (next, evt)
+        else if currentTime ≥ bodyCheckStart then
+          if diff ≥ note.length then endHold next grade currentTime next.playerReleaseTime
+          else if inputPressed then (holdPressedTransition next, evt)
+          else (holdHeadReleaseTransition { next with headGrade := grade } delta).1 |> fun n => (n, evt)
+        else (next, evt)
+    | .BodyHeld | .BodyReleased | .Ended _ => (next, evt)
   | .HeadJudged headGrade =>
     if note.isClassic then
       if currentTime < classicBodyCheckStart then
@@ -564,6 +603,10 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
   | .Ended _ =>
     (note, none)
 
+def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
+  holdStepFuel 1 note currentTime judgeDiff headIgnore tailIgnore inputClicked inputPressed
+    currentButtonPressed prevSensorPressed touchPanelOffset sharedResult delta style
+
 ----------------------------------------------------------------------------
 -- Touch Note State
 ----------------------------------------------------------------------------
@@ -586,22 +629,27 @@ deriving Inhabited, Repr, ToJson, FromJson
 
 private def touchMissEvent (note : TouchNote) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
+  , phase := .head
   , grade := Miss
   , diff := judgeDiff
   , position := .sensor note.sensorPos
   , noteIndex := note.params.noteIndex
-  , isBreak := note.params.isBreak }
+  , isBreak := note.params.isBreak
+  , isEX := note.params.isEX }
 
 private def touchTooLateMissEvent (note : TouchNote) : JudgeEvent :=
-  touchMissEvent note (Duration.fromMicros (-1000))
+  -- MajdataPlay records the touch good-area boundary as the timeout diff.
+  touchMissEvent note TOUCH_JUDGE_GOOD_AREA_MSEC
 
 private def touchJudgeEvent (note : TouchNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
+  , phase := .head
   , grade := grade
   , diff := judgeDiff
   , position := .sensor note.sensorPos
   , noteIndex := note.params.noteIndex
-  , isBreak := note.params.isBreak }
+  , isBreak := note.params.isBreak
+  , isEX := note.params.isEX }
 
 private def judgeTouchNow? (note : TouchNote) (style : JudgeStyle) (judgeDiff : Duration) : TouchNote × Option JudgeEvent :=
   match Judge.judgeTouch judgeDiff note.params.isEX with
@@ -855,6 +903,7 @@ structure SlideNote where
   totalJudgeQueueLen : Nat := 0
   trackCount      : Nat := 1
   isCheckable     : Bool := false
+  slideSoundPlayed : Bool := false
   multiple        : Nat := 1
   judgeQueues     : List SlideQueue := []
 deriving Inhabited, Repr, ToJson, FromJson
@@ -954,11 +1003,13 @@ private def slideAdjustedJudgedWaitTime
 
 private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Slide
+  , phase := .head
   , grade := grade
   , diff := judgeDiff
   , position := note.position
   , noteIndex := note.params.noteIndex
   , isBreak := note.params.isBreak
+  , isEX := note.params.isEX
   , multiple := max 1 note.multiple }
 
 private def buildSlideSemanticBase
@@ -1001,7 +1052,8 @@ private def slideTooLateStepSemantic
   let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
   { staticBase with
     note := { staticBase.note with state := SlideState.Ended }
-    event := some (slideJudgeEvent note grade slideTooLateJudgeDiff)
+    event := if note.isConnSlide && !note.isGroupPartEnd then none
+      else some (slideJudgeEvent note grade slideTooLateJudgeDiff)
     hideSlide := true }
 
 private def slideActiveStepSemantic
@@ -1060,7 +1112,8 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       let finalGrade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade grade
       { staticBase with
         note := { staticBase.note with state := SlideState.Ended }
-        event := some (slideJudgeEvent note finalGrade storedJudgeDiff)
+        event := if note.isConnSlide && !note.isGroupPartEnd then none
+          else some (slideJudgeEvent note finalGrade storedJudgeDiff)
         hideSlide := true }
     else
       let newWait := waitTime - ctx.delta
@@ -1073,7 +1126,7 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       { staticBase with note := { staticBase.note with state := SlideState.Ended } }
 
 private def slideSemanticAudioCmds (semantic : SlideStepSemantic) (currentTime : TimePoint) : List AudioCommand :=
-  if semantic.shouldPlayTrackOns then
+  if semantic.shouldPlayTrackOns && !semantic.trackOns.isEmpty then
     semantic.trackOns.map
       (fun trackIndex =>
         AudioCommand.PlaySlideCue semantic.note.params.noteIndex trackIndex semantic.note.params.isBreak
@@ -1092,7 +1145,9 @@ private def slideSemanticRenderCmds (semantic : SlideStepSemantic) : List Render
   semantic.queueRenderCmds ++ progressCmds ++ hideCmds
 
 /-- Advance a slide note with queue traversal. -/
-def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorVec Bool) (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
+def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorVec Bool)
+    (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool)
+    : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
   let ctx : SlideStepContext :=
     { currentTime := currentTime
     , touchPanelOffset := touchPanelOffset
@@ -1101,6 +1156,12 @@ def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorV
     , subdivideSlideJudgeGrade := subdivideSlideJudgeGrade
     , sensorHeld := sensorHeld }
   let semantic := slideStepSemantic note ctx
+  let shouldMarkSlideSound := semantic.shouldPlayTrackOns &&
+    !semantic.note.slideSoundPlayed && !semantic.trackOns.isEmpty
+  let semantic :=
+    if shouldMarkSlideSound then
+      { semantic with note := { semantic.note with slideSoundPlayed := true } }
+    else semantic
   let audioCmds :=
     match semantic.note.state with
     | .Ended => []

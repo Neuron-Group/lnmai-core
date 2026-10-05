@@ -43,7 +43,7 @@ Runtime state note:
 
 - `GameState.tapQueues` now serialize tagged `TapFamilyNote` entries with `kind = "tap"` or `"slideHead"`
 - slide heads remain in the shared tap-family queue; the new tag only exposes runtime object kind to hosts
-- `GameState` no longer exposes a core touch-mode flag; hosts should synthesize sensor input before calling the core if they want desktop-style outer-button touch mapping
+- `GameState.buttonRingForTouch` controls desktop-style outer-button touch mapping; hosts can set it when button-ring input should be accepted for touch and touch-hold heads
 - `HoldNote.releaseIgnoreTime` is serialized separately from scored `playerReleaseTime`; Rust mirrors default missing older JSON to `0`
 - `GameState.noteFastLateDisplay` and `GameState.breakFastLateDisplay` mirror the core fast/late counter policy
 - `ScoreState.dxScore` is the core DX-loss delta; use `ScoreState::dx_score_remaining()` for achieved DX score
