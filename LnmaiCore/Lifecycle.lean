@@ -1145,7 +1145,9 @@ private def slideSemanticRenderCmds (semantic : SlideStepSemantic) : List Render
   semantic.queueRenderCmds ++ progressCmds ++ hideCmds
 
 /-- Advance a slide note with queue traversal. -/
-def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorVec Bool) (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
+def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorVec Bool)
+    (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool)
+    : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=
   let ctx : SlideStepContext :=
     { currentTime := currentTime
     , touchPanelOffset := touchPanelOffset

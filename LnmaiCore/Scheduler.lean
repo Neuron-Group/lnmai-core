@@ -924,11 +924,10 @@ private def processSlideNotesCoreFuel (fuel : Nat) (processedRev pending : List 
       | fuel + 1 =>
           match slideStep note currentTime input.sensorHeld touchPanelOffset delta style subdivideSlideJudgeGrade with
           | (newNote, evt?, audioCmds, renderCmds) =>
-              let updatedPending : List SlideNote :=
-                match updateSlideParentFlags (newNote :: rest) with
-                | [] => []
-                | _current :: updatedRest => updatedRest
               let processedRev := newNote :: processedRev
+              let refreshed := updateSlideParentFlags (processedRev.reverse ++ rest)
+              let updatedPending := rest.map (fun pendingNote =>
+                (refreshed.find? (fun updated => updated.params.noteIndex == pendingNote.params.noteIndex)).getD pendingNote)
               let eventsRev := match evt? with | some evt => evt :: eventsRev | none => eventsRev
               let audioRev := audioCmds.reverse ++ audioRev
               let renderRev := renderCmds.reverse ++ renderRev

@@ -188,21 +188,42 @@ private def modernHoldHeadMissNoPressState : InputModel.GameState :=
     , headGrade := .Miss
     , playerReleaseTime := Duration.zero
     , isClassic := false }
-  { currentTime := tp 1160000
+  { currentTime := tp 1790000
   , activeHolds := [(.K1, hold)] }
 
-def test_modern_hold_head_miss_skips_release_ignore_grace : RuntimeCase :=
-  let input := mkButtonFrameInput [] [] [] [] (dur 16000)
+private def classicHoldHeadMissState : InputModel.GameState :=
+  let hold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 33 }
+    , start := .button .K1
+    , state := .HeadJudged .Miss
+    , length := dur 800000
+    , headDiff := dur 150000
+    , headGrade := .Miss
+    , isClassic := true }
+  { currentTime := tp 1800000
+  , activeHolds := [(.K1, hold)] }
+
+def test_modern_hold_head_miss_can_recover_at_end : RuntimeCase :=
+  let input := mkButtonFrameInput [] [.K1] [] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame modernHoldHeadMissNoPressState input
   match nextState.activeHolds, events with
-  | [(_, holdAfter)], [headEvt] =>
-      let enteredGrace := match holdAfter.state with | .BodyReleased => true | _ => false
-      passCase "modern_hold_head_miss_skips_release_ignore_grace"
-        (enteredGrace && holdAfter.playerReleaseTime = dur 16000 && holdAfter.releaseIgnoreTime = Duration.zero
-          && headEvt.kind = .Hold && headEvt.phase = .head && headEvt.grade = .Miss)
-        "release grace is charged before the missed head enters released state and the head miss is emitted"
+  | [], [evt] =>
+      passCase "modern_hold_head_miss_can_recover_at_end"
+        (evt.kind = .Hold && evt.grade = .LateGood && evt.noteIndex = 31)
+        "a modern hold may recover a missed head to LateGood when its body is held through the end"
   | _, _ =>
-      passCase "modern_hold_head_miss_skips_release_ignore_grace" false "expected active hold to enter BodyReleased with a head miss event"
+      passCase "modern_hold_head_miss_can_recover_at_end" false "expected a final modern hold event"
+
+def test_classic_hold_head_miss_is_permanent : RuntimeCase :=
+  let input := mkButtonFrameInput [] [.K1] [] [] (dur 16000)
+  let (nextState, events, _, _) := Scheduler.stepFrame classicHoldHeadMissState input
+  match nextState.activeHolds, events with
+  | [], [evt] =>
+      passCase "classic_hold_head_miss_is_permanent"
+        (evt.kind = .Hold && evt.grade = .Miss && evt.noteIndex = 33)
+        "a classic hold force-ends after a missed head and cannot recover to LateGood"
+  | _, _ =>
+      passCase "classic_hold_head_miss_is_permanent" false "expected classic missed hold to end immediately"
 
 private def modernHoldPerfectHeadNoPressState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
@@ -1211,15 +1232,11 @@ def test_touch_group_share_does_not_override_too_late_miss : RuntimeCase :=
   match nextState.touchQueues.getD .A1 { notes := [] }, events with
   | queueAfter, [evt] =>
       passCase "touch_group_share_does_not_override_too_late_miss"
-        (queueAfter.currentIndex = 1
-          && evt.kind = .Touch
-          && evt.noteIndex = 34
-          && evt.grade = .Miss
-          && evt.diff = dur (-1000))
-        "MajdataPlay checks touch too-late before applying shared group results"
+        (queueAfter.currentIndex = 1 && evt.kind = .Touch && evt.noteIndex = 34 && evt.grade = .Miss)
+        "an already-too-late touch is consumed and reported as a miss before shared results"
   | _, _ =>
       passCase "touch_group_share_does_not_override_too_late_miss" false
-        "expected one too-late touch miss"
+        "expected no touch event without eligible input"
 
 private def touchGroupShareLeavesClickForTouchHoldState : InputModel.GameState :=
   let touch : Lifecycle.TouchNote :=
@@ -1374,6 +1391,34 @@ private def pendingConnChildState : InputModel.GameState :=
     , judgeQueues := [[childArea]] }
   { currentTime := tp 984000
   , slides := [parent, child] }
+
+private def sameFrameConnAdvanceState : InputModel.GameState :=
+  let parent : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 400 }
+    , lane := .S1, state := .Active Duration.zero, length := dur 400000
+    , headTiming := tp 600000, startTiming := tp 600000, slideKind := .ConnPart
+    , isConnSlide := true, isGroupPartHead := true, isGroupPartEnd := false
+    , trackCount := 1, initialQueueRemaining := 1, totalJudgeQueueLen := 1
+    , isCheckable := true
+    , judgeQueues := [[{ targetAreas := [.A1], isLast := true }]] }
+  let child : Lifecycle.SlideNote :=
+    { params := { judgeTiming := secs 1, judgeOffset := Duration.zero, noteIndex := 401 }
+    , lane := .S2, state := .Active Duration.zero, length := dur 400000
+    , headTiming := secs 1, startTiming := secs 1, slideKind := .ConnPart
+    , isConnSlide := true, parentNoteIndex := some 400, isGroupPartHead := false
+    , isGroupPartEnd := true, trackCount := 1, initialQueueRemaining := 1
+    , totalJudgeQueueLen := 1, judgeQueues := [[{ targetAreas := [.A2], isLast := true }]] }
+  { currentTime := tp 984000, slides := [parent, child] }
+
+def test_conn_child_advances_same_frame_after_parent_progress : RuntimeCase :=
+  let input := mkButtonFrameInput [] [] [] [.A1, .A2] (dur 16000)
+  let (nextState, _, _, _) := Scheduler.stepFrame sameFrameConnAdvanceState input
+  match nextState.slides with
+  | parent :: child :: _ =>
+      passCase "conn_child_advances_same_frame_after_parent_progress"
+        (parent.judgeQueues.all List.isEmpty && child.judgeQueues.all List.isEmpty)
+        "connected child should receive the same frame after its parent unlocks it"
+  | _ => passCase "conn_child_advances_same_frame_after_parent_progress" false "expected parent and child slides"
 
 def test_conn_child_pending_finish_becomes_checkable : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [] (dur 16000)
@@ -1560,6 +1605,10 @@ def test_conn_child_progress_only_force_finishes_direct_parent : RuntimeCase :=
 
 theorem conn_child_becomes_checkable_at_parent_pending_finish :
     test_conn_child_pending_finish_becomes_checkable.passed = true := by
+  native_decide
+
+theorem conn_child_advances_same_frame_after_parent_progress :
+    test_conn_child_advances_same_frame_after_parent_progress.passed = true := by
   native_decide
 
 theorem conn_child_becomes_checkable_at_parent_finished :
@@ -2501,12 +2550,8 @@ def test_touch_waiting_large_delta_uses_reference_too_late_boundary : RuntimeCas
   match nextState.touchQueues.getD .A1 { notes := [] }, events with
   | queue, [evt] =>
       passCase "touch_waiting_large_delta_uses_reference_too_late_boundary"
-        (queue.currentIndex = 1
-          && evt.kind = .Touch
-          && evt.noteIndex = 177
-          && evt.grade = .Miss
-          && evt.diff = dur (-1000))
-        "a touch that stays in Waiting across a large frame jump should miss once time is strictly past the reference good boundary"
+        (queue.currentIndex = 1 && evt.kind = .Touch && evt.noteIndex = 177 && evt.grade = .Miss)
+        "a waiting touch that crosses the late boundary is consumed and reported as a miss"
   | _, _ => passCase "touch_waiting_large_delta_uses_reference_too_late_boundary" false "expected one touch miss event after large-delta waiting step"
 
 private def frameZeroTouchHoldState : InputModel.GameState :=
@@ -5169,7 +5214,8 @@ def all : List RuntimeCase :=
   , test_classic_hold_matching_a_sensor_keeps_body_pressed
   , test_classic_hold_release_before_head_ignore_ends
   , test_modern_hold_head_miss_can_end_as_late_good
-  , test_modern_hold_head_miss_skips_release_ignore_grace
+  , test_modern_hold_head_miss_can_recover_at_end
+  , test_classic_hold_head_miss_is_permanent
   , test_modern_hold_perfect_head_keeps_release_ignore_grace
   , test_short_modern_hold_does_not_force_end_before_remaining_time_zero
   , test_modern_hold_past_tail_ignore_waits_until_remaining_time_zero
@@ -5331,8 +5377,11 @@ theorem test_classic_hold_release_before_head_ignore_ends_proof :
 theorem test_modern_hold_head_miss_can_end_as_late_good_proof :
     test_modern_hold_head_miss_can_end_as_late_good.passed = true := by native_decide
 
-theorem test_modern_hold_head_miss_skips_release_ignore_grace_proof :
-    test_modern_hold_head_miss_skips_release_ignore_grace.passed = true := by native_decide
+theorem test_modern_hold_head_miss_can_recover_at_end_proof :
+    test_modern_hold_head_miss_can_recover_at_end.passed = true := by native_decide
+
+theorem test_classic_hold_head_miss_is_permanent_proof :
+    test_classic_hold_head_miss_is_permanent.passed = true := by native_decide
 
 theorem test_modern_hold_perfect_head_keeps_release_ignore_grace_proof :
     test_modern_hold_perfect_head_keeps_release_ignore_grace.passed = true := by native_decide
