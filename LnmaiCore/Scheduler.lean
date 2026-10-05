@@ -1091,7 +1091,10 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
   let forceFinishCommands := forceFinishRenderCmds resolvedSlides slideNotes
 
   let allEvents := tapEvents ++ holdEvents ++ touchEvents ++ touchHoldEvents ++ slideEvents
-  let reportedEvents := allEvents.filter (fun evt => !(evt.kind == .Hold && evt.phase == .head))
+  -- Every semantic judgment edge is public. Hold heads remain score-neutral
+  -- through `foldEventIntoScore`, but the frontend still needs the head phase
+  -- to drive note-local state and feedback independently of commands.
+  let reportedEvents := allEvents
   let newScore :=
     foldEventsIntoScore st.noteFastLateDisplay st.breakFastLateDisplay st.score allEvents
   let audioCommands := slideAudioCommands ++
