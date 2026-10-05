@@ -714,7 +714,7 @@ private def processTouchHoldNotes
     let touchFrontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedTouchQueue touchFrontiers area else touchFrontiers
     let queues' := updateSensorHoldQueue queues area newNote
     let touchGroupStates' :=
-      if usedSensor && enteredHeadJudged note.state newNote.state then
+      if (usedSensor || usedButton) && enteredHeadJudged note.state newNote.state then
         match newNote.state, note.touchGroupId with
         | HoldSubState.HeadJudged grade, some groupId =>
             if grade.isMissOrTooFast then

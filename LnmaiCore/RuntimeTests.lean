@@ -196,10 +196,10 @@ def test_modern_hold_head_miss_skips_release_ignore_grace : RuntimeCase :=
   let (nextState, events, _, _) := Scheduler.stepFrame modernHoldHeadMissNoPressState input
   match nextState.activeHolds, events with
   | [(_, holdAfter)], [] =>
-      let enteredReleased := match holdAfter.state with | .BodyReleased => true | _ => false
+      let enteredGrace := match holdAfter.state with | .BodyReleased => true | _ => false
       passCase "modern_hold_head_miss_skips_release_ignore_grace"
-        (enteredReleased && holdAfter.playerReleaseTime = dur 16000)
-        "MajdataPlay seeds release-ignore away after a missed head, so the next unpressed frame should enter released state immediately"
+        (enteredGrace && holdAfter.playerReleaseTime = dur 16000 && holdAfter.releaseIgnoreTime = Duration.zero)
+        "release grace is charged before the missed head enters released state"
   | _, _ =>
       passCase "modern_hold_head_miss_skips_release_ignore_grace" false "expected active hold to enter BodyReleased without judging yet"
 

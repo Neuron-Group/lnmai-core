@@ -430,27 +430,17 @@ private def stepRegularHoldHeadJudgeable
   else
     (note, none)
 
-private def headJudgedShouldBypassReleaseIgnore (headGrade : JudgeGrade) : Bool :=
-  headGrade.isMissOrTooFast
-
 private def holdHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
-  if headJudgedShouldBypassReleaseIgnore note.headGrade then
+  if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
     ({ note with
-        state := HoldSubState.BodyReleased
-      , playerReleaseTime := note.playerReleaseTime + delta
-      , releaseIgnoreTime := Duration.zero
+        releaseIgnoreTime := note.releaseIgnoreTime + delta
       , touchHoldGroupTriggered := false }, none)
   else
-    if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
-      ({ note with
-          releaseIgnoreTime := note.releaseIgnoreTime + delta
-        , touchHoldGroupTriggered := false }, none)
-    else
-      ({ note with
-          state := HoldSubState.BodyReleased
-        , playerReleaseTime := note.playerReleaseTime + note.releaseIgnoreTime + delta
-        , releaseIgnoreTime := Duration.zero
-        , touchHoldGroupTriggered := false }, none)
+    ({ note with
+        state := HoldSubState.BodyReleased
+      , playerReleaseTime := note.playerReleaseTime + note.releaseIgnoreTime + delta
+      , releaseIgnoreTime := Duration.zero
+      , touchHoldGroupTriggered := false }, none)
 
 private def holdPressedTransition (note : HoldNote) : HoldNote :=
   { note with
@@ -1055,7 +1045,8 @@ private def slideTooLateStepSemantic
   let grade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade raw
   { staticBase with
     note := { staticBase.note with state := SlideState.Ended }
-    event := some (slideJudgeEvent note grade slideTooLateJudgeDiff)
+    event := if note.isConnSlide && !note.isGroupPartEnd then none
+      else some (slideJudgeEvent note grade slideTooLateJudgeDiff)
     hideSlide := true }
 
 private def slideActiveStepSemantic
@@ -1114,7 +1105,8 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       let finalGrade := slideEffectiveJudgeGrade ctx.style ctx.subdivideSlideJudgeGrade grade
       { staticBase with
         note := { staticBase.note with state := SlideState.Ended }
-        event := some (slideJudgeEvent note finalGrade storedJudgeDiff)
+        event := if note.isConnSlide && !note.isGroupPartEnd then none
+          else some (slideJudgeEvent note finalGrade storedJudgeDiff)
         hideSlide := true }
     else
       let newWait := waitTime - ctx.delta
