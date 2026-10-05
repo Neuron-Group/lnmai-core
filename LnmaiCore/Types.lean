@@ -528,6 +528,7 @@ inductive AudioCommand where
   | PlayJudgeSfx (kind : JudgeEventKind) (grade : JudgeGrade) (isBreak : Bool)
       (atTime : TimePoint) (noteIndex : Nat)
   | PlaySlideCue (noteIndex : Nat) (trackIndex : Nat) (isBreak : Bool) (atTime : TimePoint)
+  | PlayTouchHoldBody (noteIndex : Nat) (atTime : TimePoint)
 deriving Repr, Inhabited, ToJson, FromJson
 
 inductive RenderCommand where

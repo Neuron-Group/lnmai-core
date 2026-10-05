@@ -214,6 +214,8 @@ structure GameState where
   breakFastLateDisplay : JudgeDisplayOption := JudgeDisplayOption.Disable
   /-- Whether regular hold-head judgment results are rendered. -/
   displayHoldHeadJudgeResult : Bool := false
+  /-- Accept outer button-ring clicks as touch/touch-hold input. -/
+  buttonRingForTouch : Bool := false
 deriving Inhabited, Repr, ToJson, FromJson
 
 end LnmaiCore.InputModel

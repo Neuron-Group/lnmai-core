@@ -877,6 +877,7 @@ structure SlideNote where
   totalJudgeQueueLen : Nat := 0
   trackCount      : Nat := 1
   isCheckable     : Bool := false
+  slideSoundPlayed : Bool := false
   multiple        : Nat := 1
   judgeQueues     : List SlideQueue := []
 deriving Inhabited, Repr, ToJson, FromJson
@@ -1096,7 +1097,7 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       { staticBase with note := { staticBase.note with state := SlideState.Ended } }
 
 private def slideSemanticAudioCmds (semantic : SlideStepSemantic) (currentTime : TimePoint) : List AudioCommand :=
-  if semantic.shouldPlayTrackOns then
+  if semantic.shouldPlayTrackOns && !semantic.note.slideSoundPlayed && !semantic.trackOns.isEmpty then
     semantic.trackOns.map
       (fun trackIndex =>
         AudioCommand.PlaySlideCue semantic.note.params.noteIndex trackIndex semantic.note.params.isBreak
@@ -1124,6 +1125,10 @@ def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorV
     , subdivideSlideJudgeGrade := subdivideSlideJudgeGrade
     , sensorHeld := sensorHeld }
   let semantic := slideStepSemantic note ctx
+  let semantic :=
+    if semantic.shouldPlayTrackOns && !semantic.note.slideSoundPlayed && !semantic.trackOns.isEmpty then
+      { semantic with note := { semantic.note with slideSoundPlayed := true } }
+    else semantic
   let audioCmds :=
     match semantic.note.state with
     | .Ended => []

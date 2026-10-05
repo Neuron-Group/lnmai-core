@@ -214,10 +214,9 @@ private def pressBandMicros (heldMicros realityMicros : ℤ) : Nat :=
     playerReleaseTimeSec — accumulated release time in seconds
 -/
 def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Duration) (length : Duration) (ignoreTime : Duration) (playerReleaseTime : Duration) : JudgeGrade :=
-  -- offset: 0 if fast-side head, otherwise = judgeDiff
-  let offset := if headGrade.isFast then Duration.zero else judgeDiff
-  -- realityHT = effective hold time (minus ignores, minus late offset, clamped)
-  let realityHTRaw := length - ignoreTime - offset
+  -- MajdataPlay's HoldEndJudge uses the note length and ignore time only;
+  -- head timing error does not shorten the release percentage denominator.
+  let realityHTRaw := length - ignoreTime
   let realityHTMax := length - Duration.fromMicros 300000
   let realityHT := max Duration.zero (min realityHTRaw realityHTMax)
   if realityHT ≤ Duration.zero then

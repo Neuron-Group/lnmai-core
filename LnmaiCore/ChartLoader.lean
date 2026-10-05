@@ -694,8 +694,7 @@ private def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
   let totals := chart.touches.foldl (fun totals note => addScoreTotal totals .Touch note.isBreak) totals
   chart.slides.foldl
     (fun totals note =>
-      if note.isConnSlide && !note.isGroupEnd then totals
-      else addScoreTotal totals .Slide note.isBreak note.multiple)
+      addScoreTotal totals .Slide note.isBreak note.multiple)
     totals
 
 def buildGameState (chart : ChartSpec) : GameState :=
