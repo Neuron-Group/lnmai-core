@@ -338,7 +338,8 @@ private def holdHeadJudgeEvent (note : HoldNote) (grade : JudgeGrade) (judgeDiff
   , diff := judgeDiff
   , position := note.position
   , noteIndex := note.params.noteIndex
-  , isBreak := note.params.isBreak }
+  , isBreak := note.params.isBreak
+  , isEX := note.params.isEX }
 
 private def holdHeadMissEvent (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : JudgeEvent :=
   holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) judgeDiff
@@ -352,7 +353,7 @@ private def judgeHoldHeadTouchNow? (note : HoldNote) (style : JudgeStyle) (judge
   match Judge.judgeTouch judgeDiff note.params.isEX with
   | some raw =>
       let grade := Convert.convertGrade style raw
-      (holdHeadJudged note grade judgeDiff, none)
+      (holdHeadJudged note grade judgeDiff, some (holdHeadJudgeEvent note grade judgeDiff))
   | none =>
       (note, none)
 
@@ -365,7 +366,8 @@ private def stepTouchHoldHeadWaiting
     (sharedResult : Option (JudgeGrade × Duration))
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if currentTime > timing + touchGoodMs then
-    (holdHeadMiss note touchGoodMs, none)
+    let missed := holdHeadMiss note touchGoodMs
+    (missed, some (holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) touchGoodMs))
   else
     match sharedResult with
     | some (grade, sharedDiff) =>
@@ -388,7 +390,8 @@ private def stepTouchHoldHeadJudgeable
     (sharedResult : Option (JudgeGrade × Duration))
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if currentTime > timing + touchGoodMs then
-    (holdHeadMiss note touchGoodMs, none)
+    let missed := holdHeadMiss note touchGoodMs
+    (missed, some (holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) touchGoodMs))
   else
     match sharedResult with
     | some (grade, sharedDiff) =>
@@ -631,7 +634,8 @@ private def touchMissEvent (note : TouchNote) (judgeDiff : Duration) : JudgeEven
   , diff := judgeDiff
   , position := .sensor note.sensorPos
   , noteIndex := note.params.noteIndex
-  , isBreak := note.params.isBreak }
+  , isBreak := note.params.isBreak
+  , isEX := note.params.isEX }
 
 private def touchTooLateMissEvent (note : TouchNote) : JudgeEvent :=
   touchMissEvent note (Duration.fromMicros (-1000))
@@ -643,7 +647,8 @@ private def touchJudgeEvent (note : TouchNote) (grade : JudgeGrade) (judgeDiff :
   , diff := judgeDiff
   , position := .sensor note.sensorPos
   , noteIndex := note.params.noteIndex
-  , isBreak := note.params.isBreak }
+  , isBreak := note.params.isBreak
+  , isEX := note.params.isEX }
 
 private def judgeTouchNow? (note : TouchNote) (style : JudgeStyle) (judgeDiff : Duration) : TouchNote × Option JudgeEvent :=
   match Judge.judgeTouch judgeDiff note.params.isEX with
@@ -1003,6 +1008,7 @@ private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff :
   , position := note.position
   , noteIndex := note.params.noteIndex
   , isBreak := note.params.isBreak
+  , isEX := note.params.isEX
   , multiple := max 1 note.multiple }
 
 private def buildSlideSemanticBase

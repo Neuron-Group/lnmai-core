@@ -502,6 +502,7 @@ structure JudgeEvent where
   position  : RuntimePos
   noteIndex : Nat
   isBreak   : Bool := false
+  isEX      : Bool := false
   multiple  : Nat := 1
 deriving Repr, Inhabited, ToJson
 
@@ -514,6 +515,7 @@ instance : FromJson JudgeEvent where
     let position ← json.getObjValAs? RuntimePos "position"
     let noteIndex ← json.getObjValAs? Nat "noteIndex"
     let isBreak ← getObjValAsD? json "isBreak" false
+    let isEX ← getObjValAsD? json "isEX" false
     let multiple ← getObjValAsD? json "multiple" 1
     pure { kind := kind
          , phase := phase
@@ -522,6 +524,7 @@ instance : FromJson JudgeEvent where
          , position := position
          , noteIndex := noteIndex
          , isBreak := isBreak
+         , isEX := isEX
          , multiple := multiple }
 
 inductive AudioCommand where

@@ -195,13 +195,14 @@ def test_modern_hold_head_miss_skips_release_ignore_grace : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [] (dur 16000)
   let (nextState, events, _, _) := Scheduler.stepFrame modernHoldHeadMissNoPressState input
   match nextState.activeHolds, events with
-  | [(_, holdAfter)], [] =>
+  | [(_, holdAfter)], [headEvt] =>
       let enteredGrace := match holdAfter.state with | .BodyReleased => true | _ => false
       passCase "modern_hold_head_miss_skips_release_ignore_grace"
-        (enteredGrace && holdAfter.playerReleaseTime = dur 16000 && holdAfter.releaseIgnoreTime = Duration.zero)
-        "release grace is charged before the missed head enters released state"
+        (enteredGrace && holdAfter.playerReleaseTime = dur 16000 && holdAfter.releaseIgnoreTime = Duration.zero
+          && headEvt.kind = .Hold && headEvt.phase = .head && headEvt.grade = .Miss)
+        "release grace is charged before the missed head enters released state and the head miss is emitted"
   | _, _ =>
-      passCase "modern_hold_head_miss_skips_release_ignore_grace" false "expected active hold to enter BodyReleased without judging yet"
+      passCase "modern_hold_head_miss_skips_release_ignore_grace" false "expected active hold to enter BodyReleased with a head miss event"
 
 private def modernHoldPerfectHeadNoPressState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=

@@ -11,9 +11,9 @@
 
   1. tap queues
   2. hold heads / active holds
-  3. touch queues
-  4. touch-hold heads / active touch-holds
-  5. slide progression
+  3. slide progression
+  4. touch queues
+  5. touch-hold heads / active touch-holds
 
   This is not just an implementation accident. It is part of the runtime's
   observable game semantics because multiple subsystems can compete for the
@@ -25,12 +25,8 @@
   - tap before hold means a shared button click can be consumed by the tap,
     leaving the hold head judgeable but still queued unless another click is
     available in the same frame
-  - touch before touch-hold means a touch can populate shared touch-group
-    state early enough for a later touch-hold head to resolve from that group
-    share in the very same frame
-  - slides run after tap-like families because slide progression depends on
-    held sensor state rather than the per-frame click cursor consumed by those
-    earlier families
+  - slide progression runs before touch families, matching the reference
+    updater order; touch-group state is then shared by touch-hold heads.
 
   The order should therefore only change together with deliberate semantic
   review and order-sensitive regression tests.
@@ -714,7 +710,7 @@ private def processTouchHoldNotes
     let touchFrontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedTouchQueue touchFrontiers area else touchFrontiers
     let queues' := updateSensorHoldQueue queues area newNote
     let touchGroupStates' :=
-      if (usedSensor || usedButton) && enteredHeadJudged note.state newNote.state then
+      if enteredHeadJudged note.state newNote.state then
         match newNote.state, note.touchGroupId with
         | HoldSubState.HeadJudged grade, some groupId =>
             if grade.isMissOrTooFast then
@@ -1084,12 +1080,12 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     processTapNotes st.buttonQueueFrontiers st.tapQueues input newTime st.touchPanelOffset st.judgeStyle cursor
   let (buttonFrontiers2, holdQueues, holdNotes, holdEvents, cursor1) :=
     processHoldNotes buttonFrontiers1 st.holdQueues st.activeHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.prevSensor cursorTap
+  let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
+    processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
   let (touchFrontiers1, touchNotes, touchEvents, cursor2, touchGroupStates) :=
     processTouchNotes st.touchQueueFrontiers st.touchQueues input newTime st.judgeStyle cursor1 st.touchPanelOffset st.buttonRingForTouch st.touchGroupStates
   let (touchFrontiers2, touchHoldQueues, touchHoldNotes, touchHoldEvents, _cursor3, touchGroupStates', touchHoldGroupStates) :=
     processTouchHoldNotes touchFrontiers1 st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.buttonRingForTouch cursor2 touchGroupStates touchHoldBodyGroups
-  let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
-    processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
   let slideNotes := forceFinishParentSlides slideNotes
   let (slideNotes, ancestorHideCommands) := endSlideAncestors resolvedSlides slideNotes
   let slideNotes := updateSlideParentFlags slideNotes
