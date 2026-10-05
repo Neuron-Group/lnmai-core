@@ -340,8 +340,8 @@ private def holdHeadJudgeEvent (note : HoldNote) (grade : JudgeGrade) (judgeDiff
   , noteIndex := note.params.noteIndex
   , isBreak := note.params.isBreak }
 
-private def holdHeadMissEvent (note : HoldNote) (judgeDiff : Duration) : JudgeEvent :=
-  holdHeadJudgeEvent note (Convert.convertGrade JudgeStyle.Default JudgeGrade.Miss) judgeDiff
+private def holdHeadMissEvent (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : JudgeEvent :=
+  holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) judgeDiff
 
 private def judgeHoldHeadTapNow? (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote × Option JudgeEvent :=
   let raw := Judge.judgeTap judgeDiff note.params.isEX
@@ -407,7 +407,7 @@ private def stepRegularHoldHeadWaiting
     (inputClicked : Bool)
     (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   if currentTime > timing + tapGoodMs then
-    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note tapGoodMs))
+    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note style tapGoodMs))
   else if canEnterJudgeable currentTime judgeableStart then
     if inputClicked then
       judgeHoldHeadTapNow? note style judgeDiff
@@ -426,7 +426,7 @@ private def stepRegularHoldHeadJudgeable
   if inputClicked && canEnterJudgeable currentTime judgeableStart then
     judgeHoldHeadTapNow? note style judgeDiff
   else if currentTime > timing + tapGoodMs then
-    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note tapGoodMs))
+    (holdHeadMiss note tapGoodMs, some (holdHeadMissEvent note style tapGoodMs))
   else
     (note, none)
 
@@ -448,7 +448,8 @@ private def holdHeadReleaseTransition (note : HoldNote) (delta : Duration) : Hol
     else
       ({ note with
           state := HoldSubState.BodyReleased
-        , playerReleaseTime := note.playerReleaseTime + delta
+        , playerReleaseTime := note.playerReleaseTime + note.releaseIgnoreTime + delta
+        , releaseIgnoreTime := Duration.zero
         , touchHoldGroupTriggered := false }, none)
 
 private def holdPressedTransition (note : HoldNote) : HoldNote :=
@@ -467,7 +468,8 @@ private def holdReleaseTransition (note : HoldNote) (delta : Duration) : HoldNot
   else
     { note with
       state := HoldSubState.BodyReleased
-    , playerReleaseTime := note.playerReleaseTime + delta
+    , playerReleaseTime := note.playerReleaseTime + note.releaseIgnoreTime + delta
+    , releaseIgnoreTime := Duration.zero
     , touchHoldGroupTriggered := false }
 
 private def holdReleasedStillOff (note : HoldNote) (delta : Duration) : HoldNote :=
@@ -481,7 +483,7 @@ private def holdReleasedRecovered (note : HoldNote) : HoldNote :=
   `inputPressed` = button/sensor is held this frame.
   `inputClicked` = button/sensor just pressed this frame (edge).
 -/
-def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
+private def holdStepFuel (fuel : Nat) (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   let bodyTiming := if note.isTouchHold then note.params.judgeTiming else timing
   let diff := currentTime - timing
@@ -510,15 +512,39 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
     ({ note with state := HoldSubState.Ended finalGrade', touchHoldGroupTriggered := false }, some evt)
   match note.state with
   | .HeadWaiting =>
-    if note.isTouchHold then
-      stepTouchHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
-    else
-      stepRegularHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    let (next, evt) :=
+      if note.isTouchHold then
+        stepTouchHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
+      else
+        stepRegularHoldHeadWaiting note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    match next.state with
+    | .HeadWaiting | .HeadJudgeable => (next, evt)
+    | .HeadJudged grade =>
+        if note.isTouchHold && !inputClicked then
+          (next, evt)
+        else if currentTime ≥ bodyCheckStart then
+          if diff ≥ note.length then endHold next grade currentTime next.playerReleaseTime
+          else if inputPressed then (holdPressedTransition next, evt)
+          else (holdHeadReleaseTransition { next with headGrade := grade } delta).1 |> fun n => (n, evt)
+        else (next, evt)
+    | .BodyHeld | .BodyReleased | .Ended _ => (next, evt)
   | .HeadJudgeable =>
-    if note.isTouchHold then
-      stepTouchHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
-    else
-      stepRegularHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    let (next, evt) :=
+      if note.isTouchHold then
+        stepTouchHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked sharedResult style
+      else
+        stepRegularHoldHeadJudgeable note currentTime timing judgeableRange.1 judgeDiff inputClicked style
+    match next.state with
+    | .HeadWaiting | .HeadJudgeable => (next, evt)
+    | .HeadJudged grade =>
+        if note.isTouchHold && !inputClicked then
+          (next, evt)
+        else if currentTime ≥ bodyCheckStart then
+          if diff ≥ note.length then endHold next grade currentTime next.playerReleaseTime
+          else if inputPressed then (holdPressedTransition next, evt)
+          else (holdHeadReleaseTransition { next with headGrade := grade } delta).1 |> fun n => (n, evt)
+        else (next, evt)
+    | .BodyHeld | .BodyReleased | .Ended _ => (next, evt)
   | .HeadJudged headGrade =>
     if note.isClassic then
       if currentTime < classicBodyCheckStart then
@@ -583,6 +609,10 @@ def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) 
       (holdReleasedStillOff note delta, none)
   | .Ended _ =>
     (note, none)
+
+def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
+  holdStepFuel 1 note currentTime judgeDiff headIgnore tailIgnore inputClicked inputPressed
+    currentButtonPressed prevSensorPressed touchPanelOffset sharedResult delta style
 
 ----------------------------------------------------------------------------
 -- Touch Note State
@@ -1097,7 +1127,7 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       { staticBase with note := { staticBase.note with state := SlideState.Ended } }
 
 private def slideSemanticAudioCmds (semantic : SlideStepSemantic) (currentTime : TimePoint) : List AudioCommand :=
-  if semantic.shouldPlayTrackOns && !semantic.note.slideSoundPlayed && !semantic.trackOns.isEmpty then
+  if semantic.shouldPlayTrackOns && !semantic.trackOns.isEmpty then
     semantic.trackOns.map
       (fun trackIndex =>
         AudioCommand.PlaySlideCue semantic.note.params.noteIndex trackIndex semantic.note.params.isBreak
@@ -1125,8 +1155,10 @@ def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorV
     , subdivideSlideJudgeGrade := subdivideSlideJudgeGrade
     , sensorHeld := sensorHeld }
   let semantic := slideStepSemantic note ctx
+  let shouldMarkSlideSound := semantic.shouldPlayTrackOns &&
+    !semantic.note.slideSoundPlayed && !semantic.trackOns.isEmpty
   let semantic :=
-    if semantic.shouldPlayTrackOns && !semantic.note.slideSoundPlayed && !semantic.trackOns.isEmpty then
+    if shouldMarkSlideSound then
       { semantic with note := { semantic.note with slideSoundPlayed := true } }
     else semantic
   let audioCmds :=

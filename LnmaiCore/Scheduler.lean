@@ -117,6 +117,13 @@ private def hasUnusedButtonClickAt (input : FrameInput) (cursor : ClickCursor) (
 private def hasUnusedSensorClickAt (input : FrameInput) (cursor : ClickCursor) (area : SensorArea) : Bool :=
   decide (cursor.sensorUsed.getD area 0 < input.getSensorClickCount area)
 
+private def hasUnusedTouchInputAt (input : FrameInput) (cursor : ClickCursor)
+    (area : SensorArea) (buttonRingForTouch : Bool) : Bool :=
+  hasUnusedSensorClickAt input cursor area ||
+    (buttonRingForTouch && match area.toOuterButtonZone? with
+      | some zone => hasUnusedButtonClickAt input cursor zone
+      | none => false)
+
 private def fallbackSensorAreaForButtonNote (zone : ButtonZone) : SensorArea :=
   zone.toOuterSensorArea
 
@@ -798,7 +805,7 @@ private def processTouchQueueHeadFuel
               let frontiers' := if resolvedNow then advanceSharedTouchQueue frontiers area else frontiers
               match newNote.state with
               | TouchState.Ended =>
-                  if hasUnusedSensorClickAt input cursor2 note.sensorPos then
+                  if hasUnusedTouchInputAt input cursor2 note.sensorPos buttonRingForTouch then
                     processTouchQueueHeadFuel fuel area queue' frontiers' input currentTime style cursor2
                       touchPanelOffset groups' buttonRingForTouch (evt :: evsRev)
                   else
@@ -812,7 +819,7 @@ private def processTouchQueueHeadFuel
               let frontiers' := if resolvedNow then advanceSharedTouchQueue frontiers area else frontiers
               match newNote.state with
               | TouchState.Ended =>
-                  if hasUnusedSensorClickAt input cursor2 note.sensorPos then
+                  if hasUnusedTouchInputAt input cursor2 note.sensorPos buttonRingForTouch then
                     processTouchQueueHeadFuel fuel area queue' frontiers' input currentTime style cursor2
                       touchPanelOffset groups' buttonRingForTouch evsRev
                   else
@@ -1050,7 +1057,11 @@ private def touchHoldBodyAudioCmds
       | some groupId => touchHoldBodyGroupMajorityPressed groups groupId
       | none => false
     let active := match note.state with | HoldSubState.Ended _ => false | _ => true
-    if active && touchHoldBodyCheckActive note currentTime && (localPressed || groupedPressed) then
+    let headAccepted := match note.state with
+      | HoldSubState.HeadJudged grade => !grade.isMissOrTooFast
+      | HoldSubState.BodyHeld | HoldSubState.BodyReleased => true
+      | _ => false
+    if active && headAccepted && (localPressed || groupedPressed) then
       AudioCommand.PlayTouchHoldBody note.params.noteIndex currentTime :: acc
     else acc) []
 
@@ -1112,6 +1123,18 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     , touchGroupStates := touchGroupStates'
     , touchHoldGroupStates := touchHoldGroupStates
   }, reportedEvents, audioCommands, renderCommands)
+
+private def queueSettled {α : Type} (queue : ZoneQueue α) : Bool :=
+  decide (queue.currentIndex ≥ queue.notes.length)
+
+/-- Whether the runtime has no remaining queued, active, or unfinished notes. -/
+def isTerminated (st : GameState) : Bool :=
+  st.activeHolds.isEmpty && st.activeTouchHolds.isEmpty &&
+  st.slides.all (fun slide => match slide.state with | .Ended => true | _ => false) &&
+  st.tapQueues.data.all queueSettled &&
+  st.holdQueues.data.all queueSettled &&
+  st.touchQueues.data.all queueSettled &&
+  st.touchHoldQueues.data.all queueSettled
 
 def stepFrameTimed (st : GameState) (batch : TimedInputBatch) : GameState × List JudgeEvent × List AudioCommand × List RenderCommand :=
   let input := batch.toFrameInput (batch.currentTime - st.currentTime) st.prevButton st.prevSensor

@@ -16,7 +16,7 @@ namespace LnmaiCore.FFI
 
 open Std
 
-def ffiAbiVersion : Nat := 1
+def ffiAbiVersion : Nat := 2
 
 private def jsonString (json : Json) : String :=
   Json.compress json
@@ -57,6 +57,7 @@ structure RuntimeStepResult where
   events : List JudgeEvent
   audioCommands : List AudioCommand
   renderCommands : List RenderCommand
+  terminated : Bool
 deriving Inhabited, Repr, ToJson, FromJson
 
 structure RuntimeStepLightResult where
@@ -65,6 +66,7 @@ structure RuntimeStepLightResult where
   renderCommands : List RenderCommand
   score : ScoreState
   currentTime : TimePoint
+  terminated : Bool
 deriving Inhabited, Repr, ToJson, FromJson
 
 structure LoadedChartSummary where
@@ -285,7 +287,8 @@ def stepGameStateJson (stateJson : @& String) (batchJson : @& String) : String :
       { state := nextState
       , events := events
       , audioCommands := audioCommands
-      , renderCommands := renderCommands }
+      , renderCommands := renderCommands
+      , terminated := Scheduler.isTerminated nextState }
     pure result
 
 @[export lnmai_create_game_state_handle]
@@ -374,7 +377,8 @@ def stepGameStateHandle (handle : UInt64) (batchJson : @& String) : IO String :=
             { state := nextState
             , events := events
             , audioCommands := audioCommands
-            , renderCommands := renderCommands }
+            , renderCommands := renderCommands
+            , terminated := Scheduler.isTerminated nextState }
           pure <| jsonString <| okJson (toJson result)
 
 @[export lnmai_step_game_state_handle_light]
@@ -393,7 +397,8 @@ def stepGameStateHandleLight (handle : UInt64) (batchJson : @& String) : IO Stri
             , audioCommands := audioCommands
             , renderCommands := renderCommands
             , score := nextState.score
-            , currentTime := nextState.currentTime }
+            , currentTime := nextState.currentTime
+            , terminated := Scheduler.isTerminated nextState }
           pure <| jsonString <| okJson (toJson result)
 
 end LnmaiCore.FFI
