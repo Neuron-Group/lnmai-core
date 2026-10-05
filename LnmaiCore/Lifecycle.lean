@@ -638,7 +638,8 @@ private def touchMissEvent (note : TouchNote) (judgeDiff : Duration) : JudgeEven
   , isEX := note.params.isEX }
 
 private def touchTooLateMissEvent (note : TouchNote) : JudgeEvent :=
-  touchMissEvent note (Duration.fromMicros (-1000))
+  -- MajdataPlay records the touch good-area boundary as the timeout diff.
+  touchMissEvent note TOUCH_JUDGE_GOOD_AREA_MSEC
 
 private def touchJudgeEvent (note : TouchNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Touch
