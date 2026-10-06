@@ -667,6 +667,7 @@ private def processTouchHoldNotes
   | [] => (touchFrontiers, queues, [], [], cursor, touchGroupStates, touchHoldBodyGroups)
   | (area, note) :: rest =>
     let timing := note.params.effectiveTiming
+    let buttonDiff := currentTime - timing
     let sensorDiff := (currentTime - touchPanelOffset) - timing
     let localBodyPressed := input.getSensorHeld area
     let touchHoldBodyGroups1 :=
@@ -707,8 +708,9 @@ private def processTouchHoldNotes
         if usedButton then (false, cursorButton) else tryUseSensorClickAt input cursorButton area
       else
         (false, cursorButton)
+    let headDiff := if usedButton then buttonDiff else sensorDiff
     let (newNote, evt?) :=
-      holdStep note currentTime sensorDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
+      holdStep note currentTime headDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
         (usedButton || usedSensor) effectivePressed false false touchPanelOffset sharedResult delta style
     let touchFrontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedTouchQueue touchFrontiers area else touchFrontiers
     let queues' := updateSensorHoldQueue queues area newNote

@@ -365,7 +365,7 @@ private def judgeHoldHeadTouchNow? (note : HoldNote) (style : JudgeStyle) (judge
   match Judge.judgeTouch judgeDiff note.params.isEX with
   | some raw =>
       let grade := Convert.convertGrade style raw
-      (holdHeadJudged note grade judgeDiff, some (holdHeadJudgeEvent note grade judgeDiff))
+      (holdHeadJudged note grade judgeDiff true, some (holdHeadJudgeEvent note grade judgeDiff))
   | none =>
       (note, none)
 

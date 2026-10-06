@@ -2731,7 +2731,63 @@ def test_touch_hold_head_ignores_outer_button_without_sensor_input : RuntimeCase
       passCase "touch_hold_head_ignores_outer_button_without_sensor_input"
         (nextState.touchQueueFrontiers.getD .A1 0 = 0 && touchQueue.currentIndex = 0 && holdQueue.currentIndex = 0 && stillWaiting)
         "core touch-hold head judgment should require sensor input; desktop button mapping belongs before core input framing"
-  | _, _, _, _ => passCase "touch_hold_head_ignores_outer_button_without_sensor_input" false "expected no touch-hold head event from an outer button alone"
+      | _, _, _, _ => passCase "touch_hold_head_ignores_outer_button_without_sensor_input" false "expected no touch-hold head event from an outer button alone"
+
+def test_touch_hold_head_accepts_outer_button_when_button_ring_enabled : RuntimeCase :=
+  let touchHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 650 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0 }
+  let state : InputModel.GameState :=
+    { currentTime := TimePoint.zero
+    , touchHoldQueues := SensorVec.ofFn (fun area =>
+        if area == .A1 then { notes := [touchHold] } else { notes := [] })
+    , activeTouchHolds := [(.A1, touchHold)]
+    , buttonRingForTouch := true }
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1] }
+  let (nextState, events, _, _) := Scheduler.stepFrameTimed state batch
+  match events, nextState.activeTouchHolds with
+  | [evt], [(_, hold)] =>
+      passCase "touch_hold_head_accepts_outer_button_when_button_ring_enabled"
+        (evt.kind = .Hold && evt.phase = .head &&
+          match hold.state with | .HeadJudged .Perfect => true | _ => false)
+        "enabled desktop button-ring input should judge a touch-hold head"
+  | _, _ =>
+      passCase "touch_hold_head_accepts_outer_button_when_button_ring_enabled" false
+        "expected one touch-hold head event from an enabled outer button ring"
+
+def test_touch_hold_outer_button_uses_unoffset_head_diff : RuntimeCase :=
+  let touchHold : Lifecycle.HoldNote :=
+    { params := { judgeTiming := TimePoint.zero, judgeOffset := Duration.zero, noteIndex := 651 }
+    , start := .sensor .A1
+    , state := .HeadJudgeable
+    , length := dur 200000
+    , isTouchHold := true
+    , touchQueueIndex := 0 }
+  let state : InputModel.GameState :=
+    { currentTime := TimePoint.zero
+    , touchHoldQueues := SensorVec.ofFn (fun area =>
+        if area == .A1 then { notes := [touchHold] } else { notes := [] })
+    , activeTouchHolds := [(.A1, touchHold)]
+    , buttonRingForTouch := true
+    , touchPanelOffset := dur 100000 }
+  let batch : InputModel.TimedInputBatch :=
+    { currentTime := TimePoint.zero
+    , events := [InputModel.TimedInputEvent.buttonClick TimePoint.zero .K1] }
+  let (_, events, _, _) := Scheduler.stepFrameTimed state batch
+  match events with
+  | [evt] =>
+      passCase "touch_hold_outer_button_uses_unoffset_head_diff"
+        (evt.kind = .Hold && evt.phase = .head && evt.diff = Duration.zero)
+        "desktop outer-button touch-hold judgment should not apply touch-panel offset"
+  | _ =>
+      passCase "touch_hold_outer_button_uses_unoffset_head_diff" false
+        "expected one touch-hold head event"
 
 def test_replay_frame_zero_tap_judges_same_frame : RuntimeCase :=
   let chart : ChartLoader.ChartSpec :=
@@ -5171,7 +5227,7 @@ def test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing
   let expectedQueues : List (List ChartLoader.SlideAreaSpec) :=
     [[{ targetAreas := [.A1], policy := .Or, isLast := true, isSkippable := true, arrowProgressWhenOn := 0, arrowProgressWhenFinished := 0 }]]
   let chartWithHeadTiming :=
-    "{\"taps\":[],\"holds\":[],\"touches\":[],\"touchHolds\":[],\"slideHeads\":[],\"slides\":[{\"headTiming\":0,\"slot\":\"S1\",\"length\":1,\"startTiming\":0,\"slideKind\":\"Single\",\"logicalSlideId\":91,\"noteIndex\":91,\"judgeQueues\":[[{\"targetAreas\":[\"A1\"],\"policy\":\"Or\",\"isLast\":true,\"isSkippable\":true,\"arrowProgressWhenOn\":0,\"arrowProgressWhenFinished\":0}]]}],\"slideSkipping\":true}"
+    "{\"taps\":[],\"holds\":[],\"touches\":[],\"touchHolds\":[],\"slideHeads\":[],\"slides\":[{\"headTiming\":0,\"slot\":\"S1\",\"length\":1000000,\"startTiming\":0,\"slideKind\":\"Single\",\"logicalSlideId\":91,\"noteIndex\":91,\"judgeQueues\":[[{\"targetAreas\":[\"A1\"],\"policy\":\"Or\",\"isLast\":true,\"isSkippable\":true,\"arrowProgressWhenOn\":0,\"arrowProgressWhenFinished\":0}]]}],\"slideSkipping\":true}"
   let chartWithLegacyTiming :=
     "{\"taps\":[],\"holds\":[],\"touches\":[],\"touchHolds\":[],\"slideHeads\":[],\"slides\":[{\"timing\":0,\"slot\":\"S1\",\"length\":1,\"startTiming\":0,\"slideKind\":\"Single\",\"noteIndex\":92,\"judgeQueues\":[[{\"targetAreas\":[\"A1\"],\"policy\":\"Or\",\"isLast\":true,\"isSkippable\":true,\"arrowProgressWhenOn\":0,\"arrowProgressWhenFinished\":0}]]}],\"slideSkipping\":true}"
   let parsedHeadTiming := ChartLoader.parseChartJsonString chartWithHeadTiming
@@ -5183,7 +5239,7 @@ def test_lowered_slide_chart_json_requires_head_timing_and_rejects_legacy_timing
         | [slide] =>
             slide.headTiming = TimePoint.zero &&
             slide.slot = .S1 &&
-            slide.length = dur 1 &&
+            slide.length = dur 1000000 &&
             slide.startTiming = TimePoint.zero &&
             slide.logicalSlideId = 91 &&
             slide.noteIndex = 91 &&
@@ -5291,6 +5347,8 @@ def all : List RuntimeCase :=
   , test_too_late_touch_does_not_consume_sensor_click
   , test_modern_hold_release_grace_does_not_count_toward_release_time
   , test_touch_hold_head_ignores_outer_button_without_sensor_input
+  , test_touch_hold_head_accepts_outer_button_when_button_ring_enabled
+  , test_touch_hold_outer_button_uses_unoffset_head_diff
   , test_replay_frame_zero_tap_judges_same_frame
   , test_replay_frame_zero_touch_judges_same_frame
   , test_replay_frame_zero_touch_hold_head_judges_same_frame
@@ -5597,6 +5655,14 @@ theorem test_modern_hold_release_grace_does_not_count_toward_release_time_proof 
 
 theorem test_touch_hold_head_ignores_outer_button_without_sensor_input_proof :
     test_touch_hold_head_ignores_outer_button_without_sensor_input.passed = true := by native_decide
+
+theorem test_touch_hold_head_accepts_outer_button_when_button_ring_enabled_proof :
+    test_touch_hold_head_accepts_outer_button_when_button_ring_enabled.passed = true := by
+  native_decide
+
+theorem test_touch_hold_outer_button_uses_unoffset_head_diff_proof :
+    test_touch_hold_outer_button_uses_unoffset_head_diff.passed = true := by
+  native_decide
 
 theorem test_replay_frame_zero_tap_judges_same_frame_proof :
     test_replay_frame_zero_tap_judges_same_frame.passed = true := by native_decide

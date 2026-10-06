@@ -206,6 +206,8 @@ structure ChartSpec where
   slideHeads : List SlideHeadChartNote := []
   slides     : List SlideChartNote := []
   slideSkipping : Option Bool := none
+  /-- Accept desktop outer-ring clicks as touch/touch-hold head input. -/
+  buttonRingForTouch : Option Bool := none
 deriving Inhabited, Repr, ToJson, FromJson
 
 private def insertByTiming {α : Type} (getTiming : α → TimePoint) (item : α) : List α → List α
@@ -776,6 +778,7 @@ def buildGameState (chart : ChartSpec) : GameState :=
     judgeStyle := JudgeStyle.Default,
     touchPanelOffset := Constants.TOUCH_PANEL_OFFSET
     , subdivideSlideJudgeGrade := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
+    , buttonRingForTouch := chart.buttonRingForTouch.getD false
   }
 
 def parseChartJson (json : Json) : Except String ChartSpec :=
