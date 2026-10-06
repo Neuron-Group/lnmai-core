@@ -400,7 +400,7 @@ def test_touch_hold_local_press_reactivates_released_note : RuntimeCase :=
     (events.isEmpty && recovered)
     "a released touch-hold should also recover when its own sensor is pressed again"
 
-private def touchHoldBodyRawTimingWithOffsetState : InputModel.GameState :=
+private def touchHoldBodyWindowState : InputModel.GameState :=
   let hold : Lifecycle.HoldNote :=
     { params := { judgeTiming := secs 1, judgeOffset := dur 100000, noteIndex := 3600 }
     , start := .sensor .A1
@@ -415,10 +415,10 @@ private def touchHoldBodyRawTimingWithOffsetState : InputModel.GameState :=
   { currentTime := tp 1240000
   , activeTouchHolds := [(.A1, hold)] }
 
-def test_touch_hold_body_window_uses_raw_timing_despite_judge_offset : RuntimeCase :=
+def test_touch_hold_body_window_uses_judge_timing : RuntimeCase :=
   let input := mkButtonFrameInput [] [] [] [.A1] (dur 16000)
   let (nextState, events, _, _) :=
-    Scheduler.stepFrame touchHoldBodyRawTimingWithOffsetState input
+    Scheduler.stepFrame touchHoldBodyWindowState input
   let recovered :=
     nextState.activeTouchHolds.any (fun entry =>
       entry.1 = .A1 && match entry.2.state with | .BodyHeld => true | _ => false)
@@ -426,9 +426,9 @@ def test_touch_hold_body_window_uses_raw_timing_despite_judge_offset : RuntimeCa
     match nextState.touchHoldGroupStates with
     | [group] => group.groupId = 360 && group.triggeredNoteIndices.contains 3600
     | _ => false
-  passCase "touch_hold_body_window_uses_raw_timing_despite_judge_offset"
+  passCase "touch_hold_body_window_uses_judge_timing"
     (events.isEmpty && recovered && registeredBodyTrigger)
-    "MajdataPlay touch-hold body polling uses raw Timing, while head judgment still uses JudgeTimingWithOffset"
+    "touch-hold body polling uses the note judge timing; sensor panel offset is separate input correction"
 
 private def breakTapState : InputModel.GameState :=
   let tap : Lifecycle.TapNote :=
@@ -5294,7 +5294,7 @@ def all : List RuntimeCase :=
   , test_classic_hold_late_boundary_is_strict
   , test_touch_hold_group_share_requires_strict_majority
   , test_touch_hold_body_group_exit_shrinks_majority_denominator
-  , test_touch_hold_body_window_uses_raw_timing_despite_judge_offset
+  , test_touch_hold_body_window_uses_judge_timing
   , test_conn_child_wifi_parent_pending_finish_becomes_checkable
   , test_wifi_too_late_two_single_tails_is_lategood_by_max_remaining
   , test_overlapping_slides_can_both_progress_from_one_sensor_hold
@@ -5468,8 +5468,8 @@ theorem test_touch_hold_body_majority_reactivates_released_note_proof :
 theorem test_touch_hold_local_press_reactivates_released_note_proof :
     test_touch_hold_local_press_reactivates_released_note.passed = true := by native_decide
 
-theorem test_touch_hold_body_window_uses_raw_timing_despite_judge_offset_proof :
-    test_touch_hold_body_window_uses_raw_timing_despite_judge_offset.passed = true := by
+theorem test_touch_hold_body_window_uses_judge_timing_proof :
+    test_touch_hold_body_window_uses_judge_timing.passed = true := by
   native_decide
 
 theorem test_classic_hold_fast_boundary_is_strict_proof :
