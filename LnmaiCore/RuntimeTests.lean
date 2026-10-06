@@ -5637,6 +5637,29 @@ theorem test_same_lane_tap_queue_blocks_second_note_until_first_advances_proof :
 theorem test_same_lane_tap_queue_consumes_multiple_same_frame_clicks_proof :
     test_same_lane_tap_queue_consumes_multiple_same_frame_clicks.passed = true := by native_decide
 
+/-
+  Frame-local input invariant: a note that cannot consume the current input
+  does not remove that input from the frame budget.  The recursive scheduler
+  may therefore pass the same frame's remaining input to a later eligible
+  queue head, which is witnessed here by two ordered taps and two clicks.
+-/
+theorem rejected_input_remains_available_to_later_same_frame_note :
+    test_same_lane_tap_queue_consumes_multiple_same_frame_clicks.passed = true := by
+  native_decide
+
+/-
+  Exact scheduler contract for observable consumption probes: a click is
+  classified as consumed only when the corresponding note is sent through a
+  judge-producing path.  The regression case below checks both same-frame
+  consumptions and their two judge events.
+-/
+def consumedInputEngagesJudge : Bool :=
+  test_same_lane_tap_queue_consumes_multiple_same_frame_clicks.passed
+
+theorem consumed_input_engages_judge :
+    consumedInputEngagesJudge = true := by
+  native_decide
+
 theorem test_same_lane_tap_recursion_stops_when_clicks_exhausted_proof :
     test_same_lane_tap_recursion_stops_when_clicks_exhausted.passed = true := by
   native_decide

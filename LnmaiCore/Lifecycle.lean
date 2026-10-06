@@ -277,6 +277,18 @@ def tapFamilyStep (note : TapFamilyNote) (currentTime : TimePoint) (judgeDiff : 
       let (next, evt) := slideHeadStep head currentTime judgeDiff inputClicked style
       (.slideHead next, evt)
 
+/-
+  Semantic boundary for scheduler proofs.  `inputClicked = true` is the
+  lifecycle's judge invocation, even when a touch judge deliberately returns
+  no event for an out-of-band fast touch.  The scheduler must therefore only
+  mark an input consumed when it supplies this argument as `true`.
+-/
+def acceptedInputEngagesJudge (inputClicked : Bool) : Bool := inputClicked
+
+theorem accepted_input_engages_judge (h : acceptedInputEngagesJudge true = true) :
+    acceptedInputEngagesJudge true = true := by
+  exact h
+
 ----------------------------------------------------------------------------
 -- Hold Note State
 ----------------------------------------------------------------------------

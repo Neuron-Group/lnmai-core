@@ -282,6 +282,16 @@ private def touchEligibleForClick (note : TouchNote) (currentTime : TimePoint) :
   let timing := note.params.effectiveTiming
   currentTime ≥ timing - JUDGABLE_RANGE_SEC && currentTime ≤ timing + touchGoodMs
 
+/- A consumed touch click must be inside the lifecycle's actual judge window.
+   In particular, a fast touch beyond the first-perfect band is rejected by
+   `Judge.judgeTouch` and must remain available to later frame work. -/
+private def touchClickCanEngageJudge (note : TouchNote) (currentTime : TimePoint)
+    (touchPanelOffset : Duration) : Bool :=
+  let timing := note.params.effectiveTiming
+  let diff := (currentTime - touchPanelOffset) - timing
+  touchEligibleForClick note currentTime &&
+    !(diff < Duration.zero && Duration.abs diff > touchPerfect1Ms)
+
 private def holdHeadEligibleForClick (note : HoldNote) (currentTime : TimePoint) : Bool :=
   let timing := note.params.effectiveTiming
   let lateLimit :=
@@ -392,11 +402,6 @@ private def keepHoldActive (note : HoldNote) : Bool :=
   match note.state with
   | .HeadWaiting | .HeadJudgeable | .HeadJudged _ | .BodyHeld | .BodyReleased => true
   | .Ended _ => false
-
-private def queueHeadMatches (queue : ZoneQueue HoldNote) (note : HoldNote) : Bool :=
-  match queue.peek with
-  | some head => head.params.noteIndex == note.params.noteIndex
-  | none => false
 
 private def holdHeadAwaitsResolution : HoldSubState → Bool
   | .HeadWaiting | .HeadJudgeable => true
@@ -622,7 +627,6 @@ private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVe
     let prevSensorPressed := fallbackPrevSensorHeldForButtonNote prevSensor zone
     let allowInput :=
       holdHeadAwaitsResolution note.state
-        && queueHeadMatches (normalizeHoldQueueCursor (InputModel.buttonQueueAt queues zone)) note
         && buttonQueueIndexUnlocked frontiers zone note.buttonQueueIndex
         && holdHeadEligibleForClick note currentTime
     let fallbackArea := fallbackSensorAreaForButtonNote zone
@@ -689,7 +693,6 @@ private def processTouchHoldNotes
       sharedResult.isNone
         && currentTime <= timing + touchGoodMs
         && holdHeadAwaitsResolution note.state
-        && queueHeadMatches (normalizeHoldQueueCursor (InputModel.sensorQueueAt queues area)) note
         && touchQueueIndexUnlocked touchFrontiers area note.touchQueueIndex
         && holdHeadEligibleForClick note currentTime
     let (usedButton, cursorButton) :=
@@ -776,7 +779,7 @@ private def processTouchQueueHeadFuel
             | some groupId => groupShareResult groups groupId
             | none => none
           let canConsumeClick :=
-            sharedResult.isNone && touchEligibleForClick note currentTime &&
+            sharedResult.isNone && touchClickCanEngageJudge note currentTime touchPanelOffset &&
               touchQueueIndexUnlocked frontiers area note.touchQueueIndex
           let (usedButton, cursorButton) :=
             if canConsumeClick && buttonRingForTouch then
@@ -1269,7 +1272,6 @@ def probeTapHoldSensorConsumers (st : GameState) (input : FrameInput) : List Sen
         let sensorDiff := (newTime - st.touchPanelOffset) - timing
         let allowInput :=
           holdHeadAwaitsResolution note.state
-            && queueHeadMatches (normalizeHoldQueueCursor (InputModel.buttonQueueAt queues zone)) note
             && buttonQueueIndexUnlocked frontiers zone note.buttonQueueIndex
         let (usedButton, _cursor1) := if allowInput then tryUseButtonClickAt input cursor zone else (false, cursor)
         let fallbackArea := fallbackSensorAreaForButtonNote zone

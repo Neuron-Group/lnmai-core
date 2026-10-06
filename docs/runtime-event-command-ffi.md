@@ -8,6 +8,11 @@ The contract is intentionally independent of MajdataPlay's autoplay modes.
 The core receives real hand-tactic input (`TimedInputBatch`); autoplay is not a
 runtime compatibility target.
 
+**Priority note:** timestamp-model refinement is currently an unimportant
+target. The click model remains frame-batch based temporarily; this document
+records the current contract rather than promising timestamp-exact click
+behavior before the adapter is changed.
+
 ## One step, three output streams
 
 Every successful runtime step returns one `RuntimeStepLightResult` (or the same
@@ -75,10 +80,11 @@ There are two separate invariance guarantees:
    transitions. A single large batch containing multiple alternating hold
    transitions is not equivalent to multiple smaller batches today.
 
-The target alignment is full timestamp invariance: identical timestamped input
-traces should produce identical semantic results at any host FPS. Until the
-adapter consumes timestamped edges directly in the scheduler, treat the input
-batch cadence and event ordering as part of the runtime contract.
+Full timestamp invariance remains a future target, not a current guarantee:
+identical timestamped input traces can produce different results when their
+edges are grouped into different frame batches. Until the adapter consumes
+timestamped edges directly in the scheduler, treat the input batch cadence and
+event ordering as part of the runtime contract.
 
 The host may submit 30 FPS, 60 FPS, 144 FPS, or irregular frame intervals when
 the batches preserve those input observations. It must not round timestamps to
@@ -278,8 +284,8 @@ For normal gameplay use `lnmai_step_game_state_handle_light`:
 
 1. collect all real input events whose timestamps belong to the next step;
 2. submit one `TimedInputBatch` with an absolute microsecond `currentTime`; keep
-   each click edge and each hold transition in its own step until the runtime
-   adapter is upgraded to consume timestamped edges directly;
+   each click edge and each hold transition in its own frame batch. The click
+   model is intentionally frame-batch based for now;
 3. apply `events` to score/combo/result UI;
 4. dispatch `audioCommands` to the audio backend;
 5. dispatch `renderCommands` to the renderer;
