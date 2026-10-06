@@ -191,6 +191,8 @@ def setSensorQueueAt {α : Type} (queues : SensorQueueVec α) (area : SensorArea
 ----------------------------------------------------------------------------
 
 structure GameState where
+  /-- Persistent frame state: queues/frontiers own click consumption, active
+      lists carry hold lifecycles, and group states carry cross-note sharing. -/
   currentTime   : TimePoint := TimePoint.zero
   prevButton    : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false
   prevSensor    : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false

@@ -615,6 +615,9 @@ private def replaceTouchQueueNote (queue : ZoneQueue TouchNote) (note : TouchNot
     notes := queue.notes.map (fun existing =>
       if existing.params.noteIndex == note.params.noteIndex then note else existing) }
 
+/- Regular-hold scheduler pass: consume at most the eligible head click,
+   feed current held state into the lifecycle, advance the shared button
+   frontier on head resolution, and retain only non-terminal active holds. -/
 private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVec HoldNote) (holds : List (ButtonZone × HoldNote)) (input : FrameInput) (currentTime : TimePoint) (delta : Duration) (style : JudgeStyle) (touchPanelOffset : Duration) (prevSensor : SensorVec Bool) (cursor : ClickCursor) : ButtonVec Nat × ButtonQueueVec HoldNote × List (ButtonZone × HoldNote) × List JudgeEvent × ClickCursor :=
   match holds with
   | [] => (frontiers, queues, [], [], cursor)
@@ -648,6 +651,10 @@ private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVe
     | none =>
       (restFrontiers, restQueues, restNotes', restEvs, cursor3)
 
+/- Touch-hold scheduler pass. Body groups are updated from local sensor holds,
+   then strict-majority pressure is ORed into each member's effective body
+   input. Head sharing belongs to the separate touch group and never consumes
+   a physical click when a stored majority result resolves the head. -/
 private def processTouchHoldNotes
     (touchFrontiers : SensorVec Nat)
     (queues : SensorQueueVec HoldNote)
@@ -1069,6 +1076,9 @@ private def touchHoldBodyAudioCmds
 -- Frame Step: advance all active notes one frame (entry point)
 ----------------------------------------------------------------------------
 
+/- Frame runtime pipeline: taps, regular holds, slides, touches, then
+   touch-holds. Queue frontiers and click cursors enforce input ownership;
+   lifecycle events are folded into score/audio/render outputs afterward. -/
 def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEvent × List AudioCommand × List RenderCommand :=
   let newTime := st.currentTime + input.delta
   let cursor : ClickCursor := {}

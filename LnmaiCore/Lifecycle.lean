@@ -488,6 +488,11 @@ private def holdReleasedRecovered (note : HoldNote) : HoldNote :=
   `inputPressed` = button/sensor is held this frame.
   `inputClicked` = button/sensor just pressed this frame (edge).
 -/
+/- One frame of hold runtime. The head is judged first; once resolved, body
+   sampling starts only in the configured body window. Modern holds accumulate
+   release time (with the two-frame grace), while Classic holds judge release
+   timing directly. Touch-holds use the same machine but receive touch-specific
+   ignore windows and may inherit a shared touch-group head result. -/
 private def holdStepFuel (fuel : Nat) (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   let bodyTiming := if note.isTouchHold then note.params.judgeTiming else timing
@@ -615,6 +620,7 @@ private def holdStepFuel (fuel : Nat) (note : HoldNote) (currentTime : TimePoint
   | .Ended _ =>
     (note, none)
 
+/- Public lifecycle boundary used by both regular holds and touch-holds. -/
 def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   holdStepFuel 1 note currentTime judgeDiff headIgnore tailIgnore inputClicked inputPressed
     currentButtonPressed prevSensorPressed touchPanelOffset sharedResult delta style

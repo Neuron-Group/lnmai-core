@@ -213,6 +213,9 @@ private def pressBandMicros (heldMicros realityMicros : ℤ) : Nat :=
     ignoreTimeSec        — head + tail ignore duration (6f+12f=0.3s for regular hold, 15f+12f=0.45s for touch hold)
     playerReleaseTimeSec — accumulated release time in seconds
 -/
+/- Final modern-hold grade. The playable denominator is the hold length minus
+   head/tail ignore time, capped at the reference 300 ms floor; accumulated
+   release time selects the same five press bands as MajdataPlay. -/
 def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Duration) (length : Duration) (ignoreTime : Duration) (playerReleaseTime : Duration) : JudgeGrade :=
   -- MajdataPlay's HoldEndJudge uses the note length and ignore time only;
   -- head timing error does not shorten the release percentage denominator.
@@ -287,6 +290,8 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Duration) (length : Durat
   then takes the WORSE of head grade vs end grade.
   Comparison uses |7 - (int)grade| distance from Perfect.
 -/
+/- Classic-hold tail judgment compares independent release timing with the
+   head grade and keeps the worse grade. -/
 def judgeHoldClassicEnd
     (headGrade : JudgeGrade) (timing : TimePoint) (length : Duration)
     (releaseTiming : TimePoint) : JudgeGrade :=
