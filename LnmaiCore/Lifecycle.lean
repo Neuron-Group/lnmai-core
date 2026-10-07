@@ -740,31 +740,67 @@ structure SlideArea where
   arrowProgressWhenFinished : Nat := 0
   wasOn       : Bool := false
   wasOff      : Bool := false
+  /-- Per-target history needed by multi-sensor AND/OR areas. -/
+  targetWasOn : List Bool := []
+  targetWasOff : List Bool := []
 deriving Inhabited, Repr, ToJson, FromJson
 
 def SlideArea.on (area : SlideArea) : Bool :=
   area.wasOn
 
 def SlideArea.isFinished (area : SlideArea) : Bool :=
-  if area.isLast then
-    area.wasOn
+  if area.targetAreas.isEmpty then
+    false
+  else if area.targetWasOn.isEmpty then
+    if area.isLast then area.wasOn else area.wasOn && area.wasOff
   else
-    area.wasOn && area.wasOff
+    let finished := (area.targetWasOn.zip area.targetWasOff).map
+      (fun pair => pair.1 && (area.isLast || pair.2))
+    match area.policy with
+    | .Or => finished.any id
+    | .And => finished.all id
 
 private def sensorHeldAt (sensorHeld : SensorVec Bool) (area : SensorArea) : Bool :=
   sensorHeld.getD area false
 
+private def slideAreaTargetHistory
+    (targets : List SensorArea) (wasOn wasOff : List Bool) (sensorHeld : SensorVec Bool) :
+    List Bool × List Bool :=
+  let rec go (targets : List SensorArea) (wasOn wasOff : List Bool) : List Bool × List Bool :=
+    match targets with
+    | [] => ([], [])
+    | target :: rest =>
+        let oldOn := wasOn.headD false
+        let oldOff := wasOff.headD false
+        let held := sensorHeldAt sensorHeld target
+        let newOn := oldOn || held
+        let newOff := oldOff || (oldOn && !held)
+        let (restOn, restOff) := go rest (wasOn.drop 1) (wasOff.drop 1)
+        (newOn :: restOn, newOff :: restOff)
+  go targets wasOn wasOff
+
 def SlideArea.check (area : SlideArea) (sensorHeld : SensorVec Bool) : SlideArea :=
-  let isHeld :=
+  -- A one-target legacy state retains all the information needed to seed its history.
+  let sourceWasOn := if area.targetWasOn.isEmpty && area.targetAreas.length == 1 then
+    [area.wasOn] else area.targetWasOn
+  let sourceWasOff := if area.targetWasOff.isEmpty && area.targetAreas.length == 1 then
+    [area.wasOff] else area.targetWasOff
+  let (targetWasOn, targetWasOff) :=
+    slideAreaTargetHistory area.targetAreas sourceWasOn sourceWasOff sensorHeld
+  -- Reference SlideArea.On is OR even when Policy is AND; Policy controls completion.
+  let isOn := targetWasOn.any id
+  let completedOff :=
     match area.policy with
-    | .Or  => area.targetAreas.any (fun target => sensorHeldAt sensorHeld target)
-    | .And => area.targetAreas.all (fun target => sensorHeldAt sensorHeld target)
-  if isHeld then
-    { area with wasOn := true }
-  else if area.wasOn then
-    { area with wasOff := true }
-  else
-    area
+    | .Or =>
+        (targetWasOn.zip targetWasOff).any (fun pair => pair.1 && pair.2)
+    | .And =>
+        !area.targetAreas.isEmpty &&
+          (targetWasOn.zip targetWasOff).all (fun pair => pair.1 && pair.2)
+  { area with
+      wasOn := isOn
+      wasOff := completedOff
+      targetWasOn := targetWasOn
+      targetWasOff := targetWasOff }
 
 abbrev SlideQueue := List SlideArea
 

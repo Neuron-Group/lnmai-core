@@ -28,6 +28,28 @@ private def secs (whole : ℤ) : TimePoint :=
 private def runtimePosJsonEq (lhs rhs : RuntimePos) : Bool :=
   toJson lhs == toJson rhs
 
+def test_slide_area_tracks_independent_multi_sensor_history : RuntimeCase :=
+  let held (areas : List SensorArea) : SensorVec Bool :=
+    areas.foldl (fun acc area => acc.set area true) (SensorVec.replicate 33 false)
+  let area : Lifecycle.SlideArea :=
+    { targetAreas := [.A1, .A2], policy := .And, isLast := false }
+  let afterA := area.check (held [.A1])
+  let afterB := afterA.check (held [.A2])
+  let afterBoth := afterB.check (held [.A1, .A2])
+  let afterRelease := afterBoth.check (held [])
+  passCase "slide_area_tracks_independent_multi_sensor_history"
+    (afterA.wasOn
+      && !afterA.isFinished
+      && afterA.targetWasOn = [true, false]
+      && afterB.targetWasOn = [true, true]
+      && afterB.targetWasOff = [true, false]
+      && !afterB.isFinished
+      && afterBoth.wasOn
+      && !afterBoth.wasOff
+      && afterRelease.wasOff
+      && afterRelease.isFinished)
+    "multi-sensor slide areas retain per-target trigger/release history"
+
 private def exceptIsError : Except ε α → Bool
   | .error _ => true
   | .ok _ => false
@@ -5274,7 +5296,8 @@ def test_tap_family_json_malformed_button_queue_index_fails : RuntimeCase :=
     "malformed gameplay-relevant optional tap-family `buttonQueueIndex` should now fail decode instead of silently falling back to zero"
 
 def all : List RuntimeCase :=
-  [ test_button_tap_can_use_matching_a_sensor
+  [ test_slide_area_tracks_independent_multi_sensor_history
+  , test_button_tap_can_use_matching_a_sensor
   , test_classic_hold_matching_a_sensor_keeps_body_pressed
   , test_classic_hold_release_before_head_ignore_ends
   , test_modern_hold_head_miss_can_end_as_late_good
@@ -5433,6 +5456,9 @@ def passedCount : Nat :=
 
 theorem test_button_tap_can_use_matching_a_sensor_proof :
     test_button_tap_can_use_matching_a_sensor.passed = true := by native_decide
+
+theorem test_slide_area_tracks_independent_multi_sensor_history_proof :
+    test_slide_area_tracks_independent_multi_sensor_history.passed = true := by native_decide
 
 theorem test_classic_hold_matching_a_sensor_keeps_body_pressed_proof :
     test_classic_hold_matching_a_sensor_keeps_body_pressed.passed = true := by native_decide
