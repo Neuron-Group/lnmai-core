@@ -14,10 +14,12 @@ lean_object * initialize_lnmai_x2dcore_LnmaiCore_FFI(uint8_t builtin);
 lean_object * lnmai_ffi_version_json(void);
 
 lean_object * lnmai_parse_frontend_chart_json(lean_object * content, uint32_t level_index);
+lean_object * lnmai_parse_frontend_chart_mode_json(lean_object * content, uint32_t level_index, uint8_t is_classic);
 lean_object * lnmai_parse_frontend_semantic_chart_json(lean_object * content, uint32_t level_index);
 lean_object * lnmai_parse_frontend_inspection_chart_json(lean_object * content, uint32_t level_index);
 lean_object * lnmai_parse_normalized_chart_json(lean_object * content, uint32_t level_index);
 lean_object * lnmai_parse_lowered_chart_json(lean_object * content, uint32_t level_index);
+lean_object * lnmai_parse_lowered_chart_mode_json(lean_object * content, uint32_t level_index, uint8_t is_classic);
 
 lean_object * lnmai_build_game_state_json(lean_object * chart_spec_json);
 lean_object * lnmai_default_tactic_from_chart_json(lean_object * chart_spec_json);

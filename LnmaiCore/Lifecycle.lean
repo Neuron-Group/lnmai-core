@@ -42,6 +42,7 @@ deriving Inhabited, Repr, ToJson, FromJson
 def CommonNoteParams.effectiveTiming (p : CommonNoteParams) : TimePoint :=
   p.judgeTiming + p.judgeOffset
 
+-- Input origin retained for hold events and body sampling.
 inductive HoldStart where
   | button (zone : ButtonZone)
   | sensor (area : SensorArea)
@@ -72,6 +73,7 @@ deriving Inhabited, Repr, ToJson, FromJson
 def TapNote.position (note : TapNote) : RuntimePos :=
   .button note.lane.toButtonZone
 
+-- Independently judged star head. It shares tap queues and timing; the body is a SlideNote.
 structure SlideHeadNote where
   params : CommonNoteParams
   lane : OuterSlot
@@ -80,6 +82,7 @@ structure SlideHeadNote where
   buttonQueueIndex : Nat := 0
 deriving Inhabited, Repr, ToJson, FromJson
 
+-- Locate head feedback at its outer button lane.
 def SlideHeadNote.position (note : SlideHeadNote) : RuntimePos :=
   .button note.lane.toButtonZone
 
@@ -198,9 +201,11 @@ private def tapMissEvent (note : TapNote) (style : JudgeStyle) : JudgeEvent :=
 private def tapJudgeEvent (note : TapNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   tapLikeJudgeEvent note.params note.lane grade judgeDiff
 
+-- A missed star head reports a tap-family result independently of its body.
 private def slideHeadMissEvent (note : SlideHeadNote) (style : JudgeStyle) : JudgeEvent :=
   tapLikeMissEvent note.params note.lane style
 
+-- A successful star head also scores as Tap; only body results use the Slide family.
 private def slideHeadJudgeEvent (note : SlideHeadNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   tapLikeJudgeEvent note.params note.lane grade judgeDiff
 
@@ -238,6 +243,7 @@ def tapStep (note : TapNote) (currentTime : TimePoint) (judgeDiff : Duration) (i
   | .Ended =>
     (note, none)
 
+-- Resolve the star head using the accepted click or late miss, without advancing its body.
 def slideHeadStep (note : SlideHeadNote) (currentTime : TimePoint) (judgeDiff : Duration) (inputClicked : Bool) (style : JudgeStyle) : SlideHeadNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   let judgeableRange := (timing - JUDGABLE_RANGE_SEC, timing + JUDGABLE_RANGE_SEC)
@@ -294,14 +300,23 @@ theorem accepted_input_engages_judge (h : acceptedInputEngagesJudge true = true)
 ----------------------------------------------------------------------------
 
 inductive HoldSubState where
+  /-- Head is outside the input window. -/
   | HeadWaiting
+  /-- Head is in its input window and awaits a press. -/
   | HeadJudgeable
-  | HeadJudged (grade : JudgeGrade)    -- head hit received
+  /-- Head result is fixed; body sampling starts when its check window permits. -/
+  | HeadJudged (grade : JudgeGrade)
+  /-- Body is currently held. -/
   | BodyHeld                           -- holding actively
+  /-- Body is released; accumulated release time affects the tail grade. -/
   | BodyReleased                       -- released, accumulating release time
+  /-- Terminal state carrying the final tail grade. -/
   | Ended (grade : JudgeGrade)        -- terminal
 deriving Inhabited, Repr, ToJson, FromJson
 
+/- Runtime hold note. The head is judged once, then the body samples pressed
+   state through the body window; release grace and accumulated release time
+   determine the final modern grade, while Classic judges the release edge. -/
 structure HoldNote where
   params     : CommonNoteParams
   start      : HoldStart
@@ -312,19 +327,21 @@ structure HoldNote where
   headGrade  : JudgeGrade := JudgeGrade.Miss
   playerReleaseTime : Duration := Duration.zero -- accumulated release time
   releaseIgnoreTime : Duration := Duration.zero -- grace timer before release hurts score
-  isClassic  : Bool := false
-  isTouchHold : Bool := false
-  touchQueueIndex : Nat := 0
-  touchGroupId : Option Nat := none
+  isClassic  : Bool := false                    -- release-edge judgment instead of press bands
+  isTouchHold : Bool := false                   -- touch head rules and body ignore windows
+  touchQueueIndex : Nat := 0                    -- shared sensor queue order for the head
+  touchGroupId : Option Nat := none             -- group sharing head grade/diff
   touchGroupSize : Nat := 1
-  touchHoldGroupId : Option Nat := none
+  touchHoldGroupId : Option Nat := none         -- separate group sharing body pressure
   touchHoldGroupSize : Nat := 1
-  touchHoldGroupTriggered : Bool := false
+  touchHoldGroupTriggered : Bool := false      -- member's current body-trigger flag
 deriving Inhabited, Repr, ToJson, FromJson
 
+-- Use the note's original input location for head and tail feedback.
 def HoldNote.position (note : HoldNote) : RuntimePos :=
   note.start.toRuntimePos
 
+-- Store the head result and optional touch-body trigger before entering body states.
 private def holdHeadJudged (note : HoldNote) (grade : JudgeGrade) (headDiff : Duration) (groupTriggered : Bool := false) : HoldNote :=
   { note with
       state := HoldSubState.HeadJudged grade
@@ -332,17 +349,21 @@ private def holdHeadJudged (note : HoldNote) (grade : JudgeGrade) (headDiff : Du
     , headGrade := grade
     , touchHoldGroupTriggered := groupTriggered }
 
+-- A missed head still enters the hold lifecycle so its body can affect the tail grade.
 private def holdHeadMiss (note : HoldNote) (headDiff : Duration) : HoldNote :=
   holdHeadJudged note Miss headDiff
 
+-- Adopt a touch-group head result without generating an additional head event.
 private def holdHeadShared (note : HoldNote) (grade : JudgeGrade) (headDiff : Duration) : HoldNote :=
   holdHeadJudged note grade headDiff true
 
+-- Apply tap timing and style conversion to a regular hold head.
 private def judgeHoldHeadTapNow (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote :=
   let raw := Judge.judgeTap judgeDiff note.params.isEX
   let grade := Convert.convertGrade style raw
   holdHeadJudged note grade judgeDiff
 
+-- Head feedback is public; the scheduler scores the tail event for the whole hold.
 private def holdHeadJudgeEvent (note : HoldNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Hold
   , phase := .head
@@ -353,14 +374,17 @@ private def holdHeadJudgeEvent (note : HoldNote) (grade : JudgeGrade) (judgeDiff
   , isBreak := note.params.isBreak
   , isEX := note.params.isEX }
 
+-- Convert the miss under the selected judge style before reporting head feedback.
 private def holdHeadMissEvent (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : JudgeEvent :=
   holdHeadJudgeEvent note (Convert.convertGrade style JudgeGrade.Miss) judgeDiff
 
+-- Resolve a regular head and emit its head-phase event.
 private def judgeHoldHeadTapNow? (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote × Option JudgeEvent :=
   let raw := Judge.judgeTap judgeDiff note.params.isEX
   let grade := Convert.convertGrade style raw
   (holdHeadJudged note grade judgeDiff, some (holdHeadJudgeEvent note grade judgeDiff))
 
+-- Touch timing can reject an early press, leaving the head unresolved and emitting no event.
 private def judgeHoldHeadTouchNow? (note : HoldNote) (style : JudgeStyle) (judgeDiff : Duration) : HoldNote × Option JudgeEvent :=
   match Judge.judgeTouch judgeDiff note.params.isEX with
   | some raw =>
@@ -369,6 +393,7 @@ private def judgeHoldHeadTouchNow? (note : HoldNote) (style : JudgeStyle) (judge
   | none =>
       (note, none)
 
+-- A waiting touch head checks timeout, shared grade, then its own click, in that order.
 private def stepTouchHoldHeadWaiting
     (note : HoldNote)
     (currentTime timing : TimePoint)
@@ -393,6 +418,7 @@ private def stepTouchHoldHeadWaiting
         else
           (note, none)
 
+-- An open touch head keeps the same timeout/share priority until it resolves.
 private def stepTouchHoldHeadJudgeable
     (note : HoldNote)
     (currentTime timing : TimePoint)
@@ -414,6 +440,7 @@ private def stepTouchHoldHeadJudgeable
         else
           (note, none)
 
+-- Enter the regular head window, accepting a click or recording a late miss.
 private def stepRegularHoldHeadWaiting
     (note : HoldNote)
     (currentTime timing : TimePoint)
@@ -431,6 +458,7 @@ private def stepRegularHoldHeadWaiting
   else
     (note, none)
 
+-- In this state an accepted regular-head click is checked before the late-miss branch.
 private def stepRegularHoldHeadJudgeable
     (note : HoldNote)
     (currentTime timing : TimePoint)
@@ -445,6 +473,7 @@ private def stepRegularHoldHeadJudgeable
   else
     (note, none)
 
+-- Off input after head resolution first spends grace, then charges the full off interval.
 private def holdHeadReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote × Option JudgeEvent :=
   if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
     ({ note with
@@ -457,6 +486,7 @@ private def holdHeadReleaseTransition (note : HoldNote) (delta : Duration) : Hol
       , releaseIgnoreTime := Duration.zero
       , touchHoldGroupTriggered := false }, none)
 
+-- Start held-body tracking from the head state, resetting release counters.
 private def holdPressedTransition (note : HoldNote) : HoldNote :=
   { note with
     state := HoldSubState.BodyHeld
@@ -464,9 +494,11 @@ private def holdPressedTransition (note : HoldNote) : HoldNote :=
   , releaseIgnoreTime := Duration.zero
   , touchHoldGroupTriggered := note.isTouchHold }
 
+-- A held frame cancels pending release grace while preserving previously charged release time.
 private def holdKeepPressed (note : HoldNote) : HoldNote :=
   { note with releaseIgnoreTime := Duration.zero, touchHoldGroupTriggered := note.isTouchHold }
 
+-- Leaving BodyHeld spends grace before moving to BodyReleased and charging the off interval.
 private def holdReleaseTransition (note : HoldNote) (delta : Duration) : HoldNote :=
   if note.releaseIgnoreTime ≤ DELUXE_HOLD_RELEASE_IGNORE_TIME_SEC then
     { note with releaseIgnoreTime := note.releaseIgnoreTime + delta, touchHoldGroupTriggered := false }
@@ -477,9 +509,11 @@ private def holdReleaseTransition (note : HoldNote) (delta : Duration) : HoldNot
     , releaseIgnoreTime := Duration.zero
     , touchHoldGroupTriggered := false }
 
+-- Once grace has expired, each off frame adds directly to charged release time.
 private def holdReleasedStillOff (note : HoldNote) (delta : Duration) : HoldNote :=
   { note with playerReleaseTime := note.playerReleaseTime + delta, touchHoldGroupTriggered := false }
 
+-- Re-pressing restores BodyHeld but retains the release time already charged.
 private def holdReleasedRecovered (note : HoldNote) : HoldNote :=
   { note with state := HoldSubState.BodyHeld, releaseIgnoreTime := Duration.zero, touchHoldGroupTriggered := note.isTouchHold }
 
@@ -620,7 +654,9 @@ private def holdStepFuel (fuel : Nat) (note : HoldNote) (currentTime : TimePoint
   | .Ended _ =>
     (note, none)
 
-/- Public lifecycle boundary used by both regular holds and touch-holds. -/
+/- Advance a regular hold or touch-hold. Clicks resolve heads; pressed state samples the body.
+   The scheduler supplies ignore windows, source-specific offsets, and any shared head result.
+   Returns the updated note and optional head/tail feedback; only the tail scores the hold. -/
 def holdStep (note : HoldNote) (currentTime : TimePoint) (judgeDiff : Duration) (headIgnore : Duration) (tailIgnore : Duration) (inputClicked : Bool) (inputPressed : Bool) (currentButtonPressed : Bool) (prevSensorPressed : Bool) (touchPanelOffset : Duration) (sharedResult : Option (JudgeGrade × Duration)) (delta : Duration) (style : JudgeStyle) : HoldNote × Option JudgeEvent :=
   holdStepFuel 1 note currentTime judgeDiff headIgnore tailIgnore inputClicked inputPressed
     currentButtonPressed prevSensorPressed touchPanelOffset sharedResult delta style
@@ -725,29 +761,41 @@ def touchStep (note : TouchNote) (currentTime : TimePoint) (judgeDiff : Duration
 ----------------------------------------------------------------------------
 
 inductive SlideState where
+  /-- Body is dormant until its head window or connected parent unlocks it. -/
   | Waiting
-  | Active  (waitTime : Duration)          -- star traveling, wait time for end window
+  /-- Body consumes sensor frames; waitTime is the end-judge grace window. -/
+  | Active  (waitTime : Duration)
+  /-- Queue completion has been judged; retain the result through its grace window. -/
   | Judged  (grade : JudgeGrade) (waitTime : Duration) (judgeDiff : Duration)
+  /-- Terminal state. -/
   | Ended
 deriving Inhabited, Repr, ToJson, FromJson
 
+/--
+  One ordered sensor checkpoint in a slide body. `wasOn`/`wasOff` are the
+  aggregate history; target histories retain each sensor's independent press
+  and release state for multi-sensor AND/OR checkpoints. The next checkpoint
+  can be inspected when the current checkpoint is skippable or has been pressed.
+-/
 structure SlideArea where
-  targetAreas : List SensorArea
-  policy      : AreaPolicy := AreaPolicy.Or
-  isLast      : Bool := false
-  isSkippable : Bool := true
-  arrowProgressWhenOn : Nat := 0
-  arrowProgressWhenFinished : Nat := 0
-  wasOn       : Bool := false
-  wasOff      : Bool := false
+  targetAreas : List SensorArea                 -- sensors belonging to this checkpoint
+  policy      : AreaPolicy := AreaPolicy.Or     -- combine per-sensor completion with OR/AND
+  isLast      : Bool := false                   -- terminal checkpoints need no release
+  isSkippable : Bool := true                    -- permit lookahead before this area is pressed
+  arrowProgressWhenOn : Nat := 0                -- bar-hide index after a press
+  arrowProgressWhenFinished : Nat := 0          -- bar-hide index after completion
+  wasOn       : Bool := false                   -- latched: any target has ever been pressed
+  wasOff      : Bool := false                   -- policy-combined press-and-release history
   /-- Per-target history needed by multi-sensor AND/OR areas. -/
   targetWasOn : List Bool := []
-  targetWasOff : List Bool := []
+  targetWasOff : List Bool := []                -- aligned with targetAreas and targetWasOn
 deriving Inhabited, Repr, ToJson, FromJson
 
+-- Historical press flag; releasing a sensor does not reset On.
 def SlideArea.on (area : SlideArea) : Bool :=
   area.wasOn
 
+/-- A final checkpoint completes on press; other checkpoints require press and release. -/
 def SlideArea.isFinished (area : SlideArea) : Bool :=
   if area.targetAreas.isEmpty then
     false
@@ -760,9 +808,11 @@ def SlideArea.isFinished (area : SlideArea) : Bool :=
     | .Or => finished.any id
     | .And => finished.all id
 
+-- An absent sensor entry is treated as off.
 private def sensorHeldAt (sensorHeld : SensorVec Bool) (area : SensorArea) : Bool :=
   sensorHeld.getD area false
 
+-- Latch presses and subsequent releases independently for every target sensor.
 private def slideAreaTargetHistory
     (targets : List SensorArea) (wasOn wasOff : List Bool) (sensorHeld : SensorVec Bool) :
     List Bool × List Bool :=
@@ -779,6 +829,7 @@ private def slideAreaTargetHistory
         (newOn :: restOn, newOff :: restOff)
   go targets wasOn wasOff
 
+/-- Accumulate this frame's held sensors into checkpoint history. -/
 def SlideArea.check (area : SlideArea) (sensorHeld : SensorVec Bool) : SlideArea :=
   -- A one-target legacy state retains all the information needed to seed its history.
   let sourceWasOn := if area.targetWasOn.isEmpty && area.targetAreas.length == 1 then
@@ -802,14 +853,17 @@ def SlideArea.check (area : SlideArea) (sensorHeld : SensorVec Bool) : SlideArea
       targetWasOn := targetWasOn
       targetWasOff := targetWasOff }
 
+/-- Ordered checkpoints for one slide track; WiFi and connection parts have one per track. -/
 abbrev SlideQueue := List SlideArea
 
+/-- Maximum remaining checkpoint count across tracks, used for connected-parent readiness. -/
 def slideQueueRemaining (queues : List SlideQueue) : Nat :=
   let rec go (acc : Nat) : List SlideQueue → Nat
     | [] => acc
     | q :: rest => go (max acc q.length) rest
   go 0 queues
 
+/-- WiFi bar progress follows the reference's special final-bar indices. -/
 private def wifiQueueProgressRemaining (isClassic : Bool) (queues : List SlideQueue) : Nat :=
   match queues with
   | [left, center, right] =>
@@ -833,30 +887,36 @@ private def wifiQueueProgressRemaining (isClassic : Bool) (queues : List SlideQu
         pick [left, center, right]
   | _ => slideQueueRemaining queues
 
+-- Render progress uses a WiFi bar index or a remaining-area count, depending on slide kind.
 private def slideProgressRemaining (slideKind : SlideKind) (isClassic : Bool) (queues : List SlideQueue) : Nat :=
   match slideKind with
   | SlideKind.Wifi => wifiQueueProgressRemaining isClassic queues
   | _ => slideQueueRemaining queues
 
+/-- True only when every track has consumed all of its checkpoints. -/
 def slideQueuesCleared (queues : List SlideQueue) : Bool :=
   match queues with
   | [] => true
   | q :: rest => if q.isEmpty then slideQueuesCleared rest else false
 
+-- Inspect the first remaining checkpoint of a track, rather than the separate star-head note.
 private def slideHeadOn (queue : SlideQueue) : Bool :=
   match queue with
   | [] => false
   | area :: _ => area.on
 
+-- Route a checkpoint's hide index to either the whole body or an indexed render track.
 private def slideHideBarCmd (noteIndex : Nat) (trackIndex : Option Nat) (endIndex : Nat) : RenderCommand :=
   match trackIndex with
   | none => RenderCommand.HideSlideBars noteIndex endIndex
   | some trackIndex => RenderCommand.HideSlideTrackBars noteIndex trackIndex endIndex
 
+-- Preserve track order when collecting each queue's render commands.
 private def flattenRenderCmds : List (List RenderCommand) → List RenderCommand
   | [] => []
   | cmds :: rest => cmds ++ flattenRenderCmds rest
 
+-- Cue candidates are tracks whose remaining head is now On while its old head was not On.
 private def collectNewSlideOnTracks (index : Nat) (oldQueues newQueues : List SlideQueue) : List Nat :=
   match oldQueues, newQueues with
   | [], _ => []
@@ -868,6 +928,7 @@ private def collectNewSlideOnTracks (index : Nat) (oldQueues newQueues : List Sl
     else
       rest
 
+-- Public checkpoint-update boundary used by queue traversal.
 def updateSlideArea (area : SlideArea) (sensorHeld : SensorVec Bool) : SlideArea :=
   area.check sensorHeld
 
@@ -876,7 +937,13 @@ def flattenSlideQueues : List SlideQueue → SlideQueue
   | [] => []
   | q :: qs => q ++ flattenSlideQueues qs
 
-/-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
+/--
+  Consume one frame of sensor state for an ordered checkpoint queue. It updates
+  the first area, may inspect the second when skipping is allowed or the first
+  is active, removes completed areas, and emits bar-hide commands at the
+  corresponding progress indices. Recursive advancement reuses the same sensor
+  snapshot, so a frame can consume several checkpoints. Fuel bounds that traversal.
+-/
 private def slideQueueCoreFuel
     (fuel : Nat)
     (noteIndex : Nat) (trackIndex : Option Nat) (emitCmds : Bool) (queue : SlideQueue) (sensorHeld : SensorVec Bool) :
@@ -922,21 +989,31 @@ private def slideQueueCoreFuel
           else
             ([first'] ++ rest, [])
 
+-- Queue length supplies enough fuel to traverse every removable checkpoint in this frame.
 private def slideQueueCore
     (noteIndex : Nat) (trackIndex : Option Nat) (emitCmds : Bool) (queue : SlideQueue) (sensorHeld : SensorVec Bool) :
     SlideQueue × List RenderCommand :=
   slideQueueCoreFuel (queue.length + 1) noteIndex trackIndex emitCmds queue sensorHeld
 
-/-- Pure queue traversal step, exposed for proofs and semantics-focused tests. -/
+/-- Replay queue progression without render commands. -/
 def replaySlideQueue (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue :=
   (slideQueueCore 0 none false queue sensorHeld).1
 
+-- Enable checkpoint bar-hide output for the runtime traversal.
 private def updateSlideQueueWithCmds (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue × List RenderCommand :=
   slideQueueCore noteIndex trackIndex true queue sensorHeld
 
+-- Advance one track and return its remaining queue together with render effects.
 private def updateSlideQueue (noteIndex : Nat) (trackIndex : Option Nat) (queue : SlideQueue) (sensorHeld : SensorVec Bool) : SlideQueue × List RenderCommand :=
   updateSlideQueueWithCmds noteIndex trackIndex queue sensorHeld
 
+/-
+  Runtime slide-body note. A single-track slide has one queue; WiFi has three
+  parallel queues. Connected children point at the preceding body and become
+  checkable when its maximum remaining queue length is zero or one. Standalone
+  bodies and group heads instead unlock 50 ms before headTiming. Checkability
+  stays latched. Only standalone bodies and the final connected part judge themselves.
+-/
 structure SlideNote where
   params          : CommonNoteParams
   lane            : OuterSlot
@@ -944,49 +1021,55 @@ structure SlideNote where
   length          : Duration            -- total slide length
   headTiming      : TimePoint           -- slide head timing anchor for body checkability
   startTiming     : TimePoint           -- when slide started
-  groupStartTiming : Option TimePoint := none
-  slideKind       : SlideKind := .Single
-  isClassic       : Bool := false
-  isConnSlide     : Bool := false
-  parentNoteIndex : Option Nat := none
-  isGroupPartHead : Bool := false
-  isGroupPartEnd  : Bool := false
-  parentFinished  : Bool := false
-  parentPendingFinish : Bool := false
-  initialQueueRemaining : Nat := 0
-  totalJudgeQueueLen : Nat := 0
-  trackCount      : Nat := 1
-  isCheckable     : Bool := false
-  slideSoundPlayed : Bool := false
-  multiple        : Nat := 1
-  judgeQueues     : List SlideQueue := []
+  groupStartTiming : Option TimePoint := none   -- shared start for early-clear wait adjustment
+  slideKind       : SlideKind := .Single        -- queue/render routing
+  isClassic       : Bool := false               -- fixed instead of extended judge windows
+  isConnSlide     : Bool := false               -- member of a connected body chain
+  parentNoteIndex : Option Nat := none          -- immediate preceding body, not every ancestor
+  isGroupPartHead : Bool := false               -- first body uses the head-time eligibility gate
+  isGroupPartEnd  : Bool := false               -- final body produces the group's result
+  parentFinished  : Bool := false               -- refreshed by Scheduler: parent remaining = 0
+  parentPendingFinish : Bool := false           -- refreshed by Scheduler: parent remaining = 1
+  initialQueueRemaining : Nat := 0              -- initial maximum queue length, retained metadata
+  totalJudgeQueueLen : Nat := 0                 -- group queue length, retained metadata
+  trackCount      : Nat := 1                    -- number of render tracks
+  isCheckable     : Bool := false               -- latched permission to sample body sensors
+  slideSoundPlayed : Bool := false              -- records whether a cue has been observed
+  multiple        : Nat := 1                    -- score multiplicity carried by the final event
+  judgeQueues     : List SlideQueue := []       -- independent remaining queues and sensor history
 deriving Inhabited, Repr, ToJson, FromJson
 
+-- Body judgment feedback is anchored at the note's outer lane.
 def SlideNote.position (note : SlideNote) : RuntimePos :=
   .button note.lane.toButtonZone
 
+-- Single-track output has no track index; multi-track queues receive zero-based indices.
 private def SlideNote.queueTracks (note : SlideNote) : List (Option Nat × SlideQueue) :=
   if note.trackCount = 1 then
     note.judgeQueues.map (fun queue => (none, queue))
   else
     ((List.range note.judgeQueues.length).map some).zip note.judgeQueues
 
+-- Enumerate render destinations independently of the remaining queue lengths.
 private def SlideNote.trackRenderIndices (note : SlideNote) : List Nat :=
   List.range note.trackCount
 
+-- Publish the kind-specific progress value to the body's render destination(s).
 private def slideProgressRenderCmds (note : SlideNote) (remaining : Nat) : List RenderCommand :=
   match note.slideKind with
   | SlideKind.Single => [RenderCommand.UpdateSlideProgress note.params.noteIndex remaining]
   | SlideKind.Wifi | SlideKind.ConnPart =>
       note.trackRenderIndices.map (fun trackIndex => RenderCommand.UpdateSlideTrackProgress note.params.noteIndex trackIndex remaining)
 
+-- Ending a body hides every bar regardless of its individual track progress.
 private def slideHideRenderCmds (note : SlideNote) : List RenderCommand :=
   match note.slideKind with
   | SlideKind.Single => [RenderCommand.HideAllSlideBars note.params.noteIndex]
   | SlideKind.Wifi | SlideKind.ConnPart =>
       [RenderCommand.HideAllSlideBars note.params.noteIndex]
 
-private structure SlideStepContext where
+-- Immutable frame inputs shared by the state, judge, and output phases of a slide step.
+structure SlideStepContext where
   currentTime : TimePoint
   touchPanelOffset : Duration
   delta : Duration
@@ -994,23 +1077,26 @@ private structure SlideStepContext where
   subdivideSlideJudgeGrade : Bool
   sensorHeld : SensorVec Bool
 
-private structure SlideStepSemantic where
+-- Transition result before audio/render encoding; progress fields also detect bar updates.
+structure SlideStepSemantic where
   note : SlideNote
   event : Option JudgeEvent := none
   queueRenderCmds : List RenderCommand := []
   oldRemaining : Nat := 0
   newRemaining : Nat := 0
-  trackOns : List Nat := []
+  trackOns : List Nat := []                     -- track indices detected by collectNewSlideOnTracks
   progressChanged : Bool := false
   hideSlide : Bool := false
   shouldPlayTrackOns : Bool := false
   emitProgressRender : Bool := false
 
+-- Final output applies judge-style conversion, then collapses perfect subgrades if configured.
 private def slideEffectiveJudgeGrade
     (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) (raw : JudgeGrade) : JudgeGrade :=
   let converted := Convert.convertGrade style raw
   if subdivideSlideJudgeGrade then converted else Judge.correctSlideGrade converted
 
+-- Body judgment uses panel-adjusted time against the offset-adjusted judge anchor.
 private def slideCurrentJudgeDiff (note : SlideNote) (currentTime : TimePoint) (touchPanelOffset : Duration) : Duration :=
   (currentTime - touchPanelOffset) - note.params.effectiveTiming
 
@@ -1018,10 +1104,12 @@ private def slideTooLateJudgeDiff : Duration :=
   -- MajdataPlay's SlideBase.TooLateJudge leaves NoteDrop.JudgeDiff at its default -1ms.
   Duration.fromMicros (-1000)
 
+-- Arrival minus the stored judge anchor supplies both modern window extension and clear delay.
 private def slideInitialWaitTime (note : SlideNote) : Duration :=
   note.startTiming + note.length - note.params.judgeTiming
 
-private def slideShouldBeCheckable (note : SlideNote) (currentTime : TimePoint) : Bool :=
+-- Eligibility stays true once latched. New connected children use parent progress, not head time.
+def slideShouldBeCheckable (note : SlideNote) (currentTime : TimePoint) : Bool :=
   let headTiming := currentTime - note.headTiming
   if note.isCheckable then
     true
@@ -1033,7 +1121,8 @@ private def slideShouldBeCheckable (note : SlideNote) (currentTime : TimePoint) 
   else
     headTiming >= Duration.fromMicros (-50000)
 
-private def slideUpdatedQueuesWithCmds
+-- Uncheckable bodies preserve all queues; eligible tracks sample the same held-sensor snapshot.
+def slideUpdatedQueuesWithCmds
     (note : SlideNote) (isCheckable : Bool) (sensorHeld : SensorVec Bool) :
     List (SlideQueue × List RenderCommand) :=
   if isCheckable then
@@ -1042,9 +1131,11 @@ private def slideUpdatedQueuesWithCmds
   else
     note.judgeQueues.map (fun queue => (queue, []))
 
+-- Timeout is after arrival plus the Good window; only a negative judge offset moves it earlier.
 private def slideTooLateTiming (note : SlideNote) : TimePoint :=
   note.startTiming + note.length + SLIDE_JUDGE_GOOD_AREA_MSEC + min note.params.judgeOffset Duration.zero
 
+-- Early clears wait half the time until group start; very late modern clears wait only 50 ms.
 private def slideAdjustedJudgedWaitTime
     (note : SlideNote) (currentTime : TimePoint) (waitTime judgeDiff : Duration) : Duration :=
   let remainingStartTime := currentTime - note.groupStartTiming.getD note.startTiming
@@ -1055,6 +1146,7 @@ private def slideAdjustedJudgedWaitTime
   else
     waitTime
 
+-- Build the body score result, preserving flags and enforcing positive score multiplicity.
 private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff : Duration) : JudgeEvent :=
   { kind := .Slide
   , phase := .head
@@ -1066,6 +1158,7 @@ private def slideJudgeEvent (note : SlideNote) (grade : JudgeGrade) (judgeDiff :
   , isEX := note.params.isEX
   , multiple := max 1 note.multiple }
 
+-- Record queue changes and detect either kind-specific progress or remaining-count changes.
 private def buildSlideSemanticBase
     (note : SlideNote) (updatedQueues : List SlideQueue) (queueRenderCmds : List RenderCommand)
     (oldRemaining newRemaining : Nat) (trackOns : List Nat) : SlideStepSemantic :=
@@ -1077,6 +1170,7 @@ private def buildSlideSemanticBase
   , progressChanged :=
       newRemaining != oldRemaining || slideQueueRemaining updatedQueues != slideQueueRemaining note.judgeQueues }
 
+-- Snapshot existing queue progress for phases that do not sample sensors.
 private def buildSlideStaticSemanticBase
     (note : SlideNote) (isCheckable : Bool) : SlideStepSemantic :=
   let remaining := slideProgressRemaining note.slideKind note.isClassic note.judgeQueues
@@ -1084,6 +1178,7 @@ private def buildSlideStaticSemanticBase
   , oldRemaining := remaining
   , newRemaining := remaining }
 
+-- Advance all eligible queues and collect their render effects, cue candidates, and progress.
 private def buildSlideSensorSemanticBase
     (note : SlideNote) (ctx : SlideStepContext) (isCheckable : Bool) : SlideStepSemantic :=
   let updatedQueuesWithCmds := slideUpdatedQueuesWithCmds note isCheckable ctx.sensorHeld
@@ -1096,9 +1191,11 @@ private def buildSlideSensorSemanticBase
   buildSlideSemanticBase { note with isCheckable := isCheckable } updatedQueues queueRenderCmds
     oldRemaining newRemaining trackOns
 
-private def buildSlideDormantSemanticBase (note : SlideNote) : SlideStepSemantic :=
+-- Restore Waiting without sampling sensors or producing effects; retain the original queues.
+def buildSlideDormantSemanticBase (note : SlideNote) : SlideStepSemantic :=
   { note := { note with state := SlideState.Waiting, isCheckable := false } }
 
+-- Timeout judges pre-sensor queue counts and ends immediately, without a judged wait interval.
 private def slideTooLateStepSemantic
     (note : SlideNote) (ctx : SlideStepContext) (isCheckable : Bool) : SlideStepSemantic :=
   let staticBase := buildSlideStaticSemanticBase note isCheckable
@@ -1110,6 +1207,8 @@ private def slideTooLateStepSemantic
       else some (slideJudgeEvent note grade slideTooLateJudgeDiff)
     hideSlide := true }
 
+/- Check prior queue completion and timeout before sampling this frame's sensors. Newly cleared
+   queues are judged on the next step. Non-final connected parts only advance their queues. -/
 private def slideActiveStepSemantic
     (note : SlideNote) (ctx : SlideStepContext) (isJudgable : Bool) (waitTime : Duration) :
     SlideStepSemantic :=
@@ -1141,7 +1240,9 @@ private def slideActiveStepSemantic
       shouldPlayTrackOns := activeNote.isGroupPartHead || !activeNote.isConnSlide
       emitProgressRender := semanticBase.progressChanged }
 
-private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : SlideStepSemantic :=
+/- Select the eligibility/state branch. An uncheckable final part can still time out and end
+   the chain. Judged bodies emit their result when the stored wait is already nonpositive. -/
+def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : SlideStepSemantic :=
   let isCheckable := slideShouldBeCheckable note ctx.currentTime
   let isJudgable := note.isGroupPartEnd || !note.isConnSlide
   match note.state with
@@ -1179,6 +1280,7 @@ private def slideStepSemantic (note : SlideNote) (ctx : SlideStepContext) : Slid
       let staticBase := buildSlideStaticSemanticBase note isCheckable
       { staticBase with note := { staticBase.note with state := SlideState.Ended } }
 
+-- Encode cue candidates only for standalone slides and connected group heads.
 private def slideSemanticAudioCmds (semantic : SlideStepSemantic) (currentTime : TimePoint) : List AudioCommand :=
   if semantic.shouldPlayTrackOns && !semantic.trackOns.isEmpty then
     semantic.trackOns.map
@@ -1187,6 +1289,7 @@ private def slideSemanticAudioCmds (semantic : SlideStepSemantic) (currentTime :
           currentTime)
   else []
 
+-- Emit checkpoint hides, then progress updates, then any whole-body hide, in that order.
 private def slideSemanticRenderCmds (semantic : SlideStepSemantic) : List RenderCommand :=
   let progressCmds :=
     if semantic.emitProgressRender then
@@ -1198,7 +1301,11 @@ private def slideSemanticRenderCmds (semantic : SlideStepSemantic) : List Render
     else []
   semantic.queueRenderCmds ++ progressCmds ++ hideCmds
 
-/-- Advance a slide note with queue traversal. -/
+/-
+  Advance one body and return (updated note, optional result, audio commands, render commands).
+  Completion and timeout are checked before sensor traversal. Normal judgment stores the result
+  until its wait interval expires; timeout reports immediately. Scheduler applies parent effects.
+-/
 def slideStep (note : SlideNote) (currentTime : TimePoint) (sensorHeld : SensorVec Bool)
     (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool)
     : SlideNote × Option JudgeEvent × List AudioCommand × List RenderCommand :=

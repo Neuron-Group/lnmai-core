@@ -179,7 +179,7 @@ def test_slide_note_duration_and_star_wait : ParityCase :=
           supportedCase "slide_note_duration_and_star_wait"
             (slide.length = Duration.fromMicros 500000 &&
              slide.startTiming = TimePoint.fromMicros 500000 &&
-             slide.judgeAt = some (TimePoint.fromMicros 1000000))
+             slide.judgeAt = some (TimePoint.fromMicros 905000))
             "slide duration and star-wait both lower"
       | _ => supportedCase "slide_note_duration_and_star_wait" false "expected one slide"
   | .error err => supportedCase "slide_note_duration_and_star_wait" false s!"unexpected parse error: {err.message}"
@@ -202,10 +202,51 @@ def test_slide_note_absolute_star_wait_no_hash_and_duration : ParityCase :=
           supportedCase "slide_note_absolute_star_wait_no_hash_and_duration"
             (slide.startTiming = TimePoint.fromMicros 200000 &&
              slide.length = Duration.fromMicros 750000 &&
-             slide.judgeAt = some (TimePoint.fromMicros 950000))
+             slide.judgeAt = some (TimePoint.fromMicros 863000))
             "absolute star-wait and duration work"
       | _ => supportedCase "slide_note_absolute_star_wait_no_hash_and_duration" false "expected one slide"
   | .error err => supportedCase "slide_note_absolute_star_wait_no_hash_and_duration" false s!"unexpected parse error: {err.message}"
+
+def test_classic_slide_mode_lowers_reference_timing_and_queue : ParityCase :=
+  let content := "&first=0\n&inote_1=\n(120)\n1-4[4:1],\n"
+  match parseFrontendChartResultWithMode content 1 true with
+  | .ok chart =>
+      match chart.semantic.normalized.slides, chart.semantic.lowered.slides with
+      | [slide], [lowered] =>
+          let runtime := ChartLoader.buildGameState chart.semantic.lowered
+          supportedCase "classic_slide_mode_lowers_reference_timing_and_queue"
+            (slide.isClassic && lowered.isClassic &&
+             slide.judgeAt = some (TimePoint.fromMicros 885000) &&
+             lowered.judgeAt = slide.judgeAt && slide.judgeQueues.length = 1 &&
+             runtime.slides.any (fun note => note.isClassic &&
+               note.params.judgeTiming = TimePoint.fromMicros 885000 &&
+               note.startTiming + note.length - note.params.judgeTiming =
+                 Duration.fromMicros 115000))
+            "classic line4 reaches runtime with ClassicConst=0.23 and a 115ms end wait"
+      | _, _ => supportedCase "classic_slide_mode_lowers_reference_timing_and_queue" false
+          "expected one normalized and lowered slide"
+  | .error err => supportedCase "classic_slide_mode_lowers_reference_timing_and_queue" false err.message
+
+def test_classic_slide_mode_selects_wifi_and_connected_timing : ParityCase :=
+  let content := "&first=0\n&inote_1=\n(120)\n1w5[4:1],1-3-5[4:1],\n"
+  match parseFrontendChartResultWithMode content 1 true, parseFrontendChartResult content 1 with
+  | .ok classic, .ok modern =>
+      match classic.semantic.lowered.slides, modern.semantic.lowered.slides with
+      | [wifi, parent, child], modernWifi :: _ =>
+          supportedCase "classic_slide_mode_selects_wifi_and_connected_timing"
+            (wifi.isClassic && parent.isClassic && child.isClassic &&
+             wifi.judgeQueues.map List.length = [4, 3, 4] &&
+             modernWifi.judgeQueues.map List.length = [4, 4, 4] &&
+             !(wifi.judgeQueues[1]!.getLast!).isLast &&
+             wifi.judgeAt = some (TimePoint.fromMicros 918565) &&
+             child.startTiming = parent.startTiming + parent.length &&
+             child.judgeAt = some (TimePoint.fromMicros 1430750) &&
+             child.isGroupEnd && child.parentNoteIndex = some parent.noteIndex)
+            "classic wifi uses its three-area center; connected tail uses its own ClassicConst"
+      | _, _ => supportedCase "classic_slide_mode_selects_wifi_and_connected_timing" false
+          "expected wifi followed by two connected segments"
+  | _, _ => supportedCase "classic_slide_mode_selects_wifi_and_connected_timing" false
+      "expected both playback modes to parse"
 
 theorem slide_body_start_is_later_than_head_for_44pace_reference_case :
     test_slide_note_duration_and_star_wait.passed = true := by native_decide
@@ -1173,6 +1214,8 @@ def all : List ParityCase :=
   , test_slide_note_duration_and_star_wait
   , test_slide_note_custom_bpm_star_and_duration
   , test_slide_note_absolute_star_wait_no_hash_and_duration
+  , test_classic_slide_mode_lowers_reference_timing_and_queue
+  , test_classic_slide_mode_selects_wifi_and_connected_timing
   , test_touch_note
   , test_slash_each_touch_allocates_touch_group
   , test_slash_each_touchhold_allocates_head_and_body_groups
@@ -1234,6 +1277,11 @@ def passedCount : Nat :=
 
 #eval! all
 #eval (supportedCount, passedCount, all.length)
+
+theorem classic_slide_mode_runtime_parity :
+    test_classic_slide_mode_lowers_reference_timing_and_queue.passed = true ∧
+    test_classic_slide_mode_selects_wifi_and_connected_timing.passed = true := by
+  native_decide
 
 theorem test_simai_chart_dsl_smoke_proof : test_simai_chart_dsl_smoke.passed = true := by native_decide
 theorem test_simai_slide_dsl_smoke_proof : test_simai_slide_dsl_smoke.passed = true := by native_decide

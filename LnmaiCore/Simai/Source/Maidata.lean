@@ -147,7 +147,8 @@ private def metadataField (md : MaidataMetadata) (key : String) : Option String 
 def parseSourceMaidata (content : String) : Except ParseError MaidataFile :=
   Except.ok <| parseMaidataLines (content.splitOn "\n") [] []
 
-def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Except ParseError FrontendChartResult := do
+def lowerSourceChartBlockWithMode (isClassic : Bool) (file : MaidataFile)
+    (block : MaidataChartBlock) : Except ParseError FrontendChartResult := do
   let baseBpm := parseRatDef ((metadataField file.metadata "&wholebpm").getD "120") 120
   let firstOffset :=
     match Time.parseSecondsPointString? ((metadataField file.metadata "&first").getD "0") with
@@ -159,19 +160,34 @@ def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) : Exc
   let tokens := annotateTouchEachGroups rawTokens
   let _ ← typecheckSlides tokens
   let source := sourceChartFromTokens tokens
-  let (normalized, slideNotes) := lowerRawTokens (fun bpm => Time.durationFromRatMicros (Time.bpmMeasureMicrosRat bpm)) tokens
+  let (normalized, slideNotes) := lowerRawTokensWithMode isClassic
+    (fun bpm => Time.durationFromRatMicros (Time.bpmMeasureMicrosRat bpm)) tokens
   let lowered := toChartSpec normalized
   pure
     { semantic := { normalized := normalized, lowered := lowered }
     , inspection := { metadata := file.metadata, chart := block, source := source, tokens := tokens, slideNotes := slideNotes } }
 
-def lowerSourceChartByLevel (file : MaidataFile) (levelIndex : Nat) : Except ParseError FrontendChartResult := do
+def lowerSourceChartBlock (file : MaidataFile) (block : MaidataChartBlock) :
+    Except ParseError FrontendChartResult :=
+  lowerSourceChartBlockWithMode false file block
+
+def lowerSourceChartByLevelWithMode (isClassic : Bool) (file : MaidataFile) (levelIndex : Nat) :
+    Except ParseError FrontendChartResult := do
   match file.charts.find? (fun block => block.levelIndex = levelIndex) with
-  | some block => lowerSourceChartBlock file block
+  | some block => lowerSourceChartBlockWithMode isClassic file block
   | none => Except.error { kind := .invalidSyntax, rawText := "", message := s!"missing inote block {levelIndex}" }
 
-def parseAndLowerSourceMaidata (content : String) (levelIndex : Nat) : Except ParseError FrontendChartResult := do
+def lowerSourceChartByLevel (file : MaidataFile) (levelIndex : Nat) :
+    Except ParseError FrontendChartResult :=
+  lowerSourceChartByLevelWithMode false file levelIndex
+
+def parseAndLowerSourceMaidataWithMode (content : String) (levelIndex : Nat) (isClassic : Bool) :
+    Except ParseError FrontendChartResult := do
   let file ← parseSourceMaidata content
-  lowerSourceChartByLevel file levelIndex
+  lowerSourceChartByLevelWithMode isClassic file levelIndex
+
+def parseAndLowerSourceMaidata (content : String) (levelIndex : Nat) :
+    Except ParseError FrontendChartResult :=
+  parseAndLowerSourceMaidataWithMode content levelIndex false
 
 end LnmaiCore.Simai

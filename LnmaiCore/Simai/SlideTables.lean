@@ -189,4 +189,55 @@ def slideBarCountForShapeKey (shapeKey : String) : Option Nat :=
 def slideBarCountForShape (shape : SlideShape) : Option Nat :=
   slideBarCountForShapeKey (canonicalShapeKey shape)
 
+-- SlideDrop.InitializeSlideGroup and WifiDrop.Init use these fractions of
+-- Length for LastWaitTimeSec, and judge at StartTiming + Length * (1 - fraction).
+-- Store the reference decimal constants as integer millionths.
+def slideLastWaitRatioForShapeKey (shapeKey : String) (isClassic : Bool := false) :
+    Option Rat :=
+  let parts : Option (Nat × Nat) :=
+    match stripMirrorPrefix shapeKey with
+    | "circle1" => some (58000, 65500)
+    | "circle2" => some (465000, 505000)
+    | "circle3" => some (233000, 263000)
+    | "circle4" => some (155000, 175000)
+    | "circle5" => some (116000, 131000)
+    | "circle6" => some (93000, 108000)
+    | "circle7" => some (78000, 85500)
+    | "circle8" => some (66000, 76000)
+    | "line3" | "line7" => some (182000, 277000)
+    | "line4" | "line6" => some (190000, 230000)
+    | "line5" => some (152000, 167000)
+    | "v1" => some (185000, 205000)
+    | "v2" => some (150000, 170000)
+    | "v3" | "v4" | "v6" | "v7" => some (158000, 178000)
+    | "v8" => some (154000, 174000)
+    | "ppqq1" => some (65000, 95000)
+    | "ppqq2" => some (86000, 131000)
+    | "ppqq3" => some (157000, 197000)
+    | "ppqq4" => some (65000, 72500)
+    | "ppqq5" => some (65000, 75000)
+    | "ppqq6" => some (67000, 77000)
+    | "ppqq7" => some (79000, 94000)
+    | "ppqq8" => some (62600, 80100)
+    | "L2" => some (100000, 120000)
+    | "L3" => some (104000, 114000)
+    | "L4" => some (98000, 123000)
+    | "L5" => some (105000, 150000)
+    | "s" => some (130000, 155000)
+    | "pq1" => some (95000, 115000)
+    | "pq2" => some (112000, 137000)
+    | "pq3" => some (125000, 150000)
+    | "pq4" => some (139000, 169000)
+    | "pq5" => some (160000, 192500)
+    | "pq6" => some (80000, 97500)
+    | "pq7" => some (84000, 104000)
+    | "pq8" => some (89500, 109500)
+    | "wifi" => some (162870, 162870)
+    | _ => none
+  parts.map (fun pair => ((if isClassic then pair.2 else pair.1 : Nat) : Rat) / 1000000)
+
+def slideLastWaitRatioForShape (shape : SlideShape) (isClassic : Bool := false) :
+    Option Rat :=
+  slideLastWaitRatioForShapeKey (canonicalShapeKey shape) isClassic
+
 end LnmaiCore.Simai

@@ -202,10 +202,13 @@ structure GameState where
   holdQueues    : ButtonQueueVec Lifecycle.HoldNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
   touchHoldQueues : SensorQueueVec Lifecycle.HoldNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }
   touchQueues   : SensorQueueVec Lifecycle.TouchNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }
+  -- Bodies retain their list order across frames; star heads live in tapQueues.
   slides        : List Lifecycle.SlideNote := []
+  -- These lists include waiting heads and running bodies; head queues arbitrate click order.
   activeHolds   : List (ButtonZone × Lifecycle.HoldNote) := []
   activeTouchHolds : List (SensorArea × Lifecycle.HoldNote) := []
   touchGroupStates : List GroupState := []
+  -- Body-pressure sharing is separate from the touch-group head grades above.
   touchHoldGroupStates : List TouchHoldBodyGroupState := []
   currentBatch  : TimedInputBatch := {}
   score         : ScoreState := {}

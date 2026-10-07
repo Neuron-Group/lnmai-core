@@ -26,6 +26,7 @@ structure ParseRequest where
   mode : ParseMode := .lowered
   content : String
   levelIndex : UInt32 := 1
+  isClassic : Bool := false
   deriving Inhabited, Repr
 
 instance : FromJson ParseRequest where
@@ -34,21 +35,33 @@ instance : FromJson ParseRequest where
         let content ← json.getObjValAs? String "content"
         let mode := (json.getObjValAs? ParseMode "mode").toOption.getD .lowered
         let levelNat := (json.getObjValAs? Nat "levelIndex").toOption.getD 1
-        pure { mode := mode, content := content, levelIndex := levelNat.toUInt32 }
+        let isClassic ← match json.getObjVal? "isClassic" with
+          | .ok value => fromJson? value
+          | .error _ => pure false
+        pure { mode := mode
+             , content := content
+             , levelIndex := levelNat.toUInt32
+             , isClassic := isClassic }
     | json => .error s!"expected request object, got {json.compress}"
 
-private def errorJson (code message : String) : String :=
-  Json.compress <| Json.mkObj
+private def errorJson (code message : String) (details : Option Json := none) : String :=
+  let fields :=
     [ ("ok", Json.bool false)
-    , ("error", Json.mkObj [ ("code", Json.str code), ("message", Json.str message) ]) ]
+    , ("error", Json.mkObj [("code", Json.str code), ("message", Json.str message)]) ]
+  (Json.mkObj (fields ++ details.toList.map (fun value => ("details", value)))).compress
 
 private def handleRequest (request : ParseRequest) : String :=
-  match request.mode with
-  | .frontend => LnmaiCore.FFI.parseFrontendChartJson request.content request.levelIndex
-  | .semantic => LnmaiCore.FFI.parseFrontendSemanticChartJson request.content request.levelIndex
-  | .inspection => LnmaiCore.FFI.parseFrontendInspectionChartJson request.content request.levelIndex
-  | .normalized => LnmaiCore.FFI.parseNormalizedChartJson request.content request.levelIndex
-  | .lowered => LnmaiCore.FFI.parseLoweredChartJson request.content request.levelIndex
+  match Simai.parseFrontendChartResultWithMode
+      request.content request.levelIndex.toNat request.isClassic with
+  | .error err => errorJson "parse_error" err.message (some (toJson err))
+  | .ok result =>
+      let payload := match request.mode with
+        | .frontend => toJson result
+        | .semantic => toJson result.semantic
+        | .inspection => toJson result.inspection
+        | .normalized => toJson result.semantic.normalized
+        | .lowered => toJson result.semantic.lowered
+      (Json.mkObj [("ok", Json.bool true), ("result", payload)]).compress
 
 private def handleLine (line : String) : String :=
   match Json.parse line with

@@ -249,6 +249,11 @@ def ffiVersionJson : IO String :=
 def parseFrontendChartJson (content : @& String) (levelIndex : UInt32) : String :=
   parseResultJson <| Simai.parseFrontendChartResult content levelIndex.toNat
 
+@[export lnmai_parse_frontend_chart_mode_json]
+def parseFrontendChartModeJson (content : @& String) (levelIndex : UInt32)
+    (isClassic : Bool) : String :=
+  parseResultJson <| Simai.parseFrontendChartResultWithMode content levelIndex.toNat isClassic
+
 @[export lnmai_parse_frontend_semantic_chart_json]
 def parseFrontendSemanticChartJson (content : @& String) (levelIndex : UInt32) : String :=
   parseResultJson <| Simai.parseFrontendSemanticChart content levelIndex.toNat
@@ -264,6 +269,10 @@ def parseNormalizedChartJson (content : @& String) (levelIndex : UInt32) : Strin
 @[export lnmai_parse_lowered_chart_json]
 def parseLoweredChartJson (content : @& String) (levelIndex : UInt32) : String :=
   parseResultJson <| Simai.frontendLoweredChart content levelIndex.toNat
+
+@[export lnmai_parse_lowered_chart_mode_json]
+def parseLoweredChartModeJson (content : @& String) (levelIndex : UInt32) (isClassic : Bool) : String :=
+  parseResultJson <| Simai.frontendLoweredChartWithMode content levelIndex.toNat isClassic
 
 @[export lnmai_build_game_state_json]
 def buildGameStateJson (chartSpecJson : @& String) : String :=

@@ -320,6 +320,7 @@ def judgeHoldClassicEnd
 --   From SlideBase.TooLateJudge(): if queueRemaining == 1 → LateGood, else Miss
 ----------------------------------------------------------------------------
 
+-- Timeout uses the maximum pre-sensor track length: one area earns LateGood, otherwise Miss.
 def judgeSlideTooLate (queueRemaining : Nat) : JudgeGrade :=
   if queueRemaining == 1 then LateGood else Miss
 
@@ -328,6 +329,7 @@ def judgeSlideTooLate (queueRemaining : Nat) : JudgeGrade :=
 --  In the real game: timing > SLIDE_JUDGE_GOOD_AREA_MSEC / 1000 + min(user_offset, 0)
 ----------------------------------------------------------------------------
 
+-- Compare elapsed time beyond arrival to the Good window; only negative offsets shorten it.
 def isTooLateSlide (diff : Duration) (userOffset : Duration := Duration.zero) : Bool :=
   let threshold := SLIDE_JUDGE_GOOD_AREA_MSEC + min userOffset Duration.zero
   diff > threshold
