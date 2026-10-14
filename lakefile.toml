@@ -1,6 +1,7 @@
 name = "lnmai-core"
 version = "0.1.0"
 defaultTargets = ["lnmai-core"]
+moreLinkArgs = ["native/lnmai_native.c"]
 
 [[require]]
 name = "mathlib"
