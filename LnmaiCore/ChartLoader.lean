@@ -679,7 +679,7 @@ private def touchHoldBodyGroupStatesFromHolds
             loop rest (upsert acc)
   loop holds []
 
-private structure ChartScoreTotals where
+structure ChartScoreTotals where
   totalBase : Nat := 0
   totalExtra : Nat := 0
   noteCount : Nat := 0
@@ -693,7 +693,7 @@ private def addScoreTotal
   , totalExtra := totals.totalExtra + NoteType.extraScore scoreKind * multiple
   , noteCount := totals.noteCount + multiple }
 
-private def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
+def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
   let totals := chart.taps.foldl (fun totals note => addScoreTotal totals .Tap note.isBreak) {}
   let totals := chart.slideHeads.foldl (fun totals note => addScoreTotal totals .Tap note.isBreak) totals
   let totals := chart.holds.foldl (fun totals note => addScoreTotal totals .Hold note.isBreak) totals

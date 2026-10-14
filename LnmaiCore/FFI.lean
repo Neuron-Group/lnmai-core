@@ -87,6 +87,7 @@ deriving Inhabited
 structure RuntimeRegistry where
   nextHandle : UInt64 := 1
   sessions : HashMap UInt64 RuntimeSession := {}
+  seekOrigins : HashMap UInt64 (InputModel.GameState × List InputModel.TimedInputEvent) := {}
 deriving Inhabited
 
 initialize runtimeRegistryMutex : Std.Mutex RuntimeRegistry ← Std.Mutex.new {}
@@ -148,7 +149,7 @@ private def createEmptyHandle : IO UInt64 := do
     let handle := registry.nextHandle
     let nextHandle := handle + 1
     let sessions := registry.sessions.insert handle .empty
-    let nextRegistry : RuntimeRegistry := { nextHandle := nextHandle, sessions := sessions }
+    let nextRegistry : RuntimeRegistry := { registry with nextHandle := nextHandle, sessions := sessions }
     set nextRegistry
     pure handle
 
@@ -158,7 +159,10 @@ private def insertHandleState (state : InputModel.GameState) : IO UInt64 := do
     let handle := registry.nextHandle
     let nextHandle := handle + 1
     let sessions := registry.sessions.insert handle (.loaded { } state)
-    let nextRegistry : RuntimeRegistry := { nextHandle := nextHandle, sessions := sessions }
+    let nextRegistry : RuntimeRegistry := { registry with
+      nextHandle := nextHandle
+      sessions := sessions
+      seekOrigins := registry.seekOrigins.insert handle (state, []) }
     set nextRegistry
     pure handle
 
@@ -169,7 +173,10 @@ private def insertLoadedHandle (chartSpec : ChartLoader.ChartSpec) : IO UInt64 :
     let nextHandle := handle + 1
     let state := ChartLoader.buildGameState chartSpec
     let sessions := registry.sessions.insert handle (.loaded chartSpec state)
-    let nextRegistry : RuntimeRegistry := { nextHandle := nextHandle, sessions := sessions }
+    let nextRegistry : RuntimeRegistry := { registry with
+      nextHandle := nextHandle
+      sessions := sessions
+      seekOrigins := registry.seekOrigins.insert handle (state, (autoplayPlanFromChart chartSpec).events) }
     set nextRegistry
     pure handle
 
@@ -197,7 +204,9 @@ private def loadHandleChart (handle : UInt64) (chartSpec : ChartLoader.ChartSpec
     | some .empty =>
         let state := ChartLoader.buildGameState chartSpec
         let nextRegistry : RuntimeRegistry :=
-          { registry with sessions := registry.sessions.insert handle (.loaded chartSpec state) }
+          { registry with
+            sessions := registry.sessions.insert handle (.loaded chartSpec state)
+            seekOrigins := registry.seekOrigins.insert handle (state, (autoplayPlanFromChart chartSpec).events) }
         set nextRegistry
         pure <| .ok PUnit.unit
 
@@ -211,7 +220,9 @@ private def unloadHandleChart (handle : UInt64) : IO (Except String PUnit) := do
         pure <| .error s!"runtime handle {handle} already has no loaded chart"
     | some (.loaded _ _) =>
         let nextRegistry : RuntimeRegistry :=
-          { registry with sessions := registry.sessions.insert handle .empty }
+          { registry with
+            sessions := registry.sessions.insert handle .empty
+            seekOrigins := registry.seekOrigins.erase handle }
         set nextRegistry
         pure <| .ok PUnit.unit
 
@@ -238,7 +249,9 @@ private def eraseHandleState (handle : UInt64) : IO Bool := do
     let registry ← get
     let present := registry.sessions.contains handle
     if present then
-      let nextRegistry : RuntimeRegistry := { registry with sessions := registry.sessions.erase handle }
+      let nextRegistry : RuntimeRegistry := { registry with
+        sessions := registry.sessions.erase handle
+        seekOrigins := registry.seekOrigins.erase handle }
       set nextRegistry
     pure present
 
@@ -558,7 +571,9 @@ def nativeDispatch (handle : UInt64) (operation : UInt32) (request out : UInt64)
       return 0
     if operation == 7 then
       if !registry.sessions.contains handle then return ← fail s!"unknown runtime handle: {handle}"
-      set { registry with sessions := registry.sessions.erase handle }
+      set { registry with
+        sessions := registry.sessions.erase handle
+        seekOrigins := registry.seekOrigins.erase handle }
       return 0
     match registry.sessions.get? handle with
     | none => return ← fail s!"unknown runtime handle: {handle}"
@@ -570,7 +585,9 @@ def nativeDispatch (handle : UInt64) (operation : UInt32) (request out : UInt64)
         let state := ChartLoader.buildGameState chart
         emitScore out state
         if !(← nativeOutputOk out) then return 2
-        set { registry with sessions := registry.sessions.insert handle (.loaded chart state) }
+        set { registry with
+          sessions := registry.sessions.insert handle (.loaded chart state)
+          seekOrigins := registry.seekOrigins.insert handle (state, (autoplayPlanFromChart chart).events) }
         return 0
     | some (.loaded chart state) =>
       if operation == 2 then
@@ -583,9 +600,15 @@ def nativeDispatch (handle : UInt64) (operation : UInt32) (request out : UInt64)
         return 0
       if operation == 3 then
         let target := TimePoint.fromMicros (signedWord (nativeRequestWord request 0))
-        let next := RuntimeSeek.rebuild chart state target
+        if target < TimePoint.zero then return ← fail "invalid seek time"
+        let some (initial, tactic) := registry.seekOrigins.get? handle
+          | return ← fail "seek requires a native-loaded session"
+        let inputs := readNativeBatch request
+        let events := if inputs.events.isEmpty then tactic else inputs.events
+        let (next, render) := RuntimeSeek.seek chart initial state target events
+          (nativeRequestWord request 1 != 0)
         let retained := RuntimeSeek.noteIndices (RuntimeSeek.chartFrom chart target)
-        emitScore out next
+        emitStep out next [] [] render
         for id in RuntimeSeek.noteIndices chart do emit out (if retained.contains id then 40 else 41) [id]
         if !(← nativeOutputOk out) then return 2
         set { registry with sessions := registry.sessions.insert handle (.loaded chart next) }
