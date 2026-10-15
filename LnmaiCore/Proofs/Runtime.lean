@@ -744,4 +744,20 @@ theorem exampleDelayedSingleTapSensorTactic_achievesAP :
     ) = true := by
   native_decide
 
+/- A non-checkable slide update is queue-preserving by construction. This is the
+   exact fact used by the scheduler's sensor-trigger predicate. -/
+theorem noncheckable_slide_queues_preserved
+    (note : Lifecycle.SlideNote) (sensorHeld : SensorVec Bool) :
+    (Lifecycle.slideUpdatedQueuesWithCmds note false sensorHeld).map Prod.fst = note.judgeQueues := by
+  simp only [Lifecycle.slideUpdatedQueuesWithCmds, Bool.false_eq_true, ↓reduceIte]
+  induction note.judgeQueues with
+  | nil => rfl
+  | cons head tail ih =>
+      simp only [List.map_cons, ih]
+
+/- The dormant semantic constructor carries the original queue list unchanged. -/
+theorem dormant_slide_semantic_queues_preserved (note : Lifecycle.SlideNote) :
+    (Lifecycle.buildSlideDormantSemanticBase note).note.judgeQueues = note.judgeQueues := by
+  rfl
+
 end LnmaiCore

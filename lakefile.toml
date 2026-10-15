@@ -1,11 +1,12 @@
 name = "lnmai-core"
 version = "0.1.0"
 defaultTargets = ["lnmai-core"]
+moreLinkArgs = ["native/lnmai_native.c"]
 
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
-rev = "v4.30.0-rc2"
+rev = "v4.30.0"
 
 
 [[lean_lib]]

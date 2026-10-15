@@ -675,6 +675,8 @@ for example:
 Fields:
 
 - `kind`: note/judge event kind
+- `phase`: judgment phase (`head` or `tail`); hold heads use `kind: Hold`,
+  `phase: head`, while completed hold results use `kind: Hold`, `phase: tail`
 - `grade`: `JudgeGrade`
 - `diff`: signed timing delta as `Duration`
 - `position`: runtime position descriptor
@@ -684,7 +686,8 @@ Fields:
 
 Notes:
 
-- `kind` remains the gameplay family (`Tap`, `Hold`, `Slide`, `Touch`)
+- `kind` remains the gameplay family (`Tap`, `Hold`, `Slide`, `Touch`, `Break`)
+- hold head/tail semantics are carried by `phase`, never by a separate event kind
 - break semantics now travel through `isBreak` instead of overloading `kind`
 - slide-body events use `multiple` to mirror MajdataPlay's folded identical-slide `Multiple` accounting
 

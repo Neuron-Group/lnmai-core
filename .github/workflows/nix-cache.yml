@@ -1,0 +1,22 @@
+name: Nix Dependency Cache
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-lake-deps:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: cachix/cachix-action@v17
+        with:
+          name: lnmai-core
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - run: nix build --accept-flake-config .#lake-deps

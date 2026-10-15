@@ -213,11 +213,13 @@ private def pressBandMicros (heldMicros realityMicros : ℤ) : Nat :=
     ignoreTimeSec        — head + tail ignore duration (6f+12f=0.3s for regular hold, 15f+12f=0.45s for touch hold)
     playerReleaseTimeSec — accumulated release time in seconds
 -/
+/- Final modern-hold grade. The playable denominator is the hold length minus
+   head/tail ignore time, capped at the reference 300 ms floor; accumulated
+   release time selects the same five press bands as MajdataPlay. -/
 def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Duration) (length : Duration) (ignoreTime : Duration) (playerReleaseTime : Duration) : JudgeGrade :=
-  -- offset: 0 if fast-side head, otherwise = judgeDiff
-  let offset := if headGrade.isFast then Duration.zero else judgeDiff
-  -- realityHT = effective hold time (minus ignores, minus late offset, clamped)
-  let realityHTRaw := length - ignoreTime - offset
+  -- MajdataPlay's HoldEndJudge uses the note length and ignore time only;
+  -- head timing error does not shorten the release percentage denominator.
+  let realityHTRaw := length - ignoreTime
   let realityHTMax := length - Duration.fromMicros 300000
   let realityHT := max Duration.zero (min realityHTRaw realityHTMax)
   if realityHT ≤ Duration.zero then
@@ -288,6 +290,8 @@ def judgeHoldEnd (headGrade : JudgeGrade) (judgeDiff : Duration) (length : Durat
   then takes the WORSE of head grade vs end grade.
   Comparison uses |7 - (int)grade| distance from Perfect.
 -/
+/- Classic-hold tail judgment compares independent release timing with the
+   head grade and keeps the worse grade. -/
 def judgeHoldClassicEnd
     (headGrade : JudgeGrade) (timing : TimePoint) (length : Duration)
     (releaseTiming : TimePoint) : JudgeGrade :=
@@ -316,6 +320,7 @@ def judgeHoldClassicEnd
 --   From SlideBase.TooLateJudge(): if queueRemaining == 1 → LateGood, else Miss
 ----------------------------------------------------------------------------
 
+-- Timeout uses the maximum pre-sensor track length: one area earns LateGood, otherwise Miss.
 def judgeSlideTooLate (queueRemaining : Nat) : JudgeGrade :=
   if queueRemaining == 1 then LateGood else Miss
 
@@ -324,6 +329,7 @@ def judgeSlideTooLate (queueRemaining : Nat) : JudgeGrade :=
 --  In the real game: timing > SLIDE_JUDGE_GOOD_AREA_MSEC / 1000 + min(user_offset, 0)
 ----------------------------------------------------------------------------
 
+-- Compare elapsed time beyond arrival to the Good window; only negative offsets shorten it.
 def isTooLateSlide (diff : Duration) (userOffset : Duration := Duration.zero) : Bool :=
   let threshold := SLIDE_JUDGE_GOOD_AREA_MSEC + min userOffset Duration.zero
   diff > threshold

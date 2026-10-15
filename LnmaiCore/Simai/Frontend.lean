@@ -22,6 +22,16 @@ def frontendChartResultOfLevel (file : MaidataFile) (levelIndex : Nat) : Except 
 def parseFrontendChartResult (content : String) (levelIndex : Nat) : Except ParseError FrontendChartResult :=
   parseAndLowerSourceMaidata content levelIndex
 
+-- Judge mode is a playback setting, independent of Simai syntax.
+def parseFrontendChartResultWithMode (content : String) (levelIndex : Nat) (isClassic : Bool) :
+    Except ParseError FrontendChartResult :=
+  parseAndLowerSourceMaidataWithMode content levelIndex isClassic
+
+def frontendLoweredChartWithMode (content : String) (levelIndex : Nat) (isClassic : Bool) :
+    Except ParseError ChartLoader.ChartSpec := do
+  let result ← parseFrontendChartResultWithMode content levelIndex isClassic
+  pure result.semantic.lowered
+
 def parseFrontendSemanticChart (content : String) (levelIndex : Nat) : Except ParseError FrontendSemanticChart := do
   let result ← parseFrontendChartResult content levelIndex
   pure result.semantic

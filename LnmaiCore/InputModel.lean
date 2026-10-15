@@ -191,6 +191,8 @@ def setSensorQueueAt {α : Type} (queues : SensorQueueVec α) (area : SensorArea
 ----------------------------------------------------------------------------
 
 structure GameState where
+  /-- Persistent frame state: queues/frontiers own click consumption, active
+      lists carry hold lifecycles, and group states carry cross-note sharing. -/
   currentTime   : TimePoint := TimePoint.zero
   prevButton    : ButtonVec Bool := ButtonVec.replicate BUTTON_ZONE_COUNT false
   prevSensor    : SensorVec Bool := SensorVec.replicate SENSOR_AREA_COUNT false
@@ -200,10 +202,13 @@ structure GameState where
   holdQueues    : ButtonQueueVec Lifecycle.HoldNote := ButtonQueueVec.replicate BUTTON_ZONE_COUNT { notes := [] }
   touchHoldQueues : SensorQueueVec Lifecycle.HoldNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }
   touchQueues   : SensorQueueVec Lifecycle.TouchNote := SensorQueueVec.replicate SENSOR_AREA_COUNT { notes := [] }
+  -- Bodies retain their list order across frames; star heads live in tapQueues.
   slides        : List Lifecycle.SlideNote := []
+  -- These lists include waiting heads and running bodies; head queues arbitrate click order.
   activeHolds   : List (ButtonZone × Lifecycle.HoldNote) := []
   activeTouchHolds : List (SensorArea × Lifecycle.HoldNote) := []
   touchGroupStates : List GroupState := []
+  -- Body-pressure sharing is separate from the touch-group head grades above.
   touchHoldGroupStates : List TouchHoldBodyGroupState := []
   currentBatch  : TimedInputBatch := {}
   score         : ScoreState := {}
@@ -212,6 +217,10 @@ structure GameState where
   subdivideSlideJudgeGrade : Bool := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
   noteFastLateDisplay : JudgeDisplayOption := JudgeDisplayOption.All
   breakFastLateDisplay : JudgeDisplayOption := JudgeDisplayOption.Disable
+  /-- Whether regular hold-head judgment results are rendered. -/
+  displayHoldHeadJudgeResult : Bool := false
+  /-- Accept outer button-ring clicks as touch/touch-hold input. -/
+  buttonRingForTouch : Bool := false
 deriving Inhabited, Repr, ToJson, FromJson
 
 end LnmaiCore.InputModel

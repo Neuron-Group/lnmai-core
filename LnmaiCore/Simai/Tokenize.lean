@@ -89,7 +89,7 @@ def isTouchAreaChar (c : Char) : Bool :=
   c = 'A' || c = 'B' || c = 'C' || c = 'D' || c = 'E'
 
 def isSlideMarkChar (c : Char) : Bool :=
-  c = '-' || c = '^' || c = 'v' || c = '<' || c = '>' || c = 'V' || c = 'p' || c = 'q' || c = 's' || c = 'z' || c = 'w'
+  c = '-' || c = '^' || c = 'v' || c = '<' || c = '>' || c = 'V' || c = 'p' || c = 'q' || c = 's' || c = 'z' || c = 'w' || c = 'K'
 
 def isSlideText (t : String) : Bool :=
   t.toList.any isSlideMarkChar
@@ -112,14 +112,14 @@ def inferKind (token : String) : RawNoteKind :=
 def splitTopLevel (sep : Char) (s : String) : List String :=
   let rec loop (chars : List Char) (depth : Nat) (current : List Char) (acc : List String) : List String :=
     match chars with
-    | [] => (String.ofList current :: acc).reverse
-    | '[' :: rest => loop rest (depth + 1) (current.concat '[') acc
-    | ']' :: rest => loop rest (depth - 1) (current.concat ']') acc
+    | [] => (String.ofList current.reverse :: acc).reverse
+    | '[' :: rest => loop rest (depth + 1) ('[' :: current) acc
+    | ']' :: rest => loop rest (depth - 1) (']' :: current) acc
     | c :: rest =>
         if c = sep && depth = 0 then
-          loop rest depth [] (String.ofList current :: acc)
+          loop rest depth [] (String.ofList current.reverse :: acc)
         else
-          loop rest depth (current.concat c) acc
+          loop rest depth (c :: current) acc
   loop s.toList 0 [] []
 
 def splitEntryTokens (entry : String) : List String :=
@@ -142,11 +142,12 @@ def parseHeadBreak (token : String) : Bool :=
 
 def parseSlideSegmentBreak (token : String) : Bool :=
   let t := stripPrefixDirectives token
-  if !isSlideText t then false
-  else
-    match t.splitOn "[" with
-    | head :: _ => head.endsWith "b"
+  let rec loop (seenSlide : Bool) : List Char → Bool
     | [] => false
+    | c :: rest =>
+        if c == 'b' && seenSlide && (rest.isEmpty || rest.head? == some '[') then true
+        else loop (seenSlide || isSlideMarkChar c) rest
+  loop false t.toList
 
 def parseHSpeedDirective (text : String) (current : Rat) : Rat :=
   let t := trim text
@@ -185,7 +186,11 @@ private def applyInlineDirectiveFuel (fuel : Nat) (bpm : Rat) (divisor : Nat) (h
           | [] => t
         applyInlineDirectiveFuel fuel bpm divisor (parseHSpeedDirective t hSpeed) after
       else
-        (bpm, divisor, hSpeed, t)
+        -- MajSimai clears the pending note when a BPM/divisor directive is encountered,
+        -- even if note text precedes it in the comma segment.
+        let nextDirective := t.toList.dropWhile (fun c => c != '(' && c != '{')
+        if nextDirective.isEmpty then (bpm, divisor, hSpeed, t)
+        else applyInlineDirectiveFuel fuel bpm divisor hSpeed (String.ofList nextDirective)
 
 def applyInlineDirective (bpm : Rat) (divisor : Nat) (hSpeed : Rat) (segment : String) : Rat × Nat × Rat × String :=
   applyInlineDirectiveFuel (segment.length + 1) bpm divisor hSpeed segment
@@ -241,9 +246,9 @@ private def readDigitChar (rawText : String) : List Char → Except ParseError (
 private def readBracketSuffixFuel (fuel : Nat) (rawText : String) : List Char → List Char → Except ParseError (String × List Char)
   | [], _ => Except.error <| chainSyntaxError rawText "unterminated slide timing spec"
   | c :: rest, acc =>
-      let acc := acc.concat c
+      let acc := c :: acc
       if c = ']' then
-        pure (String.ofList acc, rest)
+        pure (String.ofList acc.reverse, rest)
       else
         match fuel with
         | 0 => Except.error <| chainSyntaxError rawText "unterminated slide timing spec"
@@ -313,12 +318,13 @@ private def parseContinuousSlideSegments? (token : String) : Except ParseError (
 
 private def segmentBarCount (rawText : String) : Except ParseError Nat := do
   let shape ← detectShapeFromText rawText
-  let queues := judgeQueuesForShape shape false |>.getD []
-  let count := queues.foldl (fun acc queue => Nat.max acc queue.length) 0
-  if count = 0 then
+  if shape.kind == .wifi then
+    Except.error <| chainSyntaxError rawText
+      "wifi slide cannot be part of a connection slide group"
+  else match slideBarCountForShape shape with
+  | some count => pure count
+  | none =>
     Except.error <| chainSyntaxError rawText "missing slide table for connected slide segment"
-  else
-    pure count
 
 private def applySharedSlideFlags (baseTok segmentTok : RawNoteToken) (isHeadless : Bool) : RawNoteToken :=
   { segmentTok with
@@ -340,17 +346,6 @@ private def tagConnectedGroup (groupId : Nat) (size : Nat) (tokens : List RawNot
           , sourceGroupSize := some size } :: loop (index + 1) rest
   loop 0 tokens
 
-private def buildPerSegmentChainTokens
-    (groupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat)
-    (baseTok : RawNoteToken) (segments : List ContinuousChainSegment) : Except ParseError (List RawNoteToken) := do
-  let rec loop (isFirst : Bool) : List ContinuousChainSegment → List RawNoteToken
-    | [] => []
-    | segment :: rest =>
-        let tok := mkRawToken timing bpm hSpeed divisor segment.rawText
-        applySharedSlideFlags baseTok tok (if isFirst then baseTok.isSlideNoHead else true) :: loop false rest
-  let tokens := loop true segments
-  pure <| tagConnectedGroup groupId tokens.length tokens
-
 private def buildWholeDurationChainTokens
     (groupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat)
     (baseTok : RawNoteToken) (segments : List ContinuousChainSegment) : Except ParseError (List RawNoteToken) := do
@@ -361,15 +356,22 @@ private def buildWholeDurationChainTokens
   if totalBars = 0 then
     Except.error <| chainSyntaxError baseTok.rawText "connected slide chain has no measurable segments"
   else
-    let baseMicros := totalLength.toMicros
-    let rec loop (isFirst : Bool) : List (ContinuousChainSegment × Nat) → List RawNoteToken
+    let baseMicros : Rat := totalLength.toMicros
+    let rec loop (isFirst : Bool) (elapsedBars : Nat) : List (ContinuousChainSegment × Nat) → List RawNoteToken
       | [] => []
       | (segment, bars) :: rest =>
           let segTok := mkRawToken timing bpm hSpeed divisor segment.rawText
-          let segLen := Duration.fromMicros (baseMicros * Int.ofNat bars / Int.ofNat totalBars)
+          -- Quantize cumulative boundaries so the parts sum to the original duration.
+          let startOffset := Time.durationFromRatMicros
+            (baseMicros * Int.ofNat elapsedBars / Int.ofNat totalBars)
+          let endOffset := Time.durationFromRatMicros
+            (baseMicros * Int.ofNat (elapsedBars + bars) / Int.ofNat totalBars)
+          let segLen := endOffset - startOffset
           let segWait := if isFirst then baseTok.starWait else none
-          applySharedSlideFlags baseTok { segTok with length := some segLen, starWait := segWait } (if isFirst then baseTok.isSlideNoHead else true) :: loop false rest
-    let rawTokens := loop true (List.zip segments barCounts)
+          applySharedSlideFlags baseTok
+            { segTok with length := some segLen, starWait := segWait }
+            (if isFirst then baseTok.isSlideNoHead else true) :: loop false (elapsedBars + bars) rest
+    let rawTokens := loop true 0 (List.zip segments barCounts)
     pure <| tagConnectedGroup groupId rawTokens.length rawTokens
 
 private inductive ChainTimingLayout where
@@ -388,10 +390,7 @@ private def classifyChainTimingLayout (rawText : String) (segments : List Contin
         else
           Except.error <| chainSyntaxError rawText "invalid connected slide timing layout"
     | false :: _ =>
-        if flags.all (fun flag => !flag) then
-          Except.error <| chainSyntaxError rawText "connected slide chain requires either per-segment timing or a final overall timing spec"
-        else
-          Except.error <| chainSyntaxError rawText "invalid connected slide timing layout"
+        Except.error <| chainSyntaxError rawText "connected slide chain requires either per-segment timing or a final overall timing spec"
     | [] =>
         Except.error <| chainSyntaxError rawText "invalid connected slide timing layout"
 
@@ -404,9 +403,9 @@ private def expandContinuousChainToken
       match (← parseContinuousSlideSegments? token) with
       | none => pure [baseTok]
       | some segments =>
-          match (← classifyChainTimingLayout baseTok.rawText segments) with
-          | .perSegment => buildPerSegmentChainTokens groupId timing bpm hSpeed divisor baseTok segments
-          | .overallFinal => buildWholeDurationChainTokens groupId timing bpm hSpeed divisor baseTok segments
+          let _ ← classifyChainTimingLayout baseTok.rawText segments
+          -- NoteLoader redistributes the summed duration in both accepted timing layouts.
+          buildWholeDurationChainTokens groupId timing bpm hSpeed divisor baseTok segments
   | _ => pure [baseTok]
 
 private def sameHeadGroupParts (token : String) : List String :=
@@ -428,76 +427,89 @@ private def sameHeadHeadPrefix (token : String) : String :=
       else
         ""
 
-private def expandSameHeadGroupRest (groupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat)
-    (headPrefix : String) (size : Nat) : Nat → List String → Except ParseError (List RawNoteToken)
+private def expandSameHeadGroupRest
+    (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat)
+    (headPrefix : String) : Nat → List String → Except ParseError (List RawNoteToken)
   | _, [] => pure []
-  | idx, part :: rest => do
-      let rebuilt := if headPrefix = "" then part else headPrefix ++ part
-      let tok := mkRawToken timing bpm hSpeed divisor rebuilt
-      let tail ← expandSameHeadGroupRest groupId timing bpm hSpeed divisor headPrefix size (idx + 1) rest
-      pure ({ tok with
-        isSlideNoHead := true,
-        sourceGroupId := some groupId,
-        sourceGroupIndex := some idx,
-        sourceGroupSize := some size } :: tail)
+  | groupId, part :: rest => do
+      let rebuilt := headPrefix ++ part
+      let tokens ← expandContinuousChainToken groupId timing bpm hSpeed divisor rebuilt
+      let tail ← expandSameHeadGroupRest timing bpm hSpeed divisor headPrefix
+        (groupId + tokens.length) rest
+      pure (tokens.map (fun tok => { tok with isSlideNoHead := true }) ++ tail)
 
-private def expandSameHeadGroup (groupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (token : String) : Except ParseError (List RawNoteToken) := do
+private def expandSameHeadGroup (groupId : Nat) (timing : TimePoint) (bpm : Rat)
+    (hSpeed : Rat) (divisor : Nat) (token : String) : Except ParseError (List RawNoteToken) := do
   let parts := sameHeadGroupParts token
   match parts with
   | [] => pure []
   | first :: rest =>
       let headPrefix := sameHeadHeadPrefix first
-      let firstTok := mkRawToken timing bpm hSpeed divisor first
-      let firstIsGroupedSlide := firstTok.kind = .slide
-      let groupedSlideCount := (if firstIsGroupedSlide then 1 else 0) + rest.length
-      let firstTok :=
-        if firstIsGroupedSlide then
-          { firstTok with sourceGroupId := some groupId, sourceGroupIndex := some 0, sourceGroupSize := some groupedSlideCount }
-        else
-          firstTok
-      let restStartIndex := if firstIsGroupedSlide then 1 else 0
-      let restToks ← expandSameHeadGroupRest groupId timing bpm hSpeed divisor headPrefix groupedSlideCount restStartIndex rest
-      pure (firstTok :: restToks)
+      let firstTokens ← expandContinuousChainToken groupId timing bpm hSpeed divisor first
+      let restTokens ← expandSameHeadGroupRest timing bpm hSpeed divisor headPrefix
+        (groupId + firstTokens.length) rest
+      pure (firstTokens ++ restTokens)
 
 private def expandTokenList (baseGroupId : Nat) (timing : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) : Nat → List String → Except ParseError (List RawNoteToken)
   | _, [] => pure []
   | idx, tokText :: rest => do
+      if inferKind tokText != .unknown &&
+          tokText.toList.any (fun c => c == 'K' || c == '@' || c == 'c' || c == 'm') then
+        throw <| chainSyntaxError tokText "unsupported extended slide or note modifier (K, @, c, m)"
       let current ←
         if tokText.contains '*' then
           expandSameHeadGroup (baseGroupId + idx) timing bpm hSpeed divisor tokText
         else
           expandContinuousChainToken (baseGroupId + idx) timing bpm hSpeed divisor tokText
-      let tail ← expandTokenList baseGroupId timing bpm hSpeed divisor (idx + 1) rest
+      let tail ← expandTokenList baseGroupId timing bpm hSpeed divisor (idx + current.length) rest
       pure (current ++ tail)
 
-def parseSegmentNotes (segment : String) (time : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) : Except ParseError (List RawNoteToken) := do
-  let normalized := trim <| segment.replace "\n" ""
+private def expandEntryText (baseGroupId : Nat) (timing : TimePoint) (bpm : Rat)
+    (hSpeed : Rat) (divisor : Nat) (entry : String) : Except ParseError (List RawNoteToken) := do
+  let text := trim entry
+  if text.length == 2 && text.toList.all (fun c => (digitToNat? c).isSome) then
+    expandTokenList baseGroupId timing bpm hSpeed divisor 0 (text.toList.map String.singleton)
+  else
+    expandTokenList baseGroupId timing bpm hSpeed divisor 0 (splitEntryTokens text)
+
+private def parseSegmentNotesExact (segment : String) (time : Rat) (bpm : Rat)
+    (hSpeed : Rat) (divisor : Nat) : Except ParseError (List RawNoteToken) := do
+  let normalized := String.ofList (segment.toList.filter (fun c => !c.isWhitespace))
   if normalized = "" then
     pure []
   else if normalized.contains '`' then
-    let parts := normalized.splitOn "`"
-    let (_, acc) ←
-      parts.foldlM
-        (fun (state : TimePoint × List RawNoteToken) part => do
-          let (currentTime, acc) := state
-          let tokens ← expandTokenList 0 currentTime bpm hSpeed divisor 0 (splitEntryTokens part)
-          pure (currentTime + pseudoIncrement bpm, acc ++ tokens))
-        (time, [])
-    pure acc
+    let parts := (normalized.splitOn "`").filter (· != "")
+    let increment := if bpm > 0 then Time.bpmBeatMicrosRat bpm / 32 else 1000
+    let (_, acc) ← parts.foldlM
+      (fun (state : Rat × List RawNoteToken) part => do
+        let (currentTime, acc) := state
+        let tokens ← expandEntryText 0 (Time.pointFromRatMicros currentTime) bpm hSpeed divisor part
+        pure (currentTime + increment, tokens.reverse ++ acc))
+      (time, [])
+    pure acc.reverse
   else
-    expandTokenList 0 time bpm hSpeed divisor 0 (splitEntryTokens normalized)
+    expandEntryText 0 (Time.pointFromRatMicros time) bpm hSpeed divisor normalized
 
-def parseSegments (segments : List String) (time : TimePoint) (bpm : Rat) (hSpeed : Rat) (divisor : Nat) (acc : List RawNoteToken) : Except ParseError (List RawNoteToken) :=
+def parseSegmentNotes (segment : String) (time : TimePoint) (bpm : Rat)
+    (hSpeed : Rat) (divisor : Nat) : Except ParseError (List RawNoteToken) :=
+  parseSegmentNotesExact segment time.toMicros bpm hSpeed divisor
+
+private def parseSegmentsExact (segments : List String) (time : Rat) (bpm : Rat)
+    (hSpeed : Rat) (divisor : Nat) (acc : List RawNoteToken) :
+    Except ParseError (List RawNoteToken) :=
   match segments with
   | [] => pure acc.reverse
   | segment :: rest => do
       let clean := trim segment
       let (bpm', divisor', hSpeed', body) := applyInlineDirective bpm divisor hSpeed clean
-      let newTokens ← parseSegmentNotes body time bpm' hSpeed' divisor'
-      let nextTime := time + noteTimingIncrement bpm' divisor'
-      parseSegments rest nextTime bpm' hSpeed' divisor' (newTokens.reverse ++ acc)
-termination_by segments.length
-decreasing_by
-  simp_wf
+      let newTokens ← parseSegmentNotesExact body time bpm' hSpeed' divisor'
+      let increment :=
+        if bpm' > 0 && divisor' > 0 then Time.bpmMeasureMicrosRat bpm' / Int.ofNat divisor'
+        else 0
+      parseSegmentsExact rest (time + increment) bpm' hSpeed' divisor' (newTokens.reverse ++ acc)
+
+def parseSegments (segments : List String) (time : TimePoint) (bpm : Rat) (hSpeed : Rat)
+    (divisor : Nat) (acc : List RawNoteToken) : Except ParseError (List RawNoteToken) :=
+  parseSegmentsExact segments time.toMicros bpm hSpeed divisor acc
 
 end LnmaiCore.Simai

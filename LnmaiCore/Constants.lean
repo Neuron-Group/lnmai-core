@@ -22,7 +22,9 @@ def TAP_JUDGE_SEG_3RD_PERFECT_MSEC : Duration := Duration.scaleNat FRAME_LENGTH_
 def TAP_JUDGE_SEG_1ST_GREAT_MSEC   : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 4
 def TAP_JUDGE_SEG_2ND_GREAT_MSEC   : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 5
 def TAP_JUDGE_SEG_3RD_GREAT_MSEC   : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 6
-def TAP_JUDGE_GOOD_AREA_MSEC       : Duration := Duration.scaleNat FRAME_LENGTH_MSEC 9
+-- Nine 60 Hz frames are approximately 150 ms. Keep this as a duration so
+-- eligibility is compared against elapsed time rather than a frame count.
+def TAP_JUDGE_GOOD_AREA_MSEC       : Duration := Duration.fromMicros 150000
 
 def tapPerfect1Ms  : Duration := TAP_JUDGE_SEG_1ST_PERFECT_MSEC
 def tapPerfect2Ms  : Duration := TAP_JUDGE_SEG_2ND_PERFECT_MSEC

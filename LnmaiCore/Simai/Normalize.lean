@@ -25,22 +25,28 @@ private def applySingleTrackConnRulesNormalized (slide : NormalizedSlide) (queue
         { second with isSkippable := slide.isGroupEnd } ::
         rest
   else
-    queue
+    queue.map (fun area => { area with isSkippable := true })
 
 private def attachJudgeQueues (slide : NormalizedSlide) : NormalizedSlide :=
   let rawQueues := judgeQueuesForShape slide.simaiShape slide.isClassic |>.getD []
   let placedQueues := rotateJudgeQueues slide.slot.toIndex rawQueues
-  let withLen := { slide with totalJudgeQueueLen := totalJudgeQueueLen placedQueues }
-  let queues :=
-    match placedQueues with
-    | [queue] => [applySingleTrackConnRulesNormalized withLen queue]
-    | _ => placedQueues
-  { withLen with judgeQueues := queues, totalJudgeQueueLen := totalJudgeQueueLen queues }
+  { slide with totalJudgeQueueLen := totalJudgeQueueLen placedQueues, judgeQueues := placedQueues }
+
+private def applyConnectedQueueRules (group : List NormalizedSlide) : List NormalizedSlide :=
+  -- Each shared endpoint belongs to both neighboring tables but only once to
+  -- the connected group's queue length (NoteLoader.CreateSlideGroup).
+  let total := group.foldl (fun acc slide => acc + slide.totalJudgeQueueLen) 0 -
+    (group.length - 1)
+  group.map (fun slide =>
+    let withLen := { slide with totalJudgeQueueLen := total }
+    { withLen with judgeQueues :=
+        withLen.judgeQueues.map (applySingleTrackConnRulesNormalized withLen) })
 
 private def slideDebugFor (chart : NormalizedChart) (noteIndex : Nat) : Option NormalizedSlideDebug :=
   chart.slideDebug.find? (fun dbg => dbg.noteIndex = noteIndex)
 
-def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (NormalizedSlide × SlideNoteSemantics) :=
+def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) (isClassic : Bool := false) :
+    Option (NormalizedSlide × SlideNoteSemantics) :=
   match token.slot with
   | some slot =>
       match parseTerminalEndArea token.rawText with
@@ -51,16 +57,20 @@ def lowerSlideToken (noteIndex : Nat) (token : RawNoteToken) : Option (Normalize
           | .ok parsed =>
               let isWifi := parsed.shape.kind = SlideKind.wifi
               let length := token.length.getD (noteTimingIncrement token.bpm (max token.divisor 1))
+              let startTiming := token.timing + token.starWait.getD Duration.zero
+              let lastWaitRatio := (slideLastWaitRatioForShape parsed.shape isClassic).getD 0
+              let judgeDuration :=
+                Time.durationFromRatMicros ((length.toMicros : Rat) * (1 - lastWaitRatio))
               let slide : NormalizedSlide :=
                 { headTiming := token.timing
                 , slot := slot
                 , length := length
-                , startTiming := token.timing + token.starWait.getD Duration.zero
+                , startTiming := startTiming
                 , hSpeed := token.hSpeed
                 , slideKind := if isWifi then LnmaiCore.SlideKind.Wifi else LnmaiCore.SlideKind.Single
-                , isClassic := false
+                , isClassic := isClassic
                 , trackCount := if isWifi then 3 else 1
-                , judgeAt := some (token.timing + token.starWait.getD Duration.zero + length)
+                , judgeAt := some (startTiming + judgeDuration)
                 , isBreak := token.isBreak
                 , isEX := token.isEX
                 , isHanabi := token.isHanabi
@@ -161,7 +171,7 @@ private def takeSameSourceGroup (gid : Nat) :
     List NormalizedSlide → List NormalizedSlide × List NormalizedSlide
   | [] => ([], [])
   | slide :: rest =>
-      if slide.sourceGroupId == some gid then
+      if slide.sourceGroupId == some gid && slide.sourceGroupIndex != some 0 then
         let (group, remaining) := takeSameSourceGroup gid rest
         (slide :: group, remaining)
       else
@@ -218,9 +228,10 @@ private def foldSlideMultiplicity (slides : List NormalizedSlide) : List Normali
     (splitSlideMultiplicityUnits slides).foldl
       (fun acc unit => insertFoldedSlideMultiplicityUnit unit acc)
       []
-  units.foldl (fun acc unit => acc ++ unit) []
+  units.flatten
 
-def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToken) : NormalizedChart × List SlideNoteSemantics :=
+def lowerRawTokensWithMode (isClassic : Bool) (measureDurSec : Rat → Duration)
+    (tokens : List RawNoteToken) : NormalizedChart × List SlideNoteSemantics :=
   let (_, taps, holds, touches, touchHolds, slides, slideDebug, slideSemantics) :=
     tokens.foldl
       (fun (state : Nat × List NormalizedTap × List NormalizedHold × List NormalizedTouch × List NormalizedTouchHold × List NormalizedSlide × List NormalizedSlideDebug × List SlideNoteSemantics) token =>
@@ -274,15 +285,19 @@ def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToke
                  slides, slideDebug, slideSemantics)
             | none => state
         | .slide =>
-            match lowerSlideToken noteIndex token with
+            match lowerSlideToken noteIndex token isClassic with
             | some (slide, parsed) =>
                 (noteIndex + 1, taps, holds, touches, touchHolds, slide :: slides, { noteIndex := noteIndex, rawText := token.rawText } :: slideDebug, parsed :: slideSemantics)
             | none => state
         | _ => state)
       (1, [], [], [], [], [], [], [])
-  let loweredSlides :=
-    (applyConnectedSlideMetadata (foldSlideMultiplicity slides.reverse)).map attachJudgeQueues
+  let attached := (applyConnectedSlideMetadata (foldSlideMultiplicity slides.reverse)).map attachJudgeQueues
+  let loweredSlides := (splitSlideMultiplicityUnits attached).flatMap applyConnectedQueueRules
   ({ taps := taps.reverse, holds := holds.reverse, touches := touches.reverse, touchHolds := touchHolds.reverse, slides := loweredSlides, slideDebug := slideDebug.reverse, slideSkipping := true }, slideSemantics.reverse)
+
+def lowerRawTokens (measureDurSec : Rat → Duration) (tokens : List RawNoteToken) :
+    NormalizedChart × List SlideNoteSemantics :=
+  lowerRawTokensWithMode false measureDurSec tokens
 
 def toChartSpec (chart : NormalizedChart) : ChartLoader.ChartSpec :=
   let maxNoteIndex :=

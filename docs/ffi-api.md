@@ -9,6 +9,11 @@ For payload schemas and transformation-stage data structures, see:
 
 - `docs/ffi-ir.md`
 
+For the runtime output contract, including semantic events and separate audio
+and render command streams, see:
+
+- `docs/runtime-event-command-ffi.md`
+
 ## Scope
 
 Implemented in:

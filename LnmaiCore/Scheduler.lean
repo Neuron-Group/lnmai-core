@@ -11,9 +11,9 @@
 
   1. tap queues
   2. hold heads / active holds
-  3. touch queues
-  4. touch-hold heads / active touch-holds
-  5. slide progression
+  3. slide progression
+  4. touch queues
+  5. touch-hold heads / active touch-holds
 
   This is not just an implementation accident. It is part of the runtime's
   observable game semantics because multiple subsystems can compete for the
@@ -25,12 +25,8 @@
   - tap before hold means a shared button click can be consumed by the tap,
     leaving the hold head judgeable but still queued unless another click is
     available in the same frame
-  - touch before touch-hold means a touch can populate shared touch-group
-    state early enough for a later touch-hold head to resolve from that group
-    share in the very same frame
-  - slides run after tap-like families because slide progression depends on
-    held sensor state rather than the per-frame click cursor consumed by those
-    earlier families
+  - slide progression runs before touch families, matching the reference
+    updater order; touch-group state is then shared by touch-hold heads.
 
   The order should therefore only change together with deliberate semantic
   review and order-sensitive regression tests.
@@ -117,6 +113,13 @@ private def hasUnusedButtonClickAt (input : FrameInput) (cursor : ClickCursor) (
 private def hasUnusedSensorClickAt (input : FrameInput) (cursor : ClickCursor) (area : SensorArea) : Bool :=
   decide (cursor.sensorUsed.getD area 0 < input.getSensorClickCount area)
 
+private def hasUnusedTouchInputAt (input : FrameInput) (cursor : ClickCursor)
+    (area : SensorArea) (buttonRingForTouch : Bool) : Bool :=
+  hasUnusedSensorClickAt input cursor area ||
+    (buttonRingForTouch && match area.toOuterButtonZone? with
+      | some zone => hasUnusedButtonClickAt input cursor zone
+      | none => false)
+
 private def fallbackSensorAreaForButtonNote (zone : ButtonZone) : SensorArea :=
   zone.toOuterSensorArea
 
@@ -157,16 +160,17 @@ private def listSetAt : List α → Nat → α → List α
   | _ :: rest, 0, value => value :: rest
   | head :: rest, index + 1, value => head :: listSetAt rest index value
 
+/- Remaining body checkpoints drive connected-child eligibility. -/
 private def slideRemaining (slide : SlideNote) : Nat :=
   Lifecycle.slideQueueRemaining slide.judgeQueues
 
+/- Reference ForceFinish clears a connected parent's queues but does not end it. -/
 private def emptySlideQueues (slide : SlideNote) : SlideNote :=
   { slide with judgeQueues := slide.judgeQueues.map (fun _ => []) }
 
-private def shouldForceFinishParent (parent child : SlideNote) : Bool :=
-  parent.isConnSlide && !parent.isGroupPartEnd && !child.parentFinished &&
-  slideRemaining child < child.initialQueueRemaining
-
+/- Refresh parent flags from live queues: maximum remaining length 0 means finished, 1 means
+   pending-finish. A missing parent leaves both flags false. Refreshing does not itself trigger
+   sensors or clear queues; Lifecycle decides whether the child may sample this frame. -/
 private def updateSlideParentFlags (slides : List SlideNote) : List SlideNote :=
   let statuses := slides.map (fun slide => (slide.params.noteIndex, slideRemaining slide))
   let findRemaining? (noteIndex : Nat) : Option Nat :=
@@ -184,39 +188,74 @@ private theorem updateSlideParentFlags_length (slides : List SlideNote) :
     (updateSlideParentFlags slides).length = slides.length := by
   simp [updateSlideParentFlags]
 
-private def forceFinishParentSlides (slides : List SlideNote) : List SlideNote :=
-  let childRequests := slides.foldl (fun acc child =>
-    match child.parentNoteIndex with
-    | none => acc
-    | some parentIndex =>
-        if slideRemaining child < child.initialQueueRemaining && !child.parentFinished then
-          parentIndex :: acc
-        else
-          acc) []
-  slides.map (fun slide =>
-    if slide.isConnSlide && !slide.isGroupPartEnd && childRequests.contains slide.params.noteIndex then
-      emptySlideQueues slide
-    else
-      slide)
-
+-- Parent force-finish and ancestor termination both hide the affected body's bars.
 private def hideSlideRenderCmds (slide : SlideNote) : List RenderCommand :=
   match slide.slideKind with
   | SlideKind.Single => [RenderCommand.HideAllSlideBars slide.params.noteIndex]
   | SlideKind.Wifi | SlideKind.ConnPart => [RenderCommand.HideAllSlideBars slide.params.noteIndex]
 
-private def forceFinishRenderCmds (before after : List SlideNote) : List RenderCommand :=
-  let rec go (before after : List SlideNote) : List RenderCommand :=
-    match before, after with
-    | [], _ => []
-    | _, [] => []
-    | beforeSlide :: beforeRest, afterSlide :: afterRest =>
-      let rest := go beforeRest afterRest
-      if beforeSlide.isConnSlide && !beforeSlide.isGroupPartEnd &&
-          slideRemaining beforeSlide > 0 && slideRemaining afterSlide == 0 then
-        hideSlideRenderCmds afterSlide ++ rest
-      else
-        rest
-  go before after
+/- Only an eligible step into/staying in Active can trigger parent force-finish. Trigger evidence
+   is queue consumption or an On checkpoint at a remaining queue head; On is historical press
+   state. A dormant child or a judgment/timeout transition does not take this path. -/
+def slideSensorTriggered (before after : SlideNote) : Bool :=
+  match before.state, after.state with
+  | .Waiting, .Active _ | .Active _, .Active _ =>
+      after.isCheckable &&
+        ((after.judgeQueues.map List.length).sum < (before.judgeQueues.map List.length).sum ||
+          after.judgeQueues.any (fun queue => queue.head?.any (fun area => area.on)))
+  | _, _ => false
+
+/- A triggering child clears and hides only its direct unfinished, non-final connected parent.
+   The parent's lifecycle state and every earlier ancestor remain unchanged by this operation. -/
+private def forceFinishDirectParent (slides : List SlideNote) (before child : SlideNote) :
+    List SlideNote × List RenderCommand :=
+  if !slideSensorTriggered before child then
+    (slides, [])
+  else
+    match child.parentNoteIndex with
+    | none => (slides, [])
+    | some parentIndex =>
+        match slides.find? (fun slide => slide.params.noteIndex == parentIndex) with
+        | some parent =>
+            if parent.isConnSlide && !parent.isGroupPartEnd && slideRemaining parent > 0 then
+              let updated := slides.map (fun slide =>
+                if slide.params.noteIndex == parentIndex then emptySlideQueues slide else slide)
+              (updated, hideSlideRenderCmds parent)
+            else
+              (slides, [])
+        | none => (slides, [])
+
+/- Ending a slide recursively ends and hides its ancestors. Stop at a missing/ended ancestor;
+   fuel also bounds malformed cycles. This path changes states without clearing their queues. -/
+private def endSlideAncestorsFuel
+    (fuel : Nat) (slides : List SlideNote) (parentIndex : Option Nat) :
+    List SlideNote × List RenderCommand :=
+  match fuel, parentIndex with
+  | 0, _ => (slides, [])
+  | _, none => (slides, [])
+  | fuel + 1, some noteIndex =>
+      match slides.find? (fun slide => slide.params.noteIndex == noteIndex) with
+      | none => (slides, [])
+      | some parent =>
+          match parent.state with
+          | .Ended => (slides, [])
+          | _ =>
+              let slides' := slides.map (fun slide =>
+                if slide.params.noteIndex == noteIndex then
+                  { slide with state := .Ended }
+                else
+                  slide)
+              let (endedSlides, ancestorCmds) :=
+                endSlideAncestorsFuel fuel slides' parent.parentNoteIndex
+              (endedSlides, hideSlideRenderCmds parent ++ ancestorCmds)
+
+-- Propagate only a new Ended transition, including a final part's timeout while uncheckable.
+private def endSlideAncestors (before after : SlideNote) (slides : List SlideNote) :
+    List SlideNote × List RenderCommand :=
+  match before.state, after.state with
+  | .Ended, _ => (slides, [])
+  | _, .Ended => endSlideAncestorsFuel slides.length slides after.parentNoteIndex
+  | _, _ => (slides, [])
 
 ----------------------------------------------------------------------------
 -- Active Notes (all types pooled together for one frame)
@@ -243,6 +282,17 @@ private def touchEligibleForClick (note : TouchNote) (currentTime : TimePoint) :
   let timing := note.params.effectiveTiming
   currentTime ≥ timing - JUDGABLE_RANGE_SEC && currentTime ≤ timing + touchGoodMs
 
+/- A consumed touch click must be inside the lifecycle's actual judge window.
+   In particular, a fast touch beyond the first-perfect band is rejected by
+   `Judge.judgeTouch` and must remain available to later frame work. -/
+private def touchClickCanEngageJudge (note : TouchNote) (currentTime : TimePoint)
+    (touchPanelOffset : Duration) : Bool :=
+  let timing := note.params.effectiveTiming
+  let diff := (currentTime - touchPanelOffset) - timing
+  touchEligibleForClick note currentTime &&
+    !(diff < Duration.zero && Duration.abs diff > touchPerfect1Ms)
+
+-- Head click admission is independent of body pressure; touch-holds have an extended late range.
 private def holdHeadEligibleForClick (note : HoldNote) (currentTime : TimePoint) : Bool :=
   let timing := note.params.effectiveTiming
   let lateLimit :=
@@ -349,16 +399,13 @@ private def isHeadJudgedState : HoldSubState → Bool
 private def enteredHeadJudged (before after : HoldSubState) : Bool :=
   !isHeadJudgedState before && isHeadJudgedState after
 
+-- Unresolved heads and running bodies stay in the active list until the tail ends.
 private def keepHoldActive (note : HoldNote) : Bool :=
   match note.state with
   | .HeadWaiting | .HeadJudgeable | .HeadJudged _ | .BodyHeld | .BodyReleased => true
   | .Ended _ => false
 
-private def queueHeadMatches (queue : ZoneQueue HoldNote) (note : HoldNote) : Bool :=
-  match queue.peek with
-  | some head => head.params.noteIndex == note.params.noteIndex
-  | none => false
-
+-- Only unresolved heads may compete for a queued click; body tracking uses held state.
 private def holdHeadAwaitsResolution : HoldSubState → Bool
   | .HeadWaiting | .HeadJudgeable => true
   | _ => false
@@ -366,6 +413,7 @@ private def holdHeadAwaitsResolution : HoldSubState → Bool
 private def holdQueueResolved (note : HoldNote) : Bool :=
   !holdHeadAwaitsResolution note.state
 
+-- Skip resolved head entries even when their bodies are still running in the active hold list.
 private def normalizeHoldQueueCursorFuel (fuel : Nat) (queue : ZoneQueue HoldNote) : ZoneQueue HoldNote :=
   match queue.peek with
   | some note =>
@@ -387,12 +435,14 @@ private def replaceHoldQueueNote (queue : ZoneQueue HoldNote) (note : HoldNote) 
     notes := queue.notes.map (fun existing =>
       if existing.params.noteIndex == note.params.noteIndex then note else existing) }
 
+-- Mirror lifecycle updates into the regular head queue, then skip resolved entries.
 private def updateButtonHoldQueue
     (queues : ButtonQueueVec HoldNote) (zone : ButtonZone) (note : HoldNote) :
     ButtonQueueVec HoldNote :=
   let queue := InputModel.buttonQueueAt queues zone
   InputModel.setButtonQueueAt queues zone (normalizeHoldQueueCursor (replaceHoldQueueNote queue note))
 
+-- Mirror touch-hold lifecycle updates into the sensor head queue before the next member runs.
 private def updateSensorHoldQueue
     (queues : SensorQueueVec HoldNote) (area : SensorArea) (note : HoldNote) :
     SensorQueueVec HoldNote :=
@@ -432,6 +482,7 @@ private def registerTouchGroupResult
         group :: loop rest
   loop groups
 
+-- Reconstruct body-group membership and trigger flags from holds when no group state is stored.
 private def touchHoldBodyGroupStatesFromHolds
     (holds : List (SensorArea × HoldNote)) : List TouchHoldBodyGroupState :=
   let rec loop (remaining : List (SensorArea × HoldNote)) (acc : List TouchHoldBodyGroupState) :
@@ -475,12 +526,14 @@ private def touchHoldBodyGroupTriggeredCount (group : TouchHoldBodyGroupState) :
 private def touchHoldBodyGroupMemberCount (group : TouchHoldBodyGroupState) : Nat :=
   group.memberNoteIndices.length
 
+-- More than half the remaining body-group members must be triggered to share pressure.
 private def touchHoldBodyGroupMajorityPressed
     (groups : List TouchHoldBodyGroupState) (groupId : Nat) : Bool :=
   match groups.find? (fun group => group.groupId == groupId) with
   | some group => hasStrictMajority (touchHoldBodyGroupTriggeredCount group) (touchHoldBodyGroupMemberCount group)
   | none => false
 
+-- Add local body pressure once per member; repeated held frames do not increase the vote count.
 private def registerTouchHoldBodyTrigger
     (groups : List TouchHoldBodyGroupState) (groupId : Nat) (noteIndex : Nat) : List TouchHoldBodyGroupState :=
   let rec loop (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
@@ -501,6 +554,7 @@ private def registerTouchHoldBodyTrigger
           group :: loop rest
   loop groups
 
+-- Releasing a member removes its pressure vote while retaining group membership.
 private def unregisterTouchHoldBodyTrigger
     (groups : List TouchHoldBodyGroupState) (groupId : Nat) (noteIndex : Nat) : List TouchHoldBodyGroupState :=
   let rec loop (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
@@ -513,6 +567,7 @@ private def unregisterTouchHoldBodyTrigger
           group :: loop rest
   loop groups
 
+-- Ended touch-holds leave both membership and pressure sets; remove an empty group.
 private def exitTouchHoldBodyGroupMember
     (groups : List TouchHoldBodyGroupState) (groupId : Nat) (noteIndex : Nat) : List TouchHoldBodyGroupState :=
   let rec loop (items : List TouchHoldBodyGroupState) : List TouchHoldBodyGroupState :=
@@ -531,6 +586,7 @@ private def exitTouchHoldBodyGroupMember
           group :: loop rest
   loop groups
 
+-- Local group votes are sampled inside the body window anchored to the stored judge timing.
 private def touchHoldBodyCheckActive (note : HoldNote) (currentTime : TimePoint) : Bool :=
   let timing := note.params.judgeTiming
   let bodyCheckStart := timing + TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC
@@ -571,6 +627,9 @@ private def replaceTouchQueueNote (queue : ZoneQueue TouchNote) (note : TouchNot
     notes := queue.notes.map (fun existing =>
       if existing.params.noteIndex == note.params.noteIndex then note else existing) }
 
+/- Regular-hold scheduler pass: consume at most the eligible head click,
+   feed current held state into the lifecycle, advance the shared button
+   frontier on head resolution, and retain only non-terminal active holds. -/
 private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVec HoldNote) (holds : List (ButtonZone × HoldNote)) (input : FrameInput) (currentTime : TimePoint) (delta : Duration) (style : JudgeStyle) (touchPanelOffset : Duration) (prevSensor : SensorVec Bool) (cursor : ClickCursor) : ButtonVec Nat × ButtonQueueVec HoldNote × List (ButtonZone × HoldNote) × List JudgeEvent × ClickCursor :=
   match holds with
   | [] => (frontiers, queues, [], [], cursor)
@@ -583,7 +642,6 @@ private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVe
     let prevSensorPressed := fallbackPrevSensorHeldForButtonNote prevSensor zone
     let allowInput :=
       holdHeadAwaitsResolution note.state
-        && queueHeadMatches (normalizeHoldQueueCursor (InputModel.buttonQueueAt queues zone)) note
         && buttonQueueIndexUnlocked frontiers zone note.buttonQueueIndex
         && holdHeadEligibleForClick note currentTime
     let fallbackArea := fallbackSensorAreaForButtonNote zone
@@ -605,6 +663,10 @@ private def processHoldNotes (frontiers : ButtonVec Nat) (queues : ButtonQueueVe
     | none =>
       (restFrontiers, restQueues, restNotes', restEvs, cursor3)
 
+/- Touch-hold scheduler pass. Body groups are updated from local sensor holds,
+   then strict-majority pressure is ORed into each member's effective body
+   input. Head sharing belongs to the separate touch group and never consumes
+   a physical click when a stored majority result resolves the head. -/
 private def processTouchHoldNotes
     (touchFrontiers : SensorVec Nat)
     (queues : SensorQueueVec HoldNote)
@@ -614,6 +676,7 @@ private def processTouchHoldNotes
     (delta : Duration)
     (style : JudgeStyle)
     (touchPanelOffset : Duration)
+    (buttonRingForTouch : Bool)
     (cursor : ClickCursor)
     (touchGroupStates : List GroupState)
     (touchHoldBodyGroups : List TouchHoldBodyGroupState) :
@@ -623,6 +686,7 @@ private def processTouchHoldNotes
   | [] => (touchFrontiers, queues, [], [], cursor, touchGroupStates, touchHoldBodyGroups)
   | (area, note) :: rest =>
     let timing := note.params.effectiveTiming
+    let buttonDiff := currentTime - timing
     let sensorDiff := (currentTime - touchPanelOffset) - timing
     let localBodyPressed := input.getSensorHeld area
     let touchHoldBodyGroups1 :=
@@ -649,21 +713,28 @@ private def processTouchHoldNotes
       sharedResult.isNone
         && currentTime <= timing + touchGoodMs
         && holdHeadAwaitsResolution note.state
-        && queueHeadMatches (normalizeHoldQueueCursor (InputModel.sensorQueueAt queues area)) note
         && touchQueueIndexUnlocked touchFrontiers area note.touchQueueIndex
         && holdHeadEligibleForClick note currentTime
-    let (usedSensor, cursor1) :=
-      if allowInput then
-        tryUseSensorClickAt input cursor area
+    let (usedButton, cursorButton) :=
+      if allowInput && buttonRingForTouch then
+        match area.toOuterButtonZone? with
+        | some zone => tryUseButtonClickAt input cursor zone
+        | none => (false, cursor)
       else
         (false, cursor)
+    let (usedSensor, cursor1) :=
+      if allowInput then
+        if usedButton then (false, cursorButton) else tryUseSensorClickAt input cursorButton area
+      else
+        (false, cursorButton)
+    let headDiff := if usedButton then buttonDiff else sensorDiff
     let (newNote, evt?) :=
-      holdStep note currentTime sensorDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
-        usedSensor effectivePressed false false touchPanelOffset sharedResult delta style
+      holdStep note currentTime headDiff TOUCH_HOLD_HEAD_IGNORE_LENGTH_SEC TOUCH_HOLD_TAIL_IGNORE_LENGTH_SEC
+        (usedButton || usedSensor) effectivePressed false false touchPanelOffset sharedResult delta style
     let touchFrontiers' := if enteredHeadJudged note.state newNote.state then advanceSharedTouchQueue touchFrontiers area else touchFrontiers
     let queues' := updateSensorHoldQueue queues area newNote
     let touchGroupStates' :=
-      if usedSensor && enteredHeadJudged note.state newNote.state then
+      if enteredHeadJudged note.state newNote.state then
         match newNote.state, note.touchGroupId with
         | HoldSubState.HeadJudged grade, some groupId =>
             if grade.isMissOrTooFast then
@@ -684,6 +755,7 @@ private def processTouchHoldNotes
       | none => touchHoldBodyGroups1
     let (restTouchFrontiers, restQueues, restNotes, restEvs, cursor2, restTouchGroups, restBodyGroups) :=
       processTouchHoldNotes touchFrontiers' queues' rest input currentTime delta style touchPanelOffset
+        buttonRingForTouch
         cursor1 touchGroupStates' touchHoldBodyGroups2
     let restNotes' := if keepHoldActive newNote then (area, newNote) :: restNotes else restNotes
     match evt? with
@@ -709,6 +781,7 @@ private def processTouchQueueHeadFuel
     (cursor : ClickCursor)
     (touchPanelOffset : Duration)
     (groups : List GroupState)
+    (buttonRingForTouch : Bool)
     (evsRev : List JudgeEvent) :
     ZoneQueue TouchNote × SensorVec Nat × ClickCursor × List GroupState × List JudgeEvent :=
   match fuel with
@@ -727,12 +800,18 @@ private def processTouchQueueHeadFuel
             | some groupId => groupShareResult groups groupId
             | none => none
           let canConsumeClick :=
-            sharedResult.isNone && touchEligibleForClick note currentTime &&
+            sharedResult.isNone && touchClickCanEngageJudge note currentTime touchPanelOffset &&
               touchQueueIndexUnlocked frontiers area note.touchQueueIndex
+          let (usedButton, cursorButton) :=
+            if canConsumeClick && buttonRingForTouch then
+              match note.sensorPos.toOuterButtonZone? with
+              | some zone => tryUseButtonClickAt input cursor zone
+              | none => (false, cursor)
+            else (false, cursor)
           let (usedSensor, cursor2) :=
-            if canConsumeClick then tryUseSensorClickAt input cursor note.sensorPos else (false, cursor)
-          let clicked := usedSensor
-          let diff := sensorDiff
+            if canConsumeClick && !usedButton then tryUseSensorClickAt input cursorButton note.sensorPos else (false, cursorButton)
+          let clicked := usedButton || usedSensor
+          let diff := if usedButton then currentTime - timing else sensorDiff
           match touchStep note currentTime diff clicked sharedResult style with
           | (newNote, some evt) =>
               let resolvedNow := !touchQueueResolved note && touchQueueResolved newNote
@@ -746,9 +825,9 @@ private def processTouchQueueHeadFuel
               let frontiers' := if resolvedNow then advanceSharedTouchQueue frontiers area else frontiers
               match newNote.state with
               | TouchState.Ended =>
-                  if hasUnusedSensorClickAt input cursor2 note.sensorPos then
+                  if hasUnusedTouchInputAt input cursor2 note.sensorPos buttonRingForTouch then
                     processTouchQueueHeadFuel fuel area queue' frontiers' input currentTime style cursor2
-                      touchPanelOffset groups' (evt :: evsRev)
+                      touchPanelOffset groups' buttonRingForTouch (evt :: evsRev)
                   else
                     (queue', frontiers', cursor2, groups', evt :: evsRev)
               | _ =>
@@ -760,9 +839,9 @@ private def processTouchQueueHeadFuel
               let frontiers' := if resolvedNow then advanceSharedTouchQueue frontiers area else frontiers
               match newNote.state with
               | TouchState.Ended =>
-                  if hasUnusedSensorClickAt input cursor2 note.sensorPos then
+                  if hasUnusedTouchInputAt input cursor2 note.sensorPos buttonRingForTouch then
                     processTouchQueueHeadFuel fuel area queue' frontiers' input currentTime style cursor2
-                      touchPanelOffset groups' evsRev
+                      touchPanelOffset groups' buttonRingForTouch evsRev
                   else
                     (queue', frontiers', cursor2, groups', evsRev)
               | _ =>
@@ -778,10 +857,11 @@ private def processTouchQueueHead
     (cursor : ClickCursor)
     (touchPanelOffset : Duration)
     (groups : List GroupState)
+    (buttonRingForTouch : Bool)
     (evsRev : List JudgeEvent) :
     ZoneQueue TouchNote × SensorVec Nat × ClickCursor × List GroupState × List JudgeEvent :=
   processTouchQueueHeadFuel (queue.notes.length - queue.currentIndex + 1) area queue frontiers input
-    currentTime style cursor touchPanelOffset groups evsRev
+    currentTime style cursor touchPanelOffset groups buttonRingForTouch evsRev
 
 private def processTouchQueueAutomatic
     (area : SensorArea)
@@ -831,20 +911,23 @@ private def processTouchQueue
     (cursor : ClickCursor)
     (touchPanelOffset : Duration)
     (groups : List GroupState)
+    (buttonRingForTouch : Bool)
     (evsRev : List JudgeEvent) :
     ZoneQueue TouchNote × SensorVec Nat × ClickCursor × List GroupState × List JudgeEvent :=
   let (queue, frontiers, cursor, groups, evsRev) :=
-    processTouchQueueHead area queue frontiers input currentTime style cursor touchPanelOffset groups evsRev
+    processTouchQueueHead area queue frontiers input currentTime style cursor touchPanelOffset groups
+      buttonRingForTouch evsRev
   let (queue, frontiers, groups, evsRev) :=
     processTouchQueueAutomatic area queue frontiers currentTime style touchPanelOffset groups evsRev
   (queue, frontiers, cursor, groups, evsRev)
 
-private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueVec TouchNote) (input : FrameInput) (currentTime : TimePoint) (style : JudgeStyle) (cursor : ClickCursor) (touchPanelOffset : Duration) (groupStates : List GroupState) : SensorVec Nat × SensorQueueVec TouchNote × List JudgeEvent × ClickCursor × List GroupState :=
+private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueVec TouchNote) (input : FrameInput) (currentTime : TimePoint) (style : JudgeStyle) (cursor : ClickCursor) (touchPanelOffset : Duration) (buttonRingForTouch : Bool) (groupStates : List GroupState) : SensorVec Nat × SensorQueueVec TouchNote × List JudgeEvent × ClickCursor × List GroupState :=
   let (nextQueues, (frontiers', cursor', groups', evsRev)) :=
     queues.mapAccum (frontiers, cursor, groupStates, ([] : List JudgeEvent)) (fun area q state =>
       let (frontiers, cursor, groups, evsRev) := state
       let (nextQueue, frontiers', cursor', groups', evsRev') :=
-        processTouchQueue area q frontiers input currentTime style cursor touchPanelOffset groups evsRev
+        processTouchQueue area q frontiers input currentTime style cursor touchPanelOffset groups
+          buttonRingForTouch evsRev
       (nextQueue, (frontiers', cursor', groups', evsRev')))
   (frontiers', nextQueues, evsRev.reverse, cursor', groups')
 
@@ -852,6 +935,12 @@ private def processTouchNotes (frontiers : SensorVec Nat) (queues : SensorQueueV
 -- Process slide notes
 ----------------------------------------------------------------------------
 
+/-
+  Process bodies in list order. Parent effects are applied immediately after a
+  child step, before the next pending slide sees the same frame's sensors.
+  Refresh readiness after each step so later children see earlier progress;
+  processed bodies are updated by parent effects but are not stepped again.
+-/
 private def processSlideNotesCoreFuel (fuel : Nat) (processedRev pending : List SlideNote)
     (input : FrameInput) (currentTime : TimePoint) (touchPanelOffset : Duration) (delta : Duration)
     (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool)
@@ -865,16 +954,24 @@ private def processSlideNotesCoreFuel (fuel : Nat) (processedRev pending : List 
       | fuel + 1 =>
           match slideStep note currentTime input.sensorHeld touchPanelOffset delta style subdivideSlideJudgeGrade with
           | (newNote, evt?, audioCmds, renderCmds) =>
-              let updatedPending : List SlideNote :=
-                match updateSlideParentFlags (newNote :: rest) with
-                | [] => []
-                | _current :: updatedRest => updatedRest
-              let processedRev := newNote :: processedRev
+              let slidesAfterStep := processedRev.reverse ++ (newNote :: rest)
+              let (slidesAfterForce, directParentRenderCmds) :=
+                forceFinishDirectParent slidesAfterStep note newNote
+              -- Apply parent effects before the next slide can consume this frame's sensors.
+              -- ForceFinish clears only the direct parent's queues; End still recurses.
+              let (slidesAfterEnd, ancestorRenderCmds) :=
+                endSlideAncestors note newNote slidesAfterForce
+              let refreshed := updateSlideParentFlags slidesAfterEnd
+              let processedCount := processedRev.length + 1
+              let processedRev := (refreshed.take processedCount).reverse
+              let updatedPending := refreshed.drop processedCount
               let eventsRev := match evt? with | some evt => evt :: eventsRev | none => eventsRev
               let audioRev := audioCmds.reverse ++ audioRev
-              let renderRev := renderCmds.reverse ++ renderRev
+              let renderRev := ancestorRenderCmds.reverse ++ directParentRenderCmds.reverse ++
+                renderCmds.reverse ++ renderRev
               processSlideNotesCoreFuel fuel processedRev updatedPending input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade eventsRev audioRev renderRev
 
+-- Bound the pass by pending count; prefix notes and output accumulators are stored in reverse.
 def processSlideNotesCore (processedRev pending : List SlideNote)
     (input : FrameInput) (currentTime : TimePoint) (touchPanelOffset : Duration) (delta : Duration)
     (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool)
@@ -882,6 +979,7 @@ def processSlideNotesCore (processedRev pending : List SlideNote)
     List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
   processSlideNotesCoreFuel (pending.length + 1) processedRev pending input currentTime touchPanelOffset
     delta style subdivideSlideJudgeGrade eventsRev audioRev renderRev
+-- All bodies observe the same sensorHeld snapshot without consuming tap/touch click cursors.
 private def processSlideNotes (slides : List SlideNote) (input : FrameInput) (currentTime : TimePoint) (touchPanelOffset : Duration) (delta : Duration) (style : JudgeStyle) (subdivideSlideJudgeGrade : Bool) : List SlideNote × List JudgeEvent × List AudioCommand × List RenderCommand :=
   processSlideNotesCore [] slides input currentTime touchPanelOffset delta style subdivideSlideJudgeGrade [] [] []
 
@@ -914,6 +1012,9 @@ private def eventScoreDeltas (evt : JudgeEvent) (multiple : Nat) :
 private def foldEventIntoScore
     (noteDisplay breakDisplay : JudgeDisplayOption) (s : ScoreState) (evt : JudgeEvent) :
     ScoreState :=
+  if evt.kind == .Hold && evt.phase == .head then
+    s
+  else
   let multiple : Nat := max 1 evt.multiple
   let comboDelta := Score.updateCombo s.combo s.pCombo s.cPCombo s.dxScore evt.grade multiple
   let (earnedBaseDelta, earnedExtraDelta, earnedClassicExtraDelta, lostBaseDelta, lostExtraDelta,
@@ -957,25 +1058,59 @@ private def foldEventsIntoScore
         (foldEventIntoScore noteDisplay breakDisplay s evt) rest
 
 private def eventToAudioCommands (evt : JudgeEvent) (timePoint : TimePoint) : List AudioCommand :=
-  [ AudioCommand.PlayJudgeSfx evt.kind evt.grade evt.isBreak timePoint evt.noteIndex ]
+  if evt.kind == .Hold && evt.phase == .head && evt.position.sensorArea?.isSome then
+    []
+  else if evt.kind == .Hold && evt.phase == .head && evt.grade.isMissOrTooFast then
+    []
+  else if evt.kind == .Hold && evt.phase == .head then
+    [ AudioCommand.PlayJudgeSfx .Tap evt.grade evt.isBreak timePoint evt.noteIndex ]
+  else
+    [ AudioCommand.PlayJudgeSfx evt.kind evt.grade evt.isBreak timePoint evt.noteIndex ]
 
-private def eventToRenderCommands (evt : JudgeEvent) : List RenderCommand :=
-  [ RenderCommand.ShowJudgeResult evt.kind evt.grade evt.isBreak evt.diff evt.noteIndex ]
+private def eventToRenderCommands (displayHoldHead : Bool) (evt : JudgeEvent) : List RenderCommand :=
+  if evt.kind == .Hold && evt.phase == .head && !displayHoldHead then []
+  else [ RenderCommand.ShowJudgeResult evt.kind evt.grade evt.isBreak evt.diff evt.noteIndex ]
 
 private def eventsToAudioCommands (events : List JudgeEvent) (timePoint : TimePoint) : List AudioCommand :=
   match events with
   | [] => []
   | evt :: rest => eventToAudioCommands evt timePoint ++ eventsToAudioCommands rest timePoint
 
-private def eventsToRenderCommands (events : List JudgeEvent) : List RenderCommand :=
+private def eventsToRenderCommands (displayHoldHead : Bool) (events : List JudgeEvent) : List RenderCommand :=
   match events with
   | [] => []
-  | evt :: rest => eventToRenderCommands evt ++ eventsToRenderCommands rest
+  | evt :: rest => eventToRenderCommands displayHoldHead evt ++ eventsToRenderCommands displayHoldHead rest
+
+private def touchHoldBodyAudioCmds
+    (holds : List (SensorArea × HoldNote)) (currentTime : TimePoint)
+    (input : FrameInput) (groups : List TouchHoldBodyGroupState) : List AudioCommand :=
+  holds.foldr (fun entry acc =>
+    let (area, note) := entry
+    let localPressed := input.getSensorHeld area
+    let groupedPressed :=
+      match note.touchHoldGroupId with
+      | some groupId => touchHoldBodyGroupMajorityPressed groups groupId
+      | none => false
+    let active := match note.state with | HoldSubState.Ended _ => false | _ => true
+    let headAccepted := match note.state with
+      | HoldSubState.HeadJudged grade => !grade.isMissOrTooFast
+      | HoldSubState.BodyHeld | HoldSubState.BodyReleased => true
+      | _ => false
+    if active && headAccepted && (localPressed || groupedPressed) then
+      AudioCommand.PlayTouchHoldBody note.params.noteIndex currentTime :: acc
+    else acc) []
 
 ----------------------------------------------------------------------------
 -- Frame Step: advance all active notes one frame (entry point)
 ----------------------------------------------------------------------------
 
+/-
+  Frame runtime pipeline: taps, regular holds, slides, touches, then
+  touch-holds. Slide processing updates connected-parent flags and applies
+  direct-parent force-finish/ancestor-end effects before later slide bodies;
+  queue frontiers and click cursors enforce input ownership, and lifecycle
+  events are folded into score/audio/render outputs afterward.
+-/
 def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEvent × List AudioCommand × List RenderCommand :=
   let newTime := st.currentTime + input.delta
   let cursor : ClickCursor := {}
@@ -991,21 +1126,24 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     processTapNotes st.buttonQueueFrontiers st.tapQueues input newTime st.touchPanelOffset st.judgeStyle cursor
   let (buttonFrontiers2, holdQueues, holdNotes, holdEvents, cursor1) :=
     processHoldNotes buttonFrontiers1 st.holdQueues st.activeHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.prevSensor cursorTap
-  let (touchFrontiers1, touchNotes, touchEvents, cursor2, touchGroupStates) :=
-    processTouchNotes st.touchQueueFrontiers st.touchQueues input newTime st.judgeStyle cursor1 st.touchPanelOffset st.touchGroupStates
-  let (touchFrontiers2, touchHoldQueues, touchHoldNotes, touchHoldEvents, _cursor3, touchGroupStates', touchHoldGroupStates) :=
-    processTouchHoldNotes touchFrontiers1 st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset cursor2 touchGroupStates touchHoldBodyGroups
   let (slideNotes, slideEvents, slideAudioCommands, slideRenderCommands) :=
     processSlideNotes resolvedSlides input newTime st.touchPanelOffset input.delta st.judgeStyle st.subdivideSlideJudgeGrade
-  let slideNotes := forceFinishParentSlides slideNotes
-  let slideNotes := updateSlideParentFlags slideNotes
-  let forceFinishCommands := forceFinishRenderCmds resolvedSlides slideNotes
-
-  let allEvents := tapEvents ++ holdEvents ++ touchHoldEvents ++ touchEvents ++ slideEvents
+  let (touchFrontiers1, touchNotes, touchEvents, cursor2, touchGroupStates) :=
+    processTouchNotes st.touchQueueFrontiers st.touchQueues input newTime st.judgeStyle cursor1 st.touchPanelOffset st.buttonRingForTouch st.touchGroupStates
+  let (touchFrontiers2, touchHoldQueues, touchHoldNotes, touchHoldEvents, _cursor3, touchGroupStates', touchHoldGroupStates) :=
+    processTouchHoldNotes touchFrontiers1 st.touchHoldQueues st.activeTouchHolds input newTime input.delta st.judgeStyle st.touchPanelOffset st.buttonRingForTouch cursor2 touchGroupStates touchHoldBodyGroups
+  let allEvents := tapEvents ++ holdEvents ++ touchEvents ++ touchHoldEvents ++ slideEvents
+  -- Every semantic judgment edge is public. Hold heads remain score-neutral
+  -- through `foldEventIntoScore`, but the frontend still needs the head phase
+  -- to drive note-local state and feedback independently of commands.
+  let reportedEvents := allEvents
   let newScore :=
     foldEventsIntoScore st.noteFastLateDisplay st.breakFastLateDisplay st.score allEvents
-  let audioCommands := slideAudioCommands ++ eventsToAudioCommands allEvents newTime
-  let renderCommands := slideRenderCommands ++ forceFinishCommands ++ eventsToRenderCommands allEvents
+  let audioCommands := slideAudioCommands ++
+    touchHoldBodyAudioCmds touchHoldNotes newTime input touchHoldGroupStates ++
+    eventsToAudioCommands allEvents newTime
+  let renderCommands :=
+    slideRenderCommands ++ eventsToRenderCommands st.displayHoldHeadJudgeResult allEvents
 
   ({ st with
       currentTime := newTime
@@ -1023,7 +1161,19 @@ def stepFrame (st : GameState) (input : FrameInput) : GameState × List JudgeEve
     , activeTouchHolds := touchHoldNotes
     , touchGroupStates := touchGroupStates'
     , touchHoldGroupStates := touchHoldGroupStates
-  }, allEvents, audioCommands, renderCommands)
+  }, reportedEvents, audioCommands, renderCommands)
+
+private def queueSettled {α : Type} (queue : ZoneQueue α) : Bool :=
+  decide (queue.currentIndex ≥ queue.notes.length)
+
+/-- Whether the runtime has no remaining queued, active, or unfinished notes. -/
+def isTerminated (st : GameState) : Bool :=
+  st.activeHolds.isEmpty && st.activeTouchHolds.isEmpty &&
+  st.slides.all (fun slide => match slide.state with | .Ended => true | _ => false) &&
+  st.tapQueues.data.all queueSettled &&
+  st.holdQueues.data.all queueSettled &&
+  st.touchQueues.data.all queueSettled &&
+  st.touchHoldQueues.data.all queueSettled
 
 def stepFrameTimed (st : GameState) (batch : TimedInputBatch) : GameState × List JudgeEvent × List AudioCommand × List RenderCommand :=
   let input := batch.toFrameInput (batch.currentTime - st.currentTime) st.prevButton st.prevSensor
@@ -1160,7 +1310,6 @@ def probeTapHoldSensorConsumers (st : GameState) (input : FrameInput) : List Sen
         let sensorDiff := (newTime - st.touchPanelOffset) - timing
         let allowInput :=
           holdHeadAwaitsResolution note.state
-            && queueHeadMatches (normalizeHoldQueueCursor (InputModel.buttonQueueAt queues zone)) note
             && buttonQueueIndexUnlocked frontiers zone note.buttonQueueIndex
         let (usedButton, _cursor1) := if allowInput then tryUseButtonClickAt input cursor zone else (false, cursor)
         let fallbackArea := fallbackSensorAreaForButtonNote zone

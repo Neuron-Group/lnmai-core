@@ -206,6 +206,8 @@ structure ChartSpec where
   slideHeads : List SlideHeadChartNote := []
   slides     : List SlideChartNote := []
   slideSkipping : Option Bool := none
+  /-- Accept desktop outer-ring clicks as touch/touch-hold head input. -/
+  buttonRingForTouch : Option Bool := none
 deriving Inhabited, Repr, ToJson, FromJson
 
 private def insertByTiming {α : Type} (getTiming : α → TimePoint) (item : α) : List α → List α
@@ -250,6 +252,9 @@ private def buildSlideHead (note : SlideHeadChartNote) : TapFamilyNote :=
     , logicalSlideId := note.logicalSlideId
     , buttonQueueIndex := 0 }
 
+/- Lower a chart hold into runtime state. Regular holds start on a button
+   (with optional sensor fallback); a chart-level touch flag changes head/body
+   policy while preserving the regular hold queue. -/
 private def buildHold (note : HoldChartNote) : HoldNote :=
   { params := { judgeTiming := note.timing, judgeOffset := Constants.JUDGE_OFFSET, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
   , start := .button note.slot.toButtonZone
@@ -265,6 +270,9 @@ private def buildHold (note : HoldChartNote) : HoldNote :=
   , touchHoldGroupSize := note.touchHoldGroupSize.getD 1
   , touchHoldGroupTriggered := false }
 
+/- Lower a sensor touch-hold. These are always modern touch-holds (never
+   Classic), carry both touch-head grouping and independent body grouping, and
+   enter the sensor queue ordered by touchQueueIndex. -/
 private def buildTouchHold (note : TouchHoldChartNote) : HoldNote :=
   { params := { judgeTiming := note.timing, judgeOffset := Constants.JUDGE_OFFSET, isBreak := note.isBreak, isEX := note.isEX, noteIndex := note.noteIndex }
   , start := .sensor note.sensorPos
@@ -671,7 +679,7 @@ private def touchHoldBodyGroupStatesFromHolds
             loop rest (upsert acc)
   loop holds []
 
-private structure ChartScoreTotals where
+structure ChartScoreTotals where
   totalBase : Nat := 0
   totalExtra : Nat := 0
   noteCount : Nat := 0
@@ -685,7 +693,7 @@ private def addScoreTotal
   , totalExtra := totals.totalExtra + NoteType.extraScore scoreKind * multiple
   , noteCount := totals.noteCount + multiple }
 
-private def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
+def chartScoreTotals (chart : ChartSpec) : ChartScoreTotals :=
   let totals := chart.taps.foldl (fun totals note => addScoreTotal totals .Tap note.isBreak) {}
   let totals := chart.slideHeads.foldl (fun totals note => addScoreTotal totals .Tap note.isBreak) totals
   let totals := chart.holds.foldl (fun totals note => addScoreTotal totals .Hold note.isBreak) totals
@@ -776,6 +784,7 @@ def buildGameState (chart : ChartSpec) : GameState :=
     judgeStyle := JudgeStyle.Default,
     touchPanelOffset := Constants.TOUCH_PANEL_OFFSET
     , subdivideSlideJudgeGrade := Constants.SUBDIVIDE_SLIDE_JUDGE_GRADE
+    , buttonRingForTouch := chart.buttonRingForTouch.getD false
   }
 
 def parseChartJson (json : Json) : Except String ChartSpec :=
