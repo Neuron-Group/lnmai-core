@@ -607,7 +607,8 @@ def nativeDispatch (handle : UInt64) (operation : UInt32) (request out : UInt64)
         let events := if inputs.events.isEmpty then tactic else inputs.events
         let (next, render) := RuntimeSeek.seek chart initial state target events
           (nativeRequestWord request 1 != 0)
-        let retained := RuntimeSeek.noteIndices (RuntimeSeek.chartFrom chart target)
+        let retained := (RuntimeSeek.noteIndices (RuntimeSeek.chartFrom chart target)).foldl
+          (fun map id => map.insert id true) ({} : HashMap Nat Bool)
         emitStep out next [] [] render
         for id in RuntimeSeek.noteIndices chart do emit out (if retained.contains id then 40 else 41) [id]
         if !(← nativeOutputOk out) then return 2
