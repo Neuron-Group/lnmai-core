@@ -1,4 +1,5 @@
 //! Exact Lean natural numbers. Subtraction and division are total.
+use lnmai_core_verify::natural_parser;
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
 use std::{
@@ -14,23 +15,13 @@ impl Natural {
     /// Lean 4.30 `String.toNat?`: decimal digits with single underscores
     /// between digits. Signs, surrounding whitespace and empty strings fail.
     pub fn from_lean_str(s: &str) -> Option<Self> {
-        let mut value = BigUint::zero();
-        let mut last_was_digit = false;
-        for byte in s.bytes() {
-            if byte == b'_' {
-                if !last_was_digit {
-                    return None;
-                }
-                last_was_digit = false;
-            } else if byte.is_ascii_digit() {
-                value *= 10u8;
-                value += byte - b'0';
-                last_was_digit = true;
-            } else {
-                return None;
-            }
-        }
-        last_was_digit.then_some(Self(value))
+        let chars: Vec<char> = s.chars().collect();
+        natural_parser::parse_decimal(&chars, BigUint::zero, |mut value: BigUint, digit| {
+            value *= 10u8;
+            value += digit;
+            value
+        })
+        .map(Self)
     }
 
     pub fn to_biguint(&self) -> BigUint {

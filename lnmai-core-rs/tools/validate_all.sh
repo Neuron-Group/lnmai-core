@@ -59,10 +59,11 @@ if [[ -n "${AENEAS_HOME:-}" ]]; then
   run aeneas-backend "$repo" bash verification/tools/wire_aeneas.sh
 fi
 for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra Hold HoldModern \
-  Rotations Time Constants Score ScoreExtra Adapters AdapterJudgments AdapterScore \
+  Rotations Time Constants Score ScoreExtra Adapters AdapterJudgments JudgmentAdapter AdapterScore \
   IntegerAdapters AccuracyAdapters RuntimeScore GradeCounts RuntimeCounts \
   Storage StorageLoops StorageAccum StoragePublic StorageEquality Symmetry AreasPublic TypesPublic \
-  Defaults Shape ShapeSolver ShapeAdapters Tokenize SlideHistory SlideAreaLoops SlideArea SlideAreaTrace \
+  Defaults Shape ShapeSolver ShapeAdapters Tokenize SlideParser SlideParserComposition SlideParserFrontend SlideParserText SlideParserSequence TimingParser SlideHistory SlideAreaLoops SlideArea SlideAreaTrace \
+  NaturalParser TimingAggregate TapLifecycle TouchLifecycle HoldLifecycle SlideLifecycle SlideQueueMetrics SchedulerClicks SchedulerFrame SchedulerParents SlideSchedule SlideScheduleParents \
   SlideAreaEquality SlideQueueModel SlideQueue SlideQueueTraversal SlideQueueTrace \
   SlideQueueReferenceTrace Audit; do
   run "proof-$module" "$repo/verification" lake build "Verification.$module"

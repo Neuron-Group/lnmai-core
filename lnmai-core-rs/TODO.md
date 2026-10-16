@@ -82,9 +82,64 @@ checks, including loop termination, bounds and complete output equivalence
 for character sequences with length below `Usize.max`. UTF-8/string conversion
 and the rest of parsing/normalization/lowering remain open.
 
+The runtime-used sanitizer and all thirteen slide-command scans now have
+accepted extracted-code proofs in `SlideParserText` (18 principal axiom
+checks, `/tmp/lnmai-parser-text-proof-accepted-v1.json`). Filtering before
+command scanning, safe indices/pushes and character order are included.
+UTF-8 decoding/String encoding and the concrete diagnostic/numeric adapters
+remain open. The parent-chain, timing-route, ordered-parsing and queue-metric
+proofs now also passed combined-source Lean elaboration and all 50 new
+principal axiom checks. Together with Text, the current batch has 68 accepted
+principal reports, with only standard logical axioms. The audit requires these
+new theorems; a fresh separate-module audit remains required. Concrete
+runtime adapters and whole scheduling remain open. Natural scanning and timing
+aggregation have the additional accepted proofs described below; their atomic
+numeric, String and closure contracts remain explicit.
+
+The following accepted batch adds the runtime-used `natural_parser`,
+`timing_aggregate` and `slide_schedule` kernels. The finalized extraction
+matches the formatted Rust source (`/tmp/lnmai-natural-schedule-extraction-4.log`);
+library-only Cargo checks, formatting and whitespace checks passed.
+`NaturalParser`, `TimingAggregate` and `SlideSchedule` passed combined-source
+elaboration and all 57 principal axiom checks, with only standard logical
+axioms. Diagnostics and matching source hashes are recorded in
+`/tmp/lnmai-natural-schedule-proof-accepted-v8.json` and its `.sources.json`.
+They are registered in the required axiom audit and deferred validation script.
+This does not discharge the concrete BigUint/Rat, character, closure,
+lifecycle/parent, container or capacity contracts. The preceding
+68-report acceptance belongs to its recorded source-hash snapshot, before
+this re-extraction; it is not a fresh audit of the current Generated module.
+`SlideScheduleParents` adds seven composition theorems using the actual
+extracted parent kernels to fill the scheduler's three parent fields. All 64
+principal reports (57 + 7) passed combined-source elaboration and axiom checks
+in `/tmp/lnmai-natural-schedule-parents-proof-accepted-v9.json`, with matching
+source hashes. The independent-module audit in
+`/tmp/lnmai-natural-schedule-independent-audit-1.log` completed fifteen modules
+without failure before its driver was held at a module boundary for the new
+judgment proof work. That superseded driver has been stopped. The independent
+audit of the installed judgment extraction in
+`/tmp/lnmai-judgment-independent-audit-1.log` compiled Generated and Areas before
+its driver was stopped at the Bridge module boundary to batch further changes.
+Completed artifacts are retained; the whole audit is not yet complete. Concrete facade wiring,
+metadata, point operations, cloning and capacity contracts remain explicit.
+
+The runtime now calls the shared `judgment_adapter` kernel for exact clamping,
+tap/touch/slide judgments, hold percentages and tail judgments, slide timeout
+and fast/late counting. Library-only Cargo checking and a staged real extraction
+passed. All fifteen `JudgmentAdapter` theorems passed combined-source elaboration
+and axiom checking, with no `sorryAx` or nonstandard axioms. The evidence and
+65 matching source/artifact hashes are recorded in
+`/tmp/lnmai-judgment-proof-accepted-v3.json` and its `.sources.json`/`.evidence.json`.
+This bundle uses all thirteen new declarations verbatim from the real extraction;
+existing declarations are unchanged apart from order. The full Generated/LLBC
+artifacts are now installed and the fresh independent audit is still pending.
+Only individual integer-operation laws are assumed, rather than whole judgment
+formulas. The actual Integer/BigInt representation and runtime trait instance
+remain unproved.
+
 Tap and SlideHead now use the shared extracted `TapState` and `tap_transition`.
 Their fresh extraction and library-only typecheck passed. `TapLifecycle`
-single-step and finite-frame composition proofs are pending Lean acceptance;
+single-step and finite-frame composition proofs passed combined-source Lean acceptance;
 actual unbounded time/judgment/event adapters remain explicit boundaries.
 
 `SlideQueueModel` has compiled separately. Extracted traversal, finite-frame
@@ -138,3 +193,68 @@ now accepts Lean-style digit separators, and runtime time constants share
 the kernel values. Combo-state classification uses judgment counts, including
 the stricter Break requirement for AP+. These remain source/implementation
 evidence until their representation and composition proofs are discharged.
+
+Tap/SlideHead, Touch and Hold/TouchHold runtime steps now share extracted
+control flow (`tap_transition`, `touch_transition`/`finish_touch_judgment`,
+`hold_head_action`/`hold_after_head_action`/`hold_body_action`). Their
+equivalence modules passed combined-source elaboration and every requested
+axiom check (accepted diagnostics and source hashes in
+`/tmp/lnmai-lifecycle-proof-accepted-v1.json` and its `.sources.json`), so
+the modules are wired into `Verification/Audit.lean` and the validation
+script. Exact-time arithmetic, raw judgment tables and event constructors
+remain explicit adapter boundaries, and the unbounded counter/bigint
+representations stay outside the kernel.
+
+Scheduler click ownership now also runs through the extracted kernel
+(`consume_click`, `tap_queue_has_unused_click`, `touch_input_available`),
+with `Verification/SchedulerClicks.lean` relating the runtime's comparison
+and counter updates to `consumeButtonThenFallbackSensor`,
+`tapFamilyQueueHasUnusedClick` and `hasUnusedTouchInputAt`. The remaining
+scheduler surface is the frame loop itself: note iteration order, shared
+touch-group state, and the audio/render command order.
+
+Slide/WiFi now shares the extracted generic `slide_lifecycle` state and
+control flow. `SlideLifecycle` passed combined-source Lean elaboration and
+thirteen principal axiom checks, covering single steps, output gating and
+arbitrary finite frame traces. The accepted source hashes and diagnostics are
+in `/tmp/lnmai-slide-lifecycle-proof-accepted-v2.json` and its `.sources.json`.
+Its concrete runtime time, raw-judgment, queue-snapshot, event and render
+adapters remain open; the theorem is not full runtime extraction.
+
+The extracted slide command selectors, scalar bar-count/wait tables and their
+parser composition passed combined-source elaboration. The shape-solver bridge
+now invokes the extracted solver rather than assuming whole-function agreement.
+`SchedulerFrame` also passed for driver ordering, conditional frame composition
+and first-match touch-group search/registration. All 50 principal axiom reports
+in the combined batch passed; evidence and source hashes are preserved in
+`/tmp/lnmai-parser-scheduler-proof-accepted-v16.json` and its `.sources.json`.
+
+The character/error/just-type frontend passed combined-source elaboration and
+all 24 principal axiom checks together with the previous 50 theorems. The
+accepted diagnostics and source hashes are in
+`/tmp/lnmai-frontend-proof-accepted-v14.json` and its `.sources.json`. Complete
+diagnostic values, command precedence and fallible-operation order are covered.
+Whole-function reader, just-type and solver assumptions have been discharged;
+text decoding and primitive representation laws remain open. Sanitization and
+command observations are discharged by the later `SlideParserText` batch.
+
+Text sanitization/command scanning and connected-slide parent loops have now
+passed the combined-source checks recorded above. Judgment adapter control flow
+has also passed its fifteen checks. Next is composing the Slide traversal and
+parent proofs into the frame phase, removing that phase's whole-pass assumption.
+Remaining work includes parser/table payloads, normalization/lowering, Maidata
+segmentation, exact numeric timing and complete runtime frame/lifecycle
+composition. Every new kernel must be called by the
+runtime and proved against the original Lean definition. Representation and
+callback contracts are obligations, not completed proofs of their callers.
+
+## Batched composition checkpoint (2026-10-17)
+
+`LifecycleJudgments` and `SchedulerFrameSlide` are newly written proof sources,
+not yet accepted by Lean. The former composes extracted exact judgments with
+Tap/SlideHead/Touch steps and finite traces; the latter composes extracted Slide
+traversal and parent kernels with the frame phase. They retain explicit atomic,
+representation, capacity and runtime facade obligations. This checkpoint does
+not claim whole-program equivalence. Finish the next composition batch before
+its combined verification; defer tests and `validate_all.sh` until code
+equivalence is closed.

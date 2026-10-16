@@ -52,6 +52,52 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
+`NaturalParser`, `TimingAggregate` and `SlideSchedule` passed combined-source
+elaboration and all 57 principal axiom checks. Every report uses only standard
+logical axioms; diagnostics and matching source hashes are recorded in
+`/tmp/lnmai-natural-schedule-proof-accepted-v8.json` and its `.sources.json`.
+All three runtime callers use the extracted kernels, with the synchronized
+extraction recorded in `/tmp/lnmai-natural-schedule-extraction-4.log`. Earlier
+library-only Cargo, formatting and whitespace checks passed. All 57 are
+mandatory in `Verification.Audit` and included in the deferred validation
+script, which has not been run. Arithmetic, character/string, closure,
+lifecycle/parent and container/capacity contracts remain explicit. A fresh
+separate-module audit is still required, including previous accepted batches
+against the updated Generated module.
+
+`SlideScheduleParents` adds seven composition theorems that fill the three
+parent callbacks using the actual extracted sensor, force, ancestor and refresh
+kernels. All 64 principal reports (57 + 7) passed combined-source elaboration
+and axiom checks; diagnostics and matching hashes are in
+`/tmp/lnmai-natural-schedule-parents-proof-accepted-v9.json` and its `.sources.json`.
+The independent-module audit in
+`/tmp/lnmai-natural-schedule-independent-audit-1.log` completed fifteen modules
+without failure before its driver was held at a module boundary for the new
+judgment proofs. The superseded driver has been stopped. The independent
+audit of the installed full judgment extraction in
+`/tmp/lnmai-judgment-independent-audit-1.log` compiled Generated and Areas before
+its driver was stopped at the Bridge module boundary to batch further changes.
+Completed artifacts are retained; no completed whole audit is claimed. Runtime facade wiring,
+metadata, atomic operations, cloning and capacity remain explicit obligations;
+constructing a generic trait is not extraction of that facade.
+
+The new `judgment_adapter` kernel is called by the actual runtime judgment API.
+Library-only checking passed in `/tmp/lnmai-judgment-adapter-library-check-1.log`,
+and real extraction succeeded in `/tmp/lnmai-judgment-adapter-extraction-1.log`.
+All fifteen `JudgmentAdapter` theorems passed combined-source elaboration and
+axiom checking, with no errors, `sorryAx` or nonstandard axioms. Acceptance is
+recorded in `/tmp/lnmai-judgment-proof-accepted-v3.json`, with 65 matching
+source/artifact hashes in `.sources.json` and provenance in `.evidence.json`.
+The temporary proof bundle copies all thirteen new declarations verbatim from
+the full extraction. Every existing
+generated declaration block is identical, allowing only declaration order to
+change. The bundle records both model hashes, Rust source hashes, proof hashes
+and compiled-import hashes; it is not an independent full-module audit. The
+full Generated/LLBC artifacts are now installed for the new independent audit.
+Atomic integer laws remain explicit, including successful conversion only
+after proving representability. No bound is imposed on decoded input integers.
+The concrete Integer/BigInt implementation and runtime trait facade remain open.
+
 The default-value pass found a semantic distinction that must be preserved:
 Lean's derived `Inhabited.default` initializes every field with its type's
 default, whereas a structure literal with omitted fields uses field
@@ -161,16 +207,152 @@ the active implementation is `crates/lnmai-core/src/simai/`.
   closing brackets saturate depth at zero, and empty pieces are preserved.
   UTF-8/string conversion and full parsing remain separate obligations. The
   required-theorem audit and deferred validation script include this module.
-- Tap and SlideHead runtime steps now share the extracted `tap_transition`
-  control flow and `TapState`. Library-only typechecking passed in
-  `/tmp/lnmai-tap-transition-library-check-1.log`; extraction passed in
-  `/tmp/lnmai-tap-transition-extraction-1.log`. `TapLifecycle` contains a
-  pending proof of single-step and finite-frame event/state composition under
-  the exact-time/judgment/event adapter interpretation. It is not yet accepted.
+- Tap/SlideHead, Touch and Hold/TouchHold runtime steps now share extracted
+  control flow: `tap_transition` with `TapState`, `touch_transition` and
+  `finish_touch_judgment` with `TouchState`, and the Hold head/body selectors
+  (`hold_head_action`, `hold_after_head_action`, `hold_body_action`,
+  `HoldSubState`, `HoldBodyFacts`) whose priority order encodes the regular
+  versus touch-hold head rules and the classic versus modern body rules.
+  Library-only `cargo check --workspace --lib --locked` passed
+  (`/tmp/lnmai-tap-transition-library-check-1.log`,
+  `/tmp/lnmai-touch-transition-library-check-1.log`,
+  `/tmp/lnmai-hold-lifecycle-library-check-1.log`) and the kernel re-extracted
+  cleanly (`/tmp/lnmai-hold-transition-extraction-1.log`).
+- `TapLifecycle`, `TouchLifecycle` and `HoldLifecycle` passed combined-source
+  elaboration and all twenty requested axiom checks with only `propext`,
+  `Classical.choice` and `Quot.sound`. Accepted diagnostics and the matching
+  source-hash manifest are preserved in
+  `/tmp/lnmai-lifecycle-proof-accepted-v1.json` and its `.sources.json`.
+  Tap covers every state branch including restored judged states and
+  nonmonotone frame times, the star-head variant, and intermediate states and
+  events over arbitrary finite frame lists. Touch covers
+  timeout-before-shared-before-local precedence, early input without an event,
+  and the extracted grade conversion. Hold covers head priority, the after-head
+  body sampling that can replace head feedback with a tail event, classic and
+  modern body transitions, release grace accumulation, and every terminal path
+  over arbitrary frame lists. The exact-time arithmetic, raw judgment tables
+  and event constructors remain adapter contracts; unbounded counter and bigint
+  representations stay outside the kernel.
+- Scheduler click ownership now runs through the extracted `scheduler` kernel
+  (`consume_click`, `tap_queue_has_unused_click`, `touch_input_available`):
+  the runtime supplies its `used < available` comparisons and performs the
+  counter updates, while the kernel fixes button-before-sensor precedence, the
+  suppression of the sensor fallback after a consumed button, and the absence
+  of consumption when input is not accepted. `SchedulerClicks` passed isolated
+  module compilation (`/tmp/lnmai-scheduler-clicks-build-4.log`); its three
+  theorems relate the runtime composition to the reference
+  `consumeButtonThenFallbackSensor`, `tapFamilyQueueHasUnusedClick` and
+  `hasUnusedTouchInputAt`.
 - The separate-module audit in `/tmp/lnmai-audit-direct-4.log` was stopped at
   a module boundary before tokenizer re-extraction. It recorded successful
   completion through `Judge`, not a complete audit. A fresh full audit remains
   required after the generated code and proof imports stabilize.
+
+- Slide/WiFi lifecycle control now runs through the extracted generic
+  `slide_lifecycle` state, transition, active-action, grade-conversion and
+  output-flag kernels. Runtime durations stay unbounded. `SlideLifecycle`
+  passed combined-source elaboration and all thirteen requested axiom checks,
+  using only `propext` and `Quot.sound`. Diagnostics and matching source hashes
+  are preserved in `/tmp/lnmai-slide-lifecycle-proof-accepted-v2.json` and its
+  `.sources.json`. The proof covers restored states, checkability latching,
+  completion before timeout before sampling, nonfinal connected parts, delayed
+  judgments, audio/render gating, and every intermediate step of finite traces.
+  It composes the extracted kernel with the reference exact-time, raw judgment,
+  queue-snapshot, event and rendering adapters; those concrete runtime adapters
+  still require refinement proofs. It is not a proof of the full runtime.
+
+- The slide command parser, scalar tables, parser/shape-solver composition and
+  scheduler frame driver passed combined-source elaboration together with
+  SlideLifecycle. All 50 requested axiom reports passed with only standard
+  logical axioms; no errors were reported. Accepted diagnostics and matching
+  source hashes are in `/tmp/lnmai-parser-scheduler-proof-accepted-v16.json` and
+  its adjacent `.sources.json`. The 37 added principal theorems are required by
+  the audit and their modules are registered in the deferred validation script.
+  The parser covers command precedence, endpoint indices, error order, all
+  scalar table keys (including unknown keys) and both timing modes. The solver
+  composition calls the extracted shape solver instead of assuming its
+  whole-function equivalence. String observations, exact rational construction
+  and concrete runtime representations remain explicit boundaries.
+- `SchedulerFrame` proves the extracted driver's pass order, event/command batch
+  order, and its conditional composition with the original `stepFrame`. Its
+  touch-group loop proves first-match selection, safe increment/index bounds,
+  append when absent, the old majority flag and preservation of later duplicate
+  IDs. Runtime pass bodies, point-read/write/append adapters and initialization
+  and finalization remain open; these results do not prove the entire scheduler.
+
+- `SlideParserFrontend` passed combined-source elaboration with the preceding
+  parser/lifecycle/scheduler batch. All 74 principal axiom reports passed,
+  including its 24 new theorems; three reports have no axiom dependencies and
+  the others use only the standard logical axioms. Accepted diagnostics and
+  source hashes are in `/tmp/lnmai-frontend-proof-accepted-v14.json` and the
+  adjacent `.sources.json`. This covers arbitrary character inputs, digit and
+  lane/area reads, index bounds, single/double character scan loops, just-type
+  priority, complete diagnostics and fallible-operation order. Composition
+  discharges whole-function reader/just-type/shape-solver assumptions. UTF-8
+  decoding, decimal formatting, allocation and exact rational construction
+  remain explicit obligations. Sanitization/command observations were
+  subsequently discharged by `SlideParserText`, described below. The new
+  theorems are registered in the audit and deferred validation script; no
+  runtime tests were run.
+
+- `SlideParserText` passed combined-source elaboration and all 18 principal
+  axiom checks with only standard logical axioms. The accepted snapshot and
+  source hashes are `/tmp/lnmai-parser-text-proof-accepted-v1.json` and its
+  adjacent `.sources.json`. It proves the actual thirteen command scans and
+  character-filter loop, their bounds/termination, and composition with the
+  body, terminal, note, shape and just-type parsers. UTF-8 decoding, String
+  encoding, diagnostics and numeric representation obligations remain; this
+  is not a whole-runtime proof. The public shape parser now delegates to the
+  same command/read kernel as the other slide-parser entry points.
+- Library-only `cargo check --workspace --lib --locked -j 1` passed in
+  `/tmp/lnmai-parser-metrics-library-check-1.log`, including the new timing,
+  ordered note-collection and queue-length kernels. The combined extraction
+  also succeeded in `/tmp/lnmai-parser-metrics-extraction-1.log`; the generated
+  artifacts match the kernel sources, with no additional opaque declarations
+  beyond the existing five formatter axioms. Typechecking and extraction alone
+  are not equivalence acceptance.
+- The Text, parent-chain, timing-route, collection and queue-metric proofs
+  subsequently passed combined-source elaboration against this extraction.
+  All 68 principal reports use only standard logical axioms; diagnostics and
+  source hashes are in `/tmp/lnmai-priority-proof-accepted-v6.json` and its
+  adjacent `.sources.json`. The 50 new principal theorems are now required by
+  `Verification.Audit` and their modules are in the deferred validation script.
+  A fresh separate-module audit of the changed dependency tree remains open.
+- `SchedulerParents` proves the actual extracted first-parent lookup, all-ID
+  updates, snapshot flag refresh, sensor-head scan, direct-parent completion
+  and bounded ancestor traversal. Cycles and duplicate IDs need no uniqueness
+  or acyclicity premise; an updated ended parent stops further traversal.
+  Point reads/writes, Natural equality, queue/container representation, cloning
+  and command allocation remain explicit contracts. Whole-pass scheduling is
+  not assumed or proved by these parent-loop theorems.
+- `TimingParser` proves nested-bracket scanning against the original reference
+  and every duration-field route, including strict empty-field checks and
+  safe indices. Natural scanning and aggregation have the later `NaturalParser`
+  and `TimingAggregate` proofs; per-piece numeric/Rat parsing, string splitting
+  and time quantization laws remain open. `SlideQueueMetrics` proves maximum queue length
+  and all-empty scanning for arbitrary payloads, with no Clone hypothesis.
+  Runtime container decoding still needs composition with its callers.
+- `SlideParserSequence` proves the runtime-used indexed collection loop from
+  reachable successful prefixes, preserving result order and returning the
+  first error without assumptions on unreachable callbacks. It composes the
+  existing note parser with the original timing-point parser. The actual
+  closure, String/record/error representation and allocation remain boundaries.
+- The subsequently accepted shared kernels are `natural_parser`, `timing_aggregate` and
+  `slide_schedule`, now called by the actual runtime. Library-only checks
+  passed in `/tmp/lnmai-natural-schedule-library-check-3.log`; unified extraction
+  succeeded in `/tmp/lnmai-natural-schedule-extraction-3.log` with only the
+  existing five formatter axioms. The natural scanner uses explicit digit
+  comparisons because the installed extractor rejects char-valued switches.
+  The 57 principal theorems now passed combined-source elaboration and axiom
+  checks against the installed original String parser, timing definitions and
+  scheduler fuel recursion. The final synchronized extraction is recorded in
+  `/tmp/lnmai-natural-schedule-extraction-4.log`, with acceptance diagnostics
+  and hashes in `/tmp/lnmai-natural-schedule-proof-accepted-v8.json`. The
+  previous accepted snapshots remain historical evidence for their source
+  hashes, not acceptance of this new Generated.lean.
+  Parent-kernel composition added seven reports for a total of 64, recorded
+  above. The next composition connects this traversal to the Slide frame phase;
+  other passes, initialization/finalization and actual facade contracts remain.
 
 Do not start deferred acceptance until the implementation-equivalence checklist
 is complete. Do not report whole-program formal equivalence while the open

@@ -5,19 +5,23 @@
 use crate::areas::{OuterSlot, SensorArea};
 use crate::rat::Rat;
 use crate::simai::shape::{
-    detect_just_type, detect_shape_from_text, parse_end_area_at, parse_slide_body_from_text,
+    detect_just_type, parse_end_area_at, parse_slide_body_from_text, parse_start_lane_at,
     solve_slide_shape,
 };
 use crate::simai::syntax::{
     ParseError, ParsedSlideBody, SlideNoteSemantics, SlideShape, TimingPointSemantics,
 };
 use crate::time::TimePoint;
+use lnmai_core_verify::{
+    slide_parser as kernel, slide_parser_sequence as sequence_kernel,
+    slide_parser_text as text_kernel,
+};
 
 /// `sanitizeSlideText`: drop Simai flag letters that are not part of the shape.
 fn sanitize_slide_text(raw_text: &str) -> String {
-    raw_text
-        .chars()
-        .filter(|c| !matches!(c, 'b' | 'x' | 'f' | '!' | '?' | '$'))
+    let chars: Vec<char> = raw_text.chars().collect();
+    text_kernel::sanitize_slide_chars(&chars)
+        .into_iter()
         .collect()
 }
 
@@ -59,11 +63,9 @@ pub fn parse_slide_note_from_body(
 /// `parseTerminalEndArea`.
 pub fn parse_terminal_end_area(raw_text: &str) -> Result<SensorArea, ParseError> {
     let cs: Vec<char> = raw_text.chars().collect();
-    if raw_text.contains('V') || raw_text.contains("pp") || raw_text.contains("qq") {
-        parse_end_area_at(&cs, 3)
-    } else {
-        parse_end_area_at(&cs, 2)
-    }
+    let facts = text_kernel::command_facts(&cs);
+    let index = kernel::terminal_end_index(facts.turn, facts.pp, facts.qq);
+    parse_end_area_at(&cs, index)
 }
 
 /// `parseSlideShapeText`.
@@ -85,21 +87,24 @@ pub fn parse_slide_timing_point(
     h_speed: Rat,
     raw_notes: &[String],
 ) -> Result<TimingPointSemantics, ParseError> {
-    let mut notes = Vec::with_capacity(raw_notes.len());
-    for raw in raw_notes {
-        let shape = detect_shape_from_text(raw)?;
-        let just = detect_just_type(raw)?;
-        let cs: Vec<char> = raw.chars().collect();
-        let start_slot = crate::simai::shape::parse_start_lane_at(&cs, 0)?;
-        let end_area = parse_terminal_end_area(raw)?;
-        notes.push(SlideNoteSemantics {
-            raw_text: raw.clone(),
-            start_slot,
-            end_area,
-            shape,
-            is_just_right: just,
-        });
-    }
+    let notes = sequence_kernel::try_map_indexed(
+        raw_notes.len(),
+        |index| -> Result<SlideNoteSemantics, ParseError> {
+            let raw = &raw_notes[index];
+            let shape = parse_slide_body_from_text(raw).and_then(|b| solve_slide_shape(&b))?;
+            let just = detect_just_type(raw)?;
+            let cs: Vec<char> = raw.chars().collect();
+            let start_slot = parse_start_lane_at(&cs, 0)?;
+            let end_area = parse_terminal_end_area(raw)?;
+            Ok(SlideNoteSemantics {
+                raw_text: raw.clone(),
+                start_slot,
+                end_area,
+                shape,
+                is_just_right: just,
+            })
+        },
+    )?;
     Ok(TimingPointSemantics {
         timing,
         bpm,

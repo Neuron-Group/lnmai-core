@@ -74,8 +74,9 @@ theorem touch_step_equiv (note : Lifecycle.TouchNote) (now : TimePoint) (diff : 
   cases state <;> cases clicked <;> cases shared <;>
     cases hraw : Judge.judgeTouch diff params.isEX <;>
     simp [touchStep, lifecycle.touch_transition, ofState, toState, finishAction,
-      finish_touch_judgment_equiv, Lifecycle.touchStep, canEnterJudgeable,
-      judgeTouchNow?, hraw] <;>
+      lifecycle.finish_touch_judgment, ConvertProof.convert_grade_equiv,
+      Lifecycle.touchStep, canEnterJudgeable, touchJudgeEvent, touchTooLateMissEvent,
+      judgeTouchNow?, hraw, bind_tc_ok] <;>
     split_ifs <;> simp_all
 
 structure Frame where

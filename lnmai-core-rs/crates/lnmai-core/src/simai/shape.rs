@@ -5,14 +5,15 @@
 use crate::areas::{OuterSlot, SensorArea};
 use crate::natural::Natural;
 use crate::simai::syntax::{
-    CanonicalSlideShape, ParseError, ParseErrorKind, ParsedSlideBody, SlideBodyKind, SlideKind,
-    SlideShape,
+    CanonicalSlideShape, ParseError, ParseErrorKind, ParsedSlideBody, SlideKind, SlideShape,
 };
 use crate::symmetry;
-use lnmai_core_verify::shape as kernel;
+use lnmai_core_verify::{
+    shape as kernel, slide_parser as parser_kernel, slide_parser_frontend as frontend,
+    slide_parser_text as text_kernel,
+};
 
 pub use kernel::digit_to_nat;
-use kernel::{outer_slot_is_right_half, outer_slot_is_upper_half};
 
 pub fn shape_kind(shape: &SlideShape) -> SlideKind {
     match &shape.canonical {
@@ -129,13 +130,6 @@ fn shape_error(raw_text: &str, failure: kernel::ShapeError) -> ParseError {
     }
 }
 
-fn relative_end_from_typed(
-    start_lane: OuterSlot,
-    end_area: SensorArea,
-) -> Result<usize, ParseError> {
-    kernel::relative_end_from_typed(start_lane, end_area).map_err(|err| shape_error("", err))
-}
-
 /// solveSlideShape: use the same pure implementation that is extracted for Lean.
 pub fn solve_slide_shape(body: &ParsedSlideBody) -> Result<SlideShape, ParseError> {
     kernel::solve_shape(body.kind, body.start_lane, body.end_area, body.turn_area)
@@ -167,15 +161,7 @@ pub fn mk_canonical_slide_shape(
 
 /// `getAt?`.
 pub fn get_at(xs: &[char], n: impl Into<Natural>) -> Option<char> {
-    xs.get(n.into().to_usize()?).copied()
-}
-
-fn key_pos_to_outer_slot(pos: usize) -> Option<OuterSlot> {
-    OuterSlot::of_index(pos.saturating_sub(1))
-}
-
-fn key_pos_to_outer_sensor_area(pos: usize) -> Option<SensorArea> {
-    OuterSlot::of_index(pos.saturating_sub(1)).map(OuterSlot::to_outer_sensor_area)
+    frontend::get_at(xs, n.into().to_usize()?)
 }
 
 /// `canonicalShapeKey`.
@@ -208,22 +194,18 @@ pub fn shape_key(shape: &SlideShape) -> String {
     display_shape_key(shape)
 }
 
-fn read_digit_at(content: &[char], index: &Natural) -> Result<usize, ParseError> {
-    match get_at(content, index) {
-        Some(c) => match digit_to_nat(c) {
-            Some(n) => Ok(n),
-            None => Err(error(
-                ParseErrorKind::InvalidSyntax,
-                &content.iter().collect::<String>(),
-                &format!("expected digit at {}", index),
-            )),
-        },
-        None => Err(error(
-            ParseErrorKind::InvalidSyntax,
-            &content.iter().collect::<String>(),
-            &format!("missing digit at {}", index),
-        )),
-    }
+fn read_error(content: &[char], index: &Natural, failure: frontend::ReadError) -> ParseError {
+    let message = match failure {
+        frontend::ReadError::MissingDigit => format!("missing digit at {}", index),
+        frontend::ReadError::ExpectedDigit => format!("expected digit at {}", index),
+        frontend::ReadError::InvalidStartLane => format!("invalid start lane at {}", index),
+        frontend::ReadError::InvalidEndArea => format!("invalid end area at {}", index),
+    };
+    error(
+        ParseErrorKind::InvalidSyntax,
+        &content.iter().collect::<String>(),
+        &message,
+    )
 }
 
 fn read_start_lane_at(
@@ -231,81 +213,40 @@ fn read_start_lane_at(
     index: impl Into<Natural>,
 ) -> Result<OuterSlot, ParseError> {
     let index = index.into();
-    let pos = read_digit_at(content, &index)?;
-    match key_pos_to_outer_slot(pos) {
-        Some(zone) => Ok(zone),
-        None => Err(error(
-            ParseErrorKind::InvalidSyntax,
-            &content.iter().collect::<String>(),
-            &format!("invalid start lane at {}", index),
-        )),
-    }
+    frontend::read_start_lane(get_at(content, &index))
+        .map_err(|failure| read_error(content, &index, failure))
 }
 
 fn read_end_area_at(content: &[char], index: impl Into<Natural>) -> Result<SensorArea, ParseError> {
     let index = index.into();
-    let pos = read_digit_at(content, &index)?;
-    match key_pos_to_outer_sensor_area(pos) {
-        Some(area) => Ok(area),
-        None => Err(error(
-            ParseErrorKind::InvalidSyntax,
-            &content.iter().collect::<String>(),
-            &format!("invalid end area at {}", index),
-        )),
-    }
+    frontend::read_end_area(get_at(content, &index))
+        .map_err(|failure| read_error(content, &index, failure))
 }
 
-/// `parseSlideBodyFromText`.
+/// `parseSlideBodyFromText`, with command control in the extracted kernel.
+/// Start-lane errors precede unknown commands; turn errors precede end errors.
 pub fn parse_slide_body_from_text(content: &str) -> Result<ParsedSlideBody, ParseError> {
     let cs: Vec<char> = content.chars().collect();
     let start_lane = read_start_lane_at(&cs, 0)?;
-    let end = |index: usize| -> Result<Option<SensorArea>, ParseError> {
-        Ok(Some(read_end_area_at(&cs, index)?))
-    };
-    let body = |kind: SlideBodyKind,
-                end_area: Option<SensorArea>,
-                turn_area: Option<SensorArea>| ParsedSlideBody {
-        raw_text: content.to_string(),
-        start_lane,
-        kind,
-        end_area,
-        turn_area,
-    };
-    if content.contains('-') {
-        Ok(body(SlideBodyKind::Line, end(2)?, None))
-    } else if content.contains('>') {
-        Ok(body(SlideBodyKind::CircleRight, end(2)?, None))
-    } else if content.contains('<') {
-        Ok(body(SlideBodyKind::CircleLeft, end(2)?, None))
-    } else if content.contains('^') {
-        Ok(body(SlideBodyKind::CircleUp, end(2)?, None))
-    } else if content.contains('v') {
-        Ok(body(SlideBodyKind::V, end(2)?, None))
-    } else if content.contains("pp") {
-        Ok(body(SlideBodyKind::Pp, end(3)?, None))
-    } else if content.contains("qq") {
-        Ok(body(SlideBodyKind::Qq, end(3)?, None))
-    } else if content.contains('p') {
-        Ok(body(SlideBodyKind::P, end(2)?, None))
-    } else if content.contains('q') {
-        Ok(body(SlideBodyKind::Q, end(2)?, None))
-    } else if content.contains('s') {
-        Ok(body(SlideBodyKind::S, end(2)?, None))
-    } else if content.contains('z') {
-        Ok(body(SlideBodyKind::Z, end(2)?, None))
-    } else if content.contains('V') {
-        let turn_area = read_end_area_at(&cs, 2)?;
-        let end_area = read_end_area_at(&cs, 3)?;
-        Ok(body(SlideBodyKind::Turn, Some(end_area), Some(turn_area)))
-    } else if content.contains('w') {
-        Ok(body(SlideBodyKind::Wifi, end(2)?, None))
-    } else {
-        Err(error(
+    let kind = parser_kernel::select_command(text_kernel::command_facts(&cs)).ok_or_else(|| {
+        error(
             ParseErrorKind::InvalidShape,
             content,
             "unrecognized Simai slide shape",
-        ))
-    }
+        )
+    })?;
+    let turn_area = match parser_kernel::command_turn_index(kind) {
+        Some(index) => Some(read_end_area_at(&cs, index)?),
+        None => None,
+    };
+    let end_area = read_end_area_at(&cs, parser_kernel::command_end_index(kind))?;
+    Ok(ParsedSlideBody {
+        raw_text: content.to_string(),
+        start_lane,
+        kind,
+        end_area: Some(end_area),
+        turn_area,
+    })
 }
 
 /// `detectShapeFromText`.
@@ -317,45 +258,15 @@ pub fn detect_shape_from_text(content: &str) -> Result<SlideShape, ParseError> {
 /// `detectJustType`.
 pub fn detect_just_type(content: &str) -> Result<bool, ParseError> {
     let cs: Vec<char> = content.chars().collect();
-    let need_outer = || {
-        error(
+    frontend::detect_just_type(&cs).map_err(|failure| match failure {
+        frontend::JustError::At(issue, index) => read_error(&cs, &index.into(), issue),
+        frontend::JustError::Shape(issue) => shape_error("", issue),
+        frontend::JustError::EndNotOuter => error(
             ParseErrorKind::InvalidEndPosition,
             content,
             "slide end must be on outer A-ring",
-        )
-    };
-    if content.contains('>') {
-        let start_lane = read_start_lane_at(&cs, 0)?;
-        let _end = read_end_area_at(&cs, 2)?;
-        Ok(outer_slot_is_upper_half(start_lane))
-    } else if content.contains('<') {
-        let start_lane = read_start_lane_at(&cs, 0)?;
-        let _end = read_end_area_at(&cs, 2)?;
-        Ok(!outer_slot_is_upper_half(start_lane))
-    } else if content.contains('^') {
-        let start_lane = read_start_lane_at(&cs, 0)?;
-        let end_area = read_end_area_at(&cs, 2)?;
-        let rel_end = relative_end_from_typed(start_lane, end_area)?;
-        Ok(rel_end < 4)
-    } else if content.contains('V') {
-        let _start = read_start_lane_at(&cs, 0)?;
-        let end_area = read_end_area_at(&cs, 3)?;
-        let end_zone = end_area.to_outer_slot().ok_or_else(need_outer)?;
-        Ok(outer_slot_is_right_half(end_zone))
-    } else if content.contains('w') {
-        let _start = read_start_lane_at(&cs, 0)?;
-        let end_area = read_end_area_at(&cs, 2)?;
-        let end_zone = end_area.to_outer_slot().ok_or_else(need_outer)?;
-        Ok(outer_slot_is_upper_half(end_zone))
-    } else {
-        let end_area = if content.contains("qq") || content.contains("pp") {
-            read_end_area_at(&cs, 3)?
-        } else {
-            read_end_area_at(&cs, 2)?
-        };
-        let end_zone = end_area.to_outer_slot().ok_or_else(need_outer)?;
-        Ok(outer_slot_is_right_half(end_zone))
-    }
+        ),
+    })
 }
 
 /// `parseStartLaneAt`.

@@ -7,8 +7,8 @@ use crate::constants as C;
 use crate::convert::convert_grade;
 use crate::events::{AudioCommand, RenderCommand};
 use crate::judge::{
-    correct_slide_grade, judge_hold_classic_end, judge_hold_end, judge_slide_classic,
-    judge_slide_modern, judge_slide_too_late, judge_tap, judge_touch,
+    judge_hold_classic_end, judge_hold_end, judge_slide_classic, judge_slide_modern,
+    judge_slide_too_late, judge_tap, judge_touch,
 };
 use crate::natural::Natural;
 use crate::storage::SensorVec;
@@ -26,6 +26,7 @@ use lnmai_core_verify::lifecycle::{
     tap_transition, touch_transition, HoldBodyAction, HoldBodyFacts, HoldHeadAction, TapAction,
     TouchAction,
 };
+use lnmai_core_verify::slide_lifecycle::{self, ActiveAction, SlideAction};
 
 fn jd_event(
     kind: JudgeEventKind,
@@ -848,14 +849,7 @@ pub fn touch_step(
 // Slide queue core
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum SlideState {
-    #[default]
-    Waiting,
-    Active(Duration),
-    Judged(JudgeGrade, Duration, Duration),
-    Ended,
-}
+pub type SlideState = slide_lifecycle::SlideState<Duration>;
 
 /// The extracted checkpoint implementation preserves unbounded progress values.
 pub type SlideArea = lnmai_core_verify::lifecycle::SlideArea<Natural>;
@@ -863,7 +857,7 @@ pub type SlideArea = lnmai_core_verify::lifecycle::SlideArea<Natural>;
 pub type SlideQueue = Vec<SlideArea>;
 
 pub fn slide_queue_remaining(queues: &[SlideQueue]) -> usize {
-    queues.iter().map(|q| q.len()).max().unwrap_or(0)
+    lnmai_core_verify::slide_queue_metrics::remaining(queues)
 }
 
 fn wifi_queue_progress_remaining(is_classic: bool, queues: &[SlideQueue]) -> Natural {
@@ -915,16 +909,7 @@ fn slide_progress_remaining(
 }
 
 pub fn slide_queues_cleared(queues: &[SlideQueue]) -> bool {
-    match queues {
-        [] => true,
-        [q, rest @ ..] => {
-            if q.is_empty() {
-                slide_queues_cleared(rest)
-            } else {
-                false
-            }
-        }
-    }
+    lnmai_core_verify::slide_queue_metrics::cleared(queues)
 }
 
 fn slide_head_on(queue: &SlideQueue) -> bool {
@@ -1142,12 +1127,7 @@ pub struct SlideStepSemantic {
 }
 
 fn slide_effective_judge_grade(style: JudgeStyle, subdivide: bool, raw: JudgeGrade) -> JudgeGrade {
-    let converted = convert_grade(style, raw);
-    if subdivide {
-        converted
-    } else {
-        correct_slide_grade(converted)
-    }
+    slide_lifecycle::effective_grade(style, subdivide, raw)
 }
 
 fn slide_current_judge_diff(
@@ -1165,17 +1145,14 @@ fn slide_initial_wait_time(note: &SlideNote) -> Duration {
 
 pub fn slide_should_be_checkable(note: &SlideNote, current_time: TimePoint) -> bool {
     let head_timing = current_time - note.head_timing.clone();
-    if note.is_checkable {
-        true
-    } else if note.is_conn_slide {
-        if note.is_group_part_head {
-            head_timing.to_micros() >= -50000
-        } else {
-            note.parent_finished || note.parent_pending_finish
-        }
-    } else {
-        head_timing.to_micros() >= -50000
-    }
+    slide_lifecycle::should_be_checkable(
+        note.is_checkable,
+        note.is_conn_slide,
+        note.is_group_part_head,
+        note.parent_finished,
+        note.parent_pending_finish,
+        head_timing.to_micros() >= -50000,
+    )
 }
 
 pub fn slide_updated_queues_with_cmds(
@@ -1382,49 +1359,55 @@ fn slide_active_step_semantic(
     let static_base = build_slide_static_semantic_base(&active_note, true);
     let is_too_late =
         ctx.current_time.to_micros() > slide_too_late_timing(&active_note).to_micros();
-    if is_judgable && slide_queues_cleared(&active_note.judge_queues) {
-        let judge_diff = slide_current_judge_diff(
-            &active_note,
-            ctx.current_time.clone(),
-            ctx.touch_panel_offset.clone(),
-        );
-        let raw = if active_note.is_classic {
-            judge_slide_classic(judge_diff.clone())
-        } else {
-            judge_slide_modern(
+    match slide_lifecycle::active_action(
+        is_judgable,
+        slide_queues_cleared(&active_note.judge_queues),
+        is_too_late,
+    ) {
+        ActiveAction::Complete => {
+            let judge_diff = slide_current_judge_diff(
+                &active_note,
+                ctx.current_time.clone(),
+                ctx.touch_panel_offset.clone(),
+            );
+            let raw = if active_note.is_classic {
+                judge_slide_classic(judge_diff.clone())
+            } else {
+                judge_slide_modern(
+                    judge_diff.clone(),
+                    wait_time.clone(),
+                    active_note.params.is_ex,
+                )
+            };
+            let stored_grade = if active_note.is_classic {
+                raw
+            } else {
+                convert_grade(ctx.style, raw)
+            };
+            let judged_wait_time = slide_adjusted_judged_wait_time(
+                &active_note,
+                ctx.current_time.clone(),
+                wait_time,
                 judge_diff.clone(),
-                wait_time.clone(),
-                active_note.params.is_ex,
-            )
-        };
-        let stored_grade = if active_note.is_classic {
-            raw
-        } else {
-            convert_grade(ctx.style, raw)
-        };
-        let judged_wait_time = slide_adjusted_judged_wait_time(
-            &active_note,
-            ctx.current_time.clone(),
-            wait_time,
-            judge_diff.clone(),
-        );
-        SlideStepSemantic {
-            note: SlideNote {
-                state: SlideState::Judged(stored_grade, judged_wait_time, judge_diff),
-                ..static_base.note.clone()
-            },
-            should_play_track_ons: active_note.is_group_part_head || !active_note.is_conn_slide,
-            emit_progress_render: true,
-            ..static_base
+            );
+            SlideStepSemantic {
+                note: SlideNote {
+                    state: SlideState::Judged(stored_grade, judged_wait_time, judge_diff),
+                    ..static_base.note.clone()
+                },
+                should_play_track_ons: active_note.is_group_part_head || !active_note.is_conn_slide,
+                emit_progress_render: true,
+                ..static_base
+            }
         }
-    } else if is_judgable && is_too_late {
-        slide_too_late_step_semantic(&active_note, ctx, true)
-    } else {
-        let semantic_base = build_slide_sensor_semantic_base(&active_note, ctx, true);
-        SlideStepSemantic {
-            should_play_track_ons: active_note.is_group_part_head || !active_note.is_conn_slide,
-            emit_progress_render: semantic_base.progress_changed,
-            ..semantic_base
+        ActiveAction::Timeout => slide_too_late_step_semantic(&active_note, ctx, true),
+        ActiveAction::SampleSensors => {
+            let semantic_base = build_slide_sensor_semantic_base(&active_note, ctx, true);
+            SlideStepSemantic {
+                should_play_track_ons: active_note.is_group_part_head || !active_note.is_conn_slide,
+                emit_progress_render: semantic_base.progress_changed,
+                ..semantic_base
+            }
         }
     }
 }
@@ -1432,63 +1415,58 @@ fn slide_active_step_semantic(
 pub fn slide_step_semantic(note: &SlideNote, ctx: &SlideStepContext) -> SlideStepSemantic {
     let is_checkable = slide_should_be_checkable(note, ctx.current_time.clone());
     let is_judgable = note.is_group_part_end || !note.is_conn_slide;
-    match note.state.clone() {
-        SlideState::Waiting => {
-            if is_checkable {
-                slide_active_step_semantic(note, ctx, is_judgable, slide_initial_wait_time(note))
-            } else if is_judgable
-                && ctx.current_time.to_micros() > slide_too_late_timing(note).to_micros()
-            {
-                slide_too_late_step_semantic(note, ctx, false)
-            } else {
-                build_slide_dormant_semantic_base(note)
-            }
-        }
-        SlideState::Active(wait_time) => {
-            if !is_checkable {
-                if is_judgable
-                    && ctx.current_time.to_micros() > slide_too_late_timing(note).to_micros()
-                {
-                    slide_too_late_step_semantic(note, ctx, false)
-                } else {
-                    build_slide_dormant_semantic_base(note)
-                }
-            } else {
-                slide_active_step_semantic(note, ctx, is_judgable, wait_time)
-            }
-        }
-        SlideState::Judged(grade, wait_time, stored_judge_diff) => {
+    let initial_wait = match note.state {
+        SlideState::Waiting => slide_initial_wait_time(note),
+        _ => Duration::zero(),
+    };
+    let wait_expired = match &note.state {
+        SlideState::Judged(_, wait, _) => wait.to_micros() <= 0,
+        _ => false,
+    };
+    let action = slide_lifecycle::transition(
+        note.state.clone(),
+        initial_wait,
+        is_checkable,
+        is_judgable,
+        ctx.current_time.to_micros() > slide_too_late_timing(note).to_micros(),
+        wait_expired,
+    );
+    match action {
+        SlideAction::Dormant => build_slide_dormant_semantic_base(note),
+        SlideAction::Activate(wait) => slide_active_step_semantic(note, ctx, is_judgable, wait),
+        SlideAction::Timeout => slide_too_late_step_semantic(note, ctx, false),
+        SlideAction::Finish(grade, stored_judge_diff) => {
             let static_base = build_slide_static_semantic_base(note, is_checkable);
-            if wait_time.to_micros() <= 0 {
-                let final_grade =
-                    slide_effective_judge_grade(ctx.style, ctx.subdivide_slide_judge_grade, grade);
-                SlideStepSemantic {
-                    note: SlideNote {
-                        state: SlideState::Ended,
-                        ..static_base.note.clone()
-                    },
-                    event: if note.is_conn_slide && !note.is_group_part_end {
-                        None
-                    } else {
-                        Some(slide_judge_event(note, final_grade, stored_judge_diff))
-                    },
-                    hide_slide: true,
-                    ..static_base
-                }
-            } else {
-                let new_wait = wait_time - ctx.delta.clone();
-                SlideStepSemantic {
-                    note: SlideNote {
-                        state: SlideState::Judged(grade, new_wait, stored_judge_diff),
-                        ..static_base.note.clone()
-                    },
-                    should_play_track_ons: note.is_group_part_head || !note.is_conn_slide,
-                    emit_progress_render: static_base.progress_changed,
-                    ..static_base
-                }
+            let final_grade =
+                slide_effective_judge_grade(ctx.style, ctx.subdivide_slide_judge_grade, grade);
+            SlideStepSemantic {
+                note: SlideNote {
+                    state: SlideState::Ended,
+                    ..static_base.note.clone()
+                },
+                event: if note.is_conn_slide && !note.is_group_part_end {
+                    None
+                } else {
+                    Some(slide_judge_event(note, final_grade, stored_judge_diff))
+                },
+                hide_slide: true,
+                ..static_base
             }
         }
-        SlideState::Ended => {
+        SlideAction::Wait(grade, wait_time, stored_judge_diff) => {
+            let static_base = build_slide_static_semantic_base(note, is_checkable);
+            let new_wait = wait_time - ctx.delta.clone();
+            SlideStepSemantic {
+                note: SlideNote {
+                    state: SlideState::Judged(grade, new_wait, stored_judge_diff),
+                    ..static_base.note.clone()
+                },
+                should_play_track_ons: note.is_group_part_head || !note.is_conn_slide,
+                emit_progress_render: static_base.progress_changed,
+                ..static_base
+            }
+        }
+        SlideAction::Ended => {
             let static_base = build_slide_static_semantic_base(note, is_checkable);
             SlideStepSemantic {
                 note: SlideNote {
@@ -1562,25 +1540,25 @@ pub fn slide_step(
         sensor_held,
     };
     let mut semantic = slide_step_semantic(note, &ctx);
-    if semantic.should_play_track_ons
-        && !semantic.note.slide_sound_played
-        && !semantic.track_ons.is_empty()
-    {
+    let flags = slide_lifecycle::output_flags(
+        matches!(semantic.note.state, SlideState::Ended),
+        semantic.should_play_track_ons,
+        semantic.note.slide_sound_played,
+        !semantic.track_ons.is_empty(),
+        semantic.hide_slide,
+    );
+    if flags.mark_sound_played {
         semantic.note.slide_sound_played = true;
     }
-    let audio_cmds = match semantic.note.state {
-        SlideState::Ended => Vec::new(),
-        _ => slide_semantic_audio_cmds(&semantic, current_time),
+    let audio_cmds = if flags.emit_audio {
+        slide_semantic_audio_cmds(&semantic, current_time)
+    } else {
+        Vec::new()
     };
-    let render_cmds = match semantic.note.state {
-        SlideState::Ended => {
-            if semantic.hide_slide {
-                slide_semantic_render_cmds(&semantic)
-            } else {
-                Vec::new()
-            }
-        }
-        _ => slide_semantic_render_cmds(&semantic),
+    let render_cmds = if flags.emit_render {
+        slide_semantic_render_cmds(&semantic)
+    } else {
+        Vec::new()
     };
     (semantic.note, semantic.event, audio_cmds, render_cmds)
 }

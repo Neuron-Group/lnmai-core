@@ -784,46 +784,62 @@ pub fn judge_queues_for_shape(
     Some(transform_judge_queues(shape.symmetry, &base))
 }
 
+/// Exact string adapter for the finite scalar tables. Keep Line2/Line8
+/// distinct even though they intentionally have no timing entries.
+fn scalar_table_key(key: &str) -> lnmai_core_verify::slide_tables::TableKey {
+    use lnmai_core_verify::slide_tables::TableKey;
+    match strip_mirror_prefix(key).as_str() {
+        "circle1" => TableKey::Circle1,
+        "circle2" => TableKey::Circle2,
+        "circle3" => TableKey::Circle3,
+        "circle4" => TableKey::Circle4,
+        "circle5" => TableKey::Circle5,
+        "circle6" => TableKey::Circle6,
+        "circle7" => TableKey::Circle7,
+        "circle8" => TableKey::Circle8,
+        "line2" => TableKey::Line2,
+        "line3" => TableKey::Line3,
+        "line4" => TableKey::Line4,
+        "line5" => TableKey::Line5,
+        "line6" => TableKey::Line6,
+        "line7" => TableKey::Line7,
+        "line8" => TableKey::Line8,
+        "v1" => TableKey::V1,
+        "v2" => TableKey::V2,
+        "v3" => TableKey::V3,
+        "v4" => TableKey::V4,
+        "v6" => TableKey::V6,
+        "v7" => TableKey::V7,
+        "v8" => TableKey::V8,
+        "ppqq1" => TableKey::Ppqq1,
+        "ppqq2" => TableKey::Ppqq2,
+        "ppqq3" => TableKey::Ppqq3,
+        "ppqq4" => TableKey::Ppqq4,
+        "ppqq5" => TableKey::Ppqq5,
+        "ppqq6" => TableKey::Ppqq6,
+        "ppqq7" => TableKey::Ppqq7,
+        "ppqq8" => TableKey::Ppqq8,
+        "pq1" => TableKey::Pq1,
+        "pq2" => TableKey::Pq2,
+        "pq3" => TableKey::Pq3,
+        "pq4" => TableKey::Pq4,
+        "pq5" => TableKey::Pq5,
+        "pq6" => TableKey::Pq6,
+        "pq7" => TableKey::Pq7,
+        "pq8" => TableKey::Pq8,
+        "L2" => TableKey::L2,
+        "L3" => TableKey::L3,
+        "L4" => TableKey::L4,
+        "L5" => TableKey::L5,
+        "s" => TableKey::S,
+        "wifi" => TableKey::Wifi,
+        _ => TableKey::Unknown,
+    }
+}
+
 /// Visual path weights from Lean SlideTables.
 pub fn slide_bar_count_for_shape_key(key: &str) -> Option<usize> {
-    match strip_mirror_prefix(key).as_str() {
-        "circle1" => Some(64),
-        "circle2" => Some(8),
-        "circle3" => Some(16),
-        "circle4" => Some(24),
-        "circle5" => Some(32),
-        "circle6" => Some(40),
-        "circle7" => Some(48),
-        "circle8" => Some(56),
-        "line3" => Some(14),
-        "line4" => Some(19),
-        "line5" => Some(20),
-        "line6" => Some(19),
-        "line7" => Some(14),
-        "v1" => Some(21),
-        "v2" | "v3" | "v4" | "v6" | "v7" | "v8" => Some(20),
-        "ppqq1" => Some(36),
-        "ppqq2" => Some(29),
-        "ppqq3" => Some(23),
-        "ppqq4" | "ppqq5" => Some(50),
-        "ppqq6" => Some(49),
-        "ppqq7" => Some(47),
-        "ppqq8" => Some(42),
-        "pq1" => Some(34),
-        "pq2" => Some(31),
-        "pq3" => Some(28),
-        "pq4" => Some(25),
-        "pq5" => Some(22),
-        "pq6" => Some(43),
-        "pq7" => Some(41),
-        "pq8" => Some(37),
-        "L2" => Some(33),
-        "L3" => Some(35),
-        "L4" => Some(33),
-        "L5" => Some(29),
-        "s" => Some(31),
-        _ => None,
-    }
+    lnmai_core_verify::slide_tables::slide_bar_count(scalar_table_key(key))
 }
 
 pub fn slide_bar_count_for_shape(shape: &SlideShape) -> Option<usize> {
@@ -832,50 +848,11 @@ pub fn slide_bar_count_for_shape(shape: &SlideShape) -> Option<usize> {
 
 /// Last-wait ratios, in exact millionths, from Lean SlideTables.
 pub fn slide_last_wait_ratio_for_shape_key(key: &str, is_classic: bool) -> Option<crate::rat::Rat> {
-    let (modern, classic) = match strip_mirror_prefix(key).as_str() {
-        "circle1" => (58000, 65500),
-        "circle2" => (465000, 505000),
-        "circle3" => (233000, 263000),
-        "circle4" => (155000, 175000),
-        "circle5" => (116000, 131000),
-        "circle6" => (93000, 108000),
-        "circle7" => (78000, 85500),
-        "circle8" => (66000, 76000),
-        "line3" | "line7" => (182000, 277000),
-        "line4" | "line6" => (190000, 230000),
-        "line5" => (152000, 167000),
-        "v1" => (185000, 205000),
-        "v2" => (150000, 170000),
-        "v3" | "v4" | "v6" | "v7" => (158000, 178000),
-        "v8" => (154000, 174000),
-        "ppqq1" => (65000, 95000),
-        "ppqq2" => (86000, 131000),
-        "ppqq3" => (157000, 197000),
-        "ppqq4" => (65000, 72500),
-        "ppqq5" => (65000, 75000),
-        "ppqq6" => (67000, 77000),
-        "ppqq7" => (79000, 94000),
-        "ppqq8" => (62600, 80100),
-        "L2" => (100000, 120000),
-        "L3" => (104000, 114000),
-        "L4" => (98000, 123000),
-        "L5" => (105000, 150000),
-        "s" => (130000, 155000),
-        "pq1" => (95000, 115000),
-        "pq2" => (112000, 137000),
-        "pq3" => (125000, 150000),
-        "pq4" => (139000, 169000),
-        "pq5" => (160000, 192500),
-        "pq6" => (80000, 97500),
-        "pq7" => (84000, 104000),
-        "pq8" => (89500, 109500),
-        "wifi" => (162870, 162870),
-        _ => return None,
-    };
-    Some(crate::rat::Rat::new(
-        if is_classic { classic } else { modern },
-        1_000_000,
-    ))
+    let numerator = lnmai_core_verify::slide_tables::slide_last_wait_millionths(
+        scalar_table_key(key),
+        is_classic,
+    )?;
+    Some(crate::rat::Rat::new(numerator, 1_000_000))
 }
 
 pub fn slide_last_wait_ratio_for_shape(

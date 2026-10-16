@@ -5,6 +5,8 @@
 use crate::natural::Natural;
 use crate::rat::Rat;
 use crate::time::{self, Duration};
+use lnmai_core_verify::timing_aggregate;
+use lnmai_core_verify::timing_parser::{self, DurationRoute};
 use num_bigint::BigInt;
 use num_traits::{One, Zero};
 
@@ -100,33 +102,11 @@ pub fn beat_sec(bpm: Rat) -> Duration {
 
 /// `Timing.extractBracketContents`.
 pub fn extract_bracket_contents(token: &str) -> Vec<String> {
-    let mut acc: Vec<String> = Vec::new();
-    let mut inside = false;
-    let mut current = String::new();
-    for c in token.chars() {
-        match c {
-            '[' => {
-                if inside {
-                    current.insert(0, '[');
-                } else {
-                    inside = true;
-                    current.clear();
-                }
-            }
-            ']' => {
-                if inside {
-                    inside = false;
-                    acc.push(std::mem::take(&mut current));
-                }
-            }
-            _ => {
-                if inside {
-                    current.push(c);
-                }
-            }
-        }
-    }
-    acc
+    let chars: Vec<char> = token.chars().collect();
+    timing_parser::extract_brackets(&chars)
+        .into_iter()
+        .map(|piece| piece.into_iter().collect())
+        .collect()
 }
 
 /// `Timing.splitHash2`.
@@ -191,17 +171,19 @@ fn duration_bpm(current_bpm: Rat, text: &str) -> Rat {
 
 fn parse_duration_inner_micros(current_bpm: Rat, inner: &str) -> Option<Rat> {
     let parts: Vec<&str> = inner.split('#').collect();
-    match parts.as_slice() {
-        [timing] => parse_ratio_or_seconds_micros(current_bpm, timing),
-        ["", seconds] => parse_seconds_micros(seconds),
-        [custom_bpm, timing] => {
-            parse_ratio_or_seconds_micros(duration_bpm(current_bpm, custom_bpm), timing)
+    let fields: Vec<Vec<char>> = parts.iter().map(|field| field.chars().collect()).collect();
+    match timing_parser::duration_route(&fields) {
+        DurationRoute::Reject => None,
+        DurationRoute::CurrentRatioOrSeconds { timing } => {
+            parse_ratio_or_seconds_micros(current_bpm, parts[timing])
         }
-        [_, _, timing] => parse_ratio_or_seconds_micros(current_bpm, timing),
-        [_, _, custom_bpm, timing] => {
-            parse_nd_micros(duration_bpm(current_bpm, custom_bpm), timing)
+        DurationRoute::SecondsOnly { timing } => parse_seconds_micros(parts[timing]),
+        DurationRoute::CustomRatioOrSeconds { bpm, timing } => {
+            parse_ratio_or_seconds_micros(duration_bpm(current_bpm, parts[bpm]), parts[timing])
         }
-        _ => None,
+        DurationRoute::CustomRatioOnly { bpm, timing } => {
+            parse_nd_micros(duration_bpm(current_bpm, parts[bpm]), parts[timing])
+        }
     }
 }
 
@@ -210,16 +192,19 @@ pub fn parse_duration_inner(current_bpm: Rat, inner: &str) -> Option<Duration> {
 }
 
 pub fn parse_duration_spec(bpm: Rat, token: &str) -> Option<Duration> {
-    extract_bracket_contents(token)
-        .iter()
-        .filter_map(|inner| parse_duration_inner_micros(bpm.clone(), inner))
-        .reduce(|sum, duration| sum.add(duration))
-        .map(time::duration_from_rat_micros)
+    let contents = extract_bracket_contents(token);
+    timing_aggregate::sum_then_map_indexed(
+        contents.len(),
+        |index| parse_duration_inner_micros(bpm.clone(), &contents[index]),
+        |sum: Rat, duration| sum.add(duration),
+        time::duration_from_rat_micros,
+    )
 }
 
 pub fn parse_star_wait_spec(bpm: Rat, token: &str) -> Option<Duration> {
-    let custom = extract_bracket_contents(token).iter().find_map(|inner| {
-        let parts: Vec<&str> = inner.split('#').collect();
+    let contents = extract_bracket_contents(token);
+    let custom = timing_aggregate::first_some_indexed(contents.len(), |index| {
+        let parts: Vec<&str> = contents[index].split('#').collect();
         match parts.as_slice() {
             [custom_bpm, _] => parse_rat_string(custom_bpm).map(|value| {
                 beat_sec(if Rat::zero().lt(&value) {

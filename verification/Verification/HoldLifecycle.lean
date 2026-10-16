@@ -4,7 +4,8 @@ import Batteries.Tactic.OpenPrivate
 
 open Aeneas Aeneas.Std Result lnmai_core_verify
 
-set_option maxHeartbeats 1500000
+set_option maxHeartbeats 2000000
+set_option pp.maxSteps 100000
 
 namespace Verification.HoldLifecycleProof
 open Bridge LnmaiCore
@@ -42,6 +43,8 @@ def ofState : Lifecycle.HoldSubState → lifecycle.HoldSubState
     types.JudgeGrade.is_miss_or_too_fast (ofLnmJudgeGrade grade) =
       ok grade.isMissOrTooFast := by cases grade <;> rfl
 
+/-- One frame of runtime input for the hold lifecycle. Times and judgments are
+    supplied by the caller with its own unbounded arithmetic. -/
 structure Frame where
   now : TimePoint
   diff : Duration
@@ -56,8 +59,14 @@ structure Frame where
   delta : Duration
   style : JudgeStyle
 
-/-- Interpretation of the runtime head adapter. Exact-time operations, raw
-    judgments, note updates and event constructors remain adapter contracts. -/
+/-- Model of the runtime's tail-event constructor. -/
+def holdTailEvent (note : Lifecycle.HoldNote) (grade : JudgeGrade) (diff : Duration) :
+    JudgeEvent :=
+  { kind := .Hold, phase := .tail, grade := grade, diff := diff,
+    position := note.position, noteIndex := note.params.noteIndex,
+    isBreak := note.params.isBreak }
+
+/-- Interpret the runtime head adapter. -/
 def applyHead (note : Lifecycle.HoldNote) (f : Frame)
     (action : lifecycle.HoldHeadAction) : Lifecycle.HoldNote × Option JudgeEvent :=
   match action with
@@ -82,7 +91,8 @@ def headStep (note : Lifecycle.HoldNote) (f : Frame) :
     f.clicked f.shared.isSome
   ok (applyHead note f action)
 
-def headWaitingReference (note : Lifecycle.HoldNote) (f : Frame) :=
+def headWaitingReference (note : Lifecycle.HoldNote) (f : Frame) :
+    Lifecycle.HoldNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   if note.isTouchHold then
     stepTouchHoldHeadWaiting note f.now timing (timing - Constants.JUDGABLE_RANGE_SEC)
@@ -91,7 +101,8 @@ def headWaitingReference (note : Lifecycle.HoldNote) (f : Frame) :=
     stepRegularHoldHeadWaiting note f.now timing (timing - Constants.JUDGABLE_RANGE_SEC)
       f.diff f.clicked f.style
 
-def headJudgeableReference (note : Lifecycle.HoldNote) (f : Frame) :=
+def headJudgeableReference (note : Lifecycle.HoldNote) (f : Frame) :
+    Lifecycle.HoldNote × Option JudgeEvent :=
   let timing := note.params.effectiveTiming
   if note.isTouchHold then
     stepTouchHoldHeadJudgeable note f.now timing (timing - Constants.JUDGABLE_RANGE_SEC)
@@ -103,35 +114,49 @@ def headJudgeableReference (note : Lifecycle.HoldNote) (f : Frame) :=
 theorem head_waiting_equiv (note : Lifecycle.HoldNote) (f : Frame)
     (hs : note.state = .HeadWaiting) :
     headStep note f = ok (headWaitingReference note f) := by
-  cases ht : note.isTouchHold <;> cases hc : f.clicked <;> cases hshared : f.shared <;>
-    simp [headStep, lifecycle.hold_head_action, hs, ofState, applyHead,
-      headWaitingReference, stepTouchHoldHeadWaiting, stepRegularHoldHeadWaiting,
-      canEnterJudgeable, holdHeadMissEvent, ht, hc, hshared] <;>
-    split_ifs <;> simp_all
+  cases ht : note.isTouchHold <;> cases hc : f.clicked <;>
+    cases hshared : f.shared with
+    | none =>
+        simp [headStep, lifecycle.hold_head_action, hs, ht, hc, hshared, ofState, applyHead,
+          bind_tc_ok, headWaitingReference, stepTouchHoldHeadWaiting,
+          stepRegularHoldHeadWaiting, canEnterJudgeable, holdHeadMissEvent,
+          holdHeadJudgeEvent] <;> split_ifs <;> simp_all
+    | some p =>
+        obtain ⟨g, d⟩ := p
+        simp [headStep, lifecycle.hold_head_action, hs, ht, hc, hshared, ofState, applyHead,
+          bind_tc_ok, headWaitingReference, stepTouchHoldHeadWaiting,
+          stepRegularHoldHeadWaiting, canEnterJudgeable, holdHeadMissEvent,
+          holdHeadJudgeEvent] <;> split_ifs <;> simp_all
 
 theorem head_judgeable_equiv (note : Lifecycle.HoldNote) (f : Frame)
     (hs : note.state = .HeadJudgeable) :
     headStep note f = ok (headJudgeableReference note f) := by
-  cases ht : note.isTouchHold <;> cases hc : f.clicked <;> cases hshared : f.shared <;>
-    simp [headStep, lifecycle.hold_head_action, hs, ofState, applyHead,
-      headJudgeableReference, stepTouchHoldHeadJudgeable, stepRegularHoldHeadJudgeable,
-      canEnterJudgeable, holdHeadMissEvent, ht, hc, hshared] <;>
-    split_ifs <;> simp_all
+  cases ht : note.isTouchHold <;> cases hc : f.clicked <;>
+    cases hshared : f.shared with
+    | none =>
+        simp [headStep, lifecycle.hold_head_action, hs, ht, hc, hshared, ofState, applyHead,
+          bind_tc_ok, headJudgeableReference, stepTouchHoldHeadJudgeable,
+          stepRegularHoldHeadJudgeable, canEnterJudgeable, holdHeadMissEvent,
+          holdHeadJudgeEvent] <;> split_ifs <;> simp_all
+    | some p =>
+        obtain ⟨g, d⟩ := p
+        simp [headStep, lifecycle.hold_head_action, hs, ht, hc, hshared, ofState, applyHead,
+          bind_tc_ok, headJudgeableReference, stepTouchHoldHeadJudgeable,
+          stepRegularHoldHeadJudgeable, canEnterJudgeable, holdHeadMissEvent,
+          holdHeadJudgeEvent] <;> split_ifs <;> simp_all
 
 def endHold (note : Lifecycle.HoldNote) (timing : TimePoint) (f : Frame)
     (grade : JudgeGrade) (releaseTiming : TimePoint) :
     Lifecycle.HoldNote × Option JudgeEvent :=
-  let raw := if note.isClassic then
+  let finalGrade := if note.isClassic then
       Judge.judgeHoldClassicEnd grade timing note.length releaseTiming
     else Judge.judgeHoldEnd grade note.headDiff note.length
       (f.headIgnore + f.tailIgnore) note.playerReleaseTime
-  let finalGrade := Convert.convertGrade f.style raw
+  let finalGrade' := Convert.convertGrade f.style finalGrade
   let eventDiff := if note.headDiff == Duration.zero && grade == .Miss then
       Time.fromMillis 150 else note.headDiff
-  ({ note with state := .Ended finalGrade, touchHoldGroupTriggered := false },
-    some { kind := .Hold, phase := .tail, grade := finalGrade, diff := eventDiff,
-      position := note.position, noteIndex := note.params.noteIndex,
-      isBreak := note.params.isBreak })
+  ({ note with state := .Ended finalGrade', touchHoldGroupTriggered := false },
+    some (holdTailEvent note finalGrade' eventDiff))
 
 def releaseOffset (f : Frame) : Duration :=
   if f.prevSensorPressed && !f.currentButtonPressed then Duration.zero else f.touchPanelOffset
@@ -141,7 +166,8 @@ def applyBody (note : Lifecycle.HoldNote) (timing : TimePoint) (f : Frame)
   match action with
   | .Unchanged => (note, none)
   | .EndNow grade => endHold note timing f (toLnmJudgeGrade grade) f.now
-  | .EndRelease grade => endHold note timing f (toLnmJudgeGrade grade) (f.now - releaseOffset f)
+  | .EndRelease grade =>
+      endHold note timing f (toLnmJudgeGrade grade) (f.now - releaseOffset f)
   | .StartPressed => (holdPressedTransition note, none)
   | .StartClassicPressed =>
       ({ note with state := .BodyHeld, touchHoldGroupTriggered := note.isTouchHold }, none)
@@ -162,32 +188,39 @@ def afterHead (note : Lifecycle.HoldNote) (f : Frame)
   let action ← lifecycle.hold_after_head_action (ofState result.1.state) note.isTouchHold
     f.clicked (f.now ≥ bodyTiming note + f.headIgnore)
     (f.now - note.params.effectiveTiming ≥ note.length) f.pressed
-  let tail := applyBody result.1 note.params.effectiveTiming f action
-  ok (tail.1, match tail.2 with | some event => some event | none => result.2)
+  let applied := applyBody result.1 note.params.effectiveTiming f action
+  ok (match action with
+    | .EndNow _ => applied
+    | _ => (applied.1, result.2))
 
+/-- The specification's after-head block, restated in the same branch shape.
+    This is definitionally the corresponding part of the spec step. -/
 def afterHeadReference (note : Lifecycle.HoldNote) (f : Frame)
     (result : Lifecycle.HoldNote × Option JudgeEvent) :
     Lifecycle.HoldNote × Option JudgeEvent :=
-  let (next, event) := result
+  let (next, evt) := result
   match next.state with
+  | .HeadWaiting | .HeadJudgeable => (next, evt)
   | .HeadJudged grade =>
-      if note.isTouchHold && !f.clicked then (next, event)
+      if note.isTouchHold && !f.clicked then
+        (next, evt)
       else if f.now ≥ bodyTiming note + f.headIgnore then
         if f.now - note.params.effectiveTiming ≥ note.length then
           endHold next note.params.effectiveTiming f grade f.now
-        else if f.pressed then (holdPressedTransition next, event)
-        else ((holdHeadReleaseTransition { next with headGrade := grade } f.delta).1, event)
-      else (next, event)
-  | _ => (next, event)
+        else if f.pressed then (holdPressedTransition next, evt)
+        else (holdHeadReleaseTransition { next with headGrade := grade } f.delta).1 |> fun n => (n, evt)
+      else (next, evt)
+  | .BodyHeld | .BodyReleased | .Ended _ => (next, evt)
 
 theorem after_head_equiv (note : Lifecycle.HoldNote) (f : Frame)
     (result : Lifecycle.HoldNote × Option JudgeEvent) :
     afterHead note f result = ok (afterHeadReference note f result) := by
   rcases result with ⟨next, event⟩
   cases hs : next.state <;>
-    simp [afterHead, lifecycle.hold_after_head_action, hs, ofState,
-      afterHeadReference, applyBody, endHold] <;>
-    split_ifs <;> simp_all [holdHeadReleaseTransition]
+    simp only [afterHead, lifecycle.hold_after_head_action, hs, ofState, bind_tc_ok,
+      afterHeadReference, applyBody, endHold, holdTailEvent, bodyTiming, releaseOffset,
+      holdPressedTransition, holdHeadReleaseTransition] <;>
+    split_ifs <;> simp_all
 
 def bodyFacts (note : Lifecycle.HoldNote) (f : Frame) : lifecycle.HoldBodyFacts :=
   let timing := note.params.effectiveTiming
@@ -207,7 +240,8 @@ def bodyStep (note : Lifecycle.HoldNote) (f : Frame) :
     (ofLnmJudgeGrade note.headGrade) (bodyFacts note f)
   ok (applyBody note note.params.effectiveTiming f action)
 
-def referenceStep (note : Lifecycle.HoldNote) (f : Frame) :=
+def referenceStep (note : Lifecycle.HoldNote) (f : Frame) :
+    Lifecycle.HoldNote × Option JudgeEvent :=
   Lifecycle.holdStep note f.now f.diff f.headIgnore f.tailIgnore f.clicked f.pressed
     f.currentButtonPressed f.prevSensorPressed f.touchPanelOffset f.shared f.delta f.style
 
@@ -216,32 +250,36 @@ theorem body_step_equiv (note : Lifecycle.HoldNote) (f : Frame)
     bodyStep note f = ok (referenceStep note f) := by
   cases hs : note.state <;>
     simp_all [bodyStep, lifecycle.hold_body_action, ofState, bodyFacts, applyBody,
-      referenceStep, Lifecycle.holdStep, holdStepFuel, bodyTiming, releaseOffset, endHold] <;>
+      referenceStep, Lifecycle.holdStep, holdStepFuel, bodyTiming, releaseOffset, endHold,
+      holdTailEvent, is_miss_or_too_fast_equiv, bind_tc_ok, holdPressedTransition,
+      holdKeepPressed, holdReleaseTransition, holdReleasedStillOff, holdReleasedRecovered,
+      holdHeadReleaseTransition] <;>
     split_ifs <;> simp_all
 
 def holdStep (note : Lifecycle.HoldNote) (f : Frame) :
-    Result (Lifecycle.HoldNote × Option JudgeEvent) := do
+    Result (Lifecycle.HoldNote × Option JudgeEvent) :=
   match note.state with
-  | .HeadWaiting | .HeadJudgeable =>
+  | .HeadWaiting | .HeadJudgeable => do
       let result ← headStep note f
       afterHead note f result
   | _ => bodyStep note f
 
-/-- Single-frame equivalence of all head/body/terminal paths, including
-    restored states, nonmonotone times and replacement of head feedback by a
-    tail event. This composes extracted decisions with the adapter definitions
-    above; it does not extract the bigint, judgment or event adapters. -/
 theorem hold_step_equiv (note : Lifecycle.HoldNote) (f : Frame) :
     holdStep note f = ok (referenceStep note f) := by
   cases hs : note.state with
   | HeadWaiting =>
-      simp only [holdStep, hs, head_waiting_equiv note f hs, bind_tc_ok, after_head_equiv]
-      rfl
+      have hhead : headStep note f = ok (headWaitingReference note f) :=
+        head_waiting_equiv note f hs
+      simp only [holdStep, hs, hhead, bind_tc_ok,
+        after_head_equiv, referenceStep, Lifecycle.holdStep, holdStepFuel] <;> rfl
   | HeadJudgeable =>
-      simp only [holdStep, hs, head_judgeable_equiv note f hs, bind_tc_ok, after_head_equiv]
-      rfl
+      have hhead : headStep note f = ok (headJudgeableReference note f) :=
+        head_judgeable_equiv note f hs
+      simp only [holdStep, hs, hhead, bind_tc_ok,
+        after_head_equiv, referenceStep, Lifecycle.holdStep, holdStepFuel] <;> rfl
   | HeadJudged grade | BodyHeld | BodyReleased | Ended grade =>
-      simpa only [holdStep, hs] using body_step_equiv note f (by simp [hs]) (by simp [hs])
+      simp only [holdStep, hs]
+      exact body_step_equiv note f (by simp [hs]) (by simp [hs])
 
 def trace : Lifecycle.HoldNote → List Frame →
     Result (List (Lifecycle.HoldNote × Option JudgeEvent))

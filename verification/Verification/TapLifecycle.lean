@@ -101,8 +101,13 @@ theorem tap_family_step_equiv (note : Lifecycle.TapFamilyNote) (now : TimePoint)
     (diff : Duration) (clicked : Bool) (style : JudgeStyle) :
     tapFamilyStep note now diff clicked style =
       ok (Lifecycle.tapFamilyStep note now diff clicked style) := by
-  cases note <;> simp [tapFamilyStep, tap_step_equiv, slide_head_step_equiv,
-    Lifecycle.tapFamilyStep]
+  cases note with
+  | tap note =>
+      rcases h : Lifecycle.tapStep note now diff clicked style with ⟨next, event⟩
+      simp [tapFamilyStep, tap_step_equiv, Lifecycle.tapFamilyStep, h, bind_tc_ok]
+  | slideHead note =>
+      rcases h : Lifecycle.slideHeadStep note now diff clicked style with ⟨next, event⟩
+      simp [tapFamilyStep, slide_head_step_equiv, Lifecycle.tapFamilyStep, h, bind_tc_ok]
 
 structure Frame where
   now : TimePoint

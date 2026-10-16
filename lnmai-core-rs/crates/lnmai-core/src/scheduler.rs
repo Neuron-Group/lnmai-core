@@ -21,6 +21,13 @@ use crate::runtime_score::{fold_events_into_score, RuntimeScoreState};
 use crate::storage::{ButtonVec, SensorVec};
 use crate::time::{time_point_add_duration, time_point_sub_duration, Duration, TimePoint};
 use crate::types::{GroupState, JudgeEvent, JudgeEventKind, JudgeGrade, JudgePhase, RuntimePos};
+use lnmai_core_verify::scheduler::{
+    self as scheduler_kernel, FrameEvents, FramePhase, TouchGroupAction, TouchGroupProbe,
+};
+use lnmai_core_verify::slide_parents::{
+    self as slide_parents_kernel, ParentEdit, ParentInfo, SensorPhase,
+};
+use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork};
 
 /// The public pooled note representation from `Scheduler.ActiveNote`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -206,6 +213,9 @@ fn hold_body_pressed_from_button_or_sensor(cur_btn: bool, cur_sensor: bool) -> b
     cur_btn || cur_sensor
 }
 
+/// Buttons are consumed before the mapped sensor fallback. The kernel fixes
+/// that ownership decision; this function supplies the caller's comparisons and
+/// performs the counter updates.
 fn consume_button_then_fallback_sensor(
     input: &FrameInput,
     cursor: &ClickCursor,
@@ -213,17 +223,23 @@ fn consume_button_then_fallback_sensor(
     zone: ButtonZone,
     sensor_area: SensorArea,
 ) -> (bool, bool, ClickCursor) {
-    let (used_button, cursor1) = if allow_input {
-        try_use_button_click_at(input, cursor, zone)
-    } else {
-        (false, cursor.clone())
-    };
-    let (used_sensor, cursor2) = if allow_input && !used_button {
-        try_use_sensor_click_at(input, &cursor1, sensor_area)
-    } else {
-        (false, cursor1)
-    };
-    (used_button, used_sensor, cursor2)
+    let button_used = cursor.button_used.get_d(zone, (0).into());
+    let button_available = button_used < input.get_button_click_count(zone);
+    let sensor_used = cursor.sensor_used.get_d(sensor_area, (0).into());
+    let sensor_available = sensor_used < input.get_sensor_click_count(sensor_area);
+    let plan = lnmai_core_verify::scheduler::consume_click(
+        allow_input,
+        button_available,
+        sensor_available,
+    );
+    let mut next = cursor.clone();
+    if plan.used_button {
+        next.button_used = next.button_used.set(zone, button_used + 1);
+    }
+    if plan.used_sensor {
+        next.sensor_used = next.sensor_used.set(sensor_area, sensor_used + 1);
+    }
+    (plan.used_button, plan.used_sensor, next)
 }
 
 fn tap_family_queue_has_unused_click(
@@ -232,8 +248,10 @@ fn tap_family_queue_has_unused_click(
     zone: ButtonZone,
     fallback_area: SensorArea,
 ) -> bool {
-    has_unused_button_click_at(input, cursor, zone)
-        || has_unused_sensor_click_at(input, cursor, fallback_area)
+    lnmai_core_verify::scheduler::tap_queue_has_unused_click(
+        has_unused_button_click_at(input, cursor, zone),
+        has_unused_sensor_click_at(input, cursor, fallback_area),
+    )
 }
 
 fn slide_remaining(slide: &SlideNote) -> usize {
@@ -247,61 +265,104 @@ fn empty_slide_queues(slide: &SlideNote) -> SlideNote {
     }
 }
 
-fn update_slide_parent_flags(slides: &[SlideNote]) -> Vec<SlideNote> {
-    let statuses: Vec<(Natural, usize)> = slides
-        .iter()
-        .map(|s| (s.params.note_index.clone(), slide_remaining(s)))
-        .collect();
-    let find_remaining = |note_index: Natural| -> Option<usize> {
-        statuses
-            .iter()
-            .find(|(idx, _)| *idx == note_index)
-            .map(|(_, r)| *r)
-    };
-    slides
-        .iter()
-        .map(|slide| match slide.parent_note_index.clone() {
-            None => SlideNote {
-                parent_finished: false,
-                parent_pending_finish: false,
-                ..slide.clone()
-            },
-            Some(parent_index) => match find_remaining(parent_index) {
-                None => SlideNote {
-                    parent_finished: false,
-                    parent_pending_finish: false,
-                    ..slide.clone()
-                },
-                Some(remaining) => SlideNote {
-                    parent_finished: remaining == 0,
-                    parent_pending_finish: remaining == 1,
-                    ..slide.clone()
-                },
-            },
-        })
-        .collect()
+fn slide_parent_info(slide: &SlideNote) -> ParentInfo<Natural> {
+    let remaining = slide_remaining(slide);
+    ParentInfo {
+        note_index: slide.params.note_index.clone(),
+        parent_index: slide.parent_note_index.clone(),
+        zero_remaining: remaining == 0,
+        one_remaining: remaining == 1,
+        connected: slide.is_conn_slide,
+        final_part: slide.is_group_part_end,
+        ended: matches!(slide.state, SlideState::Ended),
+    }
 }
 
-fn hide_slide_render_cmds(slide: &SlideNote) -> Vec<RenderCommand> {
-    vec![RenderCommand::HideAllSlideBars {
-        note_index: slide.params.note_index.clone(),
-    }]
+struct SlideParentRead;
+
+impl<S: AsRef<[SlideNote]>> slide_parents_kernel::ParentRead<S, Natural> for SlideParentRead {
+    fn read(&self, state: &S, index: usize) -> ParentInfo<Natural> {
+        slide_parent_info(&state.as_ref()[index])
+    }
+}
+
+struct SlideParentEqual;
+
+impl slide_parents_kernel::ParentEqual<Natural> for SlideParentEqual {
+    fn equal(&self, left: &Natural, right: &Natural) -> bool {
+        left == right
+    }
+}
+
+/// The kernel owns traversal; this adapter changes exactly one selected slot.
+fn apply_slide_parent_edit(slide: &mut SlideNote, edit: ParentEdit) {
+    match edit {
+        ParentEdit::Flags { finished, pending } => {
+            slide.parent_finished = finished;
+            slide.parent_pending_finish = pending;
+        }
+        ParentEdit::ClearQueues => *slide = empty_slide_queues(slide),
+        ParentEdit::End => slide.state = SlideState::Ended,
+    }
+}
+
+fn write_slide_parent(
+    slides: &mut [SlideNote],
+    index: usize,
+    edit: ParentEdit,
+) -> &mut [SlideNote] {
+    apply_slide_parent_edit(&mut slides[index], edit);
+    slides
+}
+
+fn append_parent_hide(mut commands: Vec<RenderCommand>, note_index: Natural) -> Vec<RenderCommand> {
+    commands.push(RenderCommand::HideAllSlideBars { note_index });
+    commands
+}
+
+fn update_slide_parent_flags(slides: &[SlideNote]) -> Vec<SlideNote> {
+    slide_parents_kernel::refresh_flags(
+        slides.len(),
+        &slides,
+        slides.to_vec(),
+        SlideParentRead,
+        SlideParentEqual,
+        |mut updated: Vec<SlideNote>, index, edit| {
+            apply_slide_parent_edit(&mut updated[index], edit);
+            updated
+        },
+    )
+}
+
+fn slide_sensor_phase(slide: &SlideNote) -> SensorPhase {
+    match &slide.state {
+        SlideState::Waiting => SensorPhase::Waiting,
+        SlideState::Active(_) => SensorPhase::Active,
+        _ => SensorPhase::Other,
+    }
 }
 
 pub fn slide_sensor_triggered(before: &SlideNote, after: &SlideNote) -> bool {
-    matches!(
-        (before.state.clone(), after.state.clone()),
-        (
-            SlideState::Waiting | SlideState::Active(_),
-            SlideState::Active(_)
-        )
-    ) && after.is_checkable
-        && (after.judge_queues.iter().map(Vec::len).sum::<usize>()
-            < before.judge_queues.iter().map(Vec::len).sum::<usize>()
-            || after
-                .judge_queues
-                .iter()
-                .any(|queue| queue.first().is_some_and(|area| area.on())))
+    // The total is a Lean Nat, even when individual queue lengths fit usize.
+    let total = |slide: &SlideNote| {
+        slide
+            .judge_queues
+            .iter()
+            .map(|queue| Natural::from(queue.len()))
+            .sum::<Natural>()
+    };
+    slide_parents_kernel::sensor_triggered(
+        slide_sensor_phase(before),
+        slide_sensor_phase(after),
+        after.is_checkable,
+        total(after) < total(before),
+        after.judge_queues.len(),
+        |index| {
+            after.judge_queues[index]
+                .first()
+                .is_some_and(|area| area.on())
+        },
+    )
 }
 
 fn force_finish_direct_parent(
@@ -309,28 +370,18 @@ fn force_finish_direct_parent(
     before: &SlideNote,
     child: &SlideNote,
 ) -> Vec<RenderCommand> {
-    if !slide_sensor_triggered(before, child) {
-        return Vec::new();
-    }
-    let Some(parent_index) = child.parent_note_index.clone() else {
-        return Vec::new();
-    };
-    let Some(parent) = slides
-        .iter()
-        .find(|s| s.params.note_index == parent_index)
-        .cloned()
-    else {
-        return Vec::new();
-    };
-    if !parent.is_conn_slide || parent.is_group_part_end || slide_remaining(&parent) == 0 {
-        return Vec::new();
-    }
-    for slide in slides {
-        if slide.params.note_index == parent_index {
-            *slide = empty_slide_queues(slide);
-        }
-    }
-    hide_slide_render_cmds(&parent)
+    slide_parents_kernel::force_finish(
+        slides.len(),
+        slides,
+        Vec::new(),
+        slide_sensor_triggered(before, child),
+        child.parent_note_index.clone(),
+        SlideParentRead,
+        SlideParentEqual,
+        write_slide_parent,
+        append_parent_hide,
+    )
+    .1
 }
 
 fn end_slide_ancestors(
@@ -338,34 +389,19 @@ fn end_slide_ancestors(
     before: &SlideNote,
     after: &SlideNote,
 ) -> Vec<RenderCommand> {
-    let mut cmds = Vec::new();
-    if matches!(before.state, SlideState::Ended) || !matches!(after.state, SlideState::Ended) {
-        return cmds;
-    }
-    let mut parent_index = after.parent_note_index.clone();
-    for _ in 0..slides.len() {
-        let Some(index) = parent_index else {
-            break;
-        };
-        let Some(parent) = slides
-            .iter()
-            .find(|s| s.params.note_index == index)
-            .cloned()
-        else {
-            break;
-        };
-        if matches!(parent.state, SlideState::Ended) {
-            break;
-        }
-        for slide in slides.iter_mut() {
-            if slide.params.note_index == index {
-                slide.state = SlideState::Ended;
-            }
-        }
-        cmds.extend(hide_slide_render_cmds(&parent));
-        parent_index = parent.parent_note_index;
-    }
-    cmds
+    slide_parents_kernel::end_ancestors(
+        slides.len(),
+        slides,
+        Vec::new(),
+        matches!(before.state, SlideState::Ended),
+        matches!(after.state, SlideState::Ended),
+        after.parent_note_index.clone(),
+        SlideParentRead,
+        SlideParentEqual,
+        write_slide_parent,
+        append_parent_hide,
+    )
+    .1
 }
 
 fn has_unused_touch_input_at(
@@ -374,11 +410,15 @@ fn has_unused_touch_input_at(
     area: SensorArea,
     button_ring_for_touch: bool,
 ) -> bool {
-    has_unused_sensor_click_at(input, cursor, area)
-        || (button_ring_for_touch
-            && area
-                .to_outer_button_zone()
-                .is_some_and(|zone| has_unused_button_click_at(input, cursor, zone)))
+    let ring_available = match area.to_outer_button_zone() {
+        Some(zone) => has_unused_button_click_at(input, cursor, zone),
+        None => false,
+    };
+    lnmai_core_verify::scheduler::touch_input_available(
+        button_ring_for_touch,
+        has_unused_sensor_click_at(input, cursor, area),
+        Some(ring_available),
+    )
 }
 
 fn touch_click_can_engage_judge(
@@ -464,7 +504,7 @@ fn process_tap_queue_fuel(
                 frontiers.clone(),
                 cursor.clone(),
                 evs_rev.to_vec(),
-            )
+            );
         }
         Some(n) => n,
     };
@@ -689,16 +729,30 @@ fn has_strict_majority(count: Natural, size: Natural) -> bool {
     size > 0 && count * 2 > size
 }
 
-fn group_share_result(groups: &[GroupState], group_id: Natural) -> Option<(JudgeGrade, Duration)> {
-    match groups.iter().find(|g| g.group_id == group_id) {
-        Some(group) => {
-            if has_strict_majority(group.count.clone(), group.size.clone()) {
-                Some((group.grade, group.diff.clone()))
-            } else {
-                None
-            }
+/// The extracted loop owns first-match selection. Identifier equality and the
+/// majority comparison stay in the runtime's unbounded arithmetic adapter.
+fn touch_group_plan(groups: &[GroupState], group_id: &Natural) -> TouchGroupAction {
+    scheduler_kernel::touch_group_plan(groups.len(), |index| {
+        let group = &groups[index];
+        let matches_group = group.group_id == *group_id;
+        TouchGroupProbe {
+            matches_group,
+            has_majority: matches_group
+                && has_strict_majority(group.count.clone(), group.size.clone()),
         }
-        None => None,
+    })
+}
+
+fn group_share_result(groups: &[GroupState], group_id: Natural) -> Option<(JudgeGrade, Duration)> {
+    match touch_group_plan(groups, &group_id) {
+        TouchGroupAction::Update {
+            index,
+            keep_result: true,
+        } => {
+            let group = &groups[index];
+            Some((group.grade, group.diff.clone()))
+        }
+        _ => None,
     }
 }
 
@@ -709,40 +763,25 @@ fn register_touch_group_result(
     grade: JudgeGrade,
     diff: Duration,
 ) -> Vec<GroupState> {
-    let mut out = Vec::new();
-    let mut found = false;
-    for group in groups {
-        if !found && group.group_id == group_id {
-            found = true;
-            let keep_stored = has_strict_majority(group.count.clone(), group.size.clone());
-            let next = if keep_stored {
-                GroupState {
-                    count: group.count.clone() + 1,
-                    size: group_size.clone(),
-                    ..group.clone()
-                }
-            } else {
-                GroupState {
-                    count: group.count.clone() + 1,
-                    size: group_size.clone(),
-                    grade,
-                    diff: diff.clone(),
-                    ..group.clone()
-                }
-            };
-            out.push(next);
-        } else {
-            out.push(group.clone());
+    let plan = touch_group_plan(groups, &group_id);
+    let mut out = groups.to_vec();
+    match plan {
+        TouchGroupAction::Update { index, keep_result } => {
+            let group = &mut out[index];
+            group.count = group.count.clone() + 1;
+            group.size = group_size;
+            if !keep_result {
+                group.grade = grade;
+                group.diff = diff;
+            }
         }
-    }
-    if !found {
-        out.push(GroupState {
+        TouchGroupAction::Append => out.push(GroupState {
             group_id,
             count: (1).into(),
             size: group_size,
             grade,
             diff,
-        });
+        }),
     }
     out
 }
@@ -1274,7 +1313,7 @@ fn process_touch_queue_head_fuel(
                 cursor.clone(),
                 groups.to_vec(),
                 evs_rev.to_vec(),
-            )
+            );
         }
         Some(n) => n,
     };
@@ -1559,6 +1598,113 @@ fn process_touch_notes(
 // Slide processing
 // ---------------------------------------------------------------------------
 
+/// Per-operation adapters for the shared slide traversal. All calls see the
+/// same frame snapshot; parent operations receive the complete live list.
+struct SlideScheduleFrame<'a> {
+    input: &'a FrameInput,
+    current_time: TimePoint,
+    touch_panel_offset: Duration,
+    delta: Duration,
+    style: crate::types::JudgeStyle,
+    subdivide_slide_judge_grade: bool,
+}
+
+impl
+    slide_schedule_kernel::SlideSchedule<
+        Vec<SlideNote>,
+        SlideNote,
+        Vec<JudgeEvent>,
+        Vec<AudioCommand>,
+        Vec<RenderCommand>,
+    > for SlideScheduleFrame<'_>
+{
+    fn read(&self, slides: &Vec<SlideNote>, index: usize) -> SlideNote {
+        slides[index].clone()
+    }
+
+    fn step(
+        &self,
+        note: &SlideNote,
+    ) -> (
+        SlideNote,
+        Vec<JudgeEvent>,
+        Vec<AudioCommand>,
+        Vec<RenderCommand>,
+    ) {
+        let (after, event, audio, render) = slide_step(
+            note,
+            self.current_time.clone(),
+            &self.input.sensor_held,
+            self.touch_panel_offset.clone(),
+            self.delta.clone(),
+            self.style,
+            self.subdivide_slide_judge_grade,
+        );
+        (after, event.into_iter().collect(), audio, render)
+    }
+
+    fn replace(
+        &self,
+        mut slides: Vec<SlideNote>,
+        index: usize,
+        note: &SlideNote,
+    ) -> Vec<SlideNote> {
+        slides[index] = note.clone();
+        slides
+    }
+
+    fn force_direct(
+        &self,
+        mut slides: Vec<SlideNote>,
+        before: &SlideNote,
+        after: &SlideNote,
+    ) -> (Vec<SlideNote>, Vec<RenderCommand>) {
+        let commands = force_finish_direct_parent(&mut slides, before, after);
+        (slides, commands)
+    }
+
+    fn end_ancestors(
+        &self,
+        mut slides: Vec<SlideNote>,
+        before: &SlideNote,
+        after: &SlideNote,
+    ) -> (Vec<SlideNote>, Vec<RenderCommand>) {
+        let commands = end_slide_ancestors(&mut slides, before, after);
+        (slides, commands)
+    }
+
+    fn refresh(&self, slides: Vec<SlideNote>) -> Vec<SlideNote> {
+        update_slide_parent_flags(&slides)
+    }
+
+    fn append_events(
+        &self,
+        mut accumulated: Vec<JudgeEvent>,
+        batch: Vec<JudgeEvent>,
+    ) -> Vec<JudgeEvent> {
+        accumulated.extend(batch);
+        accumulated
+    }
+
+    fn append_audio(
+        &self,
+        mut accumulated: Vec<AudioCommand>,
+        batch: Vec<AudioCommand>,
+    ) -> Vec<AudioCommand> {
+        accumulated.extend(batch);
+        accumulated
+    }
+
+    fn append_render(
+        &self,
+        mut accumulated: Vec<RenderCommand>,
+        batch: Vec<RenderCommand>,
+    ) -> Vec<RenderCommand> {
+        accumulated.extend(batch);
+        accumulated
+    }
+}
+
 /// `processSlideNotesCore`: the prefix and existing outputs are supplied in
 /// reverse order. Only pending bodies are stepped, while parent effects may
 /// update bodies in either part of the list.
@@ -1583,29 +1729,25 @@ pub fn process_slide_notes_core(
 ) {
     let mut slides: Vec<_> = processed_rev.iter().rev().cloned().collect();
     slides.extend_from_slice(pending);
-    let mut events: Vec<_> = events_rev.iter().rev().cloned().collect();
-    let mut audio: Vec<_> = audio_rev.iter().rev().cloned().collect();
-    let mut render: Vec<_> = render_rev.iter().rev().cloned().collect();
-    for index in processed_rev.len()..slides.len() {
-        let note = slides[index].clone();
-        let (new_note, event, audio_cmds, render_cmds) = slide_step(
-            &note,
-            current_time.clone(),
-            &input.sensor_held,
-            touch_panel_offset.clone(),
-            delta.clone(),
+    let work = slide_schedule_kernel::process(
+        slides.len(),
+        SlideWork {
+            slides,
+            events: events_rev.iter().rev().cloned().collect(),
+            audio: audio_rev.iter().rev().cloned().collect(),
+            render: render_rev.iter().rev().cloned().collect(),
+            index: processed_rev.len(),
+        },
+        SlideScheduleFrame {
+            input,
+            current_time,
+            touch_panel_offset,
+            delta,
             style,
             subdivide_slide_judge_grade,
-        );
-        slides[index] = new_note.clone();
-        render.extend(render_cmds);
-        render.extend(force_finish_direct_parent(&mut slides, &note, &new_note));
-        render.extend(end_slide_ancestors(&mut slides, &note, &new_note));
-        slides = update_slide_parent_flags(&slides);
-        events.extend(event);
-        audio.extend(audio_cmds);
-    }
-    (slides, events, audio, render)
+        },
+    );
+    (work.slides, work.events, work.audio, work.render)
 }
 
 fn event_to_audio_commands(evt: &JudgeEvent, time_point: TimePoint) -> Vec<AudioCommand> {
@@ -1655,6 +1797,129 @@ fn events_to_render_commands(events: &[JudgeEvent], display_hold_head: bool) -> 
         .collect()
 }
 
+/// Accumulator passed through the extracted five-pass driver. Shared frontiers,
+/// click ownership, and touch groups live in one state rather than snapshots.
+struct FrameWork {
+    state: GameState,
+    cursor: ClickCursor,
+    events: FrameEvents<Vec<JudgeEvent>>,
+    slide_audio: Vec<AudioCommand>,
+    slide_render: Vec<RenderCommand>,
+}
+
+fn process_frame_phase(phase: FramePhase, mut frame: FrameWork, input: &FrameInput) -> FrameWork {
+    let st = &mut frame.state;
+    match phase {
+        FramePhase::Tap => {
+            (
+                st.button_queue_frontiers,
+                st.tap_queues,
+                frame.events.tap,
+                frame.cursor,
+            ) = process_tap_notes(
+                &st.button_queue_frontiers,
+                &st.tap_queues,
+                input,
+                st.current_time.clone(),
+                st.touch_panel_offset.clone(),
+                st.judge_style,
+                &frame.cursor,
+            );
+        }
+        FramePhase::Hold => {
+            (
+                st.button_queue_frontiers,
+                st.hold_queues,
+                st.active_holds,
+                frame.events.hold,
+                frame.cursor,
+            ) = process_hold_notes(
+                &st.button_queue_frontiers,
+                &st.hold_queues,
+                &st.active_holds,
+                input,
+                st.current_time.clone(),
+                input.delta.clone(),
+                st.judge_style,
+                st.touch_panel_offset.clone(),
+                &st.prev_sensor,
+                &frame.cursor,
+            );
+        }
+        FramePhase::Slide => {
+            (
+                st.slides,
+                frame.events.slide,
+                frame.slide_audio,
+                frame.slide_render,
+            ) = process_slide_notes_core(
+                &[],
+                &st.slides,
+                input,
+                st.current_time.clone(),
+                st.touch_panel_offset.clone(),
+                input.delta.clone(),
+                st.judge_style,
+                st.subdivide_slide_judge_grade,
+                &[],
+                &[],
+                &[],
+            );
+        }
+        FramePhase::Touch => {
+            (
+                st.touch_queue_frontiers,
+                st.touch_queues,
+                frame.events.touch,
+                frame.cursor,
+                st.touch_group_states,
+            ) = process_touch_notes(
+                &st.touch_queue_frontiers,
+                &st.touch_queues,
+                input,
+                st.current_time.clone(),
+                st.judge_style,
+                &frame.cursor,
+                st.touch_panel_offset.clone(),
+                st.button_ring_for_touch,
+                &st.touch_group_states,
+            );
+        }
+        FramePhase::TouchHold => {
+            (
+                st.touch_queue_frontiers,
+                st.touch_hold_queues,
+                st.active_touch_holds,
+                frame.events.touch_hold,
+                frame.cursor,
+                st.touch_group_states,
+                st.touch_hold_group_states,
+            ) = process_touch_hold_notes(
+                &st.touch_queue_frontiers,
+                &st.touch_hold_queues,
+                &st.active_touch_holds,
+                input,
+                st.current_time.clone(),
+                input.delta.clone(),
+                st.judge_style,
+                st.touch_panel_offset.clone(),
+                st.button_ring_for_touch,
+                &frame.cursor,
+                &st.touch_group_states,
+                &st.touch_hold_group_states,
+            );
+        }
+    }
+    frame
+}
+
+/// Adapter for the opaque batches in the ordering kernels. Moving each suffix
+/// preserves its internal order and avoids cloning event/command payloads.
+fn append_frame_batch<T>(mut prefix: Vec<T>, mut suffix: Vec<T>) -> Vec<T> {
+    prefix.append(&mut suffix);
+    prefix
+}
+
 /// `stepFrame`.
 pub fn step_frame(
     st: &GameState,
@@ -1666,139 +1931,70 @@ pub fn step_frame(
     Vec<RenderCommand>,
 ) {
     let new_time = time_point_add_duration(st.current_time.clone(), input.delta.clone());
-    let cursor = ClickCursor::with_field_defaults();
     let resolved_slides = update_slide_parent_flags(&st.slides);
     let touch_hold_body_groups = if st.touch_hold_group_states.is_empty() {
         touch_hold_body_group_states_from_holds(&st.active_touch_holds)
     } else {
         st.touch_hold_group_states.clone()
     };
-
-    let (button_frontiers1, tap_notes, tap_events, cursor_tap) = process_tap_notes(
-        &st.button_queue_frontiers,
-        &st.tap_queues,
-        input,
-        new_time.clone(),
-        st.touch_panel_offset.clone(),
-        st.judge_style,
-        &cursor,
+    let frame = scheduler_kernel::process_frame(
+        FrameWork {
+            state: GameState {
+                current_time: new_time.clone(),
+                slides: resolved_slides,
+                touch_hold_group_states: touch_hold_body_groups,
+                ..st.clone()
+            },
+            cursor: ClickCursor::with_field_defaults(),
+            events: FrameEvents {
+                tap: Vec::new(),
+                hold: Vec::new(),
+                slide: Vec::new(),
+                touch: Vec::new(),
+                touch_hold: Vec::new(),
+            },
+            slide_audio: Vec::new(),
+            slide_render: Vec::new(),
+        },
+        |phase, frame| process_frame_phase(phase, frame, input),
     );
-    let (button_frontiers2, hold_queues, hold_notes, hold_events, cursor1) = process_hold_notes(
-        &button_frontiers1,
-        &st.hold_queues,
-        &st.active_holds,
-        input,
-        new_time.clone(),
-        input.delta.clone(),
-        st.judge_style,
-        st.touch_panel_offset.clone(),
-        &st.prev_sensor,
-        &cursor_tap,
-    );
-    let (slide_notes, slide_events, slide_audio_commands, slide_render_commands) =
-        process_slide_notes_core(
-            &[],
-            &resolved_slides,
-            input,
-            new_time.clone(),
-            st.touch_panel_offset.clone(),
-            input.delta.clone(),
-            st.judge_style,
-            st.subdivide_slide_judge_grade,
-            &[],
-            &[],
-            &[],
-        );
-    let (touch_frontiers1, touch_notes, touch_events, cursor2, touch_group_states) =
-        process_touch_notes(
-            &st.touch_queue_frontiers,
-            &st.touch_queues,
-            input,
-            new_time.clone(),
-            st.judge_style,
-            &cursor1,
-            st.touch_panel_offset.clone(),
-            st.button_ring_for_touch,
-            &st.touch_group_states,
-        );
-    let (
-        touch_frontiers2,
-        touch_hold_queues,
-        touch_hold_notes,
-        touch_hold_events,
-        _cursor3,
-        touch_group_states2,
-        touch_hold_group_states,
-    ) = process_touch_hold_notes(
-        &touch_frontiers1,
-        &st.touch_hold_queues,
-        &st.active_touch_holds,
-        input,
-        new_time.clone(),
-        input.delta.clone(),
-        st.judge_style,
-        st.touch_panel_offset.clone(),
-        st.button_ring_for_touch,
-        &cursor2,
-        &touch_group_states,
-        &touch_hold_body_groups,
-    );
-    let mut all_events: Vec<JudgeEvent> = Vec::new();
-    all_events.extend(tap_events);
-    all_events.extend(hold_events);
-    all_events.extend(touch_events);
-    all_events.extend(touch_hold_events);
-    all_events.extend(slide_events);
-
+    let mut next_state = frame.state;
+    let all_events = scheduler_kernel::combine_events(frame.events, append_frame_batch);
     let new_score = fold_events_into_score(
         st.note_fast_late_display,
         st.break_fast_late_display,
         &st.score,
         &all_events,
     );
-    let mut audio_commands = slide_audio_commands;
-    for (area, note) in &touch_hold_notes {
+    let mut body_audio = Vec::new();
+    for (area, note) in &next_state.active_touch_holds {
         let head_accepted = match note.state {
             HoldSubState::HeadJudged(grade) => !grade.is_miss_or_too_fast(),
             HoldSubState::BodyHeld | HoldSubState::BodyReleased => true,
             _ => false,
         };
-        let grouped_pressed = note
-            .touch_hold_group_id
-            .clone()
-            .is_some_and(|id| touch_hold_body_group_majority_pressed(&touch_hold_group_states, id));
+        let grouped_pressed = note.touch_hold_group_id.clone().is_some_and(|id| {
+            touch_hold_body_group_majority_pressed(&next_state.touch_hold_group_states, id)
+        });
         if head_accepted && (input.get_sensor_held(*area) || grouped_pressed) {
-            audio_commands.push(AudioCommand::PlayTouchHoldBody {
+            body_audio.push(AudioCommand::PlayTouchHoldBody {
                 note_index: note.params.note_index.clone(),
                 at_time: new_time.clone(),
             });
         }
     }
-    audio_commands.extend(events_to_audio_commands(&all_events, new_time.clone()));
-    let mut render_commands = slide_render_commands;
-    render_commands.extend(events_to_render_commands(
-        &all_events,
-        st.display_hold_head_judge_result,
-    ));
-
-    let next_state = GameState {
-        current_time: new_time,
-        prev_button: input.button_held.clone(),
-        prev_sensor: input.sensor_held.clone(),
-        button_queue_frontiers: button_frontiers2,
-        tap_queues: tap_notes,
-        hold_queues,
-        touch_queue_frontiers: touch_frontiers2,
-        touch_hold_queues,
-        touch_queues: touch_notes,
-        score: new_score,
-        slides: slide_notes,
-        active_holds: hold_notes,
-        active_touch_holds: touch_hold_notes,
-        touch_group_states: touch_group_states2,
-        touch_hold_group_states,
-        ..st.clone()
-    };
+    let (audio_commands, render_commands) = scheduler_kernel::combine_commands(
+        frame.slide_audio,
+        body_audio,
+        events_to_audio_commands(&all_events, new_time),
+        frame.slide_render,
+        events_to_render_commands(&all_events, st.display_hold_head_judge_result),
+        append_frame_batch,
+        append_frame_batch,
+    );
+    next_state.prev_button = input.button_held.clone();
+    next_state.prev_sensor = input.sensor_held.clone();
+    next_state.score = new_score;
     (next_state, all_events, audio_commands, render_commands)
 }
 

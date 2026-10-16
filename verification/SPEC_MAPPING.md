@@ -19,6 +19,7 @@ function in the corresponding Rust module is proved. A fresh `lake build` and
 | `Time` | `time.rs` | `Bridge`, `Time`, `Judge`: construction, projection, zero, addition/subtraction, absolute value, scale and Euclidean division. Overflow preconditions are explicit. |
 | `Convert` | `convert.rs` | `Convert`: all four grade conversion functions, all enum values. |
 | `Judge` | `judge.rs` | `Judge`: tap, touch, classic/modern slide, grade correction and late timeout. `Hold`: classic tail judgment and press-band arithmetic. `HoldModern`: modern tail calculation and all grade-table branches. |
+| Unbounded judgment adapters | `judgment_adapter.rs`, runtime `judge.rs` | `JudgmentAdapter`: fifteen theorems passed combined-source elaboration and axiom checking for the actual extracted clamp, tap/touch/slide wrappers, hold calculations, timeout cancellation and fast/late counting. The bundle uses thirteen verbatim declarations from real extraction, with matching source/artifact hashes. The full model is installed; independent audit is pending. Only atomic integer-operation laws are assumed; actual Integer/BigInt and runtime trait refinement remain open. |
 | `Score` | `score.rs` | `Score`: base score, nonbreak score and combo. `ScoreExtra`: break score, fast/late flags and DX rank. |
 | `Types.JudgeCounts` | `grade_counts.rs` (also used by runtime scoring) | `GradeCounts`: all 15 indices and grade order, generic fixed-array reads/writes, decoded point updates and increments. Bounds are discharged for every grade. No Clone law is needed; the increment theorem assumes decoded addition. |
 | `Storage` | `storage.rs` (also re-exported by the runtime) | `Storage`, `StorageLoops`, `StorageAccum`, `StoragePublic`: indices/order, empty defaults, replication, read/write, list conversion, entries, function construction, state accumulation and cloning. Quantifies arbitrary stored values and representable vector lengths. |
@@ -27,6 +28,15 @@ function in the corresponding Rust module is proved. A fresh `lake build` and
 | `Simai.Tokenize` | `tokenize.rs` (also used by the runtime parser) | `Tokenize`: both character classifiers, bracket-depth scanning, termination and buffer bounds, and exact top-level split results for arbitrary character sequences with length below `Usize.max`. Includes unmatched brackets and empty pieces. Principal theorems passed combined-source elaboration and axiom checks; UTF-8/string conversion and the remaining parser are outside this proof. |
 | `Lifecycle.SlideArea` | `lifecycle.rs` (also used by the runtime) | `SlideHistory`, `SlideAreaLoops`, `SlideArea`, `SlideAreaTrace`: indexed history model, loop bounds/termination, defaults, cloning, on/completion queries, checkpoint updates and arbitrary finite repetition of those updates. Progress is an opaque parameter; cloning must preserve values. Current proof-build status is tracked in `SOURCE_AUDIT.md`. |
 | `Lifecycle.slideQueueCoreFuel`, `slideQueueCore`, `replaySlideQueue` | `slide_queue.rs`, runtime `lifecycle.rs` | Runtime delegates traversal to the extracted kernel. `SlideQueueModel` compiled separately. `SlideQueue`, `SlideQueueTraversal`, `SlideQueueTrace` and `SlideQueueReferenceTrace` passed combined-source elaboration: extracted recursion, entry points, every intermediate queue, ordered commands and command-free replay over finite frame traces. Fresh separate-module audit is pending. Clone purity and machine container-length conditions remain explicit. |
+| `Lifecycle.slideStepSemantic`, `slideStep` | `slide_lifecycle.rs`, runtime `lifecycle.rs` | `SlideLifecycle` passed combined-source elaboration and thirteen principal axiom checks. Shared generic state/control covers checkability, completion/timeout/sampling priority, delayed final judgments, grade conversion, output flags and finite-frame traces. Time, raw judgments, queue snapshots, events and rendering remain reference-interpreted adapters, not extracted runtime implementations. |
+| `Lifecycle.slideQueueRemaining`, `slideQueuesCleared` | `slide_queue_metrics.rs`, runtime `lifecycle.rs` | `SlideQueueMetrics`: extracted maximum-length and all-empty scans, termination, index bounds, and equivalence for arbitrary payloads. Nine principal axiom checks passed; runtime container interpretation remains to be connected. |
+| Scheduler parent lookup/update, flag refresh and ancestor completion | `slide_parents.rs`, runtime `scheduler.rs` | `SchedulerParents`: thirteen principal checks passed for extracted scans and bounded ancestor traversal, including cycles and duplicate IDs. Atomic read/write/equality/emit, clone, container and capacity contracts remain explicit. |
+| `Simai.Timing.extractBracketContents`, duration-field dispatch | `timing_parser.rs`, runtime `simai/timing.rs` | `TimingParser`: thirteen principal checks passed for nested-bracket scanning, all field routes, strict empty fields and index safety. Numeric parsing, splitting, Rat operations and aggregation remain outside this module; see `NaturalParser` and `TimingAggregate` below for scanning/aggregation proofs and their remaining atomic contracts. |
+| `Simai.SlideParser.parseTimingPoint` | `slide_parser_sequence.rs`, runtime `simai/slide_parser.rs` | `SlideParserSequence`: fifteen principal checks passed for indexed collection, reachable-prefix callback contracts, first-error return, result order and note-parser composition. The concrete runtime closure and representations remain explicit boundaries. |
+| Installed Lean `String.toNat?` | `natural_parser.rs`, runtime `natural.rs` | `NaturalParser`: 24 principal theorems passed combined-source elaboration and axiom checks for digit classification, separator syntax, fused validation/decimal accumulation and the actual scanner loop. Concrete UTF-8/character collection and BigUint zero/decimal operations remain explicit contracts. |
+| `Simai.Timing.parseDurationSpec`, `parseStarWaitSpec` | `timing_aggregate.rs`, runtime `simai/timing.rs` | `TimingAggregate`: 15 principal theorems passed combined-source elaboration and axiom checks for ordered optional-value accumulation, one final quantization and first-success search composed with the extracted bracket scanner. Atomic parsing, Rat/addition/quantization, closure/string and default-beat laws remain explicit. |
+| `Scheduler.processSlideNotesCore` | `slide_schedule.rs`, runtime `scheduler.rs` | `SlideSchedule`: 18 principal theorems passed combined-source elaboration and axiom checks for the extracted traversal, original fuel recursion, immediate parent effects, buffer order, capacity and a history of visits to pending slots. Read/replace, lifecycle, parent and append adapters remain explicit. |
+| Scheduler parent callbacks inside slide traversal | `slide_parents.rs`, `slide_schedule.rs`, runtime `scheduler.rs` | `SlideScheduleParents`: seven composition theorems passed combined-source elaboration and axiom checks, connecting the actual parent kernels to the traversal's parent contracts. Concrete facade wiring, metadata, point operations, cloning, container interpretation and capacity remain explicit. |
 
 `Defaults` additionally states the six extracted structure-default contracts
 for duration, time point, judgment result, group state, judgment event and
@@ -60,6 +70,38 @@ and pushes. Generic theorems explicitly require value-preserving `Clone` and
 callbacks that return the specified pure result; proving those conditions for
 each runtime element/callback remains a separate obligation. Allocation/resource
 failures, derived debug formatting and JSON serialization are outside this scope.
+
+`SlideParser` proves the shared command classifiers and endpoint indices, then
+composes them with explicitly specified character/error adapters. It also proves
+all scalar bar-count and last-wait tables under the string-key classifier and
+exact rational-construction laws. `SlideParserComposition` replaces the opaque
+solver hypothesis with the already proved extracted shape solver. Judge-queue
+payloads, transformations and strings remain open; timing-point iteration is
+covered by the additional collection proof described below.
+`SlideParserFrontend` proves the extracted character reads and single/double
+character scan loops, then composes just-type selection and the extracted
+shape solver with the original parser. It preserves full diagnostics and
+failure order for malformed input as well as success values. Its installed
+frontend no longer assumes whole reader, just-type or solver equivalence.
+`SlideParserText` additionally proves all thirteen command observations and
+the runtime-used character filter, including termination, index/push bounds
+and preservation of order. The composition accounts for filtering creating
+adjacent pp/qq pairs and removes whole-sanitizer/command-scan hypotheses.
+UTF-8 decoding, String encoding, decimal formatting, allocation and exact
+rational construction remain explicit boundaries. `SlideParserSequence` proves
+the actual indexed collection loop and composes those note interpretations
+with the reference timing-point parser. Its callback contract is required only
+after a reachable successful prefix; it does not assume a whole batch result.
+The concrete runtime closure still needs to satisfy that per-call contract.
+
+`SchedulerFrame` proves extracted pass sequencing, event/command append order
+and a conditional bridge to the original `Scheduler.stepFrame`. Its touch-group
+search terminates, cannot overflow its index, and selects the first matching ID;
+sharing and registration agree with the reference, preserving later duplicates
+and using the majority before the update. Pass, point-access, append, arithmetic
+and frame initialization/finalization contracts remain explicit hypotheses.
+These modules passed combined-source elaboration and principal axiom checks;
+they are not proofs of the unextracted runtime callers.
 
 ## Runtime modules
 
@@ -104,7 +146,7 @@ mirroring; checked constructors accept them only for circle, v, pq and ppqq.
 | `storage` | Re-exports the extracted implementation; generic operations proved in `Storage*`. | Discharge generic clone/callback hypotheses for runtime types; serialization and allocation assumptions. |
 | `symmetry` | Re-exports the extracted implementation; `Symmetry` relates its operations to Lean's dihedral group. | JSON decoding of unbounded rotation arguments and derived debug formatting remain outside the kernel proof. |
 | `chart_loader`, `input_model` | Chart/state decoding, loading, ordering and frame comparisons. | Representation invariants and operations on arrays/maps. |
-| `lifecycle`, `scheduler`, `events`, `default_tactic` | Synthetic frames, seeded input, full corpus playthroughs in four mode combinations. | Transition relation, event ordering, scoring/audio/render and tactic generation. |
+| `lifecycle`, `scheduler`, `events`, `default_tactic` | Tap/SlideHead, Touch, Hold/TouchHold and Slide/WiFi steps call extracted transition kernels; `TapLifecycle`, `TouchLifecycle`, `HoldLifecycle` and `SlideLifecycle` prove single-step and finite-frame composition under documented adapters. Scheduler click ownership calls extracted selectors proved in `SchedulerClicks`. | Concrete lifecycle adapters, frame-level scheduling order and note iteration, event ordering, scoring/audio/render composition and tactic generation. |
 | `runtime_seek` | Forward/backward seek, settings, autoplay, replay and JSON restoration scenarios. | Arbitrary trace equivalence and state restoration invariants. |
 | `json_decode`, `lean_json`, `ffi`, `cabi`, `native` | Malformed input, JSON text, native records/session errors and compiled C smoke test. | Serialization and session lifecycle equivalence, memory ownership and ABI correctness. |
 
