@@ -104,10 +104,13 @@ import Verification.TimingNumberReference
 import Verification.TimingNumber
 import Verification.SlideChainReference
 import Verification.SlideChainModel
+import Verification.SlideChainExtracted
+import Verification.SlideChainWrapper
 import Verification.MaidataScanModel
 import Verification.TouchHoldRebuildModel
 import Verification.TouchHoldRebuildReverse
 import Verification.TouchHoldRebuildReverseExtracted
+import Verification.TouchHoldRebuildTraversal
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -135,6 +138,25 @@ run_cmd do
     ``Verification.SlideChainModel.scanFuel_reference,
     ``Verification.SlideChainModel.parsePlans_spans,
     ``Verification.SlideChainModel.parseSegments_reference,
+    ``Verification.SlideChainExtracted.read_digit_spec,
+    ``Verification.SlideChainExtracted.read_shape_spec,
+    ``Verification.SlideChainExtracted.timing_end_with_fuel_loop_spec,
+    ``Verification.SlideChainExtracted.timing_end_spec,
+    ``Verification.SlideChainExtracted.parse_plans_body_step_spec,
+    ``Verification.SlideChainExtracted.parse_plans_with_fuel_loop_spec,
+    ``Verification.SlideChainExtracted.parse_plans_spec,
+    ``Verification.SlideChainExtracted.render_plan_loop_spec,
+    ``Verification.SlideChainExtracted.render_plan_spec,
+    ``Verification.SlideChainExtracted.parse_plans_renderable,
+    ``Verification.SlideChainExtracted.encode_plans_loop_spec,
+    ``Verification.SlideChainExtracted.encode_plans_spec,
+    ``Verification.SlideChainExtracted.parse_segments_error_spec,
+    ``Verification.SlideChainExtracted.parse_segments_spec,
+    ``Verification.SlideChainExtracted.parse_segments_reference,
+    ``Verification.SlideChainWrapper.parseToken_reference,
+    ``Verification.SlideChainWrapper.originalWrapper_cons_none_iff,
+    ``Verification.SlideChainWrapper.originalWrapper_cons_some_iff,
+    ``Verification.SlideChainWrapper.originalWrapper_cons_error_iff,
     ``Verification.MaidataScanModel.parse_public_factor,
     ``Verification.MaidataScanModel.group_public_factor,
     ``Verification.MaidataScanModel.groupFuel_stable,
@@ -145,6 +167,14 @@ run_cmd do
     ``Verification.TouchHoldRebuildReverseExtractedProof.reverse_groups_loop_spec,
     ``Verification.TouchHoldRebuildReverseExtractedProof.reverse_groups_spec,
     ``Verification.TouchHoldRebuildReverseExtractedProof.reverse_groups_equiv,
+    ``Verification.TouchHoldRebuildUpsertProof.find_group_spec,
+    ``Verification.TouchHoldRebuildUpsertProof.find_member_spec,
+    ``Verification.TouchHoldRebuildUpsertProof.find_trigger_spec,
+    ``Verification.TouchHoldRebuildUpsertProof.upsert_equiv,
+    ``Verification.TouchHoldRebuildUpsertProof.upsert_indexed_equiv,
+    ``Verification.TouchHoldRebuildTraversalProof.rebuild_from_loop_spec,
+    ``Verification.TouchHoldRebuildTraversalProof.rebuild_from_reference_equiv,
+    ``Verification.TouchHoldRebuildTraversalProof.rebuild_equiv,
     ``Verification.SchedulerFrameTouchHoldProof.reference_touch_hold,
     ``Verification.SchedulerFrameTouchHoldProof.initial_work_spec,
     ``Verification.SchedulerFrameTouchHoldProof.touch_hold_phase_refines,

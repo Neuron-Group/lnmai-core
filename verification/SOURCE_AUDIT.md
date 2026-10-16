@@ -52,6 +52,13 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
+The next checkpoint also preserves the pending `FrameCommandsReference`
+source factoring. Its first compilation failed in the optional-command and
+list-composition proof bodies. It is not accepted and is not registered as
+accepted frame-command coverage. The proposed Rust feedback/collector kernel
+and its isolated extraction remain outside the repository until their batch
+is ready for integration. No tests were run for this checkpoint.
+
 Checkpoint `f304971` contains the next parser/rebuild batch. All 40 kernel
 source hashes match the real extraction in
 `/tmp/lnmai-parser-rebuild-batch-extraction-3/`; the installed Generated SHA256
@@ -67,13 +74,44 @@ The sequential rebuilds in `/tmp/lnmai-current-extraction-batch-22.log` and
 dependencies and the complete five-phase `SchedulerFrameAllTraversals`
 composition against this extraction. `NormalizationFrontend`,
 `TouchHoldRebuildModel`, `TouchHoldRebuildReverse` and the actual extracted
-reverse/slice-swap proofs also compiled. Their transitive axiom audit remains
-pending. `TimingNumberReference` has a further prefix-proof repair awaiting
-compilation; `TimingNumber`, `SlideChain*` and `MaidataScan*` remain pending.
-The SlideChain source proof failed at its timing-step correspondence. These
-successful compilations and draft repairs do not supersede the accepted v24
-evidence below. Concrete runtime contracts still remain open. No full
-equivalence or test acceptance is claimed.
+reverse/slice-swap proofs also compiled. The independent-module audit below covers these compiled roots. The subsequent
+batch25 compiled `TimingNumberReference`, `TimingNumber` and
+`SlideChainReference`. `SlideChainModel`, `MaidataScanModel` and
+`TouchHoldRebuildUpsert` failed with explicit proof diagnostics; their
+dependent extracted/parser/traversal modules were skipped. Those failures
+remain pending repair, not accepted results. Concrete runtime contracts
+still remain open. No full equivalence or test acceptance is claimed.
+
+The subsequent independent-module audit accepted the current five-phase
+composition, TouchHold queue/judgment composition, extracted reverse/swap and
+normalization frontend, including their recursive imports: 112 local modules
+and 5074 theorems. Every transitive axiom is `propext`, `Classical.choice` or
+`Quot.sound`; none reaches the six external formatting declarations. The
+audit verified source/artifact hashes before and after compilation, as well
+as all 40 kernel and 40 runtime source hashes and the real extraction files.
+Evidence is `/tmp/lnmai-priority-independent-audit-3.accepted.json`, its
+`.evidence.json`, `.lean` and `.log` files. The first audit attempt had a
+driver syntax error and was not accepted. This newer acceptance supersedes
+historical evidence only for these imports and their recorded hashes.
+Runtime representation, initialization, capacity and other explicit theorem
+premises remain open; the counts are not a measure of whole-program coverage.
+
+The timing-number parser subsequently passed its own independent-module
+audit: 12 local modules and 146 theorems, with only the same three standard
+logical axioms. It checks original signed parsing and the actual extracted
+whole/fraction loops under decimal primitive and character-representation
+laws. Evidence is `/tmp/lnmai-timing-number-independent-audit-1.accepted.json`
+and its adjacent evidence, audit and log files. Concrete BigUint/Rat and
+UTF-8 conversion remain open; this count overlaps the preceding audit's
+imports and must not be added to its count as unique coverage.
+
+Checkpoint `e2d2aba` preserves the frame/rebuild work and pending parser
+repairs. The next installed batch adds six `SlideChainExtracted*` modules,
+with 36 draft theorems for actual reads, timing, scan, rendering, encoding and
+composition. They are registered in the audit and deferred validation script
+but have not yet passed Lean compilation. Their only new runtime point law
+is single-call character-vector encoding; UTF-8, allocation, error encoding
+and outer-wrapper obligations remain separate.
 
 The 2026-10-17 composition batch passed combined-source elaboration with 76
 current source modules, 93 principal axiom reports and a transitive audit of

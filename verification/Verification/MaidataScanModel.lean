@@ -76,7 +76,15 @@ theorem splitPrefix_all {α : Type} (keep : α → Bool) (xs : List α) :
   induction xs with
   | nil => simp [splitPrefix]
   | cons x xs ih =>
-      cases h : keep x <;> simp [splitPrefix, h, ih]
+      cases h : keep x with
+      | false => simp [splitPrefix, h]
+      | true =>
+          intro y hy
+          have hmem : y ∈ x :: (splitPrefix keep xs).1 := by
+            simpa only [splitPrefix, h, if_true] using hy
+          rcases List.mem_cons.mp hmem with rfl | htail
+          · exact h
+          · exact ih y htail
 
 /-- Absolute cursor endpoint. It needs only start ≤ length, not length < MAX. -/
 def scanEnd {α : Type} (keep : α → Bool) (xs : List α) (start : Nat) : Nat :=
@@ -156,20 +164,25 @@ def noHeadPoint (token : RawNoteToken) : Bool :=
 
 theorem timingPoint_eq (token : RawNoteToken) :
     timingPoint token = !isExpandedSlideGroupChild token := by
-  cases token.kind <;> simp [timingPoint, childIndex, isExpandedSlideGroupChild]
+  cases hk : token.kind <;>
+    simp [timingPoint, childIndex, isExpandedSlideGroupChild, hk]
 
 def timingCount (tokens : List RawNoteToken) : Nat := tokens.countP timingPoint
 def noHeadCount (tokens : List RawNoteToken) : Nat := tokens.countP noHeadPoint
 
 theorem timingCount_eq (tokens : List RawNoteToken) :
     timingCount tokens = majdataTimingNoteCount tokens := by
-  simp only [timingCount, List.countP_eq_length_filter, timingPoint_eq,
-    majdataTimingNoteCount]
+  have hp : timingPoint = (fun token => !isExpandedSlideGroupChild token) :=
+    funext timingPoint_eq
+  simp only [timingCount, List.countP_eq_length_filter, hp, majdataTimingNoteCount]
 
 theorem noHeadCount_eq (tokens : List RawNoteToken) :
     noHeadCount tokens = majdataNoHeadSlideCount tokens := by
-  simp only [noHeadCount, List.countP_eq_length_filter, noHeadPoint, timingPoint_eq,
-    majdataNoHeadSlideCount]
+  have hp : noHeadPoint = (fun token =>
+      !isExpandedSlideGroupChild token && token.kind == .slide && token.isSlideNoHead) := by
+    funext token
+    simp only [noHeadPoint, timingPoint_eq]
+  simp only [noHeadCount, List.countP_eq_length_filter, hp, majdataNoHeadSlideCount]
 
 theorem counts_bounds (tokens : List RawNoteToken) :
     noHeadCount tokens ≤ timingCount tokens ∧ timingCount tokens ≤ tokens.length := by
@@ -203,7 +216,8 @@ def tagGroup (groupId : Nat) (tokens : List RawNoteToken) : List RawNoteToken :=
           | .touchHold => touchHoldIsEach
           | _ => false
         if shouldTag then
-          { token with sourceGroupId := some groupId
+          { token with
+            sourceGroupId := some groupId
             , sourceGroupIndex := some index
             , sourceGroupSize := some timingNoteCount } :: loop (index + 1) rest
         else token :: loop index rest
@@ -322,7 +336,8 @@ theorem linesFuel_eq_source (fuel : Nat) (lines : List String)
                     simp only [List.reverse_cons, List.reverse_nil, List.nil_append,
                       List.singleton_append, appendBody_eq_intercalate]
                     simpa using ih (splitPrefix keepBody rest).2 fields
-                      (charts ++ [{ levelIndex := ((key.drop 7).toString.toNat?).getD 0
+                      (charts ++ [{
+                        levelIndex := ((key.drop 7).toString.toNat?).getD 0
                         rawBody := String.intercalate "\n"
                           (value :: (splitPrefix keepBody rest).1) }])
 

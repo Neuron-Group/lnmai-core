@@ -110,7 +110,25 @@ theorem originalFuel_cons (fuel : Nat) (raw : String) (head c : Char) (rest : Li
   · split
     · rfl
     · simp only [except_bind_assoc, except_pure_bind]
-      rfl
+      cases hshape : parseSlideShapeChars raw c rest with
+      | error error => rfl
+      | ok shapeRest =>
+          rcases shapeRest with ⟨shape, remaining⟩
+          cases remaining with
+          | nil => rfl
+          | cons next tail =>
+              by_cases hopen : next = '['
+              · subst next
+                cases htiming : readBracketSuffix raw tail ['['] with
+                | error error =>
+                    simp [timingStep, htiming, Bind.bind, Except.bind,
+                      pure, Except.pure]
+                | ok suffixRest =>
+                    rcases suffixRest with ⟨suffix, remaining⟩
+                    simp [timingStep, htiming, Bind.bind, Except.bind,
+                      pure, Except.pure]
+              · simp [timingStep, hopen, Bind.bind, Except.bind,
+                  pure, Except.pure]
 
 /-- A forward-accumulator factoring of the old recursion. Empty precedes fuel. -/
 def collectFuel (raw : String) : Nat → Char → List Char → List OriginalSegment →

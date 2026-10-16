@@ -78,7 +78,9 @@ theorem fraction_loop_spec {T O : Type} (inst : timing_number.DecimalOps O T)
           have hkeep : FractionInvariant chars decode
               (fractionScan (chars.val.drop initialIndex.val) (decode initialValue)
                 (decode initialDenominator)) (next, nextValue, nextDenominator) := by
-            refine ⟨by omega, ?_⟩
+            refine ⟨?_, ?_⟩
+            · change next.val ≤ chars.val.length
+              omega
             simpa [fractionScan, hisDigit, hv, hvalueDecode, hdenomDecode, hvalue] using hinv
           have hdecrease : chars.val.length - next.val < chars.val.length - index.val := by
             omega
@@ -220,8 +222,9 @@ theorem parse_spec {T O : Type} (inst : timing_number.DecimalOps O T)
           TimingNumberModel.parse, withSign] using hscan
       · have hscan := parse_loop_spec inst chars ops decode laws false 0#usize zero false
           (by simp)
+        have hminusBool : (c == '-') = false := by simp [hminus]
         simpa [Slice.length, hlist, hget, bind_tc_ok, hminus, hzero, hzeroVal,
-          TimingNumberModel.parse, withSign] using hscan
+          TimingNumberModel.parse, withSign, hminusBool] using hscan
 
 /-- Exact signed-rational parser result, under explicit character decoding and
 decimal primitive laws. No parser or scan equality is assumed. -/

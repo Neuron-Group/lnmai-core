@@ -115,6 +115,12 @@ append operations, character decoding and concrete rational representation
 remain explicit boundaries. `SlideChain*` and `MaidataScan*` contain further
 grammar and scan proofs under development. Current acceptance, including
 failed or pending compilations, is recorded in `SOURCE_AUDIT.md`.
+The six `SlideChainExtracted*` modules target the actual generated reads,
+timing/plan loops, renderer and segment encoder. They do not assume a
+whole-parser result. Successful segment encoding requires the explicit
+single-call encoding law and `chars.length < Usize.max` for the synthetic
+head character; character capacity does not discharge UTF-8 byte allocation.
+These 36 new theorems remain pending compilation.
 
 `SchedulerFrameAllTraversals` composes the five phase implementations without
 a whole-phase correctness premise. Its field, integer, encoding, capacity and
@@ -123,7 +129,9 @@ TouchHold rebuild work separately proves the original group update model and
 the indexed reversal invariant. `TouchHoldRebuildReverseExtracted` connects
 that invariant to the actual extracted body, loop and wrapper under length
 and two-slot swap laws. This does not establish the concrete Vec facade or
-the remaining rebuild operations. These new modules still require acceptance.
+the remaining rebuild operations. The current independent-module axiom audit
+accepted the five-phase composition and reverse proofs with their explicit
+contracts; parser drafts and the remaining rebuild operations are separate.
 
 `Verification.Audit` traverses theorem dependencies and rejects every axiom
 except `propext`, `Classical.choice` and `Quot.sound`. The extraction pipeline

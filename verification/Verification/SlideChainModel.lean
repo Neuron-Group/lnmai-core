@@ -336,7 +336,7 @@ theorem readDigitAt_success (chars : List Char) (cursor : Nat) (digit : Char) (n
       · have heq : c = digit ∧ cursor + 1 = next := by
           simpa [readDigitAt, hr, hd] using h
         rcases heq with ⟨rfl, rfl⟩
-        exact ⟨rfl, hr, hd, get_some_lt chars cursor digit hr⟩
+        exact ⟨rfl, rfl, hd, get_some_lt chars cursor c hr⟩
       · simp [readDigitAt, hr, hd] at h
 
 /-- Complete p/q selection: at most one identical mark is consumed. -/
@@ -362,15 +362,15 @@ theorem shapeCursor_spec (chars : List Char) (op : Char) (cursor : Nat) :
       cases hr : chars[cursor]? with
       | none =>
           rw [drop_of_none chars cursor hr]
-          simp [shapePrefix, hp, String.singleton_eq_ofList]
+          simp [shapePrefix, hp]
       | some c =>
           have hn : c ≠ op := by
             intro heq
             subst c
             exact hc hr
           rw [drop_of_some chars cursor c hr]
-          simp [shapePrefix, hp, hn, String.singleton_eq_ofList]
-  · simp [shapeCursor, shapePrefix, hp, sourceRange, String.singleton_eq_ofList]
+          simp [shapePrefix, hp, hn]
+  · simp [shapeCursor, shapePrefix, hp, sourceRange]
 
 /-- Definitional non-V factoring of the actual original shape parser. -/
 theorem original_shape_nonV (raw : String) (op : Char) (chars : List Char)
@@ -424,7 +424,8 @@ theorem readShapeAt_spec (raw : String) (chars : List Char) (op : Char) (cursor 
                 sourceRange_one chars (cursor + 1) endpoint hendpoint]
             simp only [readShapeAt, hv, if_true, hf, hl, Bind.bind, Except.bind]
             refine ⟨by omega, by omega, ?_, ?_⟩
-            · simp [parseSlideShapeChars, hv, ← href, ← hlast, htext, ofList_triple,
+            · rw [htext, ofList_triple]
+              simp only [parseSlideShapeChars, hv, if_true, ← href, ← hlast,
                 Bind.bind, Except.bind, pure, Except.pure]
             · intro fallback
               simp [htext]
@@ -635,6 +636,10 @@ theorem stepAt_reference (raw : String) (chars : List Char) (head : Char)
               have hspec := readShapeAt_spec raw chars c (cursor + 1)
               simp only [hs] at hspec
               rcases hspec with ⟨hprogress, hbound, hshape, hlast⟩
+              have hendpoint :
+                  (sourceRange chars (cursor + 1) next).getLast?.getD c = endpoint := by
+                simpa only [List.head?_reverse, List.getLast?_cons, Option.getD_some]
+                  using hlast head
               have htiming := timingAt_reference raw chars next
               cases ht : timingAt chars next with
               | error issue =>
@@ -665,7 +670,7 @@ theorem stepAt_reference (raw : String) (chars : List Char) (head : Char)
                     change mkOriginalSegment (String.ofList (head :: sourceRange chars cursor stop)) timing = _
                     rw [htext]
                   simp [stepAt, referenceStep, hget, isChainDigit_reference, hd, hm,
-                    hs, hshape, ht, ← htiming, resultView, stepView, hsegment, hlast,
+                    hs, hshape, ht, ← htiming, resultView, stepView, hsegment, hendpoint,
                     Bind.bind, Except.bind, pure, Except.pure]
 
 /-- O5 progress is derived from the successful required digit and optional
@@ -694,8 +699,8 @@ theorem stepAt_success (chars : List Char) (head : Char) (cursor : Nat) (step : 
                   | ok value =>
                       rcases value with ⟨stop, timing⟩
                       have htiming := timingAt_success chars next stop timing hshape.2.1 ht
-                      have heq : ({ plan := { head := head, begin := cursor, stop := stop, hasTiming := timing },
-                          nextHead := endpoint } : StepAt) = step := by
+                      have heq :
+                          StepAt.mk (Plan.mk head cursor stop timing) endpoint = step := by
                         simpa [stepAt, hg, hd, hm, hs, ht, Bind.bind, Except.bind,
                           pure, Except.pure] using h
                       subst step
@@ -714,25 +719,31 @@ theorem scanFuel_reference (raw : String) (chars : List Char) (fuel : Nat)
       by_cases hi : cursor < chars.length
       · have hg := List.getElem?_eq_getElem hi
         have hd := drop_of_some chars cursor (chars[cursor]) hg
-        simp [scanFuel, hi, hd, collectFuel, resultView]
+        rw [hd]
+        simp only [scanFuel, hi, if_true, collectFuel, resultView]
       · have hd : chars.drop cursor = [] := List.drop_eq_nil_of_le (by omega)
-        simp [scanFuel, hi, hd, collectFuel, resultView]
+        rw [hd]
+        simp only [scanFuel, hi, if_false, collectFuel, resultView]
   | succ fuel ih =>
       by_cases hi : cursor < chars.length
       · have hg := List.getElem?_eq_getElem hi
         have hd := drop_of_some chars cursor (chars[cursor]) hg
         have href := stepAt_reference raw chars head cursor (chars[cursor]) hg
+        -- Expand this drop exactly once; default simp may fold the cons back.
+        rw [hd]
         cases hs : stepAt chars head cursor with
         | error issue =>
             simp only [hs, resultView] at href
-            simp [scanFuel, hi, hs, hd, collectFuel, ← href, resultView]
+            simp only [scanFuel, hi, if_true, hs, collectFuel, ← href, resultView]
         | ok step =>
             simp only [hs, resultView] at href
             simp only [scanFuel, hi, if_true, hs]
             rw [ih]
-            simp [hd, collectFuel, ← href, stepView, List.map_append]
+            simp only [collectFuel, ← href, stepView,
+              List.map_append, List.map_cons, List.map_nil]
       · have hd : chars.drop cursor = [] := List.drop_eq_nil_of_le (by omega)
-        simp [scanFuel, hi, hd, collectFuel, resultView]
+        rw [hd]
+        simp only [scanFuel, hi, if_false, collectFuel, resultView]
 
 /-- Ordered, adjacent, in-bounds ranges for exactly the newly scanned suffix.
 This also proves that successful termination reaches the end of input. -/
