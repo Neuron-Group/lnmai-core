@@ -240,8 +240,8 @@ command observations are discharged by the later `SlideParserText` batch.
 
 Text sanitization/command scanning and connected-slide parent loops have now
 passed the combined-source checks recorded above. Judgment adapter control flow
-has also passed its fifteen checks. Next is composing the Slide traversal and
-parent proofs into the frame phase, removing that phase's whole-pass assumption.
+has also passed its fifteen checks. Slide traversal/parent/judgment composition now derives that phase's result;
+the later traversal batch also derives Tap and ordinary Hold.
 Remaining work includes parser/table payloads, normalization/lowering, Maidata
 segmentation, exact numeric timing and complete runtime frame/lifecycle
 composition. Every new kernel must be called by the
@@ -263,10 +263,25 @@ frame histories. `TapScheduleModel` adds 11 reports for the original queue
 recursion and sufficient fuel; `QueueMaintenanceModel` adds 15 for the
 original Hold/Touch queue normalization and replacement behavior.
 
-The frame theorem still assumes the complete Tap, Hold, Touch and TouchHold
-passes. Atomic operations, unbounded numeric/container representations,
-allocation bounds, actual runtime facades and initialization remain open. The
-new Tap/Hold/queue Rust kernels have passed an isolated library-only check and
-real extraction; their extracted traversal proofs and frame integration are
-the next batch. Defer tests and `validate_all.sh` until code equivalence is
-closed, including the already registered three requested charts.
+The later traversal batch passed combined-source checks with 51 source modules,
+144 principal reports, 2028 transitively audited theorems and 149 matching
+hashes (/tmp/lnmai-traversal-proof-accepted-v23.json and adjacent snapshots).
+It proves actual extracted Tap/Hold/queue loops, judgment composition, Tap's
+inter-zone map_accum and finite frame histories. The frame theorem now retains
+only Touch and TouchHold as complete-pass premises. Atomic operations,
+unbounded numeric/container representations, allocation bounds, actual runtime
+facades and initialization remain open. Uniform capacity is still a premise,
+not a proved reachable-state invariant.
+
+HoldScheduleQueueJudgments subsequently derives the Hold update_queue law from
+slot/replace/normalize/store points and installs it in SchedulerFrameTraversals.
+This new connection and the full current Audit passed combined-source v24:
+90 source modules, 150 principal reports, 3146 transitively audited theorems,
+202 matching hashes, and only standard logical axioms. Evidence is preserved
+in /tmp/lnmai-traversal-proof-accepted-v24.json and its adjacent snapshots.
+A complete independent-module build is still required. The Tap/Hold/queue
+kernels, callers and real extraction were installed in checkpoint 2a3333c.
+Next runtime changes are staged separately: Touch head and automatic traversal,
+TouchHold traversal, and parser normalization control flow. They have no
+accepted extracted-code proof yet. Defer tests and validate_all.sh until code
+equivalence is closed, including the already registered three requested charts.

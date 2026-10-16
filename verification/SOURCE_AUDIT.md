@@ -61,23 +61,41 @@ judgment extraction. The immutable snapshots are
 `.evidence.json` and `.lean`. No tests or completed independent-module audit
 are claimed by this result.
 
-The 67 composition reports cover exact lifecycle judgments, Slide traversal
-and parent composition, score/finalization, initialization source equations
-and finite frame histories. Eleven `TapScheduleModel` reports and fifteen
-`QueueMaintenanceModel` reports concern the original Lean recursion, fuel
-sufficiency and queue replacement. They do not yet prove the newly extracted
-Tap/Hold/queue loops. `SchedulerFrameJudgments` still has four complete-pass
-premises (Tap, Hold, Touch, TouchHold); its Slide result is composed from
-traversal, parent, lifecycle and judgment proofs. Concrete facades, primitive
-field/representation laws and capacity remain explicit obligations.
+The following traversal batch passed combined-source elaboration: 51 current
+source modules, 144 principal reports, 2028 transitively audited theorems and
+149 matching hashes. Immutable evidence is in
+/tmp/lnmai-traversal-proof-accepted-v23.json and its .sources.json,
+.evidence.json and .lean snapshots. All reports use only standard logical
+axioms. These counts describe evidence, not percentage coverage.
 
-The next runtime batch is prepared in `/tmp/lnmai-scheduler-batch-workspace`:
-three shared kernels for Tap traversal, ordinary Hold traversal and queue
-maintenance. Formatting, `cargo check --workspace --lib --locked` and real
+TapSchedule and HoldSchedule now prove the actual extracted traversals against
+the original Lean recursions. TapSchedulePass composes the real ButtonVec
+map_accum, preserving inter-zone cursor/frontier/reversed-event state.
+HoldSchedule records every immutable source slot exactly once in order.
+QueueMaintenance proves replacement of ALL matching identifiers and resolved
+prefix normalization, including duplicate IDs and arbitrary out-of-range Nat
+cursors. QueueMaintenanceComposition derives complete updates from the real
+replacement/normalization loops plus slot/facade point contracts.
+
+The accepted v23 SchedulerFrameTraversals composes judgment-aware Tap, Hold
+and Slide phases at each CURRENT frame. Only Touch and TouchHold remain
+complete-pass premises; its Hold update_queue contract was still explicit.
+The subsequent HoldScheduleQueueJudgments patch derives that contract from
+queue point laws and connects it to the frame composition. This patch and the
+full current Audit root passed the v24 combined-source check: 90 source modules,
+150 principal reports, 3146 transitively audited theorems and 202 matching hashes.
+Only standard logical axioms occur. Immutable evidence is preserved in
+/tmp/lnmai-traversal-proof-accepted-v24.json and its adjacent snapshots.
+Concrete numeric/field/container/facade laws, exact encoding, uniform capacity
+and initialization remain explicit; no full runtime or independent-module
+acceptance is claimed.
+
+The three shared Tap/Hold/queue kernels and their runtime callers are installed
+at checkpoint 2a3333c. Formatting, library-only Cargo checking and real
 Charon/Aeneas extraction passed in the corresponding
-`/tmp/lnmai-scheduler-batch-{format,library-check,extraction}-1.log` files.
-The extraction is `/tmp/lnmai-scheduler-batch-extraction/`; installation and
-proof compilation against that Generated module are separate next steps.
+/tmp/lnmai-scheduler-batch-{format,library-check,extraction}-1.log files.
+The extraction is /tmp/lnmai-scheduler-batch-extraction/; Generated also
+compiled independently. Tests remain deferred.
 
 `NaturalParser`, `TimingAggregate` and `SlideSchedule` passed combined-source
 elaboration and all 57 principal axiom checks. Every report uses only standard

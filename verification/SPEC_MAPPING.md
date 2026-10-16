@@ -38,6 +38,19 @@ function in the corresponding Rust module is proved. A fresh `lake build` and
 | `Scheduler.processSlideNotesCore` | `slide_schedule.rs`, runtime `scheduler.rs` | `SlideSchedule`: 18 principal theorems passed combined-source elaboration and axiom checks for the extracted traversal, original fuel recursion, immediate parent effects, buffer order, capacity and a history of visits to pending slots. Read/replace, lifecycle, parent and append adapters remain explicit. |
 | Scheduler parent callbacks inside slide traversal | `slide_parents.rs`, `slide_schedule.rs`, runtime `scheduler.rs` | `SlideScheduleParents`: seven composition theorems passed combined-source elaboration and axiom checks, connecting the actual parent kernels to the traversal's parent contracts. Concrete facade wiring, metadata, point operations, cloning, container interpretation and capacity remain explicit. |
 
+The installed Tap/Hold/queue extraction is additionally covered by
+TapSchedule, HoldSchedule, QueueMaintenance, StorageRefinement,
+TapSchedulePass and their judgment/frame compositions. Their v23 evidence
+contains 144 principal reports from 51 current source modules. The theorems
+preserve all duplicate queue identifiers, arbitrary Nat cursor values,
+per-zone accumulation and ordered frame outputs. They retain clone, field,
+numeric/container, exact-encoding and capacity premises. The later
+HoldScheduleQueueJudgments removes the composite queue-update premise using
+slot and primitive queue laws. It and the complete Audit root passed v24
+combined-source elaboration and axiom checking (90 modules, 150 principal
+reports, 3146 audited theorems, 202 matching hashes). A separate complete
+module build remains required; see SOURCE_AUDIT.md for immutable evidence.
+
 `Defaults` additionally states the six extracted structure-default contracts
 for duration, time point, judgment result, group state, judgment event and
 combo delta. The event default preserves Lean's derived multiplicity of zero;
@@ -146,7 +159,7 @@ mirroring; checked constructors accept them only for circle, v, pq and ppqq.
 | `storage` | Re-exports the extracted implementation; generic operations proved in `Storage*`. | Discharge generic clone/callback hypotheses for runtime types; serialization and allocation assumptions. |
 | `symmetry` | Re-exports the extracted implementation; `Symmetry` relates its operations to Lean's dihedral group. | JSON decoding of unbounded rotation arguments and derived debug formatting remain outside the kernel proof. |
 | `chart_loader`, `input_model` | Chart/state decoding, loading, ordering and frame comparisons. | Representation invariants and operations on arrays/maps. |
-| `lifecycle`, `scheduler`, `events`, `default_tactic` | Transition kernels, click ownership and the 2026-10-17 judgment/frame composition batch passed combined-source checks. `SchedulerFrameJudgments` derives the Slide phase and finalization; `TapScheduleModel` and `QueueMaintenanceModel` prove original-recursion and fuel/replacement facts. | The complete Tap/Hold/Touch/TouchHold passes are still premises. New extracted Tap/Hold/queue loops, concrete numeric/container/lifecycle facades, allocation, frame initialization and tactic generation remain open. |
+| `lifecycle`, `scheduler`, `events`, `default_tactic` | Extracted Tap/Hold/queue traversal and judgment/frame compositions passed the v23 combined-source checks. Tap includes the actual ButtonVec map_accum; Hold retains ordered source visits. SchedulerFrameTraversals derives Tap/Hold/Slide plus finalization and finite traces. | Touch/TouchHold complete passes, concrete numeric/container/lifecycle facades, uniform capacity, frame initialization and tactic generation remain open. The subsequent Hold queue point composition and full audit are pending. |
 | `runtime_seek` | Forward/backward seek, settings, autoplay, replay and JSON restoration scenarios. | Arbitrary trace equivalence and state restoration invariants. |
 | `json_decode`, `lean_json`, `ffi`, `cabi`, `native` | Malformed input, JSON text, native records/session errors and compiled C smoke test. | Serialization and session lifecycle equivalence, memory ownership and ABI correctness. |
 

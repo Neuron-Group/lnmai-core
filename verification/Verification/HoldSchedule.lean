@@ -24,7 +24,8 @@ The continuation is HoldScheduleModel.resume, which calls the original private
 Scheduler.processHoldNotes. No assumption supplies an entire item or pass.
 The single-note lifecycle and the composite update_queue contract remain
 explicit boundaries; this file does not claim the Rust facade was extracted.
-No compilation or extraction is performed by this candidate delivery.
+Judgment and queue-maintenance compositions discharge these two boundaries
+separately; the point-operation laws remain explicit.
 -/
 
 structure Representation (S Z N F Q C H E Event D Area : Type) where
@@ -384,11 +385,13 @@ theorem process_body_spec (atoms : AtomicAgrees call ops rep ctx cap) (holds : S
     have hafterEnded := phase_ended (rep.note after)
     cases hbPhase : phase note <;> cases haPhase : phase (rep.note after) <;>
       simp only [hbPhase, haPhase, Result.ok.injEq] at hawait hbeforeJudged hafterJudged hafterEnded <;>
-      simp only [← hawait, ← hbeforeJudged, ← hafterJudged, ← hafterEnded, hbPhase, haPhase] at
-        hadmission hfront hactiveCall <;>
+      simp only [← hawait, ← hbeforeJudged, ← hafterJudged, ← hafterEnded, hbPhase, haPhase] at hadmission hfront hactiveCall <;>
       simp only [hbPhase, haPhase, bind_tc_ok, hadmission, hbuttonAvailable, hsensorAvailable,
         hplan, hbUse, hsUse, or_ok, hdiffCall, hstep, atoms.phase, hfront, hqueue,
-        hactiveCall, heventsCall, hi, uncurry_apply_pair, next]
+        hactiveCall, heventsCall, hi, uncurry_apply_pair, next] <;>
+      cases event <;>
+      simp only [Result.ok.injEq] at heventsCall <;>
+      simp only [heventsCall, bind_tc_ok]
   · rw [hmodel]
     simp only [next, interpret, advance, hfrontRep, hqueueRep, hzone, hactiveRep, heventsRep]
 

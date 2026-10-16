@@ -67,6 +67,8 @@ for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra 
   LifecycleJudgments HoldJudgments SlideJudgments SlideQueueMetrics SchedulerClicks \
   SchedulerFrame SchedulerParents SlideSchedule SlideScheduleParents \
   SchedulerFrameSlide SchedulerFrameFinalization SchedulerFrameState SlideScheduleJudgments SchedulerFrameJudgments TapScheduleModel QueueMaintenanceModel \
+  TapSchedule QueueMaintenance QueueMaintenanceComposition HoldScheduleModel HoldSchedule StorageRefinement \
+  TapSchedulePass SchedulerFrameTap TapScheduleJudgments TapSchedulePassJudgments HoldScheduleJudgments SchedulerFrameHold HoldScheduleQueueJudgments SchedulerFrameTraversals \
   SlideAreaEquality SlideQueueModel SlideQueue SlideQueueTraversal SlideQueueTrace \
   SlideQueueReferenceTrace Audit; do
   run "proof-$module" "$repo/verification" lake build "Verification.$module"
