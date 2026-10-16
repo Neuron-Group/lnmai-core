@@ -1,5 +1,4 @@
 import Verification.SchedulerClicks
-import Verification.LifecycleJudgments
 import Batteries.Tactic.OpenPrivate
 
 open Aeneas Aeneas.Std Result lnmai_core_verify

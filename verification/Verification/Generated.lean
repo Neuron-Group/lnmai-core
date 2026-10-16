@@ -1525,6 +1525,333 @@ def grade_counts.set_count
   let counts1 := index_mut_back t
   Array.update counts1 i value
 
+/-- [lnmai_core_verify::hold_schedule::HoldPhase]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 10:0-17:1
+    Visibility: public -/
+@[discriminant isize]
+inductive hold_schedule.HoldPhase where
+| HeadWaiting : hold_schedule.HoldPhase
+| HeadJudgeable : hold_schedule.HoldPhase
+| HeadJudged : hold_schedule.HoldPhase
+| BodyHeld : hold_schedule.HoldPhase
+| BodyReleased : hold_schedule.HoldPhase
+| Ended : hold_schedule.HoldPhase
+
+/-- [lnmai_core_verify::hold_schedule::{impl core::fmt::Debug for lnmai_core_verify::hold_schedule::HoldPhase}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:9-9:14
+    Visibility: public -/
+def hold_schedule.HoldPhase.Insts.CoreFmtDebug.fmt
+  (self : hold_schedule.HoldPhase) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | hold_schedule.HoldPhase.HeadWaiting =>
+    core.fmt.Formatter.write_str f (toStr "HeadWaiting")
+  | hold_schedule.HoldPhase.HeadJudgeable =>
+    core.fmt.Formatter.write_str f (toStr "HeadJudgeable")
+  | hold_schedule.HoldPhase.HeadJudged =>
+    core.fmt.Formatter.write_str f (toStr "HeadJudged")
+  | hold_schedule.HoldPhase.BodyHeld =>
+    core.fmt.Formatter.write_str f (toStr "BodyHeld")
+  | hold_schedule.HoldPhase.BodyReleased =>
+    core.fmt.Formatter.write_str f (toStr "BodyReleased")
+  | hold_schedule.HoldPhase.Ended =>
+    core.fmt.Formatter.write_str f (toStr "Ended")
+
+/-- Trait implementation: [lnmai_core_verify::hold_schedule::{impl core::fmt::Debug for lnmai_core_verify::hold_schedule::HoldPhase}]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:9-9:14 -/
+@[reducible]
+def hold_schedule.HoldPhase.Insts.CoreFmtDebug : core.fmt.Debug
+  hold_schedule.HoldPhase := {
+  fmt := hold_schedule.HoldPhase.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::hold_schedule::{impl core::clone::Clone for lnmai_core_verify::hold_schedule::HoldPhase}::clone]:
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:16-9:21
+    Visibility: public -/
+def hold_schedule.HoldPhase.Insts.CoreCloneClone.clone
+  (self : hold_schedule.HoldPhase) : Result hold_schedule.HoldPhase := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::hold_schedule::{impl core::clone::Clone for lnmai_core_verify::hold_schedule::HoldPhase}]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:16-9:21 -/
+@[reducible]
+def hold_schedule.HoldPhase.Insts.CoreCloneClone : core.clone.Clone
+  hold_schedule.HoldPhase := {
+  clone := hold_schedule.HoldPhase.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::hold_schedule::{impl core::marker::Copy for lnmai_core_verify::hold_schedule::HoldPhase}]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:23-9:27 -/
+@[reducible]
+def hold_schedule.HoldPhase.Insts.CoreMarkerCopy : core.marker.Copy
+  hold_schedule.HoldPhase := {
+  cloneInst := hold_schedule.HoldPhase.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::hold_schedule::{impl core::marker::StructuralPartialEq for lnmai_core_verify::hold_schedule::HoldPhase}]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:29-9:38 -/
+@[reducible]
+def hold_schedule.HoldPhase.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq hold_schedule.HoldPhase := {
+}
+
+/-- [lnmai_core_verify::hold_schedule::{impl core::cmp::PartialEq<lnmai_core_verify::hold_schedule::HoldPhase> for lnmai_core_verify::hold_schedule::HoldPhase}::eq]:
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:29-9:38
+    Visibility: public -/
+def hold_schedule.HoldPhase.Insts.CoreCmpPartialEqHoldPhase.eq
+  (self : hold_schedule.HoldPhase) (other : hold_schedule.HoldPhase) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::hold_schedule::{impl core::cmp::PartialEq<lnmai_core_verify::hold_schedule::HoldPhase> for lnmai_core_verify::hold_schedule::HoldPhase}]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:29-9:38 -/
+@[reducible]
+def hold_schedule.HoldPhase.Insts.CoreCmpPartialEqHoldPhase :
+  core.cmp.PartialEq hold_schedule.HoldPhase hold_schedule.HoldPhase := {
+  eq := hold_schedule.HoldPhase.Insts.CoreCmpPartialEqHoldPhase.eq
+}
+
+/-- [lnmai_core_verify::hold_schedule::{impl core::cmp::Eq for lnmai_core_verify::hold_schedule::HoldPhase}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:40-9:42
+    Visibility: public -/
+def hold_schedule.HoldPhase.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : hold_schedule.HoldPhase) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::hold_schedule::{impl core::cmp::Eq for lnmai_core_verify::hold_schedule::HoldPhase}]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 9:40-9:42 -/
+@[reducible]
+def hold_schedule.HoldPhase.Insts.CoreCmpEq : core.cmp.Eq
+  hold_schedule.HoldPhase := {
+  partialEqInst := hold_schedule.HoldPhase.Insts.CoreCmpPartialEqHoldPhase
+  assert_fields_are_eq :=
+    hold_schedule.HoldPhase.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::hold_schedule::HoldWork]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 20:0-26:1
+    Visibility: public -/
+structure hold_schedule.HoldWork (F : Type) (Q : Type) (C : Type) (H : Type) (E
+  : Type) where
+  frontiers : F
+  queues : Q
+  cursor : C
+  active : H
+  events : E
+
+/-- Trait declaration: [lnmai_core_verify::hold_schedule::HoldSchedule]
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 32:0-61:1
+    Visibility: public -/
+structure hold_schedule.HoldSchedule (Self : Type) (S : Type) (Z : Type) (N :
+  Type) (F : Type) (Q : Type) (C : Type) (H : Type) (E : Type) (Event : Type)
+  (D : Type) (Area : Type) where
+  length : Self → S → Result Std.Usize
+  get : Self → S → Std.Usize → Result (Z × N)
+  button_diff : Self → N → Result D
+  sensor_diff : Self → N → Result D
+  button_pressed : Self → Z → Result Bool
+  sensor_pressed : Self → Z → Result Bool
+  prev_sensor_pressed : Self → Z → Result Bool
+  phase : Self → N → Result hold_schedule.HoldPhase
+  unlocked : Self → F → Z → N → Result Bool
+  eligible : Self → N → Result Bool
+  fallback_area : Self → Z → Result Area
+  button_available : Self → C → Z → Result Bool
+  sensor_available : Self → C → Area → Result Bool
+  use_button : Self → C → Z → Result C
+  use_sensor : Self → C → Area → Result C
+  step : Self → N → D → Bool → Bool → Bool → Bool → Result (N ×
+    (Option Event))
+  advance_frontier : Self → F → Z → Result F
+  update_queue : Self → Q → Z → N → Result Q
+  append_active : Self → H → Z → N → Result H
+  append_event : Self → E → Event → Result E
+
+/-- [lnmai_core_verify::scheduler::ClickUse]
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 11:0-14:1
+    Visibility: public -/
+structure scheduler.ClickUse where
+  used_button : Bool
+  used_sensor : Bool
+
+/-- [lnmai_core_verify::scheduler::consume_click]:
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 18:0-39:1
+    Visibility: public -/
+def scheduler.consume_click
+  (allow_input : Bool) (button_available : Bool) (sensor_available : Bool) :
+  Result scheduler.ClickUse
+  := do
+  if allow_input
+  then
+    if button_available
+    then ok { used_button := true, used_sensor := false }
+    else
+      if sensor_available
+      then ok { used_button := false, used_sensor := true }
+      else ok { used_button := false, used_sensor := false }
+  else ok { used_button := false, used_sensor := false }
+
+/-- [lnmai_core_verify::hold_schedule::process]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 76:10-85:24
+    Visibility: public -/
+@[rust_loop_body]
+def hold_schedule.process_loop.body
+  {S : Type} {Z : Type} {N : Type} {F : Type} {Q : Type} {C : Type} {H : Type}
+  {E : Type} {Event : Type} {D : Type} {Area : Type} {Ops : Type}
+  (HoldScheduleInst : hold_schedule.HoldSchedule Ops S Z N F Q C H E Event D
+  Area) (holds : S) (ops : Ops) (len : Std.Usize)
+  (work : hold_schedule.HoldWork F Q C H E) (index : Std.Usize) :
+  Result (ControlFlow ((hold_schedule.HoldWork F Q C H E) × Std.Usize)
+    (hold_schedule.HoldWork F Q C H E))
+  := do
+  if index < len
+  then
+    let (zone, before) ← HoldScheduleInst.get ops holds index
+    let button_diff ← HoldScheduleInst.button_diff ops before
+    let sensor_diff ← HoldScheduleInst.sensor_diff ops before
+    let current_button_pressed ← HoldScheduleInst.button_pressed ops zone
+    let current_sensor_pressed ← HoldScheduleInst.sensor_pressed ops zone
+    let prev_sensor_pressed ← HoldScheduleInst.prev_sensor_pressed ops zone
+    let before_phase ← HoldScheduleInst.phase ops before
+    let b ←
+      match before_phase with
+      | hold_schedule.HoldPhase.HeadWaiting => ok true
+      | hold_schedule.HoldPhase.HeadJudgeable => ok true
+      | hold_schedule.HoldPhase.HeadJudged => ok false
+      | hold_schedule.HoldPhase.BodyHeld => ok false
+      | hold_schedule.HoldPhase.BodyReleased => ok false
+      | hold_schedule.HoldPhase.Ended => ok false
+    let (work1, allow_input) ←
+      if b
+      then
+        do
+        let b1 ← HoldScheduleInst.unlocked ops work.frontiers zone before
+        let b2 ←
+          if b1
+          then HoldScheduleInst.eligible ops before
+          else ok false
+        ok (work, b2)
+      else ok (work, false)
+    let fallback_area ← HoldScheduleInst.fallback_area ops zone
+    let b1 ← HoldScheduleInst.button_available ops work1.cursor zone
+    let b2 ← HoldScheduleInst.sensor_available ops work1.cursor fallback_area
+    let plan ← scheduler.consume_click allow_input b1 b2
+    let (t, b3) ←
+      if plan.used_button
+      then
+        do
+        let t1 ← HoldScheduleInst.use_button ops work1.cursor zone
+        ok (t1, true)
+      else ok (work1.cursor, false)
+    let (t1, clicked) ←
+      if plan.used_sensor
+      then
+        do
+        let t2 ← HoldScheduleInst.use_sensor ops t fallback_area
+        ok (t2, true)
+      else ok (t, false)
+    let clicked1 ← if b3
+                     then ok true
+                     else ok clicked
+    let diff ← if b3
+                 then ok button_diff
+                 else ok sensor_diff
+    let pressed ←
+      if current_button_pressed
+      then ok true
+      else ok current_sensor_pressed
+    let (after, event) ←
+      HoldScheduleInst.step ops before diff clicked1 pressed
+        current_button_pressed prev_sensor_pressed
+    let after_phase ← HoldScheduleInst.phase ops after
+    let b4 ←
+      match before_phase with
+      | hold_schedule.HoldPhase.HeadWaiting => ok false
+      | hold_schedule.HoldPhase.HeadJudgeable => ok false
+      | hold_schedule.HoldPhase.HeadJudged => ok true
+      | hold_schedule.HoldPhase.BodyHeld => ok false
+      | hold_schedule.HoldPhase.BodyReleased => ok false
+      | hold_schedule.HoldPhase.Ended => ok false
+    let (t2, after_phase1) ←
+      if b4
+      then ok (work1.frontiers, after_phase)
+      else
+        do
+        let b5 ←
+          match after_phase with
+          | hold_schedule.HoldPhase.HeadWaiting => ok false
+          | hold_schedule.HoldPhase.HeadJudgeable => ok false
+          | hold_schedule.HoldPhase.HeadJudged => ok true
+          | hold_schedule.HoldPhase.BodyHeld => ok false
+          | hold_schedule.HoldPhase.BodyReleased => ok false
+          | hold_schedule.HoldPhase.Ended => ok false
+        let t3 ←
+          if b5
+          then HoldScheduleInst.advance_frontier ops work1.frontiers zone
+          else ok work1.frontiers
+        ok (t3, after_phase)
+    let t3 ← HoldScheduleInst.update_queue ops work1.queues zone after
+    let b5 ←
+      match after_phase1 with
+      | hold_schedule.HoldPhase.HeadWaiting => ok false
+      | hold_schedule.HoldPhase.HeadJudgeable => ok false
+      | hold_schedule.HoldPhase.HeadJudged => ok false
+      | hold_schedule.HoldPhase.BodyHeld => ok false
+      | hold_schedule.HoldPhase.BodyReleased => ok false
+      | hold_schedule.HoldPhase.Ended => ok true
+    let t4 ←
+      if b5
+      then ok work1.active
+      else HoldScheduleInst.append_active ops work1.active zone after
+    let t5 ←
+      match event with
+      | none => ok work1.events
+      | some event1 => HoldScheduleInst.append_event ops work1.events event1
+    let index1 ← index + 1#usize
+    ok (cont
+      ({
+         frontiers := t2,
+         queues := t3,
+         cursor := t1,
+         active := t4,
+         events := t5
+       }, index1))
+  else ok (done work)
+
+/-- [lnmai_core_verify::hold_schedule::process]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 76:10-85:24
+    Visibility: public -/
+@[rust_loop]
+def hold_schedule.process_loop
+  {S : Type} {Z : Type} {N : Type} {F : Type} {Q : Type} {C : Type} {H : Type}
+  {E : Type} {Event : Type} {D : Type} {Area : Type} {Ops : Type}
+  (HoldScheduleInst : hold_schedule.HoldSchedule Ops S Z N F Q C H E Event D
+  Area) (holds : S) (work : hold_schedule.HoldWork F Q C H E) (ops : Ops)
+  (len : Std.Usize) (index : Std.Usize) :
+  Result (hold_schedule.HoldWork F Q C H E)
+  := do
+  loop
+    (fun (work1, index1) => hold_schedule.process_loop.body HoldScheduleInst
+      holds ops len work1 index1)
+    (work, index)
+
+/-- [lnmai_core_verify::hold_schedule::process]:
+    Source: 'crates/lnmai-core-verify/src/hold_schedule.rs', lines 66:0-137:1
+    Visibility: public -/
+def hold_schedule.process
+  {S : Type} {Z : Type} {N : Type} {F : Type} {Q : Type} {C : Type} {H : Type}
+  {E : Type} {Event : Type} {D : Type} {Area : Type} {Ops : Type}
+  (HoldScheduleInst : hold_schedule.HoldSchedule Ops S Z N F Q C H E Event D
+  Area) (holds : S) (work : hold_schedule.HoldWork F Q C H E) (ops : Ops) :
+  Result (hold_schedule.HoldWork F Q C H E)
+  := do
+  let len ← HoldScheduleInst.length ops holds
+  hold_schedule.process_loop HoldScheduleInst holds work ops len 0#usize
+
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::Duration}::abs]:
     Source: 'crates/lnmai-core-verify/src/time.rs', lines 27:4-35:5
     Visibility: public -/
@@ -4427,12 +4754,125 @@ def natural_parser.parse_decimal
   natural_parser.parse_decimal_loop coreopsfunctionFnFPairTU8TInst chars append
     value false 0#usize
 
-/-- [lnmai_core_verify::scheduler::ClickUse]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 11:0-14:1
+/-- Trait declaration: [lnmai_core_verify::queue_maintenance::QueueCursor]
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 10:0-14:1
     Visibility: public -/
-structure scheduler.ClickUse where
-  used_button : Bool
-  used_sensor : Bool
+structure queue_maintenance.QueueCursor (Self : Type) (Q : Type) (N : Type)
+  where
+  peek : Self → Q → Result (Option N)
+  resolved : Self → N → Result Bool
+  advance : Self → Q → Result Q
+
+/-- [lnmai_core_verify::queue_maintenance::normalize_cursor_fuel]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 25:4-37:5
+    Visibility: public -/
+@[rust_loop_body]
+def queue_maintenance.normalize_cursor_fuel_loop.body
+  {Q : Type} {N : Type} {Ops : Type} (QueueCursorInst :
+  queue_maintenance.QueueCursor Ops Q N) (ops : Ops) (queue : Q)
+  (fuel : Std.Usize) :
+  Result (ControlFlow (Q × Std.Usize) Q)
+  := do
+  let o ← QueueCursorInst.peek ops queue
+  match o with
+  | none => ok (done queue)
+  | some note =>
+    if fuel = 0#usize
+    then ok (done queue)
+    else
+      let b ← QueueCursorInst.resolved ops note
+      if b
+      then
+        let queue1 ← QueueCursorInst.advance ops queue
+        let fuel1 ← fuel - 1#usize
+        ok (cont (queue1, fuel1))
+      else ok (done queue)
+
+/-- [lnmai_core_verify::queue_maintenance::normalize_cursor_fuel]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 25:4-37:5
+    Visibility: public -/
+@[rust_loop]
+def queue_maintenance.normalize_cursor_fuel_loop
+  {Q : Type} {N : Type} {Ops : Type} (QueueCursorInst :
+  queue_maintenance.QueueCursor Ops Q N) (queue : Q) (fuel : Std.Usize)
+  (ops : Ops) :
+  Result Q
+  := do
+  loop
+    (fun (queue1, fuel1) => queue_maintenance.normalize_cursor_fuel_loop.body
+      QueueCursorInst ops queue1 fuel1)
+    (queue, fuel)
+
+/-- [lnmai_core_verify::queue_maintenance::normalize_cursor_fuel]:
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 21:0-38:1
+    Visibility: public -/
+@[reducible]
+def queue_maintenance.normalize_cursor_fuel
+  {Q : Type} {N : Type} {Ops : Type} (QueueCursorInst :
+  queue_maintenance.QueueCursor Ops Q N) (fuel : Std.Usize) (queue : Q)
+  (ops : Ops) :
+  Result Q
+  := do
+  queue_maintenance.normalize_cursor_fuel_loop QueueCursorInst queue fuel ops
+
+/-- Trait declaration: [lnmai_core_verify::queue_maintenance::QueueReplace]
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 43:0-47:1
+    Visibility: public -/
+structure queue_maintenance.QueueReplace (Self : Type) (Q : Type) (N : Type)
+  where
+  get : Self → Q → Std.Usize → Result N
+  index_equal : Self → N → N → Result Bool
+  write : Self → Q → Std.Usize → N → Result Q
+
+/-- [lnmai_core_verify::queue_maintenance::replace_all]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 59:4-65:5
+    Visibility: public -/
+@[rust_loop_body]
+def queue_maintenance.replace_all_loop.body
+  {Q : Type} {N : Type} {Ops : Type} (QueueReplaceInst :
+  queue_maintenance.QueueReplace Ops Q N) (len : Std.Usize) (replacement : N)
+  (ops : Ops) (queue : Q) (index : Std.Usize) :
+  Result (ControlFlow (Q × Std.Usize) Q)
+  := do
+  if index < len
+  then
+    let existing ← QueueReplaceInst.get ops queue index
+    let b ← QueueReplaceInst.index_equal ops existing replacement
+    let queue1 ←
+      if b
+      then QueueReplaceInst.write ops queue index replacement
+      else ok queue
+    let index1 ← index + 1#usize
+    ok (cont (queue1, index1))
+  else ok (done queue)
+
+/-- [lnmai_core_verify::queue_maintenance::replace_all]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 59:4-65:5
+    Visibility: public -/
+@[rust_loop]
+def queue_maintenance.replace_all_loop
+  {Q : Type} {N : Type} {Ops : Type} (QueueReplaceInst :
+  queue_maintenance.QueueReplace Ops Q N) (len : Std.Usize) (queue : Q)
+  (replacement : N) (ops : Ops) (index : Std.Usize) :
+  Result Q
+  := do
+  loop
+    (fun (queue1, index1) => queue_maintenance.replace_all_loop.body
+      QueueReplaceInst len replacement ops queue1 index1)
+    (queue, index)
+
+/-- [lnmai_core_verify::queue_maintenance::replace_all]:
+    Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 54:0-67:1
+    Visibility: public -/
+@[reducible]
+def queue_maintenance.replace_all
+  {Q : Type} {N : Type} {Ops : Type} (QueueReplaceInst :
+  queue_maintenance.QueueReplace Ops Q N) (len : Std.Usize) (queue : Q)
+  (replacement : N) (ops : Ops) :
+  Result Q
+  := do
+  queue_maintenance.replace_all_loop QueueReplaceInst len queue replacement ops
+    0#usize
 
 /-- [lnmai_core_verify::scheduler::{impl core::fmt::Debug for lnmai_core_verify::scheduler::ClickUse}::fmt]:
     Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 10:9-10:14
@@ -4517,23 +4957,6 @@ def scheduler.ClickUse.Insts.CoreCmpEq : core.cmp.Eq scheduler.ClickUse := {
   assert_fields_are_eq :=
     scheduler.ClickUse.Insts.CoreCmpEq.assert_fields_are_eq
 }
-
-/-- [lnmai_core_verify::scheduler::consume_click]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 18:0-39:1
-    Visibility: public -/
-def scheduler.consume_click
-  (allow_input : Bool) (button_available : Bool) (sensor_available : Bool) :
-  Result scheduler.ClickUse
-  := do
-  if allow_input
-  then
-    if button_available
-    then ok { used_button := true, used_sensor := false }
-    else
-      if sensor_available
-      then ok { used_button := false, used_sensor := true }
-      else ok { used_button := false, used_sensor := false }
-  else ok { used_button := false, used_sensor := false }
 
 /-- [lnmai_core_verify::scheduler::tap_queue_has_unused_click]:
     Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 43:0-45:1
@@ -10418,6 +10841,146 @@ def symmetry.act_on_sensor_area
     let sa ← symmetry.reflect area
     let i ← lift (UScalar.cast .Usize k)
     areas.SensorArea.rotate sa i
+
+/-- [lnmai_core_verify::tap_schedule::TapWork]
+    Source: 'crates/lnmai-core-verify/src/tap_schedule.rs', lines 9:0-14:1
+    Visibility: public -/
+structure tap_schedule.TapWork (Q : Type) (F : Type) (C : Type) (E : Type)
+  where
+  queue : Q
+  frontiers : F
+  cursor : C
+  events_rev : E
+
+/-- Trait declaration: [lnmai_core_verify::tap_schedule::TapSchedule]
+    Source: 'crates/lnmai-core-verify/src/tap_schedule.rs', lines 21:0-38:1
+    Visibility: public -/
+structure tap_schedule.TapSchedule (Self : Type) (Q : Type) (N : Type) (F :
+  Type) (C : Type) (E : Type) (Event : Type) (D : Type) (Area : Type) where
+  peek : Self → Q → Result (Option N)
+  button_diff : Self → N → Result D
+  sensor_diff : Self → N → Result D
+  eligible : Self → N → Result Bool
+  unlocked : Self → F → N → Result Bool
+  fallback_area : Self → N → Result Area
+  button_available : Self → C → Result Bool
+  sensor_available : Self → C → Area → Result Bool
+  use_button : Self → C → Result C
+  use_sensor : Self → C → Area → Result C
+  step : Self → N → D → Bool → Result (N × (Option Event))
+  ended : Self → N → Result Bool
+  prepend_event : Self → E → Event → Result E
+  advance : Self → Q → Result Q
+  advance_frontier : Self → F → Result F
+  replace_current : Self → Q → N → Result Q
+
+/-- [lnmai_core_verify::tap_schedule::process]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/tap_schedule.rs', lines 51:4-106:5
+    Visibility: public -/
+@[rust_loop_body]
+def tap_schedule.process_loop.body
+  {Q : Type} {N : Type} {F : Type} {C : Type} {E : Type} {Event : Type} {D :
+  Type} {Area : Type} {Ops : Type} (TapScheduleInst : tap_schedule.TapSchedule
+  Ops Q N F C E Event D Area) (ops : Ops) (fuel : Std.Usize)
+  (work : tap_schedule.TapWork Q F C E) :
+  Result (ControlFlow (Std.Usize × (tap_schedule.TapWork Q F C E)) (Q × F ×
+    C × E))
+  := do
+  let o ← TapScheduleInst.peek ops work.queue
+  match o with
+  | none =>
+    ok (done (work.queue, work.frontiers, work.cursor, work.events_rev))
+  | some note =>
+    if fuel = 0#usize
+    then ok (done (work.queue, work.frontiers, work.cursor, work.events_rev))
+    else
+      let button_diff ← TapScheduleInst.button_diff ops note
+      let sensor_diff ← TapScheduleInst.sensor_diff ops note
+      let b ← TapScheduleInst.eligible ops note
+      let allow_input ←
+        if b
+        then TapScheduleInst.unlocked ops work.frontiers note
+        else ok false
+      let fallback_area ← TapScheduleInst.fallback_area ops note
+      let b1 ← TapScheduleInst.button_available ops work.cursor
+      let b2 ← TapScheduleInst.sensor_available ops work.cursor fallback_area
+      let plan ← scheduler.consume_click allow_input b1 b2
+      let (t, b3) ←
+        if plan.used_button
+        then
+          do
+          let t1 ← TapScheduleInst.use_button ops work.cursor
+          ok (t1, true)
+        else ok (work.cursor, false)
+      let (t1, b4) ←
+        if plan.used_sensor
+        then
+          do
+          let t2 ← TapScheduleInst.use_sensor ops t fallback_area
+          ok (t2, true)
+        else ok (t, false)
+      let (clicked, diff) ←
+        if b3
+        then ok (true, button_diff)
+        else
+          do
+          let t2 ← if b4
+                     then ok sensor_diff
+                     else ok button_diff
+          ok (b4, t2)
+      let (after, event) ← TapScheduleInst.step ops note diff clicked
+      let ended ← TapScheduleInst.ended ops after
+      let t2 ←
+        match event with
+        | none => ok work.events_rev
+        | some event1 =>
+          TapScheduleInst.prepend_event ops work.events_rev event1
+      if ended
+      then
+        let t3 ← TapScheduleInst.advance ops work.queue
+        let t4 ← TapScheduleInst.advance_frontier ops work.frontiers
+        let b5 ← TapScheduleInst.button_available ops t1
+        let b6 ← TapScheduleInst.sensor_available ops t1 fallback_area
+        let continue_queue ← scheduler.tap_queue_has_unused_click b5 b6
+        if continue_queue
+        then
+          let fuel1 ← fuel - 1#usize
+          ok (cont (fuel1,
+            { queue := t3, frontiers := t4, cursor := t1, events_rev := t2 }))
+        else ok (done (t3, t4, t1, t2))
+      else
+        let t3 ← TapScheduleInst.replace_current ops work.queue after
+        ok (done (t3, work.frontiers, t1, t2))
+
+/-- [lnmai_core_verify::tap_schedule::process]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/tap_schedule.rs', lines 51:4-106:5
+    Visibility: public -/
+@[rust_loop]
+def tap_schedule.process_loop
+  {Q : Type} {N : Type} {F : Type} {C : Type} {E : Type} {Event : Type} {D :
+  Type} {Area : Type} {Ops : Type} (TapScheduleInst : tap_schedule.TapSchedule
+  Ops Q N F C E Event D Area) (fuel : Std.Usize)
+  (work : tap_schedule.TapWork Q F C E) (ops : Ops) :
+  Result (Q × F × C × E)
+  := do
+  loop
+    (fun (fuel1, work1) => tap_schedule.process_loop.body TapScheduleInst ops
+      fuel1 work1)
+    (fuel, work)
+
+/-- [lnmai_core_verify::tap_schedule::process]:
+    Source: 'crates/lnmai-core-verify/src/tap_schedule.rs', lines 43:0-107:1
+    Visibility: public -/
+def tap_schedule.process
+  {Q : Type} {N : Type} {F : Type} {C : Type} {E : Type} {Event : Type} {D :
+  Type} {Area : Type} {Ops : Type} (TapScheduleInst : tap_schedule.TapSchedule
+  Ops Q N F C E Event D Area) (fuel : Std.Usize)
+  (work : tap_schedule.TapWork Q F C E) (ops : Ops) :
+  Result (tap_schedule.TapWork Q F C E)
+  := do
+  let (t, t1, t2, t3) ←
+    tap_schedule.process_loop TapScheduleInst fuel work ops
+  ok { queue := t, frontiers := t1, cursor := t2, events_rev := t3 }
 
 /-- [lnmai_core_verify::time::{impl core::fmt::Debug for lnmai_core_verify::time::Duration}::fmt]:
     Source: 'crates/lnmai-core-verify/src/time.rs', lines 9:9-9:14

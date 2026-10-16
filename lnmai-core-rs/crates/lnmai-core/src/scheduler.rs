@@ -21,6 +21,8 @@ use crate::runtime_score::{fold_events_into_score, RuntimeScoreState};
 use crate::storage::{ButtonVec, SensorVec};
 use crate::time::{time_point_add_duration, time_point_sub_duration, Duration, TimePoint};
 use crate::types::{GroupState, JudgeEvent, JudgeEventKind, JudgeGrade, JudgePhase, RuntimePos};
+use lnmai_core_verify::hold_schedule::{self as hold_schedule_kernel, HoldWork};
+use lnmai_core_verify::queue_maintenance as queue_maintenance_kernel;
 use lnmai_core_verify::scheduler::{
     self as scheduler_kernel, FrameEvents, FramePhase, TouchGroupAction, TouchGroupProbe,
 };
@@ -28,6 +30,7 @@ use lnmai_core_verify::slide_parents::{
     self as slide_parents_kernel, ParentEdit, ParentInfo, SensorPhase,
 };
 use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork};
+use lnmai_core_verify::tap_schedule::{self as tap_schedule_kernel, TapWork};
 
 /// The public pooled note representation from `Scheduler.ActiveNote`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -479,6 +482,111 @@ fn hold_head_eligible_for_click(note: &HoldNote, current_time: TimePoint) -> boo
 // Tap processing
 // ---------------------------------------------------------------------------
 
+/// Point adapters for the shared tap-family queue traversal. Context is fixed
+/// for one zone/frame call; queue/frontier/cursor updates stay in TapWork.
+struct TapScheduleFrame<'a> {
+    zone: ButtonZone,
+    input: &'a FrameInput,
+    current_time: TimePoint,
+    touch_panel_offset: Duration,
+    style: crate::types::JudgeStyle,
+}
+
+impl
+    tap_schedule_kernel::TapSchedule<
+        ZoneQueue<TapFamilyNote>,
+        TapFamilyNote,
+        ButtonVec<Natural>,
+        ClickCursor,
+        Vec<JudgeEvent>,
+        JudgeEvent,
+        Duration,
+        SensorArea,
+    > for TapScheduleFrame<'_>
+{
+    fn peek(&self, queue: &ZoneQueue<TapFamilyNote>) -> Option<TapFamilyNote> {
+        queue.peek()
+    }
+
+    fn button_diff(&self, note: &TapFamilyNote) -> Duration {
+        self.current_time.clone() - note.params().effective_timing()
+    }
+
+    fn sensor_diff(&self, note: &TapFamilyNote) -> Duration {
+        time_point_sub_duration(self.current_time.clone(), self.touch_panel_offset.clone())
+            - note.params().effective_timing()
+    }
+
+    fn eligible(&self, note: &TapFamilyNote) -> bool {
+        tap_eligible_for_click(note, self.current_time.clone())
+    }
+
+    fn unlocked(&self, frontiers: &ButtonVec<Natural>, note: &TapFamilyNote) -> bool {
+        button_queue_index_unlocked(frontiers, self.zone, note.button_queue_index())
+    }
+
+    fn fallback_area(&self, note: &TapFamilyNote) -> SensorArea {
+        fallback_sensor_area_for_button_note(note.lane().to_button_zone())
+    }
+
+    fn button_available(&self, cursor: &ClickCursor) -> bool {
+        has_unused_button_click_at(self.input, cursor, self.zone)
+    }
+
+    fn sensor_available(&self, cursor: &ClickCursor, area: &SensorArea) -> bool {
+        has_unused_sensor_click_at(self.input, cursor, *area)
+    }
+
+    fn use_button(&self, mut cursor: ClickCursor) -> ClickCursor {
+        let used = cursor.button_used.get_d(self.zone, (0).into());
+        cursor.button_used = cursor.button_used.set(self.zone, used + 1);
+        cursor
+    }
+
+    fn use_sensor(&self, mut cursor: ClickCursor, area: &SensorArea) -> ClickCursor {
+        let used = cursor.sensor_used.get_d(*area, (0).into());
+        cursor.sensor_used = cursor.sensor_used.set(*area, used + 1);
+        cursor
+    }
+
+    fn step(
+        &self,
+        note: &TapFamilyNote,
+        diff: Duration,
+        clicked: bool,
+    ) -> (TapFamilyNote, Option<JudgeEvent>) {
+        tap_family_step(note, self.current_time.clone(), diff, clicked, self.style)
+    }
+
+    fn ended(&self, note: &TapFamilyNote) -> bool {
+        matches!(note.state(), TapState::Ended)
+    }
+
+    fn prepend_event(&self, mut events_rev: Vec<JudgeEvent>, event: JudgeEvent) -> Vec<JudgeEvent> {
+        events_rev.insert(0, event);
+        events_rev
+    }
+
+    fn advance(&self, queue: ZoneQueue<TapFamilyNote>) -> ZoneQueue<TapFamilyNote> {
+        queue.advance()
+    }
+
+    fn advance_frontier(&self, frontiers: ButtonVec<Natural>) -> ButtonVec<Natural> {
+        advance_shared_button_queue(&frontiers, self.zone)
+    }
+
+    fn replace_current(
+        &self,
+        queue: ZoneQueue<TapFamilyNote>,
+        note: &TapFamilyNote,
+    ) -> ZoneQueue<TapFamilyNote> {
+        ZoneQueue {
+            notes: list_set_at(&queue.notes, queue.current_index.clone(), note.clone()),
+            ..queue
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_tap_queue_fuel(
     fuel: usize,
@@ -497,73 +605,23 @@ fn process_tap_queue_fuel(
     ClickCursor,
     Vec<JudgeEvent>,
 ) {
-    let note = match queue.peek() {
-        None => {
-            return (
-                queue.clone(),
-                frontiers.clone(),
-                cursor.clone(),
-                evs_rev.to_vec(),
-            );
-        }
-        Some(n) => n,
-    };
-    if fuel == 0 {
-        return (
-            queue.clone(),
-            frontiers.clone(),
-            cursor.clone(),
-            evs_rev.to_vec(),
-        );
-    }
-    let timing = note.params().effective_timing();
-    let button_diff = current_time.clone() - timing.clone();
-    let sensor_diff =
-        time_point_sub_duration(current_time.clone(), touch_panel_offset.clone()) - timing;
-    let can_consume_click = tap_eligible_for_click(&note, current_time.clone())
-        && button_queue_index_unlocked(frontiers, zone, note.button_queue_index());
-    let fallback_area = fallback_sensor_area_for_button_note(note.lane().to_button_zone());
-    let (used_button, used_sensor, cursor2) =
-        consume_button_then_fallback_sensor(input, cursor, can_consume_click, zone, fallback_area);
-    let (clicked, diff) = if used_button {
-        (true, button_diff)
-    } else if used_sensor {
-        (true, sensor_diff)
-    } else {
-        (false, button_diff)
-    };
-    let (new_note, evt) = tap_family_step(&note, current_time.clone(), diff, clicked, style);
-    let ended = matches!(new_note.state(), TapState::Ended);
-    let mut evs = evs_rev.to_vec();
-    if let Some(e) = evt {
-        evs.insert(0, e);
-    }
-    if ended {
-        let queue2 = queue.advance();
-        let frontiers2 = advance_shared_button_queue(frontiers, zone);
-        if tap_family_queue_has_unused_click(input, &cursor2, zone, fallback_area) {
-            process_tap_queue_fuel(
-                fuel - 1,
-                zone,
-                &queue2,
-                &frontiers2,
-                input,
-                current_time,
-                touch_panel_offset,
-                style,
-                &cursor2,
-                &evs,
-            )
-        } else {
-            (queue2, frontiers2, cursor2, evs)
-        }
-    } else {
-        let queue2 = ZoneQueue {
-            notes: list_set_at(&queue.notes, queue.current_index.clone(), new_note),
-            ..queue.clone()
-        };
-        (queue2, frontiers.clone(), cursor2, evs)
-    }
+    let out = tap_schedule_kernel::process(
+        fuel,
+        TapWork {
+            queue: queue.clone(),
+            frontiers: frontiers.clone(),
+            cursor: cursor.clone(),
+            events_rev: evs_rev.to_vec(),
+        },
+        TapScheduleFrame {
+            zone,
+            input,
+            current_time,
+            touch_panel_offset,
+            style,
+        },
+    );
+    (out.queue, out.frontiers, out.cursor, out.events_rev)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -583,11 +641,12 @@ fn process_tap_queue(
     ClickCursor,
     Vec<JudgeEvent>,
 ) {
+    // Every continuation advances one slot. The reference's extra fuel
+    // can only observe an empty queue, so no machine-sized +1 is needed.
     let fuel = queue
         .notes
         .len()
-        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX))
-        + 1;
+        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX));
     process_tap_queue_fuel(
         fuel,
         zone,
@@ -666,37 +725,61 @@ fn hold_queue_resolved(note: &HoldNote) -> bool {
     !hold_head_awaits_resolution(note.state)
 }
 
+struct HoldQueueMaintenance;
+
+impl queue_maintenance_kernel::QueueCursor<ZoneQueue<HoldNote>, HoldNote> for HoldQueueMaintenance {
+    fn peek(&self, queue: &ZoneQueue<HoldNote>) -> Option<HoldNote> {
+        queue.peek()
+    }
+
+    fn resolved(&self, note: &HoldNote) -> bool {
+        hold_queue_resolved(note)
+    }
+
+    fn advance(&self, mut queue: ZoneQueue<HoldNote>) -> ZoneQueue<HoldNote> {
+        queue.current_index += 1;
+        queue
+    }
+}
+
+impl queue_maintenance_kernel::QueueReplace<ZoneQueue<HoldNote>, HoldNote>
+    for HoldQueueMaintenance
+{
+    fn get(&self, queue: &ZoneQueue<HoldNote>, index: usize) -> HoldNote {
+        queue.notes[index].clone()
+    }
+
+    fn index_equal(&self, existing: &HoldNote, replacement: &HoldNote) -> bool {
+        existing.params.note_index == replacement.params.note_index
+    }
+
+    fn write(
+        &self,
+        mut queue: ZoneQueue<HoldNote>,
+        index: usize,
+        replacement: &HoldNote,
+    ) -> ZoneQueue<HoldNote> {
+        queue.notes[index] = replacement.clone();
+        queue
+    }
+}
+
 fn normalize_hold_queue_cursor(queue: &ZoneQueue<HoldNote>) -> ZoneQueue<HoldNote> {
-    let fuel = queue
+    // Fuel sufficiency against Lean's remaining + 1 is still to be proved.
+    let remaining = queue
         .notes
         .len()
-        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX))
-        + 1;
-    let mut q = queue.clone();
-    for _ in 0..fuel {
-        match q.peek() {
-            Some(note) if hold_queue_resolved(&note) => q = q.advance(),
-            _ => break,
-        }
-    }
-    q
+        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX));
+    queue_maintenance_kernel::normalize_cursor_fuel(remaining, queue.clone(), HoldQueueMaintenance)
 }
 
 fn replace_hold_queue_note(queue: &ZoneQueue<HoldNote>, note: &HoldNote) -> ZoneQueue<HoldNote> {
-    ZoneQueue {
-        notes: queue
-            .notes
-            .iter()
-            .map(|existing| {
-                if existing.params.note_index == note.params.note_index {
-                    note.clone()
-                } else {
-                    existing.clone()
-                }
-            })
-            .collect(),
-        ..queue.clone()
-    }
+    queue_maintenance_kernel::replace_all(
+        queue.notes.len(),
+        queue.clone(),
+        note,
+        HoldQueueMaintenance,
+    )
 }
 
 fn update_button_hold_queue(
@@ -921,6 +1004,169 @@ fn touch_hold_body_check_active(note: &HoldNote, current_time: TimePoint) -> boo
         && current_time.to_micros() <= body_check_end.to_micros()
 }
 
+/// Ordinary-hold point adapters. Source order belongs to the immutable slice;
+/// shared frontiers, queues and click counters are threaded by the kernel.
+struct HoldScheduleFrame<'a> {
+    input: &'a FrameInput,
+    current_time: TimePoint,
+    delta: Duration,
+    style: crate::types::JudgeStyle,
+    touch_panel_offset: Duration,
+    prev_sensor: &'a SensorVec<bool>,
+}
+
+impl<'notes>
+    hold_schedule_kernel::HoldSchedule<
+        &'notes [(ButtonZone, HoldNote)],
+        ButtonZone,
+        HoldNote,
+        ButtonVec<Natural>,
+        crate::input_model::ButtonQueueVec<HoldNote>,
+        ClickCursor,
+        Vec<(ButtonZone, HoldNote)>,
+        Vec<JudgeEvent>,
+        JudgeEvent,
+        Duration,
+        SensorArea,
+    > for HoldScheduleFrame<'_>
+{
+    fn length(&self, holds: &&'notes [(ButtonZone, HoldNote)]) -> usize {
+        holds.len()
+    }
+
+    fn get(
+        &self,
+        holds: &&'notes [(ButtonZone, HoldNote)],
+        index: usize,
+    ) -> (ButtonZone, HoldNote) {
+        holds[index].clone()
+    }
+
+    fn button_diff(&self, note: &HoldNote) -> Duration {
+        self.current_time.clone() - note.params.effective_timing()
+    }
+
+    fn sensor_diff(&self, note: &HoldNote) -> Duration {
+        time_point_sub_duration(self.current_time.clone(), self.touch_panel_offset.clone())
+            - note.params.effective_timing()
+    }
+
+    fn button_pressed(&self, zone: &ButtonZone) -> bool {
+        self.input.get_button_held(*zone)
+    }
+
+    fn sensor_pressed(&self, zone: &ButtonZone) -> bool {
+        fallback_sensor_held_for_button_note(self.input, *zone)
+    }
+
+    fn prev_sensor_pressed(&self, zone: &ButtonZone) -> bool {
+        fallback_prev_sensor_held_for_button_note(self.prev_sensor, *zone)
+    }
+
+    fn phase(&self, note: &HoldNote) -> hold_schedule_kernel::HoldPhase {
+        match note.state {
+            HoldSubState::HeadWaiting => hold_schedule_kernel::HoldPhase::HeadWaiting,
+            HoldSubState::HeadJudgeable => hold_schedule_kernel::HoldPhase::HeadJudgeable,
+            HoldSubState::HeadJudged(_) => hold_schedule_kernel::HoldPhase::HeadJudged,
+            HoldSubState::BodyHeld => hold_schedule_kernel::HoldPhase::BodyHeld,
+            HoldSubState::BodyReleased => hold_schedule_kernel::HoldPhase::BodyReleased,
+            HoldSubState::Ended(_) => hold_schedule_kernel::HoldPhase::Ended,
+        }
+    }
+
+    fn unlocked(&self, frontiers: &ButtonVec<Natural>, zone: &ButtonZone, note: &HoldNote) -> bool {
+        button_queue_index_unlocked(frontiers, *zone, note.button_queue_index.clone())
+    }
+
+    fn eligible(&self, note: &HoldNote) -> bool {
+        hold_head_eligible_for_click(note, self.current_time.clone())
+    }
+
+    fn fallback_area(&self, zone: &ButtonZone) -> SensorArea {
+        fallback_sensor_area_for_button_note(*zone)
+    }
+
+    fn button_available(&self, cursor: &ClickCursor, zone: &ButtonZone) -> bool {
+        has_unused_button_click_at(self.input, cursor, *zone)
+    }
+
+    fn sensor_available(&self, cursor: &ClickCursor, area: &SensorArea) -> bool {
+        has_unused_sensor_click_at(self.input, cursor, *area)
+    }
+
+    fn use_button(&self, mut cursor: ClickCursor, zone: &ButtonZone) -> ClickCursor {
+        let used = cursor.button_used.get_d(*zone, (0).into());
+        cursor.button_used = cursor.button_used.set(*zone, used + 1);
+        cursor
+    }
+
+    fn use_sensor(&self, mut cursor: ClickCursor, area: &SensorArea) -> ClickCursor {
+        let used = cursor.sensor_used.get_d(*area, (0).into());
+        cursor.sensor_used = cursor.sensor_used.set(*area, used + 1);
+        cursor
+    }
+
+    fn step(
+        &self,
+        note: &HoldNote,
+        diff: Duration,
+        clicked: bool,
+        pressed: bool,
+        current_button_pressed: bool,
+        prev_sensor_pressed: bool,
+    ) -> (HoldNote, Option<JudgeEvent>) {
+        hold_step(
+            note,
+            self.current_time.clone(),
+            diff,
+            C::HOLD_HEAD_IGNORE,
+            C::HOLD_TAIL_IGNORE,
+            clicked,
+            pressed,
+            current_button_pressed,
+            prev_sensor_pressed,
+            self.touch_panel_offset.clone(),
+            None,
+            self.delta.clone(),
+            self.style,
+        )
+    }
+
+    fn advance_frontier(
+        &self,
+        frontiers: ButtonVec<Natural>,
+        zone: &ButtonZone,
+    ) -> ButtonVec<Natural> {
+        advance_shared_button_queue(&frontiers, *zone)
+    }
+
+    fn update_queue(
+        &self,
+        queues: crate::input_model::ButtonQueueVec<HoldNote>,
+        zone: &ButtonZone,
+        note: &HoldNote,
+    ) -> crate::input_model::ButtonQueueVec<HoldNote> {
+        // Composite boundary: replace matching note IDs, normalize resolved
+        // heads, and store the zone queue. Separate queue-kernel work owns it.
+        update_button_hold_queue(&queues, *zone, note)
+    }
+
+    fn append_active(
+        &self,
+        mut active: Vec<(ButtonZone, HoldNote)>,
+        zone: ButtonZone,
+        note: HoldNote,
+    ) -> Vec<(ButtonZone, HoldNote)> {
+        active.push((zone, note));
+        active
+    }
+
+    fn append_event(&self, mut events: Vec<JudgeEvent>, event: JudgeEvent) -> Vec<JudgeEvent> {
+        events.push(event);
+        events
+    }
+}
+
 // Tuple components preserve the order of the Lean state transition.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn process_hold_notes(
@@ -941,86 +1187,31 @@ fn process_hold_notes(
     Vec<JudgeEvent>,
     ClickCursor,
 ) {
-    match holds.split_first() {
-        None => (
-            frontiers.clone(),
-            queues.clone(),
-            Vec::new(),
-            Vec::new(),
-            cursor.clone(),
-        ),
-        Some(((zone, note), rest)) => {
-            let zone = *zone;
-            let timing = note.params.effective_timing();
-            let button_diff = current_time.clone() - timing.clone();
-            let sensor_diff =
-                time_point_sub_duration(current_time.clone(), touch_panel_offset.clone()) - timing;
-            let current_button_pressed = input.get_button_held(zone);
-            let current_sensor_pressed = fallback_sensor_held_for_button_note(input, zone);
-            let prev_sensor_pressed = fallback_prev_sensor_held_for_button_note(prev_sensor, zone);
-            let allow_input = hold_head_awaits_resolution(note.state)
-                && button_queue_index_unlocked(frontiers, zone, note.button_queue_index.clone())
-                && hold_head_eligible_for_click(note, current_time.clone());
-            let fallback_area = fallback_sensor_area_for_button_note(zone);
-            let (used_button, used_sensor, cursor2) = consume_button_then_fallback_sensor(
-                input,
-                cursor,
-                allow_input,
-                zone,
-                fallback_area,
-            );
-            let clicked = used_button || used_sensor;
-            let diff = if used_button {
-                button_diff
-            } else {
-                sensor_diff
-            };
-            let (new_note, evt) = hold_step(
-                note,
-                current_time.clone(),
-                diff,
-                C::HOLD_HEAD_IGNORE,
-                C::HOLD_TAIL_IGNORE,
-                clicked,
-                hold_body_pressed_from_button_or_sensor(
-                    current_button_pressed,
-                    current_sensor_pressed,
-                ),
-                current_button_pressed,
-                prev_sensor_pressed,
-                touch_panel_offset.clone(),
-                None,
-                delta.clone(),
-                style,
-            );
-            let frontiers2 = if entered_head_judged(note.state, new_note.state) {
-                advance_shared_button_queue(frontiers, zone)
-            } else {
-                frontiers.clone()
-            };
-            let queues2 = update_button_hold_queue(queues, zone, &new_note);
-            let (rest_frontiers, rest_queues, mut rest_notes, mut rest_evs, cursor3) =
-                process_hold_notes(
-                    &frontiers2,
-                    &queues2,
-                    rest,
-                    input,
-                    current_time,
-                    delta,
-                    style,
-                    touch_panel_offset,
-                    prev_sensor,
-                    &cursor2,
-                );
-            if keep_hold_active(&new_note) {
-                rest_notes.insert(0, (zone, new_note));
-            }
-            if let Some(e) = evt {
-                rest_evs.insert(0, e);
-            }
-            (rest_frontiers, rest_queues, rest_notes, rest_evs, cursor3)
-        }
-    }
+    let out = hold_schedule_kernel::process(
+        &holds,
+        HoldWork {
+            frontiers: frontiers.clone(),
+            queues: queues.clone(),
+            cursor: cursor.clone(),
+            active: Vec::new(),
+            events: Vec::new(),
+        },
+        HoldScheduleFrame {
+            input,
+            current_time,
+            delta,
+            style,
+            touch_panel_offset,
+            prev_sensor,
+        },
+    );
+    (
+        out.frontiers,
+        out.queues,
+        out.active,
+        out.events,
+        out.cursor,
+    )
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -1238,40 +1429,66 @@ fn touch_queue_resolved(note: &TouchNote) -> bool {
     matches!(note.state, TouchState::Judged(_) | TouchState::Ended)
 }
 
+struct TouchQueueMaintenance;
+
+impl queue_maintenance_kernel::QueueCursor<ZoneQueue<TouchNote>, TouchNote>
+    for TouchQueueMaintenance
+{
+    fn peek(&self, queue: &ZoneQueue<TouchNote>) -> Option<TouchNote> {
+        queue.peek()
+    }
+
+    fn resolved(&self, note: &TouchNote) -> bool {
+        touch_queue_resolved(note)
+    }
+
+    fn advance(&self, mut queue: ZoneQueue<TouchNote>) -> ZoneQueue<TouchNote> {
+        queue.current_index += 1;
+        queue
+    }
+}
+
+impl queue_maintenance_kernel::QueueReplace<ZoneQueue<TouchNote>, TouchNote>
+    for TouchQueueMaintenance
+{
+    fn get(&self, queue: &ZoneQueue<TouchNote>, index: usize) -> TouchNote {
+        queue.notes[index].clone()
+    }
+
+    fn index_equal(&self, existing: &TouchNote, replacement: &TouchNote) -> bool {
+        existing.params.note_index == replacement.params.note_index
+    }
+
+    fn write(
+        &self,
+        mut queue: ZoneQueue<TouchNote>,
+        index: usize,
+        replacement: &TouchNote,
+    ) -> ZoneQueue<TouchNote> {
+        queue.notes[index] = replacement.clone();
+        queue
+    }
+}
+
 fn normalize_touch_queue_cursor(queue: &ZoneQueue<TouchNote>) -> ZoneQueue<TouchNote> {
-    let fuel = queue
+    // Fuel sufficiency against Lean's remaining + 1 is still to be proved.
+    let remaining = queue
         .notes
         .len()
-        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX))
-        + 1;
-    let mut q = queue.clone();
-    for _ in 0..fuel {
-        match q.peek() {
-            Some(note) if touch_queue_resolved(&note) => q = q.advance(),
-            _ => break,
-        }
-    }
-    q
+        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX));
+    queue_maintenance_kernel::normalize_cursor_fuel(remaining, queue.clone(), TouchQueueMaintenance)
 }
 
 fn replace_touch_queue_note(
     queue: &ZoneQueue<TouchNote>,
     note: &TouchNote,
 ) -> ZoneQueue<TouchNote> {
-    ZoneQueue {
-        notes: queue
-            .notes
-            .iter()
-            .map(|existing| {
-                if existing.params.note_index == note.params.note_index {
-                    note.clone()
-                } else {
-                    existing.clone()
-                }
-            })
-            .collect(),
-        ..queue.clone()
-    }
+    queue_maintenance_kernel::replace_all(
+        queue.notes.len(),
+        queue.clone(),
+        note,
+        TouchQueueMaintenance,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
