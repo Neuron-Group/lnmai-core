@@ -96,6 +96,8 @@ import Verification.TouchHoldScheduleTraversal
 import Verification.TouchHoldScheduleQueueJudgments
 import Verification.SchedulerFrameTouchJudgments
 import Verification.SchedulerFrameTouchTraversals
+import Verification.SchedulerFrameTouchHold
+import Verification.SchedulerFrameAllTraversals
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -106,6 +108,13 @@ run_cmd do
   let env ← getEnv
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
   let required : Array Name := #[
+    ``Verification.SchedulerFrameTouchHoldProof.reference_touch_hold,
+    ``Verification.SchedulerFrameTouchHoldProof.initial_work_spec,
+    ``Verification.SchedulerFrameTouchHoldProof.touch_hold_phase_refines,
+    ``Verification.SchedulerFrameTouchHoldProof.frame_call_touch_hold,
+    ``Verification.SchedulerFrameAllTraversalsProof.frame_call_refines,
+    ``Verification.SchedulerFrameAllTraversalsProof.process_and_finish_equiv,
+    ``Verification.SchedulerFrameAllTraversalsProof.trace_equiv,
     ``Verification.TouchHoldScheduleJudgmentsProof.encode_output_spec,
     ``Verification.TouchHoldScheduleJudgmentsProof.step_equiv,
     ``Verification.TouchHoldScheduleJudgmentsProof.encoded_step_spec,

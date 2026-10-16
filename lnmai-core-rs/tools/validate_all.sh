@@ -71,7 +71,7 @@ for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra 
   TapSchedulePass SchedulerFrameTap TapScheduleJudgments TapSchedulePassJudgments HoldScheduleJudgments SchedulerFrameHold HoldScheduleQueueJudgments SchedulerFrameTraversals \
   SlideAreaEquality SlideQueueModel SlideQueue SlideQueueTraversal SlideQueueTrace \
   StorageSensorRefinement NormalizationModel NormalizationPoints Normalization NormalizationFrontend TouchAutomaticModel TouchAutomatic TouchAutomaticJudgments TouchAutomaticQueue TouchAutomaticGroups TouchScheduleModel TouchSchedule TouchScheduleJudgments TouchSchedulePass TouchSchedulePassJudgments SchedulerFrameTouch TouchHoldScheduleModel TouchHoldGroups TouchHoldSchedule TouchHoldScheduleJudgments TouchHoldScheduleTraversal TouchHoldScheduleQueueJudgments SchedulerFrameTouchJudgments SchedulerFrameTouchTraversals \
-  SlideQueueReferenceTrace Audit; do
+  SchedulerFrameTouchHold SchedulerFrameAllTraversals SlideQueueReferenceTrace Audit; do
   run "proof-$module" "$repo/verification" lake build "Verification.$module"
 done
 run equivalence-proofs-and-axiom-audit "$repo/verification" lake build

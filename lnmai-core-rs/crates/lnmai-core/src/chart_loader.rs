@@ -13,6 +13,8 @@ use crate::lifecycle::{
     TapState, TouchNote, TouchState,
 };
 use crate::natural::Natural;
+use crate::scheduler::TouchHoldRebuildAtoms;
+use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
 pub use crate::simai::slide_tables::SlideAreaSpec;
 use crate::storage::{button_zone_storage_order, ButtonVec, SensorVec};
 use crate::time::{Duration, TimePoint};
@@ -1111,44 +1113,7 @@ fn build_slide(slide_skipping: bool, note: &SlideChartNote) -> SlideNote {
 fn touch_hold_body_group_states_from_holds(
     holds: &[(SensorArea, HoldNote)],
 ) -> Vec<TouchHoldBodyGroupState> {
-    let mut acc: Vec<TouchHoldBodyGroupState> = Vec::new();
-    for (_, note) in holds {
-        let group_id = match note.touch_hold_group_id.clone() {
-            None => continue,
-            Some(gid) => gid,
-        };
-        let note_index = note.params.note_index.clone();
-        let triggered = note.touch_hold_group_triggered;
-        if let Some(item) = acc.iter_mut().find(|item| item.group_id == group_id) {
-            if !item.member_note_indices.contains(&note_index) {
-                item.member_note_indices.insert(0, note_index.clone());
-            }
-            if triggered && !item.triggered_note_indices.contains(&note_index) {
-                item.triggered_note_indices.insert(0, note_index);
-            } else if !triggered {
-                if let Some(index) = item
-                    .triggered_note_indices
-                    .iter()
-                    .position(|i| *i == note_index)
-                {
-                    item.triggered_note_indices.remove(index);
-                }
-            }
-        } else {
-            let triggered_note_indices = if triggered {
-                vec![note_index.clone()]
-            } else {
-                Vec::new()
-            };
-            acc.push(TouchHoldBodyGroupState {
-                group_id,
-                member_note_indices: vec![note_index],
-                triggered_note_indices,
-            });
-        }
-    }
-    acc.reverse();
-    acc
+    touch_hold_rebuild_kernel::rebuild(&holds, TouchHoldRebuildAtoms)
 }
 
 #[derive(Debug, Clone, Default)]

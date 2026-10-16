@@ -362,6 +362,11 @@ def itemNative (w : touch_hold_schedule.TouchHoldWork F Q C H E G B)
   let (after, event) ← call.step ops before diff clicked pressed shared
   finishNative call heads bodies ops w5 area before after event bodyId2 noteId headId beforePhase1
 
+private theorem bind_structural {α β : Type} (a b : Result α)
+    (f g : α → Result β) (hab : a = b) (hfg : ∀ x, f x = g x) :
+    Bind.bind a f = Bind.bind b g := by
+  rw [hab, funext hfg]
+
 /-- Pure expansion/reassociation, before imposing any representation contract. -/
 theorem body_eq_item (holds : S) (len index : Usize)
     (w : touch_hold_schedule.TouchHoldWork F Q C H E G B) :
@@ -372,12 +377,20 @@ theorem body_eq_item (holds : S) (len index : Usize)
         let nextIndex ← index + 1#usize
         ok (ControlFlow.cont (next, nextIndex))
       else ok (ControlFlow.done w)) := by
-  simp only [touch_hold_schedule.process_loop.body, itemNative, voteNative,
-    pressureNative, sharedNative, admissionNative, clicksNative, clicksAfterOuter,
-    finishNative, headWriteNative, bodyExitNative, enteredNative, awaitNative,
-    judgedNative, endedNative, bind_assoc_eq, bind_tc_ok, uncurry_apply_pair,
-    bind_eq_iff, Prod.forall]
-  all_goals (intros; rfl)
+  by_cases hindex : index < len
+  all_goals
+    simp only [touch_hold_schedule.process_loop.body, hindex, ↓reduceIte,
+      itemNative, voteNative, pressureNative, sharedNative, admissionNative,
+      clicksNative, clicksAfterOuter, finishNative, headWriteNative, bodyExitNative,
+      enteredNative, awaitNative, judgedNative, endedNative, bind_assoc_eq,
+      bind_tc_ok, uncurry_apply_pair]
+  all_goals
+    repeat' first
+      | rfl
+      | simp (config := { failIfUnchanged := true }) only
+          [Prod.forall, bind_assoc_eq, bind_tc_ok, uncurry_apply_pair]
+      | (intro)
+      | apply bind_structural
 
 end Native
 

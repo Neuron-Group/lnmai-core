@@ -6,9 +6,8 @@ use crate::natural::Natural;
 use crate::rat::Rat;
 use crate::time::{self, Duration};
 use lnmai_core_verify::timing_aggregate;
+use lnmai_core_verify::timing_number;
 use lnmai_core_verify::timing_parser::{self, DurationRoute};
-use num_bigint::BigInt;
-use num_traits::{One, Zero};
 
 /// `Timing.trim`.
 pub fn trim(s: &str) -> String {
@@ -23,51 +22,31 @@ pub fn parse_nat_string(s: &str) -> Option<Natural> {
 
 /// `Timing.parseRatString?`.
 pub fn parse_rat_string(s: &str) -> Option<Rat> {
-    let t = trim(s);
-    if t.is_empty() {
-        return None;
-    }
-    let negative = t.starts_with('-');
-    let unsigned = if negative {
-        t.strip_prefix('-').unwrap_or(&t)
-    } else {
-        t.as_str()
+    let chars: Vec<char> = trim(s).chars().collect();
+    let parts = timing_number::parse(&chars, &TimingDecimalOps)?;
+    let whole = Rat::from_int(parts.whole);
+    let value = match parts.fraction {
+        None => whole,
+        Some((numerator, denominator)) =>
+            whole.add(Rat::from_int(numerator).div(Rat::from_int(denominator))),
     };
-    let parts: Vec<&str> = unsigned.split('.').collect();
-    match parts.as_slice() {
-        [whole] => {
-            let value = Rat::from_int(Natural::from_lean_str(whole)?);
-            Some(if negative {
-                Rat::zero().sub(value)
-            } else {
-                value
-            })
-        }
-        [whole, frac] => {
-            let whole_nat = Natural::from_lean_str(whole)?;
-            if !frac.chars().all(|c| c.is_ascii_digit()) {
-                return None;
-            }
-            let frac_nat: BigInt = if frac.is_empty() {
-                BigInt::zero()
-            } else {
-                frac.parse().ok()?
-            };
-            let denom = pow10(frac.len());
-            let value =
-                Rat::from_int(whole_nat).add(Rat::from_int(frac_nat).div(Rat::from_int(denom)));
-            Some(if negative {
-                Rat::zero().sub(value)
-            } else {
-                value
-            })
-        }
-        _ => None,
-    }
+    Some(if parts.negative { Rat::zero().sub(value) } else { value })
 }
 
-fn pow10(n: usize) -> BigInt {
-    (0..n).fold(BigInt::one(), |acc, _| acc * 10u8)
+struct TimingDecimalOps;
+
+impl timing_number::DecimalOps<Natural> for TimingDecimalOps {
+    fn zero(&self) -> Natural {
+        Natural::from(0u8)
+    }
+
+    fn one(&self) -> Natural {
+        Natural::from(1u8)
+    }
+
+    fn append(&self, value: Natural, digit: u8) -> Natural {
+        value * 10u8 + digit
+    }
 }
 
 /// `Timing.parseRatDef`.

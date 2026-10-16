@@ -193,9 +193,9 @@ theorem agrees_of_judgments_groups (base : Implementation) (ctx : Context)
     (automatic_encoding_ready inst integerOps decode encode base ctx pack ready area groups)
     sharedLaws
 
+include integerLaw decode_encode in
 /-- One sensor slot consumes the head output as automatic input, including
 its updated groups and reverse events. No single-slot equation is a premise. -/
-include integerLaw decode_encode in
 theorem queue_slot_refines (base : Implementation) (ctx : Context)
     (pack : TouchScheduleJudgmentsProof.OutputEncoding base.N base.Event)
     (headCall : areas.SensorArea →
@@ -220,12 +220,12 @@ theorem queue_slot_refines (base : Implementation) (ctx : Context)
     (bounds_installed inst integerOps decode encode base ctx pack headCall bounds)
     area queue acc
 
+include integerLaw decode_encode in
 /-- Complete sensor pass for the SAME installed Implementation: actual
 Generated head + automatic + queue normalization + sensor map_accum + one
 final event reverse. The reference is the original processTouchNotes.
 No Agrees, headGroups/headLifecycle, shared/step or whole-pass equivalence
 is required as an input. -/
-include integerLaw decode_encode in
 theorem process_equiv (base : Implementation) (ctx : Context)
     (pack : TouchScheduleJudgmentsProof.OutputEncoding base.N base.Event)
     (headCall : areas.SensorArea →

@@ -191,6 +191,7 @@ theorem active_step_refines (note : Lifecycle.SlideNote)
     timeout_equiv inst ops decode h encode decode_encode,
     completion_grade_equiv inst ops decode h encode decode_encode,
     too_late_step_refines inst ops decode h encode decode_encode, bind_tc_ok]
+  rfl
 
 /-- Includes classic/modern, EX, restored negative waits, connected parts and
 WiFi queues without adding reachability or timestamp monotonicity premises. -/
@@ -242,6 +243,7 @@ theorem step_semantic_refines (note : Lifecycle.SlideNote)
     timeout_equiv inst ops decode h encode decode_encode,
     active_step_refines inst ops decode h encode decode_encode,
     too_late_step_refines inst ops decode h encode decode_encode, bind_tc_ok]
+  rfl
 
 theorem step_semantic_equiv (note : Lifecycle.SlideNote)
     (ctx : Lifecycle.SlideStepContext) :

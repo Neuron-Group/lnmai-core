@@ -44,7 +44,8 @@ private theorem consume_outer_eq (ctx : Context) (area : SensorArea)
       (if allow && ctx.buttonRingForTouch then area.toOuterButtonZone? else none) cursor =
         consume ctx area allow cursor := by
   cases allow <;> cases hr : ctx.buttonRingForTouch <;>
-    simp [consumeOuter, consume, useButton, hr]
+    cases ho : area.toOuterButtonZone? <;>
+    simp [consumeOuter, consume, useButton, hr, ho]
 
 section Assembly
 variable (call : touch_hold_schedule.TouchHoldSchedule Ops S A N F Q C H E Event D Z Id Grade)
@@ -203,10 +204,16 @@ theorem finish_native_spec (atoms : AtomicAgrees call ops rep ctx cap)
         exact ⟨events, hrun, by simpa using hrep⟩
   obtain ⟨events, hevents, heventsRep⟩ := hevents
   let next : touch_hold_schedule.TouchHoldWork F Q C H E G B :=
-    { w with frontiers := frontiers, queues := queues, groups := groups,
-      body_groups := bodyGroups, active := active, events := events }
+    { w with
+      frontiers := frontiers
+      queues := queues
+      groups := groups
+      body_groups := bodyGroups
+      active := active
+      events := events }
   refine ⟨next, ?_, ?_⟩
-  · simp only [finishNative, atoms.phase, entered_phase, hfront, hq, hg, ended_phase,
+  · dsimp only [entered] at hfront
+    simp only [finishNative, atoms.phase, entered_phase, hfront, hq, hg, ended_phase,
       hb, hactive, hevents, bind_tc_ok, uncurry_apply_pair, next]
   · simp only [interpret, next, advance, hfrontRep, hqRep, hgRep, hbRep,
       hactiveRep, heventsRep, entered]
@@ -282,6 +289,8 @@ theorem item_native_spec (atoms : AtomicAgrees call ops rep ctx cap)
         rw [← hmodel]
         exact hfit.2)
   refine ⟨next, ?_, hnext.trans hmodel.symm⟩
+  dsimp only [w1] at hpressure hshared hadmit hclick
+  dsimp only [w2, w1] at hfinish
   simp only [itemNative, hsensorDiff, atoms.local_pressed, hbodyId, hnoteId,
     atoms.body_check_active, hvote, hpressure, hheadId, hshared, atoms.phase, hadmit,
     hclick, hdiff, or_ok, hstep, hfinish, bind_tc_ok, uncurry_apply_pair]
