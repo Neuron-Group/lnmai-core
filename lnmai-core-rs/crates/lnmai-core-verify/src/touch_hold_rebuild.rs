@@ -52,12 +52,7 @@ where
     None
 }
 
-pub fn find_member<S, B, Id, Ops>(
-    groups: &B,
-    group: usize,
-    note: &Id,
-    ops: &Ops,
-) -> Option<usize>
+pub fn find_member<S, B, Id, Ops>(groups: &B, group: usize, note: &Id, ops: &Ops) -> Option<usize>
 where
     Ops: TouchHoldRebuild<S, B, Id>,
 {
@@ -72,12 +67,7 @@ where
     None
 }
 
-pub fn find_trigger<S, B, Id, Ops>(
-    groups: &B,
-    group: usize,
-    note: &Id,
-    ops: &Ops,
-) -> Option<usize>
+pub fn find_trigger<S, B, Id, Ops>(groups: &B, group: usize, note: &Id, ops: &Ops) -> Option<usize>
 where
     Ops: TouchHoldRebuild<S, B, Id>,
 {
@@ -94,13 +84,7 @@ where
 
 /// Update one source note. In particular, false still inserts a missing member,
 /// and removes at most ONE trigger. No sets, deduplication, or length clamping.
-pub fn upsert<S, B, Id, Ops>(
-    mut groups: B,
-    id: &Id,
-    note: &Id,
-    triggered: bool,
-    ops: &Ops,
-) -> B
+pub fn upsert<S, B, Id, Ops>(mut groups: B, id: &Id, note: &Id, triggered: bool, ops: &Ops) -> B
 where
     Ops: TouchHoldRebuild<S, B, Id>,
 {
@@ -178,4 +162,3 @@ where
     let groups = ops.empty();
     rebuild_from::<S, B, Id, Ops>(holds, groups, &ops)
 }
-

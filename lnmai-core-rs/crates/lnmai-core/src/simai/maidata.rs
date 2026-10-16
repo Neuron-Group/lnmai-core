@@ -14,6 +14,7 @@ use crate::simai::timing::{parse_rat_def, trim};
 use crate::simai::tokenize::{parse_segments, strip_comments};
 use crate::simai::typecheck::typecheck_slides;
 use crate::time::{self, TimePoint};
+use lnmai_core_verify::maidata_scan;
 
 // Compatibility names exported by `LnmaiCore.Simai.Maidata`.
 pub use self::{
@@ -36,101 +37,76 @@ fn same_event_key(
         && token.divisor == divisor
 }
 
-fn is_expanded_slide_group_child(token: &RawNoteToken) -> bool {
-    token.kind == RawNoteKind::Slide
-        && matches!(token.source_group_index.clone(), Some(i) if i != 0)
+struct TouchGroupOps<'a> {
+    tokens: &'a [RawNoteToken],
 }
 
-fn majdata_timing_note_count(tokens: &[RawNoteToken]) -> usize {
-    tokens
-        .iter()
-        .filter(|t| !is_expanded_slide_group_child(t))
-        .count()
-}
+impl maidata_scan::TouchRead for TouchGroupOps<'_> {
+    fn same_event(&self, head: usize, index: usize) -> bool {
+        let first = &self.tokens[head];
+        let token = &self.tokens[index];
+        token.timing == first.timing
+            && token.bpm == first.bpm
+            && token.h_speed == first.h_speed
+            && token.divisor == first.divisor
+    }
 
-fn majdata_no_head_slide_count(tokens: &[RawNoteToken]) -> usize {
-    tokens
-        .iter()
-        .filter(|t| {
-            !is_expanded_slide_group_child(t) && t.kind == RawNoteKind::Slide && t.is_slide_no_head
-        })
-        .count()
-}
-
-fn tag_touch_each_group(group_id: Natural, tokens: &[RawNoteToken]) -> Vec<RawNoteToken> {
-    let timing_note_count = majdata_timing_note_count(tokens);
-    let non_no_head_count = timing_note_count.saturating_sub(majdata_no_head_slide_count(tokens));
-    let touch_is_each = timing_note_count > 1 && non_no_head_count != 1;
-    let touch_hold_is_each = timing_note_count > 1;
-    let mut out = Vec::with_capacity(tokens.len());
-    let mut index = 0usize;
-    for token in tokens {
-        let should_tag = match token.kind {
-            RawNoteKind::Touch => touch_is_each,
-            RawNoteKind::TouchHold => touch_hold_is_each,
-            _ => false,
-        };
-        if should_tag {
-            out.push(RawNoteToken {
-                source_group_id: Some(group_id.clone()),
-                source_group_index: Some((index).into()),
-                source_group_size: Some((timing_note_count).into()),
-                ..token.clone()
-            });
-            index += 1;
-        } else {
-            out.push(token.clone());
+    fn kind(&self, index: usize) -> maidata_scan::TouchKind {
+        match self.tokens[index].kind {
+            RawNoteKind::Slide => maidata_scan::TouchKind::Slide,
+            RawNoteKind::Touch => maidata_scan::TouchKind::Touch,
+            RawNoteKind::TouchHold => maidata_scan::TouchKind::TouchHold,
+            _ => maidata_scan::TouchKind::Other,
         }
     }
-    out
+
+    fn source_group_index_nonzero(&self, index: usize) -> bool {
+        matches!(self.tokens[index].source_group_index.as_ref(), Some(i) if *i != 0)
+    }
+
+    fn is_slide_no_head(&self, index: usize) -> bool {
+        self.tokens[index].is_slide_no_head
+    }
 }
 
-fn take_same_event_rest(
-    timing: TimePoint,
-    bpm: Rat,
-    h_speed: Rat,
-    divisor: Natural,
-    tokens: &[RawNoteToken],
-) -> (Vec<RawNoteToken>, Vec<RawNoteToken>) {
-    let mut same = Vec::new();
-    let mut i = 0;
-    while i < tokens.len()
-        && same_event_key(
-            &tokens[i],
-            timing.clone(),
-            bpm.clone(),
-            h_speed.clone(),
-            divisor.clone(),
-        )
-    {
-        same.push(tokens[i].clone());
-        i += 1;
+impl maidata_scan::TouchWrite<Natural, Vec<RawNoteToken>> for TouchGroupOps<'_> {
+    fn append_unchanged(&self, mut output: Vec<RawNoteToken>, source: usize) -> Vec<RawNoteToken> {
+        output.push(self.tokens[source].clone());
+        output
     }
-    (same, tokens[i..].to_vec())
+
+    fn append_tagged(
+        &self,
+        mut output: Vec<RawNoteToken>,
+        source: usize,
+        group_id: &Natural,
+        group_index: usize,
+        group_size: usize,
+    ) -> Vec<RawNoteToken> {
+        output.push(RawNoteToken {
+            source_group_id: Some(group_id.clone()),
+            source_group_index: Some(group_index.into()),
+            source_group_size: Some(group_size.into()),
+            ..self.tokens[source].clone()
+        });
+        output
+    }
+
+    fn next_group(&self, group_id: Natural) -> Natural {
+        group_id + 1
+    }
 }
 
 fn annotate_touch_each_groups_from(
     group_id: Natural,
     tokens: &[RawNoteToken],
 ) -> Vec<RawNoteToken> {
-    let mut out = Vec::new();
-    let mut rest: Vec<RawNoteToken> = tokens.to_vec();
-    let mut gid = group_id;
-    while let Some(token) = rest.first().cloned() {
-        let (same, remaining) = take_same_event_rest(
-            token.timing.clone(),
-            token.bpm.clone(),
-            token.h_speed.clone(),
-            token.divisor.clone(),
-            &rest[1..],
-        );
-        let mut event_tokens = vec![token];
-        event_tokens.extend(same);
-        out.extend(tag_touch_each_group(gid.clone(), &event_tokens));
-        rest = remaining;
-        gid += 1;
-    }
-    out
+    maidata_scan::annotate_touch_each(
+        tokens.len(),
+        group_id,
+        Vec::with_capacity(tokens.len()),
+        TouchGroupOps { tokens },
+    )
 }
 
 fn annotate_touch_each_groups(tokens: &[RawNoteToken]) -> Vec<RawNoteToken> {
@@ -186,8 +162,13 @@ fn source_chart_from_tokens(tokens: &[RawNoteToken]) -> SourceChart {
     SourceChart { events }
 }
 
+fn trimmed_line(s: &str) -> &str {
+    // The same four characters as Timing.trim / Lean Char.isWhitespace.
+    s.trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\r'))
+}
+
 fn starts_with_amp(s: &str) -> bool {
-    trim(s).starts_with('&')
+    trimmed_line(s).starts_with('&')
 }
 
 fn parse_key_value_line(line: &str) -> Option<(String, String)> {
@@ -202,18 +183,71 @@ fn parse_key_value_line(line: &str) -> Option<(String, String)> {
     Some((key, value))
 }
 
-fn collect_chart_body(lines: &[String], mut acc: Vec<String>) -> (Vec<String>, Vec<String>) {
-    let mut i = 0usize;
-    while i < lines.len() {
-        if starts_with_amp(&lines[i]) {
-            break;
-        }
-        acc.push(lines[i].clone());
-        i += 1;
+struct MaidataLineOps<'a> {
+    lines: &'a [String],
+}
+
+impl maidata_scan::LineRead<(String, String)> for MaidataLineOps<'_> {
+    fn is_blank(&self, index: usize) -> bool {
+        trimmed_line(&self.lines[index]).is_empty()
     }
-    // `acc` is already in source order (`Lean` prepends then reverses; here we
-    // append, so no reversal is needed).
-    (acc, lines[i..].to_vec())
+
+    fn starts_with_amp(&self, index: usize) -> bool {
+        starts_with_amp(&self.lines[index])
+    }
+
+    fn header(&self, index: usize) -> Option<(String, String)> {
+        parse_key_value_line(&self.lines[index])
+    }
+
+    fn is_chart_header(&self, header: &(String, String)) -> bool {
+        header.0.starts_with("&inote_")
+    }
+}
+
+impl
+    maidata_scan::LineWrite<
+        (String, String),
+        Vec<(String, String)>,
+        Vec<MaidataChartBlock>,
+        MaidataChartBlock,
+    > for MaidataLineOps<'_>
+{
+    fn append_field(
+        &self,
+        mut fields: Vec<(String, String)>,
+        header: (String, String),
+    ) -> Vec<(String, String)> {
+        fields.push(header);
+        fields
+    }
+
+    fn begin_chart(&self, header: (String, String)) -> MaidataChartBlock {
+        let (key, value) = header;
+        let level_index = key
+            .strip_prefix("&inote_")
+            .and_then(Natural::from_lean_str)
+            .unwrap_or_default();
+        MaidataChartBlock {
+            level_index,
+            raw_body: value,
+        }
+    }
+
+    fn append_body_line(&self, mut body: MaidataChartBlock, index: usize) -> MaidataChartBlock {
+        body.raw_body.push('\n');
+        body.raw_body.push_str(&self.lines[index]);
+        body
+    }
+
+    fn append_chart(
+        &self,
+        mut charts: Vec<MaidataChartBlock>,
+        body: MaidataChartBlock,
+    ) -> Vec<MaidataChartBlock> {
+        charts.push(body);
+        charts
+    }
 }
 
 fn parse_maidata_lines(
@@ -221,41 +255,8 @@ fn parse_maidata_lines(
     fields: Vec<(String, String)>,
     charts: Vec<MaidataChartBlock>,
 ) -> MaidataFile {
-    let mut fields = fields;
-    let mut charts = charts;
-    let mut rest: Vec<String> = lines.to_vec();
-    while let Some(line) = rest.first().cloned() {
-        if trim(&line).is_empty() {
-            rest.remove(0);
-            continue;
-        }
-        if starts_with_amp(&line) {
-            match parse_key_value_line(&line) {
-                Some((key, value)) => {
-                    if let Some(suffix) = key.strip_prefix("&inote_") {
-                        let level_index = Natural::from_lean_str(suffix).unwrap_or_default();
-                        let (body_lines, remaining) = collect_chart_body(&rest[1..], vec![value]);
-                        let body = body_lines.join("\n");
-                        charts.push(MaidataChartBlock {
-                            level_index,
-                            raw_body: body,
-                        });
-                        rest = remaining;
-                    } else {
-                        fields.push((key, value));
-                        rest.remove(0);
-                    }
-                }
-                None => {
-                    rest.remove(0);
-                }
-            }
-        } else {
-            rest.remove(0);
-        }
-    }
-    // `fields`/`charts` are appended in source order above; Lean builds them by
-    // prepending and then reverses, so no extra reversal is needed here.
+    let (fields, charts) =
+        maidata_scan::collect_lines(lines.len(), fields, charts, MaidataLineOps { lines });
     MaidataFile {
         metadata: MaidataMetadata { fields },
         charts,

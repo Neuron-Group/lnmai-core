@@ -14,11 +14,11 @@ use crate::lifecycle::{
 };
 use crate::natural::Natural;
 use crate::scheduler::TouchHoldRebuildAtoms;
-use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
 pub use crate::simai::slide_tables::SlideAreaSpec;
 use crate::storage::{button_zone_storage_order, ButtonVec, SensorVec};
 use crate::time::{Duration, TimePoint};
 use crate::types::{JudgeGrade, NoteType, SlideKind};
+use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TapChartNote {

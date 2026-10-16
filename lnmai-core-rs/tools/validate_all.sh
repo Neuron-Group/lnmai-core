@@ -63,7 +63,9 @@ for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra 
   IntegerAdapters AccuracyAdapters RuntimeScore RuntimeScoreJudgments GradeCounts RuntimeCounts \
   Storage StorageLoops StorageAccum StoragePublic StorageEquality Symmetry AreasPublic TypesPublic \
   Defaults Shape ShapeSolver ShapeAdapters Tokenize SlideParser SlideParserComposition SlideParserFrontend SlideParserText SlideParserSequence TimingParser SlideHistory SlideAreaLoops SlideArea SlideAreaTrace \
-  NaturalParser TimingAggregate TapLifecycle TouchLifecycle HoldLifecycle SlideLifecycle \
+  NaturalParser StringSplit TimingNumberModel TimingNumberReference TimingNumber TimingAggregate \
+  SlideChainReference SlideChainModel MaidataScanModel TouchHoldRebuildModel TouchHoldRebuildReverse \
+  TapLifecycle TouchLifecycle HoldLifecycle SlideLifecycle \
   LifecycleJudgments HoldJudgments SlideJudgments SlideQueueMetrics SchedulerClicks \
   SchedulerFrame SchedulerParents SlideSchedule SlideScheduleParents \
   SchedulerFrameSlide SchedulerFrameFinalization SchedulerFrameState SlideScheduleJudgments SchedulerFrameJudgments TapScheduleModel QueueMaintenanceModel \

@@ -148,9 +148,15 @@ theorem head_atoms (call : touch_hold_schedule.HeadGroups Ops G Id Grade D)
     (ops : Ops) (rep : Representation Q N F C G E Event T D Area Zone Id Grade)
     (capacity : Nat) (atoms : GroupAtoms call ops rep capacity) :
     TouchHoldGroupsProof.HeadAtoms call ops (headRep rep) capacity := by
-  exact { length := atoms.length, «matches» := atoms.matches, majority := atoms.majority
-           result := atoms.result, increment := atoms.increment, set_size := atoms.set_size
-           set_result := atoms.set_result, append := atoms.append }
+  exact {
+    length := atoms.length
+    «matches» := atoms.matches
+    majority := atoms.majority
+    result := atoms.result
+    increment := atoms.increment
+    set_size := atoms.set_size
+    set_result := atoms.set_result
+    append := atoms.append }
 
 /-- A found id preserves length; an absent id appends exactly one group.
 This derives the bounded registration theorem's precondition from point-space
@@ -185,7 +191,8 @@ theorem register_capacity (call : touch_hold_schedule.HeadGroups Ops G Id Grade 
         rw [hat.1]
         exact TouchHoldGroupsProof.register_head_at pre group rest (rep.id id)
           (rep.id size) (rep.grade grade) (rep.duration diff) hprefix hmatch
-      simpa only [href, hat.1, List.length_append, List.length_cons] using room.fits gs
+      rw [href]
+      simpa only [hat.1, List.length_append, List.length_cons] using room.fits gs
 
 /-- Actual extracted group traversal functions replace both composite fields. -/
 def installGroups

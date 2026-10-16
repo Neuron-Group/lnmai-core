@@ -3,7 +3,7 @@ import Verification.TouchHoldScheduleJudgments
 import Verification.TouchHoldScheduleTraversal
 
 open Aeneas Aeneas.Std Result WP lnmai_core_verify
-open LnmaiCore InputModel Lifecycle
+open LnmaiCore InputModel Lifecycle Constants
 
 namespace Verification.TouchHoldScheduleQueueJudgmentsProof
 open TouchHoldScheduleModel TouchHoldScheduleProof QueueMaintenanceComposition

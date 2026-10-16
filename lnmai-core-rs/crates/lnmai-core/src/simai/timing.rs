@@ -27,10 +27,15 @@ pub fn parse_rat_string(s: &str) -> Option<Rat> {
     let whole = Rat::from_int(parts.whole);
     let value = match parts.fraction {
         None => whole,
-        Some((numerator, denominator)) =>
-            whole.add(Rat::from_int(numerator).div(Rat::from_int(denominator))),
+        Some((numerator, denominator)) => {
+            whole.add(Rat::from_int(numerator).div(Rat::from_int(denominator)))
+        }
     };
-    Some(if parts.negative { Rat::zero().sub(value) } else { value })
+    Some(if parts.negative {
+        Rat::zero().sub(value)
+    } else {
+        value
+    })
 }
 
 struct TimingDecimalOps;

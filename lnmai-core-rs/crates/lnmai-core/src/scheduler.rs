@@ -31,8 +31,8 @@ use lnmai_core_verify::slide_parents::{
 };
 use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork};
 use lnmai_core_verify::tap_schedule::{self as tap_schedule_kernel, TapWork};
-use lnmai_core_verify::touch_schedule::{self as touch_schedule_kernel, TouchWork};
 use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
+use lnmai_core_verify::touch_schedule::{self as touch_schedule_kernel, TouchWork};
 
 /// The public pooled note representation from `Scheduler.ActiveNote`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -873,7 +873,12 @@ impl<'a>
         groups.len()
     }
 
-    fn group_matches(&self, groups: &Vec<TouchHoldBodyGroupState>, index: usize, id: &Natural) -> bool {
+    fn group_matches(
+        &self,
+        groups: &Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        id: &Natural,
+    ) -> bool {
         &groups[index].group_id == id
     }
 

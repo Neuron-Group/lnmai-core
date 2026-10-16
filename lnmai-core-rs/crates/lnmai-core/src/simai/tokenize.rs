@@ -14,6 +14,7 @@ use crate::simai::timing::{
 };
 use crate::time::{self, TimePoint};
 
+use lnmai_core_verify::slide_chain::{self, ChainError};
 pub use lnmai_core_verify::tokenize::{is_slide_mark_char, is_touch_area_char};
 
 fn syntax_error(raw_text: &str, message: &str) -> ParseError {
@@ -351,93 +352,27 @@ pub fn mk_raw_token(
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ContinuousChainSegment {
-    raw_text: String,
-    has_timing: bool,
-}
-
-fn read_digit_char(raw_text: &str, chars: &[char]) -> Result<(char, Vec<char>), ParseError> {
-    match chars.split_first() {
-        Some((c, rest)) if c.is_ascii_digit() => Ok((*c, rest.to_vec())),
-        _ => Err(syntax_error(raw_text, "invalid connected slide syntax")),
-    }
-}
-
-fn read_bracket_suffix(raw_text: &str, chars: &[char]) -> Result<(String, Vec<char>), ParseError> {
-    let mut acc = String::from("[");
-    let mut rest = chars;
-    loop {
-        match rest.split_first() {
-            None => return Err(syntax_error(raw_text, "unterminated slide timing spec")),
-            Some((c, tail)) => {
-                acc.push(*c);
-                if *c == ']' {
-                    return Ok((acc, tail.to_vec()));
-                }
-                rest = tail;
-            }
-        }
-    }
-}
-
-fn parse_slide_shape_chars(
-    raw_text: &str,
-    op: char,
-    rest: &[char],
-) -> Result<(String, Vec<char>), ParseError> {
-    if op == 'V' {
-        let (middle, rest) = read_digit_char(raw_text, rest)?;
-        let (finish, rest) = read_digit_char(raw_text, &rest)?;
-        Ok((format!("V{}{}", middle, finish), rest))
-    } else {
-        let (shape_text, rest) = if op == 'p' || op == 'q' {
-            match rest.split_first() {
-                Some((next, tail)) if *next == op => (format!("{}{}", op, next), tail.to_vec()),
-                _ => (op.to_string(), rest.to_vec()),
-            }
-        } else {
-            (op.to_string(), rest.to_vec())
-        };
-        let (finish, rest) = read_digit_char(raw_text, &rest)?;
-        Ok((format!("{}{}", shape_text, finish), rest))
-    }
-}
+// Segment construction and iteration live in the shared grammar kernel.
+type ContinuousChainSegment = slide_chain::Segment<String>;
 
 fn parse_continuous_slide_segments_core(
     raw_text: &str,
     current_start: char,
     chars: &[char],
 ) -> Result<Vec<ContinuousChainSegment>, ParseError> {
-    match chars.split_first() {
-        None => Ok(Vec::new()),
-        Some((c, rest)) => {
-            if c.is_ascii_digit() {
-                return Err(syntax_error(
-                    raw_text,
-                    "connected slide chain cannot contain a fresh numeric head",
-                ));
-            }
-            if !is_slide_mark_char(*c) {
-                return Err(syntax_error(raw_text, "invalid connected slide syntax"));
-            }
-            let (shape_and_end, rest) = parse_slide_shape_chars(raw_text, *c, rest)?;
-            let segment_core = format!("{}{}", current_start, shape_and_end);
-            let (timing_suffix, rest, has_timing) = match rest.split_first() {
-                Some(('[', tail)) => {
-                    let (suffix, rest) = read_bracket_suffix(raw_text, tail)?;
-                    (suffix, rest, true)
+    match slide_chain::parse_segments(chars, current_start, |text: Vec<char>| {
+        text.into_iter().collect::<String>()
+    }) {
+        Ok(segments) => Ok(segments),
+        Err(error) => {
+            let message = match error {
+                ChainError::InvalidSyntax => "invalid connected slide syntax",
+                ChainError::FreshNumericHead => {
+                    "connected slide chain cannot contain a fresh numeric head"
                 }
-                _ => (String::new(), rest.clone(), false),
+                ChainError::UnterminatedTiming => "unterminated slide timing spec",
             };
-            let end_char = shape_and_end.chars().last().unwrap_or(current_start);
-            let mut tail = parse_continuous_slide_segments_core(raw_text, end_char, &rest)?;
-            let mut out = vec![ContinuousChainSegment {
-                raw_text: format!("{}{}", segment_core, timing_suffix),
-                has_timing,
-            }];
-            out.append(&mut tail);
-            Ok(out)
+            Err(syntax_error(raw_text, message))
         }
     }
 }

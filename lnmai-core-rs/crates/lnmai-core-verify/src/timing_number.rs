@@ -18,11 +18,7 @@ pub struct Parts<T> {
 
 /// Scan the characters after the first decimal point. Empty fractions denote
 /// zero over one; underscores and all non-ASCII digits are rejected.
-pub fn fraction<T, O: DecimalOps<T>>(
-    chars: &[char],
-    mut index: usize,
-    ops: &O,
-) -> Option<(T, T)> {
+pub fn fraction<T, O: DecimalOps<T>>(chars: &[char], mut index: usize, ops: &O) -> Option<(T, T)> {
     if index > chars.len() {
         return None;
     }

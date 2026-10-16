@@ -98,6 +98,15 @@ import Verification.SchedulerFrameTouchJudgments
 import Verification.SchedulerFrameTouchTraversals
 import Verification.SchedulerFrameTouchHold
 import Verification.SchedulerFrameAllTraversals
+import Verification.StringSplit
+import Verification.TimingNumberModel
+import Verification.TimingNumberReference
+import Verification.TimingNumber
+import Verification.SlideChainReference
+import Verification.SlideChainModel
+import Verification.MaidataScanModel
+import Verification.TouchHoldRebuildModel
+import Verification.TouchHoldRebuildReverse
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -108,6 +117,19 @@ run_cmd do
   let env ← getEnv
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
   let required : Array Name := #[
+    ``Verification.StringSplit.splitOn_singleton,
+    ``Verification.TimingNumberModel.wholeScan_original_split,
+    ``Verification.TimingNumberModel.parse_value_eq_original,
+    ``Verification.TimingNumberProof.fraction_loop_spec,
+    ``Verification.TimingNumberProof.fraction_spec,
+    ``Verification.TimingNumberProof.parse_loop_spec,
+    ``Verification.TimingNumberProof.parse_spec,
+    ``Verification.TimingNumberProof.parse_value_eq_original,
+    ``Verification.MaidataScanModel.parse_public_factor,
+    ``Verification.MaidataScanModel.group_public_factor,
+    ``Verification.MaidataScanModel.groupFuel_stable,
+    ``Verification.TouchHoldRebuildModel.upsertIndexed_eq,
+    ``Verification.TouchHoldRebuildModel.indexedWalk_eq,
     ``Verification.SchedulerFrameTouchHoldProof.reference_touch_hold,
     ``Verification.SchedulerFrameTouchHoldProof.initial_work_spec,
     ``Verification.SchedulerFrameTouchHoldProof.touch_hold_phase_refines,

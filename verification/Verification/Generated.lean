@@ -75,6 +75,24 @@ axiom core.fmt.Formatter.debug_tuple_field3_finish
     (fun _dyn => core.fmt.Debug _dyn) → Dyn (fun _dyn => core.fmt.Debug _dyn)
     → Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
 
+/-- [core::fmt::{impl core::fmt::Debug for char}::fmt]:
+    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2973:4-2973:50
+    Name pattern: [core::fmt::{core::fmt::Debug<char>}::fmt]
+    Visibility: public -/
+@[rust_fun "core::fmt::{core::fmt::Debug<char>}::fmt"]
+axiom Char.Insts.CoreFmtDebug.fmt
+  :
+  Char → core.fmt.Formatter → Result ((core.result.Result Unit
+    core.fmt.Error) × core.fmt.Formatter)
+
+/-- Trait implementation: [core::fmt::{impl core::fmt::Debug for char}]
+    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2972:0-2972:19
+    Name pattern: [core::fmt::Debug<char>] -/
+@[reducible, rust_trait_impl "core::fmt::Debug<char>"]
+def Char.Insts.CoreFmtDebug : core.fmt.Debug Char := {
+  fmt := Char.Insts.CoreFmtDebug.fmt
+}
+
 /-- Trait declaration: [core::ops::arith::Add]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 76:0-76:31
     Name pattern: [core::ops::arith::Add]
@@ -4657,6 +4675,493 @@ def lifecycle.SlideArea.check
       { self with policy := ap }
   ok { sa with was_on, was_off, target_was_on, target_was_off }
 
+/-- [lnmai_core_verify::maidata_scan::Span]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 7:0-10:1
+    Visibility: public -/
+structure maidata_scan.Span where
+  start : Std.Usize
+  «end» : Std.Usize
+
+/-- Trait declaration: [lnmai_core_verify::maidata_scan::LineRead]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 14:0-19:1
+    Visibility: public -/
+structure maidata_scan.LineRead (Self : Type) (Header : Type) where
+  is_blank : Self → Std.Usize → Result Bool
+  starts_with_amp : Self → Std.Usize → Result Bool
+  header : Self → Std.Usize → Result (Option Header)
+  is_chart_header : Self → Header → Result Bool
+
+/-- Trait declaration: [lnmai_core_verify::maidata_scan::LineWrite]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 25:0-30:1
+    Visibility: public -/
+structure maidata_scan.LineWrite (Self : Type) (Header : Type) (Fields : Type)
+  (Charts : Type) (Body : Type) where
+  append_field : Self → Fields → Header → Result Fields
+  begin_chart : Self → Header → Result Body
+  append_body_line : Self → Body → Std.Usize → Result Body
+  append_chart : Self → Charts → Body → Result Charts
+
+/-- [lnmai_core_verify::maidata_scan::LinePlan]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 32:0-36:1
+    Visibility: public -/
+@[discriminant isize]
+inductive maidata_scan.LinePlan (Header : Type) where
+| Skip : Std.Usize → maidata_scan.LinePlan Header
+| Metadata : Header → Std.Usize → maidata_scan.LinePlan Header
+| Chart : Header → maidata_scan.Span → maidata_scan.LinePlan Header
+
+/-- [lnmai_core_verify::maidata_scan::chart_body_end]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 45:4-50:5
+    Visibility: public -/
+@[rust_loop_body]
+def maidata_scan.chart_body_end_loop.body
+  {Header : Type} {Ops : Type} (LineReadInst : maidata_scan.LineRead Ops
+  Header) (len : Std.Usize) (ops : Ops) (cursor : Std.Usize) :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  if cursor < len
+  then
+    let b ← LineReadInst.starts_with_amp ops cursor
+    if b
+    then ok (done cursor)
+    else let cursor1 ← cursor + 1#usize
+         ok (cont cursor1)
+  else ok (done cursor)
+
+/-- [lnmai_core_verify::maidata_scan::chart_body_end]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 45:4-50:5
+    Visibility: public -/
+@[rust_loop]
+def maidata_scan.chart_body_end_loop
+  {Header : Type} {Ops : Type} (LineReadInst : maidata_scan.LineRead Ops
+  Header) (len : Std.Usize) (ops : Ops) (cursor : Std.Usize) :
+  Result Std.Usize
+  := do
+  loop
+    (fun cursor1 => maidata_scan.chart_body_end_loop.body LineReadInst len ops
+      cursor1)
+    cursor
+
+/-- [lnmai_core_verify::maidata_scan::chart_body_end]:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 40:0-52:1
+    Visibility: public -/
+@[reducible]
+def maidata_scan.chart_body_end
+  {Header : Type} {Ops : Type} (LineReadInst : maidata_scan.LineRead Ops
+  Header) (len : Std.Usize) (start : Std.Usize) (ops : Ops) :
+  Result Std.Usize
+  := do
+  maidata_scan.chart_body_end_loop LineReadInst len ops start
+
+/-- [lnmai_core_verify::maidata_scan::plan_line]:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 56:0-79:1
+    Visibility: public -/
+def maidata_scan.plan_line
+  {Header : Type} {Ops : Type} (LineReadInst : maidata_scan.LineRead Ops
+  Header) (len : Std.Usize) (cursor : Std.Usize) (ops : Ops) :
+  Result (maidata_scan.LinePlan Header)
+  := do
+  let next ← cursor + 1#usize
+  let b ← LineReadInst.is_blank ops cursor
+  if b
+  then ok (maidata_scan.LinePlan.Skip next)
+  else
+    let b1 ← LineReadInst.starts_with_amp ops cursor
+    if b1
+    then
+      let o ← LineReadInst.header ops cursor
+      match o with
+      | none => ok (maidata_scan.LinePlan.Skip next)
+      | some header =>
+        let b2 ← LineReadInst.is_chart_header ops header
+        if b2
+        then
+          let end1 ← maidata_scan.chart_body_end LineReadInst len next ops
+          ok (maidata_scan.LinePlan.Chart header
+            { start := next, «end» := end1 })
+        else ok (maidata_scan.LinePlan.Metadata header next)
+    else ok (maidata_scan.LinePlan.Skip next)
+
+/-- [lnmai_core_verify::maidata_scan::collect_lines]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 104:16-107:17
+    Visibility: public -/
+@[rust_loop_body]
+def maidata_scan.collect_lines_loop0_loop0.body
+  {Header : Type} {Fields : Type} {Charts : Type} {Body : Type} {Ops : Type}
+  (LineWriteInst : maidata_scan.LineWrite Ops Header Fields Charts Body)
+  (ops : Ops) (i : Std.Usize) (body : Body) (line : Std.Usize) :
+  Result (ControlFlow (Body × Std.Usize) Body)
+  := do
+  if line < i
+  then
+    let body1 ← LineWriteInst.append_body_line ops body line
+    let line1 ← line + 1#usize
+    ok (cont (body1, line1))
+  else ok (done body)
+
+/-- [lnmai_core_verify::maidata_scan::collect_lines]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 104:16-107:17
+    Visibility: public -/
+@[rust_loop]
+def maidata_scan.collect_lines_loop0_loop0
+  {Header : Type} {Fields : Type} {Charts : Type} {Body : Type} {Ops : Type}
+  (LineWriteInst : maidata_scan.LineWrite Ops Header Fields Charts Body)
+  (ops : Ops) (i : Std.Usize) (body : Body) (line : Std.Usize) :
+  Result Body
+  := do
+  loop
+    (fun (body1, line1) => maidata_scan.collect_lines_loop0_loop0.body
+      LineWriteInst ops i body1 line1)
+    (body, line)
+
+/-- [lnmai_core_verify::maidata_scan::collect_lines]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 94:4-112:5
+    Visibility: public -/
+@[rust_loop_body]
+def maidata_scan.collect_lines_loop0.body
+  {Header : Type} {Fields : Type} {Charts : Type} {Body : Type} {Ops : Type}
+  (LineReadInst : maidata_scan.LineRead Ops Header) (LineWriteInst :
+  maidata_scan.LineWrite Ops Header Fields Charts Body) (len : Std.Usize)
+  (ops : Ops) (fields : Fields) (charts : Charts) (cursor : Std.Usize) :
+  Result (ControlFlow (Fields × Charts × Std.Usize) (Fields × Charts))
+  := do
+  if cursor < len
+  then
+    let lp ← maidata_scan.plan_line LineReadInst len cursor ops
+    match lp with
+    | maidata_scan.LinePlan.Skip next => ok (cont (fields, charts, next))
+    | maidata_scan.LinePlan.Metadata header next =>
+      let fields1 ← LineWriteInst.append_field ops fields header
+      ok (cont (fields1, charts, next))
+    | maidata_scan.LinePlan.Chart header range =>
+      let body ← LineWriteInst.begin_chart ops header
+      let body1 ←
+        maidata_scan.collect_lines_loop0_loop0 LineWriteInst ops range.«end»
+          body range.start
+      let charts1 ← LineWriteInst.append_chart ops charts body1
+      ok (cont (fields, charts1, range.«end»))
+  else ok (done (fields, charts))
+
+/-- [lnmai_core_verify::maidata_scan::collect_lines]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 94:4-112:5
+    Visibility: public -/
+@[rust_loop]
+def maidata_scan.collect_lines_loop0
+  {Header : Type} {Fields : Type} {Charts : Type} {Body : Type} {Ops : Type}
+  (LineReadInst : maidata_scan.LineRead Ops Header) (LineWriteInst :
+  maidata_scan.LineWrite Ops Header Fields Charts Body) (len : Std.Usize)
+  (fields : Fields) (charts : Charts) (ops : Ops) (cursor : Std.Usize) :
+  Result (Fields × Charts)
+  := do
+  loop
+    (fun (fields1, charts1, cursor1) => maidata_scan.collect_lines_loop0.body
+      LineReadInst LineWriteInst len ops fields1 charts1 cursor1)
+    (fields, charts, cursor)
+
+/-- [lnmai_core_verify::maidata_scan::collect_lines]:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 84:0-114:1
+    Visibility: public -/
+@[reducible]
+def maidata_scan.collect_lines
+  {Header : Type} {Fields : Type} {Charts : Type} {Body : Type} {Ops : Type}
+  (LineReadInst : maidata_scan.LineRead Ops Header) (LineWriteInst :
+  maidata_scan.LineWrite Ops Header Fields Charts Body) (len : Std.Usize)
+  (fields : Fields) (charts : Charts) (ops : Ops) :
+  Result (Fields × Charts)
+  := do
+  maidata_scan.collect_lines_loop0 LineReadInst LineWriteInst len fields charts
+    ops 0#usize
+
+/-- [lnmai_core_verify::maidata_scan::TouchKind]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 117:0-122:1
+    Visibility: public -/
+@[discriminant isize]
+inductive maidata_scan.TouchKind where
+| Slide : maidata_scan.TouchKind
+| Touch : maidata_scan.TouchKind
+| TouchHold : maidata_scan.TouchKind
+| Other : maidata_scan.TouchKind
+
+/-- Trait declaration: [lnmai_core_verify::maidata_scan::TouchRead]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 126:0-131:1
+    Visibility: public -/
+structure maidata_scan.TouchRead (Self : Type) where
+  same_event : Self → Std.Usize → Std.Usize → Result Bool
+  kind : Self → Std.Usize → Result maidata_scan.TouchKind
+  source_group_index_nonzero : Self → Std.Usize → Result Bool
+  is_slide_no_head : Self → Std.Usize → Result Bool
+
+/-- Trait declaration: [lnmai_core_verify::maidata_scan::TouchWrite]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 136:0-147:1
+    Visibility: public -/
+structure maidata_scan.TouchWrite (Self : Type) (GroupId : Type) (Output :
+  Type) where
+  append_unchanged : Self → Output → Std.Usize → Result Output
+  append_tagged : Self → Output → Std.Usize → GroupId → Std.Usize →
+    Std.Usize → Result Output
+  next_group : Self → GroupId → Result GroupId
+
+/-- [lnmai_core_verify::maidata_scan::TouchGroupPlan]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 149:0-153:1
+    Visibility: public -/
+structure maidata_scan.TouchGroupPlan where
+  range : maidata_scan.Span
+  timing_note_count : Std.Usize
+  no_head_slide_count : Std.Usize
+
+/-- [lnmai_core_verify::maidata_scan::same_event_end]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 162:4-167:5
+    Visibility: public -/
+@[rust_loop_body]
+def maidata_scan.same_event_end_loop.body
+  {Ops : Type} (TouchReadInst : maidata_scan.TouchRead Ops) (len : Std.Usize)
+  (start : Std.Usize) (ops : Ops) (end1 : Std.Usize) :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  if end1 < len
+  then
+    let b ← TouchReadInst.same_event ops start end1
+    if b
+    then let end2 ← end1 + 1#usize
+         ok (cont end2)
+    else ok (done end1)
+  else ok (done end1)
+
+/-- [lnmai_core_verify::maidata_scan::same_event_end]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 162:4-167:5
+    Visibility: public -/
+@[rust_loop]
+def maidata_scan.same_event_end_loop
+  {Ops : Type} (TouchReadInst : maidata_scan.TouchRead Ops) (len : Std.Usize)
+  (start : Std.Usize) (ops : Ops) (end1 : Std.Usize) :
+  Result Std.Usize
+  := do
+  loop
+    (fun end2 => maidata_scan.same_event_end_loop.body TouchReadInst len start
+      ops end2)
+    end1
+
+/-- [lnmai_core_verify::maidata_scan::same_event_end]:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 157:0-169:1
+    Visibility: public -/
+def maidata_scan.same_event_end
+  {Ops : Type} (TouchReadInst : maidata_scan.TouchRead Ops) (len : Std.Usize)
+  (start : Std.Usize) (ops : Ops) :
+  Result Std.Usize
+  := do
+  let end1 ← start + 1#usize
+  maidata_scan.same_event_end_loop TouchReadInst len start ops end1
+
+/-- [lnmai_core_verify::maidata_scan::plan_touch_group]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 181:4-194:5
+    Visibility: public -/
+@[rust_loop_body]
+def maidata_scan.plan_touch_group_loop.body
+  {Ops : Type} (TouchReadInst : maidata_scan.TouchRead Ops) (ops : Ops)
+  (end1 : Std.Usize) (cursor : Std.Usize) (timing_note_count : Std.Usize)
+  (no_head_slide_count : Std.Usize) :
+  Result (ControlFlow (Std.Usize × Std.Usize × Std.Usize) (Std.Usize ×
+    Std.Usize))
+  := do
+  if cursor < end1
+  then
+    let tk ← TouchReadInst.kind ops cursor
+    let (timing_note_count1, no_head_slide_count1) ←
+      match tk with
+      | maidata_scan.TouchKind.Slide =>
+        do
+        let b ← TouchReadInst.source_group_index_nonzero ops cursor
+        if b
+        then ok (timing_note_count, no_head_slide_count)
+        else
+          let timing_note_count2 ← timing_note_count + 1#usize
+          let b1 ← TouchReadInst.is_slide_no_head ops cursor
+          let i ←
+            if b1
+            then no_head_slide_count + 1#usize
+            else ok no_head_slide_count
+          ok (timing_note_count2, i)
+      | maidata_scan.TouchKind.Touch =>
+        do
+        let timing_note_count2 ← timing_note_count + 1#usize
+        ok (timing_note_count2, no_head_slide_count)
+      | maidata_scan.TouchKind.TouchHold =>
+        do
+        let timing_note_count2 ← timing_note_count + 1#usize
+        ok (timing_note_count2, no_head_slide_count)
+      | maidata_scan.TouchKind.Other =>
+        do
+        let timing_note_count2 ← timing_note_count + 1#usize
+        ok (timing_note_count2, no_head_slide_count)
+    let cursor1 ← cursor + 1#usize
+    ok (cont (cursor1, timing_note_count1, no_head_slide_count1))
+  else ok (done (timing_note_count, no_head_slide_count))
+
+/-- [lnmai_core_verify::maidata_scan::plan_touch_group]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 181:4-194:5
+    Visibility: public -/
+@[rust_loop]
+def maidata_scan.plan_touch_group_loop
+  {Ops : Type} (TouchReadInst : maidata_scan.TouchRead Ops) (ops : Ops)
+  (end1 : Std.Usize) (cursor : Std.Usize) (timing_note_count : Std.Usize)
+  (no_head_slide_count : Std.Usize) :
+  Result (Std.Usize × Std.Usize)
+  := do
+  loop
+    (fun (cursor1, timing_note_count1, no_head_slide_count1) =>
+      maidata_scan.plan_touch_group_loop.body TouchReadInst ops end1 cursor1
+      timing_note_count1 no_head_slide_count1)
+    (cursor, timing_note_count, no_head_slide_count)
+
+/-- [lnmai_core_verify::maidata_scan::plan_touch_group]:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 173:0-200:1
+    Visibility: public -/
+def maidata_scan.plan_touch_group
+  {Ops : Type} (TouchReadInst : maidata_scan.TouchRead Ops) (len : Std.Usize)
+  (start : Std.Usize) (ops : Ops) :
+  Result maidata_scan.TouchGroupPlan
+  := do
+  let end1 ← maidata_scan.same_event_end TouchReadInst len start ops
+  let (timing_note_count, no_head_slide_count) ←
+    maidata_scan.plan_touch_group_loop TouchReadInst ops end1 start 0#usize
+      0#usize
+  ok
+    {
+      range := { start, «end» := end1 },
+      timing_note_count,
+      no_head_slide_count
+    }
+
+/-- [lnmai_core_verify::maidata_scan::emit_touch_group]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 220:4-239:5
+    Visibility: public -/
+@[rust_loop_body]
+def maidata_scan.emit_touch_group_loop.body
+  {GroupId : Type} {Output : Type} {Ops : Type} (TouchReadInst :
+  maidata_scan.TouchRead Ops) (TouchWriteInst : maidata_scan.TouchWrite Ops
+  GroupId Output) (i : Std.Usize) (i1 : Std.Usize) (group_id : GroupId)
+  (ops : Ops) (touch_is_each : Bool) (touch_hold_is_each : Bool)
+  (output : Output) (cursor : Std.Usize) (group_index : Std.Usize) :
+  Result (ControlFlow (Output × Std.Usize × Std.Usize) Output)
+  := do
+  if cursor < i
+  then
+    let tk ← TouchReadInst.kind ops cursor
+    let should_tag ←
+      match tk with
+      | maidata_scan.TouchKind.Slide => ok false
+      | maidata_scan.TouchKind.Touch => ok touch_is_each
+      | maidata_scan.TouchKind.TouchHold => ok touch_hold_is_each
+      | maidata_scan.TouchKind.Other => ok false
+    let (output1, group_index1) ←
+      if should_tag
+      then
+        do
+        let output2 ←
+          TouchWriteInst.append_tagged ops output cursor group_id group_index
+            i1
+        let group_index2 ← group_index + 1#usize
+        ok (output2, group_index2)
+      else
+        do
+        let output2 ← TouchWriteInst.append_unchanged ops output cursor
+        ok (output2, group_index)
+    let cursor1 ← cursor + 1#usize
+    ok (cont (output1, cursor1, group_index1))
+  else ok (done output)
+
+/-- [lnmai_core_verify::maidata_scan::emit_touch_group]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 220:4-239:5
+    Visibility: public -/
+@[rust_loop]
+def maidata_scan.emit_touch_group_loop
+  {GroupId : Type} {Output : Type} {Ops : Type} (TouchReadInst :
+  maidata_scan.TouchRead Ops) (TouchWriteInst : maidata_scan.TouchWrite Ops
+  GroupId Output) (i : Std.Usize) (i1 : Std.Usize) (group_id : GroupId)
+  (output : Output) (ops : Ops) (touch_is_each : Bool)
+  (touch_hold_is_each : Bool) (cursor : Std.Usize) (group_index : Std.Usize) :
+  Result Output
+  := do
+  loop
+    (fun (output1, cursor1, group_index1) =>
+      maidata_scan.emit_touch_group_loop.body TouchReadInst TouchWriteInst i i1
+      group_id ops touch_is_each touch_hold_is_each output1 cursor1
+      group_index1)
+    (output, cursor, group_index)
+
+/-- [lnmai_core_verify::maidata_scan::emit_touch_group]:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 204:0-241:1
+    Visibility: public -/
+def maidata_scan.emit_touch_group
+  {GroupId : Type} {Output : Type} {Ops : Type} (TouchReadInst :
+  maidata_scan.TouchRead Ops) (TouchWriteInst : maidata_scan.TouchWrite Ops
+  GroupId Output) (plan : maidata_scan.TouchGroupPlan) (group_id : GroupId)
+  (output : Output) (ops : Ops) :
+  Result Output
+  := do
+  let non_no_head_count ←
+    lift (core.num.Usize.saturating_sub plan.timing_note_count
+      plan.no_head_slide_count)
+  let touch_is_each ←
+    if plan.timing_note_count > 1#usize
+    then ok (non_no_head_count != 1#usize)
+    else ok false
+  maidata_scan.emit_touch_group_loop TouchReadInst TouchWriteInst
+    plan.range.«end» plan.timing_note_count group_id output ops touch_is_each
+    (plan.timing_note_count > 1#usize) plan.range.start 0#usize
+
+/-- [lnmai_core_verify::maidata_scan::annotate_touch_each]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 255:4-260:5
+    Visibility: public -/
+@[rust_loop_body]
+def maidata_scan.annotate_touch_each_loop.body
+  {GroupId : Type} {Output : Type} {Ops : Type} (TouchReadInst :
+  maidata_scan.TouchRead Ops) (TouchWriteInst : maidata_scan.TouchWrite Ops
+  GroupId Output) (len : Std.Usize) (ops : Ops) (group_id : GroupId)
+  (output : Output) (cursor : Std.Usize) :
+  Result (ControlFlow (GroupId × Output × Std.Usize) Output)
+  := do
+  if cursor < len
+  then
+    let plan ← maidata_scan.plan_touch_group TouchReadInst len cursor ops
+    let output1 ←
+      maidata_scan.emit_touch_group TouchReadInst TouchWriteInst plan group_id
+        output ops
+    let group_id1 ← TouchWriteInst.next_group ops group_id
+    ok (cont (group_id1, output1, plan.range.«end»))
+  else ok (done output)
+
+/-- [lnmai_core_verify::maidata_scan::annotate_touch_each]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 255:4-260:5
+    Visibility: public -/
+@[rust_loop]
+def maidata_scan.annotate_touch_each_loop
+  {GroupId : Type} {Output : Type} {Ops : Type} (TouchReadInst :
+  maidata_scan.TouchRead Ops) (TouchWriteInst : maidata_scan.TouchWrite Ops
+  GroupId Output) (len : Std.Usize) (group_id : GroupId) (output : Output)
+  (ops : Ops) (cursor : Std.Usize) :
+  Result Output
+  := do
+  loop
+    (fun (group_id1, output1, cursor1) =>
+      maidata_scan.annotate_touch_each_loop.body TouchReadInst TouchWriteInst
+      len ops group_id1 output1 cursor1)
+    (group_id, output, cursor)
+
+/-- [lnmai_core_verify::maidata_scan::annotate_touch_each]:
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 245:0-262:1
+    Visibility: public -/
+@[reducible]
+def maidata_scan.annotate_touch_each
+  {GroupId : Type} {Output : Type} {Ops : Type} (TouchReadInst :
+  maidata_scan.TouchRead Ops) (TouchWriteInst : maidata_scan.TouchWrite Ops
+  GroupId Output) (len : Std.Usize) (group_id : GroupId) (output : Output)
+  (ops : Ops) :
+  Result Output
+  := do
+  maidata_scan.annotate_touch_each_loop TouchReadInst TouchWriteInst len
+    group_id output ops 0#usize
+
 /-- [lnmai_core_verify::natural_parser::decimal_digit]:
     Source: 'crates/lnmai-core-verify/src/natural_parser.rs', lines 6:0-31:1
     Visibility: public -/
@@ -7569,6 +8074,740 @@ def shape.solve_shape
           ok (core.result.Result.Ok ss)
         | core.result.Result.Err error => ok (core.result.Result.Err error)
     | core.result.Result.Err error => ok (core.result.Result.Err error)
+
+/-- [lnmai_core_verify::slide_chain::ChainError]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 13:0-17:1
+    Visibility: public -/
+@[discriminant isize]
+inductive slide_chain.ChainError where
+| InvalidSyntax : slide_chain.ChainError
+| FreshNumericHead : slide_chain.ChainError
+| UnterminatedTiming : slide_chain.ChainError
+
+/-- [lnmai_core_verify::slide_chain::{impl core::fmt::Debug for lnmai_core_verify::slide_chain::ChainError}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:9-12:14
+    Visibility: public -/
+def slide_chain.ChainError.Insts.CoreFmtDebug.fmt
+  (self : slide_chain.ChainError) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | slide_chain.ChainError.InvalidSyntax =>
+    core.fmt.Formatter.write_str f (toStr "InvalidSyntax")
+  | slide_chain.ChainError.FreshNumericHead =>
+    core.fmt.Formatter.write_str f (toStr "FreshNumericHead")
+  | slide_chain.ChainError.UnterminatedTiming =>
+    core.fmt.Formatter.write_str f (toStr "UnterminatedTiming")
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::fmt::Debug for lnmai_core_verify::slide_chain::ChainError}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:9-12:14 -/
+@[reducible]
+def slide_chain.ChainError.Insts.CoreFmtDebug : core.fmt.Debug
+  slide_chain.ChainError := {
+  fmt := slide_chain.ChainError.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::clone::Clone for lnmai_core_verify::slide_chain::ChainError}::clone]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:16-12:21
+    Visibility: public -/
+def slide_chain.ChainError.Insts.CoreCloneClone.clone
+  (self : slide_chain.ChainError) : Result slide_chain.ChainError := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::clone::Clone for lnmai_core_verify::slide_chain::ChainError}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:16-12:21 -/
+@[reducible]
+def slide_chain.ChainError.Insts.CoreCloneClone : core.clone.Clone
+  slide_chain.ChainError := {
+  clone := slide_chain.ChainError.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::marker::Copy for lnmai_core_verify::slide_chain::ChainError}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:23-12:27 -/
+@[reducible]
+def slide_chain.ChainError.Insts.CoreMarkerCopy : core.marker.Copy
+  slide_chain.ChainError := {
+  cloneInst := slide_chain.ChainError.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::marker::StructuralPartialEq for lnmai_core_verify::slide_chain::ChainError}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:29-12:38 -/
+@[reducible]
+def slide_chain.ChainError.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq slide_chain.ChainError := {
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::cmp::PartialEq<lnmai_core_verify::slide_chain::ChainError> for lnmai_core_verify::slide_chain::ChainError}::eq]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:29-12:38
+    Visibility: public -/
+def slide_chain.ChainError.Insts.CoreCmpPartialEqChainError.eq
+  (self : slide_chain.ChainError) (other : slide_chain.ChainError) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::cmp::PartialEq<lnmai_core_verify::slide_chain::ChainError> for lnmai_core_verify::slide_chain::ChainError}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:29-12:38 -/
+@[reducible]
+def slide_chain.ChainError.Insts.CoreCmpPartialEqChainError :
+  core.cmp.PartialEq slide_chain.ChainError slide_chain.ChainError := {
+  eq := slide_chain.ChainError.Insts.CoreCmpPartialEqChainError.eq
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::cmp::Eq for lnmai_core_verify::slide_chain::ChainError}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:40-12:42
+    Visibility: public -/
+def slide_chain.ChainError.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : slide_chain.ChainError) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::cmp::Eq for lnmai_core_verify::slide_chain::ChainError}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 12:40-12:42 -/
+@[reducible]
+def slide_chain.ChainError.Insts.CoreCmpEq : core.cmp.Eq slide_chain.ChainError
+  := {
+  partialEqInst := slide_chain.ChainError.Insts.CoreCmpPartialEqChainError
+  assert_fields_are_eq :=
+    slide_chain.ChainError.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::slide_chain::SegmentPlan]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 23:0-28:1
+    Visibility: public -/
+structure slide_chain.SegmentPlan where
+  head : Char
+  «begin» : Std.Usize
+  «end» : Std.Usize
+  has_timing : Bool
+
+/-- [lnmai_core_verify::slide_chain::{impl core::fmt::Debug for lnmai_core_verify::slide_chain::SegmentPlan}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:9-22:14
+    Visibility: public -/
+def slide_chain.SegmentPlan.Insts.CoreFmtDebug.fmt
+  (self : slide_chain.SegmentPlan) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ Char.Insts.CoreFmtDebug self.head
+  let dyn1 := Dyn.mk _ core.fmt.DebugUsize self.«begin»
+  let dyn2 := Dyn.mk _ core.fmt.DebugUsize self.«end»
+  let dyn3 :=
+    Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugBool) self.has_timing
+  core.fmt.Formatter.debug_struct_field4_finish f (toStr "SegmentPlan") (toStr
+    "head") dyn (toStr "begin") dyn1 (toStr "end") dyn2 (toStr "has_timing")
+    dyn3
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::fmt::Debug for lnmai_core_verify::slide_chain::SegmentPlan}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:9-22:14 -/
+@[reducible]
+def slide_chain.SegmentPlan.Insts.CoreFmtDebug : core.fmt.Debug
+  slide_chain.SegmentPlan := {
+  fmt := slide_chain.SegmentPlan.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::clone::Clone for lnmai_core_verify::slide_chain::SegmentPlan}::clone]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:16-22:21
+    Visibility: public -/
+def slide_chain.SegmentPlan.Insts.CoreCloneClone.clone
+  (self : slide_chain.SegmentPlan) : Result slide_chain.SegmentPlan := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::clone::Clone for lnmai_core_verify::slide_chain::SegmentPlan}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:16-22:21 -/
+@[reducible]
+def slide_chain.SegmentPlan.Insts.CoreCloneClone : core.clone.Clone
+  slide_chain.SegmentPlan := {
+  clone := slide_chain.SegmentPlan.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::marker::Copy for lnmai_core_verify::slide_chain::SegmentPlan}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:23-22:27 -/
+@[reducible]
+def slide_chain.SegmentPlan.Insts.CoreMarkerCopy : core.marker.Copy
+  slide_chain.SegmentPlan := {
+  cloneInst := slide_chain.SegmentPlan.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::marker::StructuralPartialEq for lnmai_core_verify::slide_chain::SegmentPlan}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:29-22:38 -/
+@[reducible]
+def slide_chain.SegmentPlan.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq slide_chain.SegmentPlan := {
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::cmp::PartialEq<lnmai_core_verify::slide_chain::SegmentPlan> for lnmai_core_verify::slide_chain::SegmentPlan}::eq]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:29-22:38
+    Visibility: public -/
+def slide_chain.SegmentPlan.Insts.CoreCmpPartialEqSegmentPlan.eq
+  (self : slide_chain.SegmentPlan) (other : slide_chain.SegmentPlan) :
+  Result Bool
+  := do
+  if self.head = other.head
+  then
+    if self.has_timing = other.has_timing
+    then
+      if self.«begin» = other.«begin»
+      then ok (self.«end» = other.«end»)
+      else ok false
+    else ok false
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::cmp::PartialEq<lnmai_core_verify::slide_chain::SegmentPlan> for lnmai_core_verify::slide_chain::SegmentPlan}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:29-22:38 -/
+@[reducible]
+def slide_chain.SegmentPlan.Insts.CoreCmpPartialEqSegmentPlan :
+  core.cmp.PartialEq slide_chain.SegmentPlan slide_chain.SegmentPlan := {
+  eq := slide_chain.SegmentPlan.Insts.CoreCmpPartialEqSegmentPlan.eq
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::cmp::Eq for lnmai_core_verify::slide_chain::SegmentPlan}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:40-22:42
+    Visibility: public -/
+def slide_chain.SegmentPlan.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : slide_chain.SegmentPlan) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::cmp::Eq for lnmai_core_verify::slide_chain::SegmentPlan}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 22:40-22:42 -/
+@[reducible]
+def slide_chain.SegmentPlan.Insts.CoreCmpEq : core.cmp.Eq
+  slide_chain.SegmentPlan := {
+  partialEqInst := slide_chain.SegmentPlan.Insts.CoreCmpPartialEqSegmentPlan
+  assert_fields_are_eq :=
+    slide_chain.SegmentPlan.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::slide_chain::Segment]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 32:0-35:1
+    Visibility: public -/
+structure slide_chain.Segment (Text : Type) where
+  raw_text : Text
+  has_timing : Bool
+
+/-- [lnmai_core_verify::slide_chain::{impl core::fmt::Debug for lnmai_core_verify::slide_chain::Segment<Text>}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:9-31:14
+    Visibility: public -/
+def slide_chain.Segment.Insts.CoreFmtDebug.fmt
+  {Text : Type} (corefmtDebugInst : core.fmt.Debug Text)
+  (self : slide_chain.Segment Text) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ corefmtDebugInst self.raw_text
+  let dyn1 :=
+    Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugBool) self.has_timing
+  core.fmt.Formatter.debug_struct_field2_finish f (toStr "Segment") (toStr
+    "raw_text") dyn (toStr "has_timing") dyn1
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::fmt::Debug for lnmai_core_verify::slide_chain::Segment<Text>}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:9-31:14 -/
+@[reducible]
+def slide_chain.Segment.Insts.CoreFmtDebug {Text : Type} (corefmtDebugInst :
+  core.fmt.Debug Text) : core.fmt.Debug (slide_chain.Segment Text) := {
+  fmt := slide_chain.Segment.Insts.CoreFmtDebug.fmt corefmtDebugInst
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::clone::Clone for lnmai_core_verify::slide_chain::Segment<Text>}::clone]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:16-31:21
+    Visibility: public -/
+def slide_chain.Segment.Insts.CoreCloneClone.clone
+  {Text : Type} (corecloneCloneInst : core.clone.Clone Text)
+  (self : slide_chain.Segment Text) :
+  Result (slide_chain.Segment Text)
+  := do
+  let t ← corecloneCloneInst.clone self.raw_text
+  let b ← lift (core.clone.impls.CloneBool.clone self.has_timing)
+  ok { raw_text := t, has_timing := b }
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::clone::Clone for lnmai_core_verify::slide_chain::Segment<Text>}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:16-31:21 -/
+@[reducible]
+def slide_chain.Segment.Insts.CoreCloneClone {Text : Type} (corecloneCloneInst
+  : core.clone.Clone Text) : core.clone.Clone (slide_chain.Segment Text) := {
+  clone := slide_chain.Segment.Insts.CoreCloneClone.clone corecloneCloneInst
+}
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::marker::StructuralPartialEq for lnmai_core_verify::slide_chain::Segment<Text>}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:23-31:32 -/
+@[reducible]
+def slide_chain.Segment.Insts.CoreMarkerStructuralPartialEq (Text : Type) :
+  core.marker.StructuralPartialEq (slide_chain.Segment Text) := {
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::cmp::PartialEq<lnmai_core_verify::slide_chain::Segment<Text>> for lnmai_core_verify::slide_chain::Segment<Text>}::eq]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:23-31:32
+    Visibility: public -/
+def slide_chain.Segment.Insts.CoreCmpPartialEqSegment.eq
+  {Text : Type} (corecmpPartialEqInst : core.cmp.PartialEq Text Text)
+  (self : slide_chain.Segment Text) (other : slide_chain.Segment Text) :
+  Result Bool
+  := do
+  if self.has_timing = other.has_timing
+  then corecmpPartialEqInst.eq self.raw_text other.raw_text
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::cmp::PartialEq<lnmai_core_verify::slide_chain::Segment<Text>> for lnmai_core_verify::slide_chain::Segment<Text>}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:23-31:32 -/
+@[reducible]
+def slide_chain.Segment.Insts.CoreCmpPartialEqSegment {Text : Type}
+  (corecmpPartialEqInst : core.cmp.PartialEq Text Text) : core.cmp.PartialEq
+  (slide_chain.Segment Text) (slide_chain.Segment Text) := {
+  eq := slide_chain.Segment.Insts.CoreCmpPartialEqSegment.eq
+    corecmpPartialEqInst
+}
+
+/-- [lnmai_core_verify::slide_chain::{impl core::cmp::Eq for lnmai_core_verify::slide_chain::Segment<Text>}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:34-31:36
+    Visibility: public -/
+def slide_chain.Segment.Insts.CoreCmpEq.assert_fields_are_eq
+  {Text : Type} (corecmpEqInst : core.cmp.Eq Text)
+  (self : slide_chain.Segment Text) :
+  Result Unit
+  := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::slide_chain::{impl core::cmp::Eq for lnmai_core_verify::slide_chain::Segment<Text>}]
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 31:34-31:36 -/
+@[reducible]
+def slide_chain.Segment.Insts.CoreCmpEq {Text : Type} (corecmpEqInst :
+  core.cmp.Eq Text) : core.cmp.Eq (slide_chain.Segment Text) := {
+  partialEqInst := slide_chain.Segment.Insts.CoreCmpPartialEqSegment
+    corecmpEqInst.partialEqInst
+  assert_fields_are_eq :=
+    slide_chain.Segment.Insts.CoreCmpEq.assert_fields_are_eq corecmpEqInst
+}
+
+/-- [lnmai_core_verify::slide_chain::is_chain_digit]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 39:0-50:1
+    Visibility: public -/
+def slide_chain.is_chain_digit (c : Char) : Result Bool := do
+  if c = '0'
+  then ok true
+  else
+    if c = '1'
+    then ok true
+    else
+      if c = '2'
+      then ok true
+      else
+        if c = '3'
+        then ok true
+        else
+          if c = '4'
+          then ok true
+          else
+            if c = '5'
+            then ok true
+            else
+              if c = '6'
+              then ok true
+              else
+                if c = '7'
+                then ok true
+                else if c = '8'
+                     then ok true
+                     else ok (c = '9')
+
+/-- [lnmai_core_verify::slide_chain::read_digit]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 54:0-62:1
+    Visibility: public -/
+def slide_chain.read_digit
+  (chars : Slice Char) (cursor : Std.Usize) :
+  Result (core.result.Result (Char × Std.Usize) slide_chain.ChainError)
+  := do
+  let i := Slice.len chars
+  if cursor < i
+  then
+    let c ← Slice.index_usize chars cursor
+    let b ← slide_chain.is_chain_digit c
+    if b
+    then let i1 ← cursor + 1#usize
+         ok (core.result.Result.Ok (c, i1))
+    else ok (core.result.Result.Err slide_chain.ChainError.InvalidSyntax)
+  else ok (core.result.Result.Err slide_chain.ChainError.InvalidSyntax)
+
+/-- [lnmai_core_verify::slide_chain::read_shape]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 67:0-88:1
+    Visibility: public -/
+def slide_chain.read_shape
+  (chars : Slice Char) (op : Char) (cursor : Std.Usize) :
+  Result (core.result.Result (Char × Std.Usize) slide_chain.ChainError)
+  := do
+  if op = 'V'
+  then
+    let r ← slide_chain.read_digit chars cursor
+    match r with
+    | core.result.Result.Ok p =>
+      let (_, next) := p
+      slide_chain.read_digit chars next
+    | core.result.Result.Err _ => ok r
+  else
+    let cursor1 ←
+      if op = 'p'
+      then
+        let i := Slice.len chars
+        if cursor < i
+        then
+          do
+          let c ← Slice.index_usize chars cursor
+          if c = op
+          then cursor + 1#usize
+          else ok cursor
+        else ok cursor
+      else
+        if op = 'q'
+        then
+          let i := Slice.len chars
+          if cursor < i
+          then
+            do
+            let c ← Slice.index_usize chars cursor
+            if c = op
+            then cursor + 1#usize
+            else ok cursor
+          else ok cursor
+        else ok cursor
+    slide_chain.read_digit chars cursor1
+
+/-- [lnmai_core_verify::slide_chain::timing_end_with_fuel]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 98:4-110:1
+    Visibility: public -/
+@[rust_loop_body]
+def slide_chain.timing_end_with_fuel_loop.body
+  (chars : Slice Char) (cursor : Std.Usize) (fuel : Std.Usize) :
+  Result (ControlFlow (Std.Usize × Std.Usize) (core.result.Result Std.Usize
+    slide_chain.ChainError))
+  := do
+  let i := Slice.len chars
+  if cursor < i
+  then
+    let c ← Slice.index_usize chars cursor
+    let cursor1 ← cursor + 1#usize
+    if c = ']'
+    then ok (done (core.result.Result.Ok cursor1))
+    else
+      if fuel = 0#usize
+      then
+        ok (done (core.result.Result.Err
+          slide_chain.ChainError.UnterminatedTiming))
+      else let fuel1 ← fuel - 1#usize
+           ok (cont (cursor1, fuel1))
+  else
+    ok (done (core.result.Result.Err
+      slide_chain.ChainError.UnterminatedTiming))
+
+/-- [lnmai_core_verify::slide_chain::timing_end_with_fuel]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 98:4-110:1
+    Visibility: public -/
+@[rust_loop]
+def slide_chain.timing_end_with_fuel_loop
+  (chars : Slice Char) (cursor : Std.Usize) (fuel : Std.Usize) :
+  Result (core.result.Result Std.Usize slide_chain.ChainError)
+  := do
+  loop
+    (fun (cursor1, fuel1) => slide_chain.timing_end_with_fuel_loop.body chars
+      cursor1 fuel1)
+    (cursor, fuel)
+
+/-- [lnmai_core_verify::slide_chain::timing_end_with_fuel]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 93:0-110:1
+    Visibility: public -/
+@[reducible]
+def slide_chain.timing_end_with_fuel
+  (chars : Slice Char) (cursor : Std.Usize) (fuel : Std.Usize) :
+  Result (core.result.Result Std.Usize slide_chain.ChainError)
+  := do
+  slide_chain.timing_end_with_fuel_loop chars cursor fuel
+
+/-- [lnmai_core_verify::slide_chain::timing_end]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 114:0-119:1
+    Visibility: public -/
+def slide_chain.timing_end
+  (chars : Slice Char) (cursor : Std.Usize) :
+  Result (core.result.Result Std.Usize slide_chain.ChainError)
+  := do
+  let i := Slice.len chars
+  if cursor > i
+  then ok (core.result.Result.Err slide_chain.ChainError.UnterminatedTiming)
+  else
+    let i1 := Slice.len chars
+    let i2 ← i1 - cursor
+    slide_chain.timing_end_with_fuel chars cursor i2
+
+/-- [lnmai_core_verify::tokenize::is_slide_mark_char]:
+    Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 8:0-21:1
+    Visibility: public -/
+def tokenize.is_slide_mark_char (c : Char) : Result Bool := do
+  if c = '-'
+  then ok true
+  else
+    if c = '^'
+    then ok true
+    else
+      if c = 'v'
+      then ok true
+      else
+        if c = '<'
+        then ok true
+        else
+          if c = '>'
+          then ok true
+          else
+            if c = 'V'
+            then ok true
+            else
+              if c = 'p'
+              then ok true
+              else
+                if c = 'q'
+                then ok true
+                else
+                  if c = 's'
+                  then ok true
+                  else
+                    if c = 'z'
+                    then ok true
+                    else if c = 'w'
+                         then ok true
+                         else ok (c = 'K')
+
+/-- [lnmai_core_verify::slide_chain::parse_plans_with_fuel]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 131:4-170:1
+    Visibility: public -/
+@[rust_loop_body]
+def slide_chain.parse_plans_with_fuel_loop.body
+  (chars : Slice Char) (current_start : Char) (fuel : Std.Usize)
+  (plans : alloc.vec.Vec slide_chain.SegmentPlan) (cursor : Std.Usize) :
+  Result (ControlFlow (Char × Std.Usize × (alloc.vec.Vec
+    slide_chain.SegmentPlan) × Std.Usize) (core.result.Result (alloc.vec.Vec
+    slide_chain.SegmentPlan) slide_chain.ChainError))
+  := do
+  let i := Slice.len chars
+  if cursor < i
+  then
+    if fuel = 0#usize
+    then
+      ok (done (core.result.Result.Err slide_chain.ChainError.InvalidSyntax))
+    else
+      let fuel1 ← fuel - 1#usize
+      let op ← Slice.index_usize chars cursor
+      let cursor1 ← cursor + 1#usize
+      let b ← slide_chain.is_chain_digit op
+      if b
+      then
+        ok (done (core.result.Result.Err
+          slide_chain.ChainError.FreshNumericHead))
+      else
+        let b1 ← tokenize.is_slide_mark_char op
+        if b1
+        then
+          let r ← slide_chain.read_shape chars op cursor1
+          match r with
+          | core.result.Result.Ok value =>
+            let (end_char, next) := value
+            let i1 := Slice.len chars
+            if next < i1
+            then
+              let c ← Slice.index_usize chars next
+              if c = '['
+              then
+                let cursor2 ← next + 1#usize
+                let r1 ← slide_chain.timing_end chars cursor2
+                match r1 with
+                | core.result.Result.Ok next1 =>
+                  let plans1 ←
+                    alloc.vec.Vec.push plans
+                      ({
+                         head := current_start,
+                         «begin» := cursor,
+                         «end» := next1,
+                         has_timing := true
+                       } : slide_chain.SegmentPlan)
+                  ok (cont (end_char, fuel1, plans1, next1))
+                | core.result.Result.Err error =>
+                  ok (done (core.result.Result.Err error))
+              else
+                let plans1 ←
+                  alloc.vec.Vec.push plans
+                    ({
+                       head := current_start,
+                       «begin» := cursor,
+                       «end» := next,
+                       has_timing := false
+                     } : slide_chain.SegmentPlan)
+                ok (cont (end_char, fuel1, plans1, next))
+            else
+              let plans1 ←
+                alloc.vec.Vec.push plans
+                  ({
+                     head := current_start,
+                     «begin» := cursor,
+                     «end» := next,
+                     has_timing := false
+                   } : slide_chain.SegmentPlan)
+              ok (cont (end_char, fuel1, plans1, next))
+          | core.result.Result.Err error =>
+            ok (done (core.result.Result.Err error))
+        else
+          ok (done (core.result.Result.Err
+            slide_chain.ChainError.InvalidSyntax))
+  else ok (done (core.result.Result.Ok plans))
+
+/-- [lnmai_core_verify::slide_chain::parse_plans_with_fuel]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 131:4-170:1
+    Visibility: public -/
+@[rust_loop]
+def slide_chain.parse_plans_with_fuel_loop
+  (chars : Slice Char) (current_start : Char) (fuel : Std.Usize)
+  (plans : alloc.vec.Vec slide_chain.SegmentPlan) (cursor : Std.Usize) :
+  Result (core.result.Result (alloc.vec.Vec slide_chain.SegmentPlan)
+    slide_chain.ChainError)
+  := do
+  loop
+    (fun (current_start1, fuel1, plans1, cursor1) =>
+      slide_chain.parse_plans_with_fuel_loop.body chars current_start1 fuel1
+      plans1 cursor1)
+    (current_start, fuel, plans, cursor)
+
+/-- [lnmai_core_verify::slide_chain::parse_plans_with_fuel]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 124:0-170:1
+    Visibility: public -/
+@[reducible]
+def slide_chain.parse_plans_with_fuel
+  (chars : Slice Char) (current_start : Char) (fuel : Std.Usize) :
+  Result (core.result.Result (alloc.vec.Vec slide_chain.SegmentPlan)
+    slide_chain.ChainError)
+  := do
+  slide_chain.parse_plans_with_fuel_loop chars current_start fuel
+    (alloc.vec.Vec.new slide_chain.SegmentPlan) 0#usize
+
+/-- [lnmai_core_verify::slide_chain::parse_plans]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 175:0-177:1
+    Visibility: public -/
+def slide_chain.parse_plans
+  (chars : Slice Char) (current_start : Char) :
+  Result (core.result.Result (alloc.vec.Vec slide_chain.SegmentPlan)
+    slide_chain.ChainError)
+  := do
+  let i := Slice.len chars
+  slide_chain.parse_plans_with_fuel chars current_start i
+
+/-- [lnmai_core_verify::slide_chain::render_plan]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 186:4-189:5
+    Visibility: public -/
+@[rust_loop_body]
+def slide_chain.render_plan_loop.body
+  (chars : Slice Char) (i : Std.Usize) (text : alloc.vec.Vec Char)
+  (cursor : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Char) × Std.Usize) (alloc.vec.Vec Char))
+  := do
+  if cursor < i
+  then
+    let c ← Slice.index_usize chars cursor
+    let text1 ← alloc.vec.Vec.push text c
+    let cursor1 ← cursor + 1#usize
+    ok (cont (text1, cursor1))
+  else ok (done text)
+
+/-- [lnmai_core_verify::slide_chain::render_plan]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 186:4-189:5
+    Visibility: public -/
+@[rust_loop]
+def slide_chain.render_plan_loop
+  (chars : Slice Char) (i : Std.Usize) (text : alloc.vec.Vec Char)
+  (cursor : Std.Usize) :
+  Result (alloc.vec.Vec Char)
+  := do
+  loop
+    (fun (text1, cursor1) => slide_chain.render_plan_loop.body chars i text1
+      cursor1)
+    (text, cursor)
+
+/-- [lnmai_core_verify::slide_chain::render_plan]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 182:0-191:1
+    Visibility: public -/
+def slide_chain.render_plan
+  (chars : Slice Char) (plan : slide_chain.SegmentPlan) :
+  Result (alloc.vec.Vec Char)
+  := do
+  let text ← alloc.vec.Vec.push (alloc.vec.Vec.new Char) plan.head
+  slide_chain.render_plan_loop chars plan.«end» text plan.«begin»
+
+/-- [lnmai_core_verify::slide_chain::encode_plans]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 205:4-213:5
+    Visibility: public -/
+@[rust_loop_body]
+def slide_chain.encode_plans_loop.body
+  {Text : Type} {Encode : Type} (coreopsfunctionFnEncodeTupleVecCharTextInst :
+  core.ops.function.Fn Encode (alloc.vec.Vec Char) Text) (chars : Slice Char)
+  (plans : Slice slide_chain.SegmentPlan) (encode : Encode)
+  (segments : alloc.vec.Vec (slide_chain.Segment Text)) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec (slide_chain.Segment Text)) × Std.Usize)
+    (alloc.vec.Vec (slide_chain.Segment Text)))
+  := do
+  let i := Slice.len plans
+  if index < i
+  then
+    let plan ← Slice.index_usize plans index
+    let text ← slide_chain.render_plan chars plan
+    let t ← coreopsfunctionFnEncodeTupleVecCharTextInst.call encode text
+    let segments1 ←
+      alloc.vec.Vec.push segments
+        ({ raw_text := t, has_timing := plan.has_timing } : slide_chain.Segment
+        Text)
+    let index1 ← index + 1#usize
+    ok (cont (segments1, index1))
+  else ok (done segments)
+
+/-- [lnmai_core_verify::slide_chain::encode_plans]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 205:4-213:5
+    Visibility: public -/
+@[rust_loop]
+def slide_chain.encode_plans_loop
+  {Text : Type} {Encode : Type} (coreopsfunctionFnEncodeTupleVecCharTextInst :
+  core.ops.function.Fn Encode (alloc.vec.Vec Char) Text) (chars : Slice Char)
+  (plans : Slice slide_chain.SegmentPlan) (encode : Encode)
+  (segments : alloc.vec.Vec (slide_chain.Segment Text)) (index : Std.Usize) :
+  Result (alloc.vec.Vec (slide_chain.Segment Text))
+  := do
+  loop
+    (fun (segments1, index1) => slide_chain.encode_plans_loop.body
+      coreopsfunctionFnEncodeTupleVecCharTextInst chars plans encode segments1
+      index1)
+    (segments, index)
+
+/-- [lnmai_core_verify::slide_chain::encode_plans]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 195:0-215:1
+    Visibility: public -/
+@[reducible]
+def slide_chain.encode_plans
+  {Text : Type} {Encode : Type} (coreopsfunctionFnEncodeTupleVecCharTextInst :
+  core.ops.function.Fn Encode (alloc.vec.Vec Char) Text) (chars : Slice Char)
+  (plans : Slice slide_chain.SegmentPlan) (encode : Encode) :
+  Result (alloc.vec.Vec (slide_chain.Segment Text))
+  := do
+  slide_chain.encode_plans_loop coreopsfunctionFnEncodeTupleVecCharTextInst
+    chars plans encode (alloc.vec.Vec.new (slide_chain.Segment Text)) 0#usize
+
+/-- [lnmai_core_verify::slide_chain::parse_segments]:
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 219:0-231:1
+    Visibility: public -/
+def slide_chain.parse_segments
+  {Text : Type} {Encode : Type} (coreopsfunctionFnEncodeTupleVecCharTextInst :
+  core.ops.function.Fn Encode (alloc.vec.Vec Char) Text) (chars : Slice Char)
+  (current_start : Char) (encode : Encode) :
+  Result (core.result.Result (alloc.vec.Vec (slide_chain.Segment Text))
+    slide_chain.ChainError)
+  := do
+  let r ← slide_chain.parse_plans chars current_start
+  match r with
+  | core.result.Result.Ok plans =>
+    let s := alloc.vec.Vec.deref plans
+    let v ←
+      slide_chain.encode_plans coreopsfunctionFnEncodeTupleVecCharTextInst
+        chars s encode
+    ok (core.result.Result.Ok v)
+  | core.result.Result.Err error => ok (core.result.Result.Err error)
 
 /-- [lnmai_core_verify::slide_lifecycle::SlideState]
     Source: 'crates/lnmai-core-verify/src/slide_lifecycle.rs', lines 9:0-15:1
@@ -11866,6 +13105,159 @@ def timing_aggregate.first_some_indexed
   timing_aggregate.first_some_indexed_loop
     coreopsfunctionFnPTupleUsizeOptionInst len parse 0#usize
 
+/-- Trait declaration: [lnmai_core_verify::timing_number::DecimalOps]
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 7:0-11:1
+    Visibility: public -/
+structure timing_number.DecimalOps (Self : Type) (T : Type) where
+  zero : Self → Result T
+  one : Self → Result T
+  append : Self → T → Std.U8 → Result T
+
+/-- [lnmai_core_verify::timing_number::Parts]
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 13:0-17:1
+    Visibility: public -/
+structure timing_number.Parts (T : Type) where
+  negative : Bool
+  whole : T
+  fraction : Option (T × T)
+
+/-- [lnmai_core_verify::timing_number::fraction]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 27:4-38:1
+    Visibility: public -/
+@[rust_loop_body]
+def timing_number.fraction_loop.body
+  {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
+  (chars : Slice Char) (ops : O) (index : Std.Usize) (value : T)
+  (denominator : T) :
+  Result (ControlFlow (Std.Usize × T × T) (Option (T × T)))
+  := do
+  let i := Slice.len chars
+  if index < i
+  then
+    let c ← Slice.index_usize chars index
+    let o ← natural_parser.decimal_digit c
+    match o with
+    | none => ok (done none)
+    | some digit =>
+      let value1 ← DecimalOpsInst.append ops value digit
+      let denominator1 ← DecimalOpsInst.append ops denominator 0#u8
+      let index1 ← index + 1#usize
+      ok (cont (index1, value1, denominator1))
+  else ok (done (some (value, denominator)))
+
+/-- [lnmai_core_verify::timing_number::fraction]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 27:4-38:1
+    Visibility: public -/
+@[rust_loop]
+def timing_number.fraction_loop
+  {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
+  (chars : Slice Char) (index : Std.Usize) (ops : O) (value : T)
+  (denominator : T) :
+  Result (Option (T × T))
+  := do
+  loop
+    (fun (index1, value1, denominator1) => timing_number.fraction_loop.body
+      DecimalOpsInst chars ops index1 value1 denominator1)
+    (index, value, denominator)
+
+/-- [lnmai_core_verify::timing_number::fraction]:
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 21:0-38:1
+    Visibility: public -/
+def timing_number.fraction
+  {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
+  (chars : Slice Char) (index : Std.Usize) (ops : O) :
+  Result (Option (T × T))
+  := do
+  let i := Slice.len chars
+  if index > i
+  then ok none
+  else
+    let value ← DecimalOpsInst.zero ops
+    let denominator ← DecimalOpsInst.one ops
+    timing_number.fraction_loop DecimalOpsInst chars index ops value
+      denominator
+
+/-- [lnmai_core_verify::timing_number::parse]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 51:4-91:1
+    Visibility: public -/
+@[rust_loop_body]
+def timing_number.parse_loop.body
+  {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
+  (chars : Slice Char) (ops : O) (negative : Bool) (index : Std.Usize)
+  (whole : T) (last_was_digit : Bool) :
+  Result (ControlFlow (Std.Usize × T × Bool) (Option (timing_number.Parts
+    T)))
+  := do
+  let i := Slice.len chars
+  if index < i
+  then
+    let c ← Slice.index_usize chars index
+    if c = '.'
+    then
+      if last_was_digit
+      then
+        let index1 ← index + 1#usize
+        let o ← timing_number.fraction DecimalOpsInst chars index1 ops
+        match o with
+        | none => ok (done none)
+        | some _ => ok (done (some { negative, whole, fraction := o }))
+      else ok (done none)
+    else
+      if c = '_'
+      then
+        if last_was_digit
+        then let index1 ← index + 1#usize
+             ok (cont (index1, whole, false))
+        else ok (done none)
+      else
+        let o ← natural_parser.decimal_digit c
+        match o with
+        | none => ok (done none)
+        | some digit =>
+          let whole1 ← DecimalOpsInst.append ops whole digit
+          let index1 ← index + 1#usize
+          ok (cont (index1, whole1, true))
+  else
+    if last_was_digit
+    then ok (done (some { negative, whole, fraction := none }))
+    else ok (done none)
+
+/-- [lnmai_core_verify::timing_number::parse]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 51:4-91:1
+    Visibility: public -/
+@[rust_loop]
+def timing_number.parse_loop
+  {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
+  (chars : Slice Char) (ops : O) (negative : Bool) (index : Std.Usize)
+  (whole : T) (last_was_digit : Bool) :
+  Result (Option (timing_number.Parts T))
+  := do
+  loop
+    (fun (index1, whole1, last_was_digit1) => timing_number.parse_loop.body
+      DecimalOpsInst chars ops negative index1 whole1 last_was_digit1)
+    (index, whole, last_was_digit)
+
+/-- [lnmai_core_verify::timing_number::parse]:
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 43:0-91:1
+    Visibility: public -/
+def timing_number.parse
+  {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
+  (chars : Slice Char) (ops : O) :
+  Result (Option (timing_number.Parts T))
+  := do
+  let b ← core.slice.Slice.is_empty chars
+  if b
+  then ok none
+  else
+    let c ← Slice.index_usize chars 0#usize
+    let (negative, index) ←
+      if c = '-'
+      then ok (true, 1#usize)
+      else ok (false, 0#usize)
+    let whole ← DecimalOpsInst.zero ops
+    timing_number.parse_loop DecimalOpsInst chars ops negative index whole
+      false
+
 /-- [lnmai_core_verify::timing_parser::prepend_open]: loop body 0:
     Source: 'crates/lnmai-core-verify/src/timing_parser.rs', lines 10:4-13:5 -/
 @[rust_loop_body]
@@ -12057,43 +13449,6 @@ def tokenize.is_touch_area_char (c : Char) : Result Bool := do
          else if c = 'D'
               then ok true
               else ok (c = 'E')
-
-/-- [lnmai_core_verify::tokenize::is_slide_mark_char]:
-    Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 8:0-21:1
-    Visibility: public -/
-def tokenize.is_slide_mark_char (c : Char) : Result Bool := do
-  if c = '-'
-  then ok true
-  else
-    if c = '^'
-    then ok true
-    else
-      if c = 'v'
-      then ok true
-      else
-        if c = '<'
-        then ok true
-        else
-          if c = '>'
-          then ok true
-          else
-            if c = 'V'
-            then ok true
-            else
-              if c = 'p'
-              then ok true
-              else
-                if c = 'q'
-                then ok true
-                else
-                  if c = 's'
-                  then ok true
-                  else
-                    if c = 'z'
-                    then ok true
-                    else if c = 'w'
-                         then ok true
-                         else ok (c = 'K')
 
 /-- [lnmai_core_verify::tokenize::split_top_level]: loop body 0:
     Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 30:4-45:5
@@ -12328,6 +13683,330 @@ def touch_automatic.process
   := do
   let len ← TouchAutomaticInst.length ops source
   touch_automatic.process_loop TouchAutomaticInst source work ops len 0#usize
+
+/-- Trait declaration: [lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 18:0-37:1
+    Visibility: public -/
+structure touch_hold_rebuild.TouchHoldRebuild (Self : Type) (S : Type) (B :
+  Type) (Id : Type) where
+  hold_length : Self → S → Result Std.Usize
+  hold_group_id : Self → S → Std.Usize → Result (Option Id)
+  hold_note_index : Self → S → Std.Usize → Result Id
+  hold_triggered : Self → S → Std.Usize → Result Bool
+  empty : Self → Result B
+  group_length : Self → B → Result Std.Usize
+  group_matches : Self → B → Std.Usize → Id → Result Bool
+  member_length : Self → B → Std.Usize → Result Std.Usize
+  member_matches : Self → B → Std.Usize → Std.Usize → Id → Result
+    Bool
+  trigger_length : Self → B → Std.Usize → Result Std.Usize
+  trigger_matches : Self → B → Std.Usize → Std.Usize → Id → Result
+    Bool
+  prepend_member : Self → B → Std.Usize → Id → Result B
+  prepend_trigger : Self → B → Std.Usize → Id → Result B
+  remove_trigger : Self → B → Std.Usize → Std.Usize → Result B
+  append_empty : Self → B → Id → Result B
+  swap_groups : Self → B → Std.Usize → Std.Usize → Result B
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_group]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 46:4-53:1
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_rebuild.find_group_loop.body
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B) (id : Id)
+  (ops : Ops) (len : Std.Usize) (index : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option Std.Usize))
+  := do
+  if index < len
+  then
+    let b ← TouchHoldRebuildInst.group_matches ops groups index id
+    if b
+    then ok (done (some index))
+    else let index1 ← index + 1#usize
+         ok (cont index1)
+  else ok (done none)
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_group]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 46:4-53:1
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_rebuild.find_group_loop
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B) (id : Id)
+  (ops : Ops) (len : Std.Usize) (index : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  loop
+    (fun index1 => touch_hold_rebuild.find_group_loop.body TouchHoldRebuildInst
+      groups id ops len index1)
+    index
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_group]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 40:0-53:1
+    Visibility: public -/
+def touch_hold_rebuild.find_group
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B) (id : Id)
+  (ops : Ops) :
+  Result (Option Std.Usize)
+  := do
+  let len ← TouchHoldRebuildInst.group_length ops groups
+  touch_hold_rebuild.find_group_loop TouchHoldRebuildInst groups id ops len
+    0#usize
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_member]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 61:4-68:1
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_rebuild.find_member_loop.body
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B)
+  (group : Std.Usize) (note : Id) (ops : Ops) (len : Std.Usize)
+  (index : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option Std.Usize))
+  := do
+  if index < len
+  then
+    let b ← TouchHoldRebuildInst.member_matches ops groups group index note
+    if b
+    then ok (done (some index))
+    else let index1 ← index + 1#usize
+         ok (cont index1)
+  else ok (done none)
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_member]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 61:4-68:1
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_rebuild.find_member_loop
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B)
+  (group : Std.Usize) (note : Id) (ops : Ops) (len : Std.Usize)
+  (index : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  loop
+    (fun index1 => touch_hold_rebuild.find_member_loop.body
+      TouchHoldRebuildInst groups group note ops len index1)
+    index
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_member]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 55:0-68:1
+    Visibility: public -/
+def touch_hold_rebuild.find_member
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B)
+  (group : Std.Usize) (note : Id) (ops : Ops) :
+  Result (Option Std.Usize)
+  := do
+  let len ← TouchHoldRebuildInst.member_length ops groups group
+  touch_hold_rebuild.find_member_loop TouchHoldRebuildInst groups group note
+    ops len 0#usize
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_trigger]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 76:4-83:1
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_rebuild.find_trigger_loop.body
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B)
+  (group : Std.Usize) (note : Id) (ops : Ops) (len : Std.Usize)
+  (index : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option Std.Usize))
+  := do
+  if index < len
+  then
+    let b ← TouchHoldRebuildInst.trigger_matches ops groups group index note
+    if b
+    then ok (done (some index))
+    else let index1 ← index + 1#usize
+         ok (cont index1)
+  else ok (done none)
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_trigger]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 76:4-83:1
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_rebuild.find_trigger_loop
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B)
+  (group : Std.Usize) (note : Id) (ops : Ops) (len : Std.Usize)
+  (index : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  loop
+    (fun index1 => touch_hold_rebuild.find_trigger_loop.body
+      TouchHoldRebuildInst groups group note ops len index1)
+    index
+
+/-- [lnmai_core_verify::touch_hold_rebuild::find_trigger]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 70:0-83:1
+    Visibility: public -/
+def touch_hold_rebuild.find_trigger
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B)
+  (group : Std.Usize) (note : Id) (ops : Ops) :
+  Result (Option Std.Usize)
+  := do
+  let len ← TouchHoldRebuildInst.trigger_length ops groups group
+  touch_hold_rebuild.find_trigger_loop TouchHoldRebuildInst groups group note
+    ops len 0#usize
+
+/-- [lnmai_core_verify::touch_hold_rebuild::upsert]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 87:0-117:1
+    Visibility: public -/
+def touch_hold_rebuild.upsert
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B) (id : Id)
+  (note : Id) (triggered : Bool) (ops : Ops) :
+  Result B
+  := do
+  let o ← touch_hold_rebuild.find_group TouchHoldRebuildInst groups id ops
+  match o with
+  | none =>
+    let group ← TouchHoldRebuildInst.group_length ops groups
+    let groups1 ← TouchHoldRebuildInst.append_empty ops groups id
+    let groups2 ← TouchHoldRebuildInst.prepend_member ops groups1 group note
+    if triggered
+    then TouchHoldRebuildInst.prepend_trigger ops groups2 group note
+    else ok groups2
+  | some group =>
+    let o1 ←
+      touch_hold_rebuild.find_member TouchHoldRebuildInst groups group note ops
+    let b := core.option.Option.is_none o1
+    let groups1 ←
+      if b
+      then TouchHoldRebuildInst.prepend_member ops groups group note
+      else ok groups
+    let trigger ←
+      touch_hold_rebuild.find_trigger TouchHoldRebuildInst groups1 group note
+        ops
+    if triggered
+    then
+      let b1 := core.option.Option.is_none trigger
+      if b1
+      then TouchHoldRebuildInst.prepend_trigger ops groups1 group note
+      else ok groups1
+    else
+      match trigger with
+      | none => ok groups1
+      | some index =>
+        TouchHoldRebuildInst.remove_trigger ops groups1 group index
+
+/-- [lnmai_core_verify::touch_hold_rebuild::reverse_groups]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 128:4-133:5
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_rebuild.reverse_groups_loop.body
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (ops : Ops) (len : Std.Usize)
+  (half : Std.Usize) (groups : B) (left : Std.Usize) :
+  Result (ControlFlow (B × Std.Usize) B)
+  := do
+  if left < half
+  then
+    let i ← len - 1#usize
+    let right ← i - left
+    let groups1 ← TouchHoldRebuildInst.swap_groups ops groups left right
+    let left1 ← left + 1#usize
+    ok (cont (groups1, left1))
+  else ok (done groups)
+
+/-- [lnmai_core_verify::touch_hold_rebuild::reverse_groups]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 128:4-133:5
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_rebuild.reverse_groups_loop
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B) (ops : Ops)
+  (len : Std.Usize) (half : Std.Usize) (left : Std.Usize) :
+  Result B
+  := do
+  loop
+    (fun (groups1, left1) => touch_hold_rebuild.reverse_groups_loop.body
+      TouchHoldRebuildInst ops len half groups1 left1)
+    (groups, left)
+
+/-- [lnmai_core_verify::touch_hold_rebuild::reverse_groups]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 121:0-135:1
+    Visibility: public -/
+def touch_hold_rebuild.reverse_groups
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (groups : B) (ops : Ops) :
+  Result B
+  := do
+  let len ← TouchHoldRebuildInst.group_length ops groups
+  let half ← len / 2#usize
+  touch_hold_rebuild.reverse_groups_loop TouchHoldRebuildInst groups ops len
+    half 0#usize
+
+/-- [lnmai_core_verify::touch_hold_rebuild::rebuild_from]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 146:4-153:5
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_rebuild.rebuild_from_loop.body
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (holds : S) (ops : Ops)
+  (len : Std.Usize) (groups : B) (index : Std.Usize) :
+  Result (ControlFlow (B × Std.Usize) B)
+  := do
+  if index < len
+  then
+    let o ← TouchHoldRebuildInst.hold_group_id ops holds index
+    let groups1 ←
+      match o with
+      | none => ok groups
+      | some id =>
+        do
+        let note ← TouchHoldRebuildInst.hold_note_index ops holds index
+        let triggered ← TouchHoldRebuildInst.hold_triggered ops holds index
+        touch_hold_rebuild.upsert TouchHoldRebuildInst groups id note triggered
+          ops
+    let index1 ← index + 1#usize
+    ok (cont (groups1, index1))
+  else ok (done groups)
+
+/-- [lnmai_core_verify::touch_hold_rebuild::rebuild_from]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 146:4-153:5
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_rebuild.rebuild_from_loop
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (holds : S) (groups : B)
+  (ops : Ops) (len : Std.Usize) (index : Std.Usize) :
+  Result B
+  := do
+  loop
+    (fun (groups1, index1) => touch_hold_rebuild.rebuild_from_loop.body
+      TouchHoldRebuildInst holds ops len groups1 index1)
+    (groups, index)
+
+/-- [lnmai_core_verify::touch_hold_rebuild::rebuild_from]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 140:0-155:1
+    Visibility: public -/
+def touch_hold_rebuild.rebuild_from
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (holds : S) (groups : B)
+  (ops : Ops) :
+  Result B
+  := do
+  let len ← TouchHoldRebuildInst.hold_length ops holds
+  let groups1 ←
+    touch_hold_rebuild.rebuild_from_loop TouchHoldRebuildInst holds groups ops
+      len 0#usize
+  touch_hold_rebuild.reverse_groups TouchHoldRebuildInst groups1 ops
+
+/-- [lnmai_core_verify::touch_hold_rebuild::rebuild]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 158:0-164:1
+    Visibility: public -/
+def touch_hold_rebuild.rebuild
+  {S : Type} {B : Type} {Id : Type} {Ops : Type} (TouchHoldRebuildInst :
+  touch_hold_rebuild.TouchHoldRebuild Ops S B Id) (holds : S) (ops : Ops) :
+  Result B
+  := do
+  let groups ← TouchHoldRebuildInst.empty ops
+  touch_hold_rebuild.rebuild_from TouchHoldRebuildInst holds groups ops
 
 /-- [lnmai_core_verify::touch_hold_schedule::TouchHoldWork]
     Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 7:0-15:1

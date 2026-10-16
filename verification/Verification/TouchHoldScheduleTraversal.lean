@@ -214,7 +214,8 @@ theorem finish_native_spec (atoms : AtomicAgrees call ops rep ctx cap)
   refine ⟨next, ?_, ?_⟩
   · dsimp only [entered] at hfront
     simp only [finishNative, atoms.phase, entered_phase, hfront, hq, hg, ended_phase,
-      hb, hactive, hevents, bind_tc_ok, uncurry_apply_pair, next]
+      hb, hactive, bind_tc_ok, uncurry_apply_pair, next]
+    cases event <;> simp only [] at hevents ⊢ <;> rw [hevents] <;> rfl
   · simp only [interpret, next, advance, hfrontRep, hqRep, hgRep, hbRep,
       hactiveRep, heventsRep, entered]
 
