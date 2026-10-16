@@ -25,6 +25,54 @@ use crate::simai::syntax::{
 use crate::simai::timing::note_timing_increment;
 use crate::time::{time_point_add_duration, Duration, TimePoint};
 use crate::types::SlideKind;
+use lnmai_core_verify::normalization::{self as normalize_kernel, NotePlan};
+
+fn normalization_kind(kind: RawNoteKind) -> normalize_kernel::NoteKind {
+    use normalize_kernel::NoteKind as K;
+    match kind {
+        RawNoteKind::Tap => K::Tap,
+        RawNoteKind::Hold => K::Hold,
+        RawNoteKind::Slide => K::Slide,
+        RawNoteKind::Touch => K::Touch,
+        RawNoteKind::TouchHold => K::TouchHold,
+        RawNoteKind::Rest => K::Rest,
+        RawNoteKind::Unknown => K::Unknown,
+    }
+}
+
+fn normalization_flags(token: &RawNoteToken) -> normalize_kernel::RawFlags {
+    normalize_kernel::RawFlags {
+        is_break: token.is_break,
+        is_ex: token.is_ex,
+        is_hanabi: token.is_hanabi,
+        is_slide_no_head: token.is_slide_no_head,
+        is_force_star: token.is_force_star,
+        is_fake_rotate: token.is_fake_rotate,
+        is_slide_break: token.is_slide_break,
+    }
+}
+
+struct NormalizationShapeKind;
+
+impl normalize_kernel::ShapeKind<crate::simai::syntax::SlideShape> for NormalizationShapeKind {
+    fn kind(&self, shape: &crate::simai::syntax::SlideShape) -> ShapeSlideKind {
+        shape_kind(shape)
+    }
+}
+
+struct NormalizationTrackWrite;
+
+impl normalize_kernel::TrackWrite<Vec<SlideAreaSpec>> for NormalizationTrackWrite {
+    fn set_skippable(
+        &self,
+        mut queue: Vec<SlideAreaSpec>,
+        index: usize,
+        value: bool,
+    ) -> Vec<SlideAreaSpec> {
+        queue[index].is_skippable = value;
+        queue
+    }
+}
 
 fn total_judge_queue_len(queues: &[Vec<SlideAreaSpec>]) -> usize {
     queues.iter().map(|q| q.len()).max().unwrap_or(0)
@@ -34,40 +82,15 @@ fn apply_single_track_conn_rules_normalized(
     slide: &NormalizedSlide,
     queue: &[SlideAreaSpec],
 ) -> Vec<SlideAreaSpec> {
-    if !slide.is_conn_slide {
-        queue.to_vec()
-    } else if slide.total_judge_queue_len < 4 {
-        match queue {
-            [] => Vec::new(),
-            [single] => {
-                vec![SlideAreaSpec {
-                    is_skippable: slide.is_group_head || slide.is_group_end,
-                    ..single.clone()
-                }]
-            }
-            [first, second, rest @ ..] => {
-                let mut out = Vec::with_capacity(queue.len());
-                out.push(SlideAreaSpec {
-                    is_skippable: slide.is_group_head,
-                    ..first.clone()
-                });
-                out.push(SlideAreaSpec {
-                    is_skippable: slide.is_group_end,
-                    ..second.clone()
-                });
-                out.extend_from_slice(rest);
-                out
-            }
-        }
-    } else {
-        queue
-            .iter()
-            .map(|area| SlideAreaSpec {
-                is_skippable: true,
-                ..area.clone()
-            })
-            .collect()
-    }
+    normalize_kernel::normalize_track(
+        slide.is_conn_slide,
+        slide.total_judge_queue_len < 4,
+        slide.is_group_head,
+        slide.is_group_end,
+        queue.len(),
+        queue.to_vec(),
+        NormalizationTrackWrite,
+    )
 }
 
 fn attach_judge_queues(slide: &NormalizedSlide) -> NormalizedSlide {
@@ -120,14 +143,34 @@ pub fn lower_slide_token_with_mode(
     note_index: Natural,
     token: &RawNoteToken,
 ) -> Option<(NormalizedSlide, SlideNoteSemantics)> {
+    // Direct calls deliberately do not inspect token.kind.
     let slot = token.slot?;
+    lower_slide_token_at_slot(
+        is_classic,
+        note_index,
+        token,
+        slot,
+        normalization_flags(token),
+    )
+}
+
+/// Slot comes from the plan or public wrapper's Some guard.
+/// Parsing and exact-time operations retain their original order.
+fn lower_slide_token_at_slot(
+    is_classic: bool,
+    note_index: Natural,
+    token: &RawNoteToken,
+    slot: crate::areas::OuterSlot,
+    flags: normalize_kernel::RawFlags,
+) -> Option<(NormalizedSlide, SlideNoteSemantics)> {
     let end_area = parse_terminal_end_area(&token.raw_text).ok()?;
     let parsed = match &token.slide_body {
         Some(body) => parse_slide_note_from_body(&token.raw_text, body, end_area),
         None => parse_slide_note(&token.raw_text, slot, end_area),
     }
     .ok()?;
-    let is_wifi = shape_kind(&parsed.shape) == ShapeSlideKind::Wifi;
+    let layout =
+        normalize_kernel::slide_layout(&parsed.shape, flags, is_classic, NormalizationShapeKind);
     let length = token.length.clone().unwrap_or_else(|| {
         note_timing_increment(token.bpm.clone(), token.divisor.clone().max((1).into()))
     });
@@ -144,31 +187,33 @@ pub fn lower_slide_token_with_mode(
         slot,
         length,
         start_timing,
+        group_start_timing: None,
         h_speed: token.h_speed.clone(),
-        slide_kind: if is_wifi {
-            SlideKind::Wifi
-        } else {
-            SlideKind::Single
-        },
-        is_classic,
-        track_count: if is_wifi { (3).into() } else { (1).into() },
+        slide_kind: layout.slide_kind,
+        is_classic: layout.is_classic,
+        track_count: layout.track_count.into(),
         judge_at: Some(judge_at),
-        is_break: token.is_break,
-        is_ex: token.is_ex,
-        is_hanabi: token.is_hanabi,
-        has_head_note: !token.is_slide_no_head,
-        has_body: true,
-        is_slide_no_head: token.is_slide_no_head,
-        is_force_star: token.is_force_star,
-        is_fake_rotate: token.is_fake_rotate,
-        is_slide_break: token.is_slide_break,
+        is_break: layout.flags.is_break,
+        is_ex: layout.flags.is_ex,
+        is_hanabi: layout.flags.is_hanabi,
+        has_head_note: layout.has_head_note,
+        has_body: layout.has_body,
+        is_slide_no_head: layout.flags.is_slide_no_head,
+        is_force_star: layout.flags.is_force_star,
+        is_fake_rotate: layout.flags.is_fake_rotate,
+        is_slide_break: layout.flags.is_slide_break,
+        is_conn_slide: layout.is_conn_slide,
+        parent_note_index: None,
+        is_group_head: layout.is_group_head,
+        is_group_end: layout.is_group_end,
+        total_judge_queue_len: layout.total_judge_queue_len.into(),
+        judge_queues: Vec::new(),
         source_group_id: token.source_group_id.clone(),
         source_group_index: token.source_group_index.clone(),
         source_group_size: token.source_group_size.clone(),
-        multiple: 1.into(),
+        multiple: layout.multiple.into(),
         note_index,
         simai_shape: parsed.shape.clone(),
-        ..NormalizedSlide::default()
     };
     Some((slide, parsed))
 }
@@ -411,76 +456,75 @@ pub fn lower_raw_tokens_with_mode(
     let mut slide_semantics: Vec<SlideNoteSemantics> = Vec::new();
 
     for token in tokens {
-        match token.kind {
-            RawNoteKind::Tap => {
-                if let Some(slot) = token.slot {
-                    taps.push(NormalizedTap {
-                        timing: token.timing.clone(),
-                        slot,
-                        is_break: token.is_break,
-                        is_ex: token.is_ex,
-                        is_hanabi: token.is_hanabi,
-                        is_force_star: token.is_force_star,
-                        note_index: note_index.clone(),
-                    });
-                    note_index += 1;
-                }
+        let plan = normalize_kernel::plan_note(
+            normalization_kind(token.kind),
+            token.slot,
+            token.sensor_pos,
+            normalization_flags(token),
+        );
+        match plan {
+            NotePlan::Skip => {}
+            NotePlan::Tap(slot, flags) => {
+                taps.push(NormalizedTap {
+                    timing: token.timing.clone(),
+                    slot,
+                    is_break: flags.is_break,
+                    is_ex: flags.is_ex,
+                    is_hanabi: flags.is_hanabi,
+                    is_force_star: flags.is_force_star,
+                    note_index: note_index.clone(),
+                });
+                note_index += 1;
             }
-            RawNoteKind::Hold => {
-                if let Some(slot) = token.slot {
-                    holds.push(NormalizedHold {
-                        timing: token.timing.clone(),
-                        slot,
-                        length: token
-                            .length
-                            .clone()
-                            .unwrap_or_else(|| measure_dur_sec(token.bpm.clone())),
-                        is_break: token.is_break,
-                        is_ex: token.is_ex,
-                        is_hanabi: token.is_hanabi,
-                        note_index: note_index.clone(),
-                    });
-                    note_index += 1;
-                }
+            NotePlan::Hold(slot, flags) => {
+                holds.push(NormalizedHold {
+                    timing: token.timing.clone(),
+                    slot,
+                    length: token
+                        .length
+                        .clone()
+                        .unwrap_or_else(|| measure_dur_sec(token.bpm.clone())),
+                    is_break: flags.is_break,
+                    is_ex: flags.is_ex,
+                    is_hanabi: flags.is_hanabi,
+                    note_index: note_index.clone(),
+                });
+                note_index += 1;
             }
-            RawNoteKind::Touch => {
-                if let Some(sensor_pos) = token.sensor_pos {
-                    touches.push(NormalizedTouch {
-                        timing: token.timing.clone(),
-                        sensor_pos,
-                        is_break: token.is_break,
-                        is_hanabi: token.is_hanabi,
-                        source_group_id: token.source_group_id.clone(),
-                        source_group_index: token.source_group_index.clone(),
-                        source_group_size: token.source_group_size.clone(),
-                        note_index: note_index.clone(),
-                    });
-                    note_index += 1;
-                }
+            NotePlan::Touch(sensor_pos, flags) => {
+                touches.push(NormalizedTouch {
+                    timing: token.timing.clone(),
+                    sensor_pos,
+                    is_break: flags.is_break,
+                    is_hanabi: flags.is_hanabi,
+                    source_group_id: token.source_group_id.clone(),
+                    source_group_index: token.source_group_index.clone(),
+                    source_group_size: token.source_group_size.clone(),
+                    note_index: note_index.clone(),
+                });
+                note_index += 1;
             }
-            RawNoteKind::TouchHold => {
-                if let Some(sensor_pos) = token.sensor_pos {
-                    touch_holds.push(NormalizedTouchHold {
-                        timing: token.timing.clone(),
-                        sensor_pos,
-                        length: token
-                            .length
-                            .clone()
-                            .unwrap_or_else(|| measure_dur_sec(token.bpm.clone())),
-                        is_break: token.is_break,
-                        is_ex: token.is_ex,
-                        is_hanabi: token.is_hanabi,
-                        source_group_id: token.source_group_id.clone(),
-                        source_group_index: token.source_group_index.clone(),
-                        source_group_size: token.source_group_size.clone(),
-                        note_index: note_index.clone(),
-                    });
-                    note_index += 1;
-                }
+            NotePlan::TouchHold(sensor_pos, flags) => {
+                touch_holds.push(NormalizedTouchHold {
+                    timing: token.timing.clone(),
+                    sensor_pos,
+                    length: token
+                        .length
+                        .clone()
+                        .unwrap_or_else(|| measure_dur_sec(token.bpm.clone())),
+                    is_break: flags.is_break,
+                    is_ex: flags.is_ex,
+                    is_hanabi: flags.is_hanabi,
+                    source_group_id: token.source_group_id.clone(),
+                    source_group_index: token.source_group_index.clone(),
+                    source_group_size: token.source_group_size.clone(),
+                    note_index: note_index.clone(),
+                });
+                note_index += 1;
             }
-            RawNoteKind::Slide => {
+            NotePlan::Slide(slot, flags) => {
                 if let Some((slide, parsed)) =
-                    lower_slide_token_with_mode(is_classic, note_index.clone(), token)
+                    lower_slide_token_at_slot(is_classic, note_index.clone(), token, slot, flags)
                 {
                     slides.push(slide);
                     slide_debug.push(NormalizedSlideDebug {
@@ -491,7 +535,6 @@ pub fn lower_raw_tokens_with_mode(
                     note_index += 1;
                 }
             }
-            _ => {}
         }
     }
 

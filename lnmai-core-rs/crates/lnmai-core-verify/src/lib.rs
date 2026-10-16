@@ -34,6 +34,11 @@ pub mod time;
 pub mod timing_aggregate;
 pub mod timing_parser;
 pub mod tokenize;
+pub mod touch_schedule;
 pub mod types;
 
 pub mod hold_schedule;
+
+pub mod normalization;
+pub mod touch_automatic;
+pub mod touch_hold_schedule;

@@ -4754,6 +4754,525 @@ def natural_parser.parse_decimal
   natural_parser.parse_decimal_loop coreopsfunctionFnFPairTU8TInst chars append
     value false 0#usize
 
+/-- [lnmai_core_verify::normalization::NoteKind]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 10:0-18:1
+    Visibility: public -/
+@[discriminant isize]
+inductive normalization.NoteKind where
+| Tap : normalization.NoteKind
+| Hold : normalization.NoteKind
+| Slide : normalization.NoteKind
+| Touch : normalization.NoteKind
+| TouchHold : normalization.NoteKind
+| Rest : normalization.NoteKind
+| Unknown : normalization.NoteKind
+
+/-- [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::NoteKind}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 9:9-9:14
+    Visibility: public -/
+def normalization.NoteKind.Insts.CoreFmtDebug.fmt
+  (self : normalization.NoteKind) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | normalization.NoteKind.Tap => core.fmt.Formatter.write_str f (toStr "Tap")
+  | normalization.NoteKind.Hold =>
+    core.fmt.Formatter.write_str f (toStr "Hold")
+  | normalization.NoteKind.Slide =>
+    core.fmt.Formatter.write_str f (toStr "Slide")
+  | normalization.NoteKind.Touch =>
+    core.fmt.Formatter.write_str f (toStr "Touch")
+  | normalization.NoteKind.TouchHold =>
+    core.fmt.Formatter.write_str f (toStr "TouchHold")
+  | normalization.NoteKind.Rest =>
+    core.fmt.Formatter.write_str f (toStr "Rest")
+  | normalization.NoteKind.Unknown =>
+    core.fmt.Formatter.write_str f (toStr "Unknown")
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::NoteKind}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 9:9-9:14 -/
+@[reducible]
+def normalization.NoteKind.Insts.CoreFmtDebug : core.fmt.Debug
+  normalization.NoteKind := {
+  fmt := normalization.NoteKind.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::NoteKind}::clone]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 9:16-9:21
+    Visibility: public -/
+def normalization.NoteKind.Insts.CoreCloneClone.clone
+  (self : normalization.NoteKind) : Result normalization.NoteKind := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::NoteKind}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 9:16-9:21 -/
+@[reducible]
+def normalization.NoteKind.Insts.CoreCloneClone : core.clone.Clone
+  normalization.NoteKind := {
+  clone := normalization.NoteKind.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::marker::Copy for lnmai_core_verify::normalization::NoteKind}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 9:23-9:27 -/
+@[reducible]
+def normalization.NoteKind.Insts.CoreMarkerCopy : core.marker.Copy
+  normalization.NoteKind := {
+  cloneInst := normalization.NoteKind.Insts.CoreCloneClone
+}
+
+/-- [lnmai_core_verify::normalization::RawFlags]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 21:0-29:1
+    Visibility: public -/
+structure normalization.RawFlags where
+  is_break : Bool
+  is_ex : Bool
+  is_hanabi : Bool
+  is_slide_no_head : Bool
+  is_force_star : Bool
+  is_fake_rotate : Bool
+  is_slide_break : Bool
+
+/-- [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::RawFlags}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 20:9-20:14
+    Visibility: public -/
+def normalization.RawFlags.Insts.CoreFmtDebug.fmt
+  (self : normalization.RawFlags) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugBool self.is_break
+  let dyn1 := Dyn.mk _ core.fmt.DebugBool self.is_ex
+  let dyn2 := Dyn.mk _ core.fmt.DebugBool self.is_hanabi
+  let dyn3 := Dyn.mk _ core.fmt.DebugBool self.is_slide_no_head
+  let dyn4 := Dyn.mk _ core.fmt.DebugBool self.is_force_star
+  let dyn5 := Dyn.mk _ core.fmt.DebugBool self.is_fake_rotate
+  let dyn6 :=
+    Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugBool) self.is_slide_break
+  let values :=
+    Array.to_slice
+      (Array.make 7#usize [ dyn, dyn1, dyn2, dyn3, dyn4, dyn5, dyn6 ])
+  let s ←
+    lift (Array.to_slice
+      (Array.make 7#usize [
+        toStr "is_break", toStr "is_ex", toStr "is_hanabi", toStr
+        "is_slide_no_head", toStr "is_force_star", toStr "is_fake_rotate",
+        toStr "is_slide_break"
+        ]))
+  core.fmt.Formatter.debug_struct_fields_finish f (toStr "RawFlags") s values
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::RawFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 20:9-20:14 -/
+@[reducible]
+def normalization.RawFlags.Insts.CoreFmtDebug : core.fmt.Debug
+  normalization.RawFlags := {
+  fmt := normalization.RawFlags.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::RawFlags}::clone]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 20:16-20:21
+    Visibility: public -/
+def normalization.RawFlags.Insts.CoreCloneClone.clone
+  (self : normalization.RawFlags) : Result normalization.RawFlags := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::RawFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 20:16-20:21 -/
+@[reducible]
+def normalization.RawFlags.Insts.CoreCloneClone : core.clone.Clone
+  normalization.RawFlags := {
+  clone := normalization.RawFlags.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::marker::Copy for lnmai_core_verify::normalization::RawFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 20:23-20:27 -/
+@[reducible]
+def normalization.RawFlags.Insts.CoreMarkerCopy : core.marker.Copy
+  normalization.RawFlags := {
+  cloneInst := normalization.RawFlags.Insts.CoreCloneClone
+}
+
+/-- [lnmai_core_verify::normalization::TapFlags]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 32:0-37:1
+    Visibility: public -/
+structure normalization.TapFlags where
+  is_break : Bool
+  is_ex : Bool
+  is_hanabi : Bool
+  is_force_star : Bool
+
+/-- [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::TapFlags}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 31:9-31:14
+    Visibility: public -/
+def normalization.TapFlags.Insts.CoreFmtDebug.fmt
+  (self : normalization.TapFlags) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugBool self.is_break
+  let dyn1 := Dyn.mk _ core.fmt.DebugBool self.is_ex
+  let dyn2 := Dyn.mk _ core.fmt.DebugBool self.is_hanabi
+  let dyn3 :=
+    Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugBool) self.is_force_star
+  core.fmt.Formatter.debug_struct_field4_finish f (toStr "TapFlags") (toStr
+    "is_break") dyn (toStr "is_ex") dyn1 (toStr "is_hanabi") dyn2 (toStr
+    "is_force_star") dyn3
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::TapFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 31:9-31:14 -/
+@[reducible]
+def normalization.TapFlags.Insts.CoreFmtDebug : core.fmt.Debug
+  normalization.TapFlags := {
+  fmt := normalization.TapFlags.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::TapFlags}::clone]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 31:16-31:21
+    Visibility: public -/
+def normalization.TapFlags.Insts.CoreCloneClone.clone
+  (self : normalization.TapFlags) : Result normalization.TapFlags := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::TapFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 31:16-31:21 -/
+@[reducible]
+def normalization.TapFlags.Insts.CoreCloneClone : core.clone.Clone
+  normalization.TapFlags := {
+  clone := normalization.TapFlags.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::marker::Copy for lnmai_core_verify::normalization::TapFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 31:23-31:27 -/
+@[reducible]
+def normalization.TapFlags.Insts.CoreMarkerCopy : core.marker.Copy
+  normalization.TapFlags := {
+  cloneInst := normalization.TapFlags.Insts.CoreCloneClone
+}
+
+/-- [lnmai_core_verify::normalization::HoldFlags]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 40:0-44:1
+    Visibility: public -/
+structure normalization.HoldFlags where
+  is_break : Bool
+  is_ex : Bool
+  is_hanabi : Bool
+
+/-- [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::HoldFlags}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 39:9-39:14
+    Visibility: public -/
+def normalization.HoldFlags.Insts.CoreFmtDebug.fmt
+  (self : normalization.HoldFlags) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugBool self.is_break
+  let dyn1 := Dyn.mk _ core.fmt.DebugBool self.is_ex
+  let dyn2 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugBool) self.is_hanabi
+  core.fmt.Formatter.debug_struct_field3_finish f (toStr "HoldFlags") (toStr
+    "is_break") dyn (toStr "is_ex") dyn1 (toStr "is_hanabi") dyn2
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::HoldFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 39:9-39:14 -/
+@[reducible]
+def normalization.HoldFlags.Insts.CoreFmtDebug : core.fmt.Debug
+  normalization.HoldFlags := {
+  fmt := normalization.HoldFlags.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::HoldFlags}::clone]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 39:16-39:21
+    Visibility: public -/
+def normalization.HoldFlags.Insts.CoreCloneClone.clone
+  (self : normalization.HoldFlags) : Result normalization.HoldFlags := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::HoldFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 39:16-39:21 -/
+@[reducible]
+def normalization.HoldFlags.Insts.CoreCloneClone : core.clone.Clone
+  normalization.HoldFlags := {
+  clone := normalization.HoldFlags.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::marker::Copy for lnmai_core_verify::normalization::HoldFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 39:23-39:27 -/
+@[reducible]
+def normalization.HoldFlags.Insts.CoreMarkerCopy : core.marker.Copy
+  normalization.HoldFlags := {
+  cloneInst := normalization.HoldFlags.Insts.CoreCloneClone
+}
+
+/-- [lnmai_core_verify::normalization::TouchFlags]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 47:0-50:1
+    Visibility: public -/
+structure normalization.TouchFlags where
+  is_break : Bool
+  is_hanabi : Bool
+
+/-- [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::TouchFlags}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 46:9-46:14
+    Visibility: public -/
+def normalization.TouchFlags.Insts.CoreFmtDebug.fmt
+  (self : normalization.TouchFlags) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugBool self.is_break
+  let dyn1 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugBool) self.is_hanabi
+  core.fmt.Formatter.debug_struct_field2_finish f (toStr "TouchFlags") (toStr
+    "is_break") dyn (toStr "is_hanabi") dyn1
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::fmt::Debug for lnmai_core_verify::normalization::TouchFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 46:9-46:14 -/
+@[reducible]
+def normalization.TouchFlags.Insts.CoreFmtDebug : core.fmt.Debug
+  normalization.TouchFlags := {
+  fmt := normalization.TouchFlags.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::TouchFlags}::clone]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 46:16-46:21
+    Visibility: public -/
+def normalization.TouchFlags.Insts.CoreCloneClone.clone
+  (self : normalization.TouchFlags) : Result normalization.TouchFlags := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::clone::Clone for lnmai_core_verify::normalization::TouchFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 46:16-46:21 -/
+@[reducible]
+def normalization.TouchFlags.Insts.CoreCloneClone : core.clone.Clone
+  normalization.TouchFlags := {
+  clone := normalization.TouchFlags.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::normalization::{impl core::marker::Copy for lnmai_core_verify::normalization::TouchFlags}]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 46:23-46:27 -/
+@[reducible]
+def normalization.TouchFlags.Insts.CoreMarkerCopy : core.marker.Copy
+  normalization.TouchFlags := {
+  cloneInst := normalization.TouchFlags.Insts.CoreCloneClone
+}
+
+/-- [lnmai_core_verify::normalization::NotePlan]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 54:0-61:1
+    Visibility: public -/
+@[discriminant isize]
+inductive normalization.NotePlan (Slot : Type) (Sensor : Type) where
+| Skip : normalization.NotePlan Slot Sensor
+| Tap : Slot → normalization.TapFlags → normalization.NotePlan Slot Sensor
+| Hold :
+  Slot →
+  normalization.HoldFlags →
+  normalization.NotePlan Slot Sensor
+| Touch :
+  Sensor →
+  normalization.TouchFlags →
+  normalization.NotePlan Slot Sensor
+| TouchHold :
+  Sensor →
+  normalization.HoldFlags →
+  normalization.NotePlan Slot Sensor
+| Slide :
+  Slot →
+  normalization.RawFlags →
+  normalization.NotePlan Slot Sensor
+
+/-- [lnmai_core_verify::normalization::plan_note]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 65:0-122:1
+    Visibility: public -/
+def normalization.plan_note
+  {Slot : Type} {Sensor : Type} (kind : normalization.NoteKind)
+  (slot : Option Slot) (sensor : Option Sensor)
+  (flags : normalization.RawFlags) :
+  Result (normalization.NotePlan Slot Sensor)
+  := do
+  match kind with
+  | normalization.NoteKind.Tap =>
+    match slot with
+    | none => ok normalization.NotePlan.Skip
+    | some slot1 =>
+      ok (normalization.NotePlan.Tap slot1
+        {
+          is_break := flags.is_break,
+          is_ex := flags.is_ex,
+          is_hanabi := flags.is_hanabi,
+          is_force_star := flags.is_force_star
+        })
+  | normalization.NoteKind.Hold =>
+    match slot with
+    | none => ok normalization.NotePlan.Skip
+    | some slot1 =>
+      ok (normalization.NotePlan.Hold slot1
+        {
+          is_break := flags.is_break,
+          is_ex := flags.is_ex,
+          is_hanabi := flags.is_hanabi
+        })
+  | normalization.NoteKind.Slide =>
+    match slot with
+    | none => ok normalization.NotePlan.Skip
+    | some slot1 => ok (normalization.NotePlan.Slide slot1 flags)
+  | normalization.NoteKind.Touch =>
+    match sensor with
+    | none => ok normalization.NotePlan.Skip
+    | some sensor1 =>
+      ok (normalization.NotePlan.Touch sensor1
+        { is_break := flags.is_break, is_hanabi := flags.is_hanabi })
+  | normalization.NoteKind.TouchHold =>
+    match sensor with
+    | none => ok normalization.NotePlan.Skip
+    | some sensor1 =>
+      ok (normalization.NotePlan.TouchHold sensor1
+        {
+          is_break := flags.is_break,
+          is_ex := flags.is_ex,
+          is_hanabi := flags.is_hanabi
+        })
+  | normalization.NoteKind.Rest => ok normalization.NotePlan.Skip
+  | normalization.NoteKind.Unknown => ok normalization.NotePlan.Skip
+
+/-- [lnmai_core_verify::shape::SlideKind]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 8:0-18:1
+    Visibility: public -/
+@[discriminant isize]
+inductive shape.SlideKind where
+| Line : shape.SlideKind
+| Circle : shape.SlideKind
+| V : shape.SlideKind
+| Turn : shape.SlideKind
+| Pq : shape.SlideKind
+| Ppqq : shape.SlideKind
+| S : shape.SlideKind
+| Wifi : shape.SlideKind
+
+/-- Trait declaration: [lnmai_core_verify::normalization::ShapeKind]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 125:0-127:1
+    Visibility: public -/
+structure normalization.ShapeKind (Self : Type) (Shape : Type) where
+  kind : Self → Shape → Result shape.SlideKind
+
+/-- [lnmai_core_verify::types::SlideKind]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 155:0-160:1
+    Visibility: public -/
+@[discriminant isize]
+inductive types.SlideKind where
+| Single : types.SlideKind
+| Wifi : types.SlideKind
+| ConnPart : types.SlideKind
+
+/-- [lnmai_core_verify::normalization::SlideLayout]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 129:0-141:1
+    Visibility: public -/
+structure normalization.SlideLayout where
+  flags : normalization.RawFlags
+  slide_kind : types.SlideKind
+  track_count : Std.Usize
+  is_classic : Bool
+  has_head_note : Bool
+  has_body : Bool
+  is_conn_slide : Bool
+  is_group_head : Bool
+  is_group_end : Bool
+  total_judge_queue_len : Std.Usize
+  multiple : Std.Usize
+
+/-- [lnmai_core_verify::normalization::slide_layout]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 146:0-173:1
+    Visibility: public -/
+def normalization.slide_layout
+  {Shape : Type} {Ops : Type} (ShapeKindInst : normalization.ShapeKind Ops
+  Shape) (input_shape : Shape) (flags : normalization.RawFlags)
+  (is_classic : Bool) (ops : Ops) :
+  Result normalization.SlideLayout
+  := do
+  let sk ← ShapeKindInst.kind ops input_shape
+  let (slide_kind, track_count) ←
+    match sk with
+    | shape.SlideKind.Line => ok (types.SlideKind.Single, 1#usize)
+    | shape.SlideKind.Circle => ok (types.SlideKind.Single, 1#usize)
+    | shape.SlideKind.V => ok (types.SlideKind.Single, 1#usize)
+    | shape.SlideKind.Turn => ok (types.SlideKind.Single, 1#usize)
+    | shape.SlideKind.Pq => ok (types.SlideKind.Single, 1#usize)
+    | shape.SlideKind.Ppqq => ok (types.SlideKind.Single, 1#usize)
+    | shape.SlideKind.S => ok (types.SlideKind.Single, 1#usize)
+    | shape.SlideKind.Wifi => ok (types.SlideKind.Wifi, 3#usize)
+  ok
+    {
+      flags,
+      slide_kind,
+      track_count,
+      is_classic,
+      has_head_note := (¬ flags.is_slide_no_head),
+      has_body := true,
+      is_conn_slide := false,
+      is_group_head := false,
+      is_group_end := false,
+      total_judge_queue_len := 0#usize,
+      multiple := 1#usize
+    }
+
+/-- Trait declaration: [lnmai_core_verify::normalization::TrackWrite]
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 177:0-179:1
+    Visibility: public -/
+structure normalization.TrackWrite (Self : Type) (Q : Type) where
+  set_skippable : Self → Q → Std.Usize → Bool → Result Q
+
+/-- [lnmai_core_verify::normalization::normalize_track]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 212:8-216:9
+    Visibility: public -/
+@[rust_loop_body]
+def normalization.normalize_track_loop.body
+  {Q : Type} {Ops : Type} (TrackWriteInst : normalization.TrackWrite Ops Q)
+  (len : Std.Usize) (ops : Ops) (queue : Q) (index : Std.Usize) :
+  Result (ControlFlow (Q × Std.Usize) Q)
+  := do
+  if index < len
+  then
+    let queue1 ← TrackWriteInst.set_skippable ops queue index true
+    let index1 ← index + 1#usize
+    ok (cont (queue1, index1))
+  else ok (done queue)
+
+/-- [lnmai_core_verify::normalization::normalize_track]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 212:8-216:9
+    Visibility: public -/
+@[rust_loop]
+def normalization.normalize_track_loop
+  {Q : Type} {Ops : Type} (TrackWriteInst : normalization.TrackWrite Ops Q)
+  (len : Std.Usize) (queue : Q) (ops : Ops) (index : Std.Usize) :
+  Result Q
+  := do
+  loop
+    (fun (queue1, index1) => normalization.normalize_track_loop.body
+      TrackWriteInst len ops queue1 index1)
+    (queue, index)
+
+/-- [lnmai_core_verify::normalization::normalize_track]:
+    Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 186:0-219:1
+    Visibility: public -/
+def normalization.normalize_track
+  {Q : Type} {Ops : Type} (TrackWriteInst : normalization.TrackWrite Ops Q)
+  (is_conn_slide : Bool) (total_lt_four : Bool) (is_group_head : Bool)
+  (is_group_end : Bool) (len : Std.Usize) (queue : Q) (ops : Ops) :
+  Result Q
+  := do
+  if is_conn_slide
+  then
+    if total_lt_four
+    then
+      if len = 0#usize
+      then ok queue
+      else
+        if len = 1#usize
+        then
+          let is_group_end1 ←
+            if is_group_head
+            then ok true
+            else ok is_group_end
+          TrackWriteInst.set_skippable ops queue 0#usize is_group_end1
+        else
+          let queue1 ←
+            TrackWriteInst.set_skippable ops queue 0#usize is_group_head
+          TrackWriteInst.set_skippable ops queue1 1#usize is_group_end
+    else
+      normalization.normalize_track_loop TrackWriteInst len queue ops 0#usize
+  else ok queue
+
 /-- Trait declaration: [lnmai_core_verify::queue_maintenance::QueueCursor]
     Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 10:0-14:1
     Visibility: public -/
@@ -5839,20 +6358,6 @@ def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool :
     score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU64Bool
   call := score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
 }
-
-/-- [lnmai_core_verify::shape::SlideKind]
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 8:0-18:1
-    Visibility: public -/
-@[discriminant isize]
-inductive shape.SlideKind where
-| Line : shape.SlideKind
-| Circle : shape.SlideKind
-| V : shape.SlideKind
-| Turn : shape.SlideKind
-| Pq : shape.SlideKind
-| Ppqq : shape.SlideKind
-| S : shape.SlideKind
-| Wifi : shape.SlideKind
 
 /-- [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::SlideKind}::fmt]:
     Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:9-7:14
@@ -11671,6 +12176,978 @@ def tokenize.split_top_level
       Char)) 0#usize (alloc.vec.Vec.new Char) 0#usize
   alloc.vec.Vec.push result current
 
+/-- [lnmai_core_verify::touch_automatic::TouchAutomaticWork]
+    Source: 'crates/lnmai-core-verify/src/touch_automatic.rs', lines 7:0-11:1
+    Visibility: public -/
+structure touch_automatic.TouchAutomaticWork (Notes : Type) (F : Type) (E :
+  Type) where
+  notes : Notes
+  frontiers : F
+  events_rev : E
+
+/-- Trait declaration: [lnmai_core_verify::touch_automatic::TouchAutomatic]
+    Source: 'crates/lnmai-core-verify/src/touch_automatic.rs', lines 15:0-27:1
+    Visibility: public -/
+structure touch_automatic.TouchAutomatic (Self : Type) (S : Type) (N : Type)
+  (Notes : Type) (F : Type) (E : Type) (Event : Type) (D : Type) (Shared :
+  Type) where
+  length : Self → S → Result Std.Usize
+  get : Self → S → Std.Usize → Result N
+  before_cursor : Self → S → Std.Usize → Result Bool
+  resolved : Self → N → Result Bool
+  sensor_diff : Self → N → Result D
+  shared : Self → N → Result (Option Shared)
+  too_late : Self → N → Result Bool
+  step : Self → N → D → Option Shared → Result (N × (Option Event))
+  advance_frontier : Self → F → Result F
+  prepend_event : Self → E → Event → Result E
+  append_note : Self → Notes → N → Result Notes
+
+/-- [lnmai_core_verify::touch_automatic::process]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_automatic.rs', lines 39:4-62:5
+    Visibility: public -/
+@[rust_loop_body]
+def touch_automatic.process_loop.body
+  {S : Type} {N : Type} {Notes : Type} {F : Type} {E : Type} {Event : Type} {D
+  : Type} {Shared : Type} {Ops : Type} (TouchAutomaticInst :
+  touch_automatic.TouchAutomatic Ops S N Notes F E Event D Shared) (source : S)
+  (ops : Ops) (len : Std.Usize)
+  (work : touch_automatic.TouchAutomaticWork Notes F E) (index : Std.Usize) :
+  Result (ControlFlow ((touch_automatic.TouchAutomaticWork Notes F E) ×
+    Std.Usize) (touch_automatic.TouchAutomaticWork Notes F E))
+  := do
+  if index < len
+  then
+    let before ← TouchAutomaticInst.get ops source index
+    let b ← TouchAutomaticInst.before_cursor ops source index
+    let (t, t1, t2) ←
+      if b
+      then
+        do
+        let t3 ← TouchAutomaticInst.append_note ops work.notes before
+        ok (t3, work.frontiers, work.events_rev)
+      else
+        do
+        let b1 ← TouchAutomaticInst.resolved ops before
+        if b1
+        then
+          let t3 ← TouchAutomaticInst.append_note ops work.notes before
+          ok (t3, work.frontiers, work.events_rev)
+        else
+          let diff ← TouchAutomaticInst.sensor_diff ops before
+          let shared ← TouchAutomaticInst.shared ops before
+          let too_late ← TouchAutomaticInst.too_late ops before
+          let b2 := core.option.Option.is_none shared
+          if b2
+          then
+            if too_late
+            then
+              let (after, event) ←
+                TouchAutomaticInst.step ops before diff shared
+              let resolved_now ←
+                if b1
+                then ok false
+                else TouchAutomaticInst.resolved ops after
+              let work1 ←
+                if resolved_now
+                then
+                  do
+                  let t3 ←
+                    TouchAutomaticInst.advance_frontier ops work.frontiers
+                  ok { work with frontiers := t3 }
+                else ok work
+              let work2 ←
+                match event with
+                | none => ok work1
+                | some event1 =>
+                  do
+                  let t3 ←
+                    TouchAutomaticInst.prepend_event ops work1.events_rev
+                      event1
+                  ok { work1 with events_rev := t3 }
+              let t3 ← TouchAutomaticInst.append_note ops work2.notes after
+              ok (t3, work2.frontiers, work2.events_rev)
+            else
+              let t3 ← TouchAutomaticInst.append_note ops work.notes before
+              ok (t3, work.frontiers, work.events_rev)
+          else
+            let (after, event) ←
+              TouchAutomaticInst.step ops before diff shared
+            let resolved_now ←
+              if b1
+              then ok false
+              else TouchAutomaticInst.resolved ops after
+            let work1 ←
+              if resolved_now
+              then
+                do
+                let t3 ←
+                  TouchAutomaticInst.advance_frontier ops work.frontiers
+                ok { work with frontiers := t3 }
+              else ok work
+            let work2 ←
+              match event with
+              | none => ok work1
+              | some event1 =>
+                do
+                let t3 ←
+                  TouchAutomaticInst.prepend_event ops work1.events_rev event1
+                ok { work1 with events_rev := t3 }
+            let t3 ← TouchAutomaticInst.append_note ops work2.notes after
+            ok (t3, work2.frontiers, work2.events_rev)
+    let index1 ← index + 1#usize
+    ok (cont ({ notes := t, frontiers := t1, events_rev := t2 }, index1))
+  else ok (done work)
+
+/-- [lnmai_core_verify::touch_automatic::process]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_automatic.rs', lines 39:4-62:5
+    Visibility: public -/
+@[rust_loop]
+def touch_automatic.process_loop
+  {S : Type} {N : Type} {Notes : Type} {F : Type} {E : Type} {Event : Type} {D
+  : Type} {Shared : Type} {Ops : Type} (TouchAutomaticInst :
+  touch_automatic.TouchAutomatic Ops S N Notes F E Event D Shared) (source : S)
+  (work : touch_automatic.TouchAutomaticWork Notes F E) (ops : Ops)
+  (len : Std.Usize) (index : Std.Usize) :
+  Result (touch_automatic.TouchAutomaticWork Notes F E)
+  := do
+  loop
+    (fun (work1, index1) => touch_automatic.process_loop.body
+      TouchAutomaticInst source ops len work1 index1)
+    (work, index)
+
+/-- [lnmai_core_verify::touch_automatic::process]:
+    Source: 'crates/lnmai-core-verify/src/touch_automatic.rs', lines 29:0-64:1
+    Visibility: public -/
+def touch_automatic.process
+  {S : Type} {N : Type} {Notes : Type} {F : Type} {E : Type} {Event : Type} {D
+  : Type} {Shared : Type} {Ops : Type} (TouchAutomaticInst :
+  touch_automatic.TouchAutomatic Ops S N Notes F E Event D Shared) (source : S)
+  (work : touch_automatic.TouchAutomaticWork Notes F E) (ops : Ops) :
+  Result (touch_automatic.TouchAutomaticWork Notes F E)
+  := do
+  let len ← TouchAutomaticInst.length ops source
+  touch_automatic.process_loop TouchAutomaticInst source work ops len 0#usize
+
+/-- [lnmai_core_verify::touch_hold_schedule::TouchHoldWork]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 7:0-15:1
+    Visibility: public -/
+structure touch_hold_schedule.TouchHoldWork (F : Type) (Q : Type) (C : Type) (H
+  : Type) (E : Type) (G : Type) (B : Type) where
+  frontiers : F
+  queues : Q
+  cursor : C
+  active : H
+  events : E
+  groups : G
+  body_groups : B
+
+/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::HeadGroups]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 18:0-27:1
+    Visibility: public -/
+structure touch_hold_schedule.HeadGroups (Self : Type) (G : Type) (Id : Type)
+  (Grade : Type) (D : Type) where
+  head_length : Self → G → Result Std.Usize
+  head_matches : Self → G → Std.Usize → Id → Result Bool
+  head_majority : Self → G → Std.Usize → Result Bool
+  head_result : Self → G → Std.Usize → Result (Grade × D)
+  head_increment : Self → G → Std.Usize → Result G
+  head_set_size : Self → G → Std.Usize → Id → Result G
+  head_set_result : Self → G → Std.Usize → Grade → D → Result G
+  head_append : Self → G → Id → Id → Grade → D → Result G
+
+/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::BodyGroups]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 31:0-44:1
+    Visibility: public -/
+structure touch_hold_schedule.BodyGroups (Self : Type) (B : Type) (Id : Type)
+  where
+  body_length : Self → B → Result Std.Usize
+  body_matches : Self → B → Std.Usize → Id → Result Bool
+  body_majority : Self → B → Std.Usize → Result Bool
+  body_has_member : Self → B → Std.Usize → Id → Result Bool
+  body_has_trigger : Self → B → Std.Usize → Id → Result Bool
+  body_prepend_member : Self → B → Std.Usize → Id → Result B
+  body_prepend_trigger : Self → B → Std.Usize → Id → Result B
+  body_erase_member : Self → B → Std.Usize → Id → Result B
+  body_erase_trigger : Self → B → Std.Usize → Id → Result B
+  body_members_empty : Self → B → Std.Usize → Result Bool
+  body_remove : Self → B → Std.Usize → Result B
+  body_append : Self → B → Id → Id → Result B
+
+/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 46:0-83:1
+    Visibility: public -/
+structure touch_hold_schedule.TouchHoldSchedule (Self : Type) (S : Type) (A :
+  Type) (N : Type) (F : Type) (Q : Type) (C : Type) (H : Type) (E : Type)
+  (Event : Type) (D : Type) (Z : Type) (Id : Type) (Grade : Type) where
+  length : Self → S → Result Std.Usize
+  get : Self → S → Std.Usize → Result (A × N)
+  sensor_diff : Self → N → Result D
+  button_diff : Self → N → Result D
+  local_pressed : Self → A → Result Bool
+  body_check_active : Self → N → Result Bool
+  body_group_id : Self → N → Result (Option Id)
+  head_group_id : Self → N → Result (Option Id)
+  note_index : Self → N → Result Id
+  group_size : Self → N → Result Id
+  phase : Self → N → Result hold_schedule.HoldPhase
+  head_grade : Self → N → Result (Option Grade)
+  head_diff : Self → N → Result D
+  grade_rejected : Self → Grade → Result Bool
+  within_head_window : Self → N → Result Bool
+  unlocked : Self → F → A → N → Result Bool
+  eligible : Self → N → Result Bool
+  button_ring : Self → Result Bool
+  outer_button : Self → A → Result (Option Z)
+  button_available : Self → C → Z → Result Bool
+  sensor_available : Self → C → A → Result Bool
+  use_button : Self → C → Z → Result C
+  use_sensor : Self → C → A → Result C
+  step : Self → N → D → Bool → Bool → Option (Grade × D) → Result
+    (N × (Option Event))
+  advance_frontier : Self → F → A → Result F
+  update_queue : Self → Q → A → N → Result Q
+  append_active : Self → H → A → N → Result H
+  append_event : Self → E → Event → Result E
+
+/-- [lnmai_core_verify::touch_hold_schedule::find_head]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 92:4-99:1
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_schedule.find_head_loop.body
+  {G : Type} {Id : Type} {Grade : Type} {D : Type} {Ops : Type} (HeadGroupsInst
+  : touch_hold_schedule.HeadGroups Ops G Id Grade D) (groups : G) (id : Id)
+  (ops : Ops) (len : Std.Usize) (index : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option Std.Usize))
+  := do
+  if index < len
+  then
+    let b ← HeadGroupsInst.head_matches ops groups index id
+    if b
+    then ok (done (some index))
+    else let index1 ← index + 1#usize
+         ok (cont index1)
+  else ok (done none)
+
+/-- [lnmai_core_verify::touch_hold_schedule::find_head]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 92:4-99:1
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_schedule.find_head_loop
+  {G : Type} {Id : Type} {Grade : Type} {D : Type} {Ops : Type} (HeadGroupsInst
+  : touch_hold_schedule.HeadGroups Ops G Id Grade D) (groups : G) (id : Id)
+  (ops : Ops) (len : Std.Usize) (index : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  loop
+    (fun index1 => touch_hold_schedule.find_head_loop.body HeadGroupsInst
+      groups id ops len index1)
+    index
+
+/-- [lnmai_core_verify::touch_hold_schedule::find_head]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 86:0-99:1
+    Visibility: public -/
+def touch_hold_schedule.find_head
+  {G : Type} {Id : Type} {Grade : Type} {D : Type} {Ops : Type} (HeadGroupsInst
+  : touch_hold_schedule.HeadGroups Ops G Id Grade D) (groups : G) (id : Id)
+  (ops : Ops) :
+  Result (Option Std.Usize)
+  := do
+  let len ← HeadGroupsInst.head_length ops groups
+  touch_hold_schedule.find_head_loop HeadGroupsInst groups id ops len 0#usize
+
+/-- [lnmai_core_verify::touch_hold_schedule::shared_result]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 101:0-115:1
+    Visibility: public -/
+def touch_hold_schedule.shared_result
+  {G : Type} {Id : Type} {Grade : Type} {D : Type} {Ops : Type} (HeadGroupsInst
+  : touch_hold_schedule.HeadGroups Ops G Id Grade D) (groups : G) (id : Id)
+  (ops : Ops) :
+  Result (Option (Grade × D))
+  := do
+  let o ← touch_hold_schedule.find_head HeadGroupsInst groups id ops
+  match o with
+  | none => ok none
+  | some index =>
+    let b ← HeadGroupsInst.head_majority ops groups index
+    if b
+    then let p ← HeadGroupsInst.head_result ops groups index
+         ok (some p)
+    else ok none
+
+/-- [lnmai_core_verify::touch_hold_schedule::register_head]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 117:0-140:1
+    Visibility: public -/
+def touch_hold_schedule.register_head
+  {G : Type} {Id : Type} {Grade : Type} {D : Type} {Ops : Type} (HeadGroupsInst
+  : touch_hold_schedule.HeadGroups Ops G Id Grade D) (groups : G) (id : Id)
+  (size : Id) (grade : Grade) (diff : D) (ops : Ops) :
+  Result G
+  := do
+  let o ← touch_hold_schedule.find_head HeadGroupsInst groups id ops
+  match o with
+  | none => HeadGroupsInst.head_append ops groups id size grade diff
+  | some index =>
+    let keep_result ← HeadGroupsInst.head_majority ops groups index
+    let groups1 ← HeadGroupsInst.head_increment ops groups index
+    let groups2 ← HeadGroupsInst.head_set_size ops groups1 index size
+    if keep_result
+    then ok groups2
+    else HeadGroupsInst.head_set_result ops groups2 index grade diff
+
+/-- [lnmai_core_verify::touch_hold_schedule::find_body]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 148:4-155:1
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_schedule.find_body_loop.body
+  {B : Type} {Id : Type} {Ops : Type} (BodyGroupsInst :
+  touch_hold_schedule.BodyGroups Ops B Id) (groups : B) (id : Id) (ops : Ops)
+  (len : Std.Usize) (index : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option Std.Usize))
+  := do
+  if index < len
+  then
+    let b ← BodyGroupsInst.body_matches ops groups index id
+    if b
+    then ok (done (some index))
+    else let index1 ← index + 1#usize
+         ok (cont index1)
+  else ok (done none)
+
+/-- [lnmai_core_verify::touch_hold_schedule::find_body]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 148:4-155:1
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_schedule.find_body_loop
+  {B : Type} {Id : Type} {Ops : Type} (BodyGroupsInst :
+  touch_hold_schedule.BodyGroups Ops B Id) (groups : B) (id : Id) (ops : Ops)
+  (len : Std.Usize) (index : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  loop
+    (fun index1 => touch_hold_schedule.find_body_loop.body BodyGroupsInst
+      groups id ops len index1)
+    index
+
+/-- [lnmai_core_verify::touch_hold_schedule::find_body]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 142:0-155:1
+    Visibility: public -/
+def touch_hold_schedule.find_body
+  {B : Type} {Id : Type} {Ops : Type} (BodyGroupsInst :
+  touch_hold_schedule.BodyGroups Ops B Id) (groups : B) (id : Id) (ops : Ops) :
+  Result (Option Std.Usize)
+  := do
+  let len ← BodyGroupsInst.body_length ops groups
+  touch_hold_schedule.find_body_loop BodyGroupsInst groups id ops len 0#usize
+
+/-- [lnmai_core_verify::touch_hold_schedule::body_pressed]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 157:0-165:1
+    Visibility: public -/
+def touch_hold_schedule.body_pressed
+  {B : Type} {Id : Type} {Ops : Type} (BodyGroupsInst :
+  touch_hold_schedule.BodyGroups Ops B Id) (groups : B) (id : Id) (ops : Ops) :
+  Result Bool
+  := do
+  let o ← touch_hold_schedule.find_body BodyGroupsInst groups id ops
+  match o with
+  | none => ok false
+  | some index => BodyGroupsInst.body_majority ops groups index
+
+/-- [lnmai_core_verify::touch_hold_schedule::register_body]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 167:0-183:1
+    Visibility: public -/
+def touch_hold_schedule.register_body
+  {B : Type} {Id : Type} {Ops : Type} (BodyGroupsInst :
+  touch_hold_schedule.BodyGroups Ops B Id) (groups : B) (id : Id) (note : Id)
+  (ops : Ops) :
+  Result B
+  := do
+  let o ← touch_hold_schedule.find_body BodyGroupsInst groups id ops
+  match o with
+  | none => BodyGroupsInst.body_append ops groups id note
+  | some index =>
+    let b ← BodyGroupsInst.body_has_member ops groups index note
+    let groups1 ←
+      if b
+      then ok groups
+      else BodyGroupsInst.body_prepend_member ops groups index note
+    let b1 ← BodyGroupsInst.body_has_trigger ops groups1 index note
+    if b1
+    then ok groups1
+    else BodyGroupsInst.body_prepend_trigger ops groups1 index note
+
+/-- [lnmai_core_verify::touch_hold_schedule::unregister_body]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 185:0-193:1
+    Visibility: public -/
+def touch_hold_schedule.unregister_body
+  {B : Type} {Id : Type} {Ops : Type} (BodyGroupsInst :
+  touch_hold_schedule.BodyGroups Ops B Id) (groups : B) (id : Id) (note : Id)
+  (ops : Ops) :
+  Result B
+  := do
+  let o ← touch_hold_schedule.find_body BodyGroupsInst groups id ops
+  match o with
+  | none => ok groups
+  | some index => BodyGroupsInst.body_erase_trigger ops groups index note
+
+/-- [lnmai_core_verify::touch_hold_schedule::exit_body]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 195:0-210:1
+    Visibility: public -/
+def touch_hold_schedule.exit_body
+  {B : Type} {Id : Type} {Ops : Type} (BodyGroupsInst :
+  touch_hold_schedule.BodyGroups Ops B Id) (groups : B) (id : Id) (note : Id)
+  (ops : Ops) :
+  Result B
+  := do
+  let o ← touch_hold_schedule.find_body BodyGroupsInst groups id ops
+  match o with
+  | none => ok groups
+  | some index =>
+    let groups1 ← BodyGroupsInst.body_erase_member ops groups index note
+    let b ← BodyGroupsInst.body_members_empty ops groups1 index
+    if b
+    then BodyGroupsInst.body_remove ops groups1 index
+    else BodyGroupsInst.body_erase_trigger ops groups1 index note
+
+/-- [lnmai_core_verify::touch_hold_schedule::process]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 227:10-299:49
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_schedule.process_loop.body
+  {S : Type} {A : Type} {N : Type} {F : Type} {Q : Type} {C : Type} {H : Type}
+  {E : Type} {Event : Type} {D : Type} {Z : Type} {Id : Type} {Grade : Type} {G
+  : Type} {B : Type} {Ops : Type} (TouchHoldScheduleInst :
+  touch_hold_schedule.TouchHoldSchedule Ops S A N F Q C H E Event D Z Id Grade)
+  (HeadGroupsInst : touch_hold_schedule.HeadGroups Ops G Id Grade D)
+  (BodyGroupsInst : touch_hold_schedule.BodyGroups Ops B Id) (holds : S)
+  (ops : Ops) (len : Std.Usize)
+  (work : touch_hold_schedule.TouchHoldWork F Q C H E G B) (index : Std.Usize)
+  :
+  Result (ControlFlow ((touch_hold_schedule.TouchHoldWork F Q C H E G B) ×
+    Std.Usize) (touch_hold_schedule.TouchHoldWork F Q C H E G B))
+  := do
+  if index < len
+  then
+    let (area, before) ← TouchHoldScheduleInst.get ops holds index
+    let sensor_diff ← TouchHoldScheduleInst.sensor_diff ops before
+    let local_pressed ← TouchHoldScheduleInst.local_pressed ops area
+    let body_id ← TouchHoldScheduleInst.body_group_id ops before
+    let note_id ← TouchHoldScheduleInst.note_index ops before
+    let b ← TouchHoldScheduleInst.body_check_active ops before
+    let (work1, local_pressed1, body_id1) ←
+      if b
+      then
+        do
+        let (thw, b1) ←
+          match body_id with
+          | none => ok (work, local_pressed)
+          | some id =>
+            do
+            let t ←
+              if local_pressed
+              then
+                touch_hold_schedule.register_body BodyGroupsInst
+                  work.body_groups id note_id ops
+              else
+                touch_hold_schedule.unregister_body BodyGroupsInst
+                  work.body_groups id note_id ops
+            ok ({ work with body_groups := t }, local_pressed)
+        ok (thw, b1, body_id)
+      else ok (work, local_pressed, body_id)
+    let (work2, body_id2, pressed) ←
+      if local_pressed1
+      then ok (work1, body_id1, true)
+      else
+        do
+        let (thw, b1) ←
+          match body_id1 with
+          | none => ok (work1, false)
+          | some id =>
+            do
+            let pressed1 ←
+              touch_hold_schedule.body_pressed BodyGroupsInst work1.body_groups
+                id ops
+            ok (work1, pressed1)
+        ok (thw, body_id1, b1)
+    let head_id ← TouchHoldScheduleInst.head_group_id ops before
+    let (work3, shared) ←
+      match head_id with
+      | none => ok (work2, none)
+      | some id =>
+        do
+        let shared1 ←
+          touch_hold_schedule.shared_result HeadGroupsInst work2.groups id ops
+        ok (work2, shared1)
+    let before_phase ← TouchHoldScheduleInst.phase ops before
+    let b1 := core.option.Option.is_none shared
+    let (work4, before_phase1, allow_input) ←
+      if b1
+      then
+        do
+        let b2 ← TouchHoldScheduleInst.within_head_window ops before
+        if b2
+        then
+          let b3 ←
+            match before_phase with
+            | hold_schedule.HoldPhase.HeadWaiting => ok true
+            | hold_schedule.HoldPhase.HeadJudgeable => ok true
+            | hold_schedule.HoldPhase.HeadJudged => ok false
+            | hold_schedule.HoldPhase.BodyHeld => ok false
+            | hold_schedule.HoldPhase.BodyReleased => ok false
+            | hold_schedule.HoldPhase.Ended => ok false
+          let (thw, b4) ←
+            if b3
+            then
+              do
+              let b5 ←
+                TouchHoldScheduleInst.unlocked ops work3.frontiers area before
+              let b6 ←
+                if b5
+                then TouchHoldScheduleInst.eligible ops before
+                else ok false
+              ok (work3, b6)
+            else ok (work3, false)
+          ok (thw, before_phase, b4)
+        else ok (work3, before_phase, false)
+      else ok (work3, before_phase, false)
+    let outer_button ←
+      if allow_input
+      then
+        do
+        let b2 ← TouchHoldScheduleInst.button_ring ops
+        if b2
+        then TouchHoldScheduleInst.outer_button ops area
+        else ok none
+      else ok none
+    let (work5, button_available) ←
+      match outer_button with
+      | none => ok (work4, false)
+      | some zone =>
+        do
+        let button_available1 ←
+          TouchHoldScheduleInst.button_available ops work4.cursor zone
+        ok (work4, button_available1)
+    let (work6, button_available1, sensor_available) ←
+      if allow_input
+      then
+        do
+        let (thw, b2) ←
+          if button_available
+          then ok (work5, false)
+          else
+            do
+            let sensor_available1 ←
+              TouchHoldScheduleInst.sensor_available ops work5.cursor area
+            ok (work5, sensor_available1)
+        ok (thw, button_available, b2)
+      else ok (work5, button_available, false)
+    let plan ←
+      scheduler.consume_click allow_input button_available1 sensor_available
+    let (work7, b2) ←
+      if plan.used_button
+      then
+        do
+        let thw ←
+          match outer_button with
+          | none => ok work6
+          | some zone =>
+            do
+            let t ← TouchHoldScheduleInst.use_button ops work6.cursor zone
+            ok { work6 with cursor := t }
+        ok (thw, true)
+      else ok (work6, false)
+    let (work8, b3) ←
+      if plan.used_sensor
+      then
+        do
+        let t ← TouchHoldScheduleInst.use_sensor ops work7.cursor area
+        ok ({ work7 with cursor := t }, true)
+      else ok (work7, false)
+    let diff ←
+      if b2
+      then TouchHoldScheduleInst.button_diff ops before
+      else ok sensor_diff
+    let b4 ← if b2
+               then ok true
+               else ok b3
+    let (after, event) ←
+      TouchHoldScheduleInst.step ops before diff b4 pressed shared
+    let after_phase ← TouchHoldScheduleInst.phase ops after
+    let b5 ←
+      match before_phase1 with
+      | hold_schedule.HoldPhase.HeadWaiting => ok false
+      | hold_schedule.HoldPhase.HeadJudgeable => ok false
+      | hold_schedule.HoldPhase.HeadJudged => ok true
+      | hold_schedule.HoldPhase.BodyHeld => ok false
+      | hold_schedule.HoldPhase.BodyReleased => ok false
+      | hold_schedule.HoldPhase.Ended => ok false
+    let (after_phase1, entered_head) ←
+      if b5
+      then ok (after_phase, false)
+      else
+        do
+        let b6 ←
+          match after_phase with
+          | hold_schedule.HoldPhase.HeadWaiting => ok false
+          | hold_schedule.HoldPhase.HeadJudgeable => ok false
+          | hold_schedule.HoldPhase.HeadJudged => ok true
+          | hold_schedule.HoldPhase.BodyHeld => ok false
+          | hold_schedule.HoldPhase.BodyReleased => ok false
+          | hold_schedule.HoldPhase.Ended => ok false
+        ok (after_phase, b6)
+    let work9 ←
+      if entered_head
+      then
+        do
+        let t ←
+          TouchHoldScheduleInst.advance_frontier ops work8.frontiers area
+        ok { work8 with frontiers := t }
+      else ok work8
+    let t ← TouchHoldScheduleInst.update_queue ops work9.queues area after
+    let t1 ←
+      if entered_head
+      then
+        match head_id with
+        | none => ok work9.groups
+        | some id =>
+          do
+          let o ← TouchHoldScheduleInst.head_grade ops after
+          match o with
+          | none => ok work9.groups
+          | some grade =>
+            let b6 ← TouchHoldScheduleInst.grade_rejected ops grade
+            if b6
+            then ok work9.groups
+            else
+              let t2 ← TouchHoldScheduleInst.group_size ops before
+              let t3 ← TouchHoldScheduleInst.head_diff ops after
+              touch_hold_schedule.register_head HeadGroupsInst work9.groups id
+                t2 grade t3 ops
+      else ok work9.groups
+    let b6 ←
+      match after_phase1 with
+      | hold_schedule.HoldPhase.HeadWaiting => ok false
+      | hold_schedule.HoldPhase.HeadJudgeable => ok false
+      | hold_schedule.HoldPhase.HeadJudged => ok false
+      | hold_schedule.HoldPhase.BodyHeld => ok false
+      | hold_schedule.HoldPhase.BodyReleased => ok false
+      | hold_schedule.HoldPhase.Ended => ok true
+    let (t2, keep_active) ←
+      if ¬ b6
+      then ok (work9.body_groups, true)
+      else
+        do
+        let t3 ←
+          match body_id2 with
+          | none => ok work9.body_groups
+          | some id =>
+            touch_hold_schedule.exit_body BodyGroupsInst work9.body_groups id
+              note_id ops
+        ok (t3, false)
+    let t3 ←
+      if keep_active
+      then TouchHoldScheduleInst.append_active ops work9.active area after
+      else ok work9.active
+    let t4 ←
+      match event with
+      | none => ok work9.events
+      | some event1 =>
+        TouchHoldScheduleInst.append_event ops work9.events event1
+    let index1 ← index + 1#usize
+    ok (cont
+      ({
+         work9
+           with
+           queues := t,
+           active := t3,
+           events := t4,
+           groups := t1,
+           body_groups := t2
+       }, index1))
+  else ok (done work)
+
+/-- [lnmai_core_verify::touch_hold_schedule::process]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 227:10-299:49
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_schedule.process_loop
+  {S : Type} {A : Type} {N : Type} {F : Type} {Q : Type} {C : Type} {H : Type}
+  {E : Type} {Event : Type} {D : Type} {Z : Type} {Id : Type} {Grade : Type} {G
+  : Type} {B : Type} {Ops : Type} (TouchHoldScheduleInst :
+  touch_hold_schedule.TouchHoldSchedule Ops S A N F Q C H E Event D Z Id Grade)
+  (HeadGroupsInst : touch_hold_schedule.HeadGroups Ops G Id Grade D)
+  (BodyGroupsInst : touch_hold_schedule.BodyGroups Ops B Id) (holds : S)
+  (work : touch_hold_schedule.TouchHoldWork F Q C H E G B) (ops : Ops)
+  (len : Std.Usize) (index : Std.Usize) :
+  Result (touch_hold_schedule.TouchHoldWork F Q C H E G B)
+  := do
+  loop
+    (fun (work1, index1) => touch_hold_schedule.process_loop.body
+      TouchHoldScheduleInst HeadGroupsInst BodyGroupsInst holds ops len work1
+      index1)
+    (work, index)
+
+/-- [lnmai_core_verify::touch_hold_schedule::process]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 215:0-336:1
+    Visibility: public -/
+def touch_hold_schedule.process
+  {S : Type} {A : Type} {N : Type} {F : Type} {Q : Type} {C : Type} {H : Type}
+  {E : Type} {Event : Type} {D : Type} {Z : Type} {Id : Type} {Grade : Type} {G
+  : Type} {B : Type} {Ops : Type} (TouchHoldScheduleInst :
+  touch_hold_schedule.TouchHoldSchedule Ops S A N F Q C H E Event D Z Id Grade)
+  (HeadGroupsInst : touch_hold_schedule.HeadGroups Ops G Id Grade D)
+  (BodyGroupsInst : touch_hold_schedule.BodyGroups Ops B Id) (holds : S)
+  (work : touch_hold_schedule.TouchHoldWork F Q C H E G B) (ops : Ops) :
+  Result (touch_hold_schedule.TouchHoldWork F Q C H E G B)
+  := do
+  let len ← TouchHoldScheduleInst.length ops holds
+  touch_hold_schedule.process_loop TouchHoldScheduleInst HeadGroupsInst
+    BodyGroupsInst holds work ops len 0#usize
+
+/-- [lnmai_core_verify::touch_schedule::TouchWork]
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 11:0-17:1
+    Visibility: public -/
+structure touch_schedule.TouchWork (Q : Type) (F : Type) (C : Type) (G : Type)
+  (E : Type) where
+  queue : Q
+  frontiers : F
+  cursor : C
+  groups : G
+  events_rev : E
+
+/-- Trait declaration: [lnmai_core_verify::touch_schedule::TouchSchedule]
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 31:0-63:1
+    Visibility: public -/
+structure touch_schedule.TouchSchedule (Self : Type) (Q : Type) (N : Type) (F :
+  Type) (C : Type) (G : Type) (E : Type) (Event : Type) (T : Type) (D : Type)
+  (Area : Type) (Zone : Type) (Id : Type) (Grade : Type) (M : Type) where
+  queue_ops : Self → Result M
+  queue_remaining : Self → Q → Result Std.Usize
+  queue_len : Self → Q → Result Std.Usize
+  timing : Self → N → Result T
+  sensor_diff : Self → T → Result D
+  button_diff : Self → T → Result D
+  group_id : Self → N → Result (Option Id)
+  group_size : Self → N → Result Id
+  shared_result : Self → G → Id → Result (Option (Grade × D))
+  eligible : Self → N → Result Bool
+  unlocked : Self → F → N → Result Bool
+  button_ring_for_touch : Self → Result Bool
+  sensor_area : Self → N → Result Area
+  outer_button : Self → Area → Result (Option Zone)
+  button_available : Self → C → Zone → Result Bool
+  sensor_available : Self → C → Area → Result Bool
+  use_button : Self → C → Zone → Result C
+  use_sensor : Self → C → Area → Result C
+  step : Self → N → D → Bool → Option (Grade × D) → Result (N ×
+    (Option Event))
+  ended : Self → N → Result Bool
+  event_grade : Self → Event → Result Grade
+  is_miss_or_too_fast : Self → Grade → Result Bool
+  prepend_event : Self → E → Event → Result E
+  register_group : Self → G → Id → Id → Grade → D → Result G
+  advance_frontier : Self → F → Result F
+
+/-- [lnmai_core_verify::touch_schedule::process]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 77:4-173:5
+    Visibility: public -/
+@[rust_loop_body]
+def touch_schedule.process_loop.body
+  {Q : Type} {N : Type} {F : Type} {C : Type} {G : Type} {E : Type} {Event :
+  Type} {T : Type} {D : Type} {Area : Type} {Zone : Type} {Id : Type} {Grade :
+  Type} {M : Type} {Ops : Type} (TouchScheduleInst :
+  touch_schedule.TouchSchedule Ops Q N F C G E Event T D Area Zone Id Grade M)
+  (queue_maintenanceQueueCursorInst : queue_maintenance.QueueCursor M Q N)
+  (queue_maintenanceQueueReplaceInst : queue_maintenance.QueueReplace M Q N)
+  (ops : Ops) (fuel : Std.Usize) (work : touch_schedule.TouchWork Q F C G E) :
+  Result (ControlFlow (Std.Usize × (touch_schedule.TouchWork Q F C G E)) (Q ×
+    F × C × G × E))
+  := do
+  let remaining ← TouchScheduleInst.queue_remaining ops work.queue
+  let t ← TouchScheduleInst.queue_ops ops
+  let t1 ←
+    queue_maintenance.normalize_cursor_fuel queue_maintenanceQueueCursorInst
+      remaining work.queue t
+  if fuel = 0#usize
+  then
+    ok (done (t1, work.frontiers, work.cursor, work.groups, work.events_rev))
+  else
+    let o ← queue_maintenanceQueueCursorInst.peek t t1
+    match o with
+    | none =>
+      ok (done (t1, work.frontiers, work.cursor, work.groups, work.events_rev))
+    | some note =>
+      let timing ← TouchScheduleInst.timing ops note
+      let sensor_diff ← TouchScheduleInst.sensor_diff ops timing
+      let o1 ← TouchScheduleInst.group_id ops note
+      let shared ←
+        match o1 with
+        | none => ok none
+        | some id => TouchScheduleInst.shared_result ops work.groups id
+      let b := core.option.Option.is_none shared
+      let can_consume_click ←
+        if b
+        then
+          do
+          let b1 ← TouchScheduleInst.eligible ops note
+          if b1
+          then TouchScheduleInst.unlocked ops work.frontiers note
+          else ok false
+        else ok false
+      let area ← TouchScheduleInst.sensor_area ops note
+      let (t2, used_button) ←
+        if can_consume_click
+        then
+          do
+          let b1 ← TouchScheduleInst.button_ring_for_touch ops
+          if b1
+          then
+            let o2 ← TouchScheduleInst.outer_button ops area
+            match o2 with
+            | none => ok (work.cursor, false)
+            | some zone =>
+              let b2 ←
+                TouchScheduleInst.button_available ops work.cursor zone
+              let t3 ←
+                if b2
+                then TouchScheduleInst.use_button ops work.cursor zone
+                else ok work.cursor
+              ok (t3, b2)
+          else ok (work.cursor, false)
+        else ok (work.cursor, false)
+      let (t3, used_button1, clicked) ←
+        if can_consume_click
+        then
+          do
+          let (t4, b1) ←
+            if used_button
+            then ok (t2, false)
+            else
+              do
+              let b2 ← TouchScheduleInst.sensor_available ops t2 area
+              let t5 ←
+                if b2
+                then TouchScheduleInst.use_sensor ops t2 area
+                else ok t2
+              ok (t5, b2)
+          ok (t4, used_button, b1)
+        else ok (t2, used_button, false)
+      let clicked1 ← if used_button1
+                       then ok true
+                       else ok clicked
+      let diff ←
+        if used_button1
+        then TouchScheduleInst.button_diff ops timing
+        else ok sensor_diff
+      let (after, event) ←
+        TouchScheduleInst.step ops note diff clicked1 shared
+      let b1 ← queue_maintenanceQueueCursorInst.resolved t note
+      let resolved_now ←
+        if b1
+        then ok false
+        else queue_maintenanceQueueCursorInst.resolved t after
+      let (t4, t5) ←
+        match event with
+        | none => ok (work.groups, work.events_rev)
+        | some event1 =>
+          do
+          let t6 ← TouchScheduleInst.prepend_event ops work.events_rev event1
+          let t7 ←
+            if clicked1
+            then
+              do
+              let grade ← TouchScheduleInst.event_grade ops event1
+              let b2 ← TouchScheduleInst.is_miss_or_too_fast ops grade
+              if b2
+              then ok work.groups
+              else
+                match o1 with
+                | none => ok work.groups
+                | some id =>
+                  let t8 ← TouchScheduleInst.group_size ops note
+                  TouchScheduleInst.register_group ops work.groups id t8 grade
+                    diff
+            else ok work.groups
+          ok (t7, t6)
+      let len ← TouchScheduleInst.queue_len ops t1
+      let t6 ←
+        queue_maintenance.replace_all queue_maintenanceQueueReplaceInst len t1
+          after t
+      let remaining1 ← TouchScheduleInst.queue_remaining ops t6
+      let t7 ←
+        queue_maintenance.normalize_cursor_fuel
+          queue_maintenanceQueueCursorInst remaining1 t6 t
+      let t8 ←
+        if resolved_now
+        then TouchScheduleInst.advance_frontier ops work.frontiers
+        else ok work.frontiers
+      let b2 ← TouchScheduleInst.ended ops after
+      if b2
+      then
+        let o2 ← TouchScheduleInst.outer_button ops area
+        let ring_available ←
+          match o2 with
+          | none => ok false
+          | some zone => TouchScheduleInst.button_available ops t3 zone
+        let b3 ← TouchScheduleInst.button_ring_for_touch ops
+        let b4 ← TouchScheduleInst.sensor_available ops t3 area
+        let unused ←
+          scheduler.touch_input_available b3 b4 (some ring_available)
+        if unused
+        then
+          let fuel1 ← fuel - 1#usize
+          ok (cont (fuel1,
+            {
+              queue := t7,
+              frontiers := t8,
+              cursor := t3,
+              groups := t4,
+              events_rev := t5
+            }))
+        else ok (done (t7, t8, t3, t4, t5))
+      else ok (done (t7, t8, t3, t4, t5))
+
+/-- [lnmai_core_verify::touch_schedule::process]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 77:4-173:5
+    Visibility: public -/
+@[rust_loop]
+def touch_schedule.process_loop
+  {Q : Type} {N : Type} {F : Type} {C : Type} {G : Type} {E : Type} {Event :
+  Type} {T : Type} {D : Type} {Area : Type} {Zone : Type} {Id : Type} {Grade :
+  Type} {M : Type} {Ops : Type} (TouchScheduleInst :
+  touch_schedule.TouchSchedule Ops Q N F C G E Event T D Area Zone Id Grade M)
+  (queue_maintenanceQueueCursorInst : queue_maintenance.QueueCursor M Q N)
+  (queue_maintenanceQueueReplaceInst : queue_maintenance.QueueReplace M Q N)
+  (fuel : Std.Usize) (work : touch_schedule.TouchWork Q F C G E) (ops : Ops) :
+  Result (Q × F × C × G × E)
+  := do
+  loop
+    (fun (fuel1, work1) => touch_schedule.process_loop.body TouchScheduleInst
+      queue_maintenanceQueueCursorInst queue_maintenanceQueueReplaceInst ops
+      fuel1 work1)
+    (fuel, work)
+
+/-- [lnmai_core_verify::touch_schedule::process]:
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 68:0-174:1
+    Visibility: public -/
+def touch_schedule.process
+  {Q : Type} {N : Type} {F : Type} {C : Type} {G : Type} {E : Type} {Event :
+  Type} {T : Type} {D : Type} {Area : Type} {Zone : Type} {Id : Type} {Grade :
+  Type} {M : Type} {Ops : Type} (TouchScheduleInst :
+  touch_schedule.TouchSchedule Ops Q N F C G E Event T D Area Zone Id Grade M)
+  (queue_maintenanceQueueCursorInst : queue_maintenance.QueueCursor M Q N)
+  (queue_maintenanceQueueReplaceInst : queue_maintenance.QueueReplace M Q N)
+  (fuel : Std.Usize) (work : touch_schedule.TouchWork Q F C G E) (ops : Ops) :
+  Result (touch_schedule.TouchWork Q F C G E)
+  := do
+  let (t, t1, t2, t3, t4) ←
+    touch_schedule.process_loop TouchScheduleInst
+      queue_maintenanceQueueCursorInst queue_maintenanceQueueReplaceInst fuel
+      work ops
+  ok
+    { queue := t, frontiers := t1, cursor := t2, groups := t3, events_rev := t4
+    }
+
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeGrade}]
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:16-10:21 -/
 @[reducible]
@@ -12086,15 +13563,6 @@ def types.NoteType.extra_score (self : types.NoteType) : Result Std.U32 := do
   | types.NoteType.Slide => ok 0#u32
   | types.NoteType.Touch => ok 0#u32
   | types.NoteType.Break => ok 100#u32
-
-/-- [lnmai_core_verify::types::SlideKind]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 155:0-160:1
-    Visibility: public -/
-@[discriminant isize]
-inductive types.SlideKind where
-| Single : types.SlideKind
-| Wifi : types.SlideKind
-| ConnPart : types.SlideKind
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::SlideKind}::fmt]:
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:9-154:14

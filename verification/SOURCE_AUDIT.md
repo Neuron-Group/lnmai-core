@@ -52,6 +52,17 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
+The next Touch/TouchHold/parser batch is a work-in-progress checkpoint. Its 36
+kernel sources match the real extraction in
+`/tmp/lnmai-touch-parser-batch-extraction-2/`; formatting and library-only Cargo
+checking passed. Generated, TouchAutomaticModel, TouchAutomatic,
+TouchAutomaticJudgments, TouchAutomaticQueue, StorageSensorRefinement,
+NormalizationModel, NormalizationPoints, Normalization and TouchScheduleModel
+have compiled independently. The Touch head composition, TouchHold traversal,
+frontend connection and frame connection still need repairs or compilation.
+This checkpoint does not supersede the accepted v24 evidence below, and is
+not a claim of completed equivalence or test acceptance.
+
 The 2026-10-17 composition batch passed combined-source elaboration with 76
 current source modules, 93 principal axiom reports and a transitive audit of
 2744 theorems. Only `propext`, `Classical.choice` and `Quot.sound` occur.

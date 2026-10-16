@@ -31,6 +31,7 @@ use lnmai_core_verify::slide_parents::{
 };
 use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork};
 use lnmai_core_verify::tap_schedule::{self as tap_schedule_kernel, TapWork};
+use lnmai_core_verify::touch_schedule::{self as touch_schedule_kernel, TouchWork};
 
 /// The public pooled note representation from `Scheduler.ActiveNote`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -146,26 +147,6 @@ impl Default for SensorClickConsumerProbe {
             frontier: 0.into(),
             diff: Duration::zero(),
         }
-    }
-}
-
-fn try_use_button_click_at(
-    input: &FrameInput,
-    cursor: &ClickCursor,
-    zone: ButtonZone,
-) -> (bool, ClickCursor) {
-    let used = cursor.button_used.get_d(zone, (0).into());
-    let available = input.get_button_click_count(zone);
-    if used < available {
-        (
-            true,
-            ClickCursor {
-                button_used: cursor.button_used.set(zone, used + 1),
-                ..cursor.clone()
-            },
-        )
-    } else {
-        (false, cursor.clone())
     }
 }
 
@@ -405,23 +386,6 @@ fn end_slide_ancestors(
         append_parent_hide,
     )
     .1
-}
-
-fn has_unused_touch_input_at(
-    input: &FrameInput,
-    cursor: &ClickCursor,
-    area: SensorArea,
-    button_ring_for_touch: bool,
-) -> bool {
-    let ring_available = match area.to_outer_button_zone() {
-        Some(zone) => has_unused_button_click_at(input, cursor, zone),
-        None => false,
-    };
-    lnmai_core_verify::scheduler::touch_input_available(
-        button_ring_for_touch,
-        has_unused_sensor_click_at(input, cursor, area),
-        Some(ring_available),
-    )
 }
 
 fn touch_click_can_engage_judge(
@@ -710,10 +674,6 @@ fn entered_head_judged(before: HoldSubState, after: HoldSubState) -> bool {
     !is_head_judged_state(before) && is_head_judged_state(after)
 }
 
-fn keep_hold_active(note: &HoldNote) -> bool {
-    !matches!(note.state, HoldSubState::Ended(_))
-}
-
 fn hold_head_awaits_resolution(state: HoldSubState) -> bool {
     matches!(
         state,
@@ -925,68 +885,6 @@ fn touch_hold_body_group_majority_pressed(
         ),
         None => false,
     }
-}
-
-fn register_touch_hold_body_trigger(
-    groups: &[TouchHoldBodyGroupState],
-    group_id: Natural,
-    note_index: Natural,
-) -> Vec<TouchHoldBodyGroupState> {
-    let mut out = Vec::new();
-    let mut found = false;
-    for group in groups {
-        if !found && group.group_id == group_id {
-            found = true;
-            let mut g = group.clone();
-            if !g.member_note_indices.contains(&note_index) {
-                g.member_note_indices.insert(0, note_index.clone());
-            }
-            if !g.triggered_note_indices.contains(&note_index) {
-                g.triggered_note_indices.insert(0, note_index.clone());
-            }
-            out.push(g);
-        } else {
-            out.push(group.clone());
-        }
-    }
-    if !found {
-        out.push(TouchHoldBodyGroupState {
-            group_id,
-            member_note_indices: vec![note_index.clone()],
-            triggered_note_indices: vec![note_index],
-        });
-    }
-    out
-}
-
-fn unregister_touch_hold_body_trigger(
-    groups: &[TouchHoldBodyGroupState],
-    group_id: Natural,
-    note_index: Natural,
-) -> Vec<TouchHoldBodyGroupState> {
-    let mut out = groups.to_vec();
-    if let Some(group) = out.iter_mut().find(|group| group.group_id == group_id) {
-        erase_first(&mut group.triggered_note_indices, &note_index);
-    }
-    out
-}
-
-fn exit_touch_hold_body_group_member(
-    groups: &[TouchHoldBodyGroupState],
-    group_id: Natural,
-    note_index: Natural,
-) -> Vec<TouchHoldBodyGroupState> {
-    let mut out = groups.to_vec();
-    if let Some(index) = out.iter().position(|group| group.group_id == group_id) {
-        let group = &mut out[index];
-        erase_first(&mut group.member_note_indices, &note_index);
-        if group.member_note_indices.is_empty() {
-            out.remove(index);
-        } else {
-            erase_first(&mut group.triggered_note_indices, &note_index);
-        }
-    }
-    out
 }
 
 fn touch_hold_body_check_active(note: &HoldNote, current_time: TimePoint) -> bool {
@@ -1214,6 +1112,382 @@ fn process_hold_notes(
     )
 }
 
+// Installation fragment: import, new facade, and replacement function only.
+// Existing queue/time/click helpers remain in scheduler.rs.
+use lnmai_core_verify::touch_hold_schedule::{self as touch_hold_schedule_kernel, TouchHoldWork};
+
+struct TouchHoldScheduleFrame<'a> {
+    input: &'a FrameInput,
+    current_time: TimePoint,
+    delta: Duration,
+    style: crate::types::JudgeStyle,
+    touch_panel_offset: Duration,
+    button_ring_for_touch: bool,
+}
+
+impl touch_hold_schedule_kernel::HeadGroups<Vec<GroupState>, Natural, JudgeGrade, Duration>
+    for TouchHoldScheduleFrame<'_>
+{
+    fn head_length(&self, groups: &Vec<GroupState>) -> usize {
+        groups.len()
+    }
+
+    fn head_matches(&self, groups: &Vec<GroupState>, index: usize, id: &Natural) -> bool {
+        groups[index].group_id == *id
+    }
+
+    fn head_majority(&self, groups: &Vec<GroupState>, index: usize) -> bool {
+        has_strict_majority(groups[index].count.clone(), groups[index].size.clone())
+    }
+
+    fn head_result(&self, groups: &Vec<GroupState>, index: usize) -> (JudgeGrade, Duration) {
+        (groups[index].grade, groups[index].diff.clone())
+    }
+
+    fn head_increment(&self, mut groups: Vec<GroupState>, index: usize) -> Vec<GroupState> {
+        groups[index].count = groups[index].count.clone() + 1;
+        groups
+    }
+
+    fn head_set_size(
+        &self,
+        mut groups: Vec<GroupState>,
+        index: usize,
+        size: Natural,
+    ) -> Vec<GroupState> {
+        groups[index].size = size;
+        groups
+    }
+
+    fn head_set_result(
+        &self,
+        mut groups: Vec<GroupState>,
+        index: usize,
+        grade: JudgeGrade,
+        diff: Duration,
+    ) -> Vec<GroupState> {
+        groups[index].grade = grade;
+        groups[index].diff = diff;
+        groups
+    }
+
+    fn head_append(
+        &self,
+        mut groups: Vec<GroupState>,
+        id: &Natural,
+        size: Natural,
+        grade: JudgeGrade,
+        diff: Duration,
+    ) -> Vec<GroupState> {
+        groups.push(GroupState {
+            group_id: id.clone(),
+            count: 1.into(),
+            size,
+            grade,
+            diff,
+        });
+        groups
+    }
+}
+
+impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natural>
+    for TouchHoldScheduleFrame<'_>
+{
+    fn body_length(&self, groups: &Vec<TouchHoldBodyGroupState>) -> usize {
+        groups.len()
+    }
+
+    fn body_matches(
+        &self,
+        groups: &Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        id: &Natural,
+    ) -> bool {
+        groups[index].group_id == *id
+    }
+
+    fn body_majority(&self, groups: &Vec<TouchHoldBodyGroupState>, index: usize) -> bool {
+        has_strict_majority(
+            groups[index].triggered_note_indices.len().into(),
+            groups[index].member_note_indices.len().into(),
+        )
+    }
+
+    fn body_has_member(
+        &self,
+        groups: &Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        note: &Natural,
+    ) -> bool {
+        groups[index].member_note_indices.contains(note)
+    }
+
+    fn body_has_trigger(
+        &self,
+        groups: &Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        note: &Natural,
+    ) -> bool {
+        groups[index].triggered_note_indices.contains(note)
+    }
+
+    fn body_prepend_member(
+        &self,
+        mut groups: Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        note: &Natural,
+    ) -> Vec<TouchHoldBodyGroupState> {
+        groups[index].member_note_indices.insert(0, note.clone());
+        groups
+    }
+
+    fn body_prepend_trigger(
+        &self,
+        mut groups: Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        note: &Natural,
+    ) -> Vec<TouchHoldBodyGroupState> {
+        groups[index].triggered_note_indices.insert(0, note.clone());
+        groups
+    }
+
+    fn body_erase_member(
+        &self,
+        mut groups: Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        note: &Natural,
+    ) -> Vec<TouchHoldBodyGroupState> {
+        erase_first(&mut groups[index].member_note_indices, note);
+        groups
+    }
+
+    fn body_erase_trigger(
+        &self,
+        mut groups: Vec<TouchHoldBodyGroupState>,
+        index: usize,
+        note: &Natural,
+    ) -> Vec<TouchHoldBodyGroupState> {
+        erase_first(&mut groups[index].triggered_note_indices, note);
+        groups
+    }
+
+    fn body_members_empty(&self, groups: &Vec<TouchHoldBodyGroupState>, index: usize) -> bool {
+        groups[index].member_note_indices.is_empty()
+    }
+
+    fn body_remove(
+        &self,
+        mut groups: Vec<TouchHoldBodyGroupState>,
+        index: usize,
+    ) -> Vec<TouchHoldBodyGroupState> {
+        groups.remove(index);
+        groups
+    }
+
+    fn body_append(
+        &self,
+        mut groups: Vec<TouchHoldBodyGroupState>,
+        id: &Natural,
+        note: &Natural,
+    ) -> Vec<TouchHoldBodyGroupState> {
+        groups.push(TouchHoldBodyGroupState {
+            group_id: id.clone(),
+            member_note_indices: vec![note.clone()],
+            triggered_note_indices: vec![note.clone()],
+        });
+        groups
+    }
+}
+
+impl<'notes>
+    touch_hold_schedule_kernel::TouchHoldSchedule<
+        &'notes [(SensorArea, HoldNote)],
+        SensorArea,
+        HoldNote,
+        SensorVec<Natural>,
+        crate::input_model::SensorQueueVec<HoldNote>,
+        ClickCursor,
+        Vec<(SensorArea, HoldNote)>,
+        Vec<JudgeEvent>,
+        JudgeEvent,
+        Duration,
+        ButtonZone,
+        Natural,
+        JudgeGrade,
+    > for TouchHoldScheduleFrame<'_>
+{
+    fn length(&self, holds: &&'notes [(SensorArea, HoldNote)]) -> usize {
+        holds.len()
+    }
+
+    fn get(
+        &self,
+        holds: &&'notes [(SensorArea, HoldNote)],
+        index: usize,
+    ) -> (SensorArea, HoldNote) {
+        holds[index].clone()
+    }
+
+    fn sensor_diff(&self, note: &HoldNote) -> Duration {
+        time_point_sub_duration(self.current_time.clone(), self.touch_panel_offset.clone())
+            - note.params.effective_timing()
+    }
+
+    fn button_diff(&self, note: &HoldNote) -> Duration {
+        self.current_time.clone() - note.params.effective_timing()
+    }
+
+    fn local_pressed(&self, area: &SensorArea) -> bool {
+        self.input.get_sensor_held(*area)
+    }
+
+    fn body_check_active(&self, note: &HoldNote) -> bool {
+        touch_hold_body_check_active(note, self.current_time.clone())
+    }
+
+    fn body_group_id(&self, note: &HoldNote) -> Option<Natural> {
+        note.touch_hold_group_id.clone()
+    }
+
+    fn head_group_id(&self, note: &HoldNote) -> Option<Natural> {
+        note.touch_group_id.clone()
+    }
+
+    fn note_index(&self, note: &HoldNote) -> Natural {
+        note.params.note_index.clone()
+    }
+
+    fn group_size(&self, note: &HoldNote) -> Natural {
+        note.touch_group_size.clone()
+    }
+
+    fn phase(&self, note: &HoldNote) -> hold_schedule_kernel::HoldPhase {
+        match note.state {
+            HoldSubState::HeadWaiting => hold_schedule_kernel::HoldPhase::HeadWaiting,
+            HoldSubState::HeadJudgeable => hold_schedule_kernel::HoldPhase::HeadJudgeable,
+            HoldSubState::HeadJudged(_) => hold_schedule_kernel::HoldPhase::HeadJudged,
+            HoldSubState::BodyHeld => hold_schedule_kernel::HoldPhase::BodyHeld,
+            HoldSubState::BodyReleased => hold_schedule_kernel::HoldPhase::BodyReleased,
+            HoldSubState::Ended(_) => hold_schedule_kernel::HoldPhase::Ended,
+        }
+    }
+
+    fn head_grade(&self, note: &HoldNote) -> Option<JudgeGrade> {
+        match note.state {
+            HoldSubState::HeadJudged(grade) => Some(grade),
+            _ => None,
+        }
+    }
+
+    fn head_diff(&self, note: &HoldNote) -> Duration {
+        note.head_diff.clone()
+    }
+
+    fn grade_rejected(&self, grade: &JudgeGrade) -> bool {
+        grade.is_miss_or_too_fast()
+    }
+
+    fn within_head_window(&self, note: &HoldNote) -> bool {
+        self.current_time.to_micros()
+            <= time_point_add_duration(note.params.effective_timing(), C::TOUCH_GOOD).to_micros()
+    }
+
+    fn unlocked(&self, frontiers: &SensorVec<Natural>, area: &SensorArea, note: &HoldNote) -> bool {
+        touch_queue_index_unlocked(frontiers, *area, note.touch_queue_index.clone())
+    }
+
+    fn eligible(&self, note: &HoldNote) -> bool {
+        hold_head_eligible_for_click(note, self.current_time.clone())
+    }
+
+    fn button_ring(&self) -> bool {
+        self.button_ring_for_touch
+    }
+
+    fn outer_button(&self, area: &SensorArea) -> Option<ButtonZone> {
+        area.to_outer_button_zone()
+    }
+
+    fn button_available(&self, cursor: &ClickCursor, zone: &ButtonZone) -> bool {
+        has_unused_button_click_at(self.input, cursor, *zone)
+    }
+
+    fn sensor_available(&self, cursor: &ClickCursor, area: &SensorArea) -> bool {
+        has_unused_sensor_click_at(self.input, cursor, *area)
+    }
+
+    fn use_button(&self, mut cursor: ClickCursor, zone: &ButtonZone) -> ClickCursor {
+        let used = cursor.button_used.get_d(*zone, 0.into());
+        cursor.button_used = cursor.button_used.set(*zone, used + 1);
+        cursor
+    }
+
+    fn use_sensor(&self, mut cursor: ClickCursor, area: &SensorArea) -> ClickCursor {
+        let used = cursor.sensor_used.get_d(*area, 0.into());
+        cursor.sensor_used = cursor.sensor_used.set(*area, used + 1);
+        cursor
+    }
+
+    fn step(
+        &self,
+        note: &HoldNote,
+        diff: Duration,
+        clicked: bool,
+        pressed: bool,
+        shared: Option<(JudgeGrade, Duration)>,
+    ) -> (HoldNote, Option<JudgeEvent>) {
+        hold_step(
+            note,
+            self.current_time.clone(),
+            diff,
+            C::TOUCH_HOLD_HEAD_IGNORE,
+            C::TOUCH_HOLD_TAIL_IGNORE,
+            clicked,
+            pressed,
+            false,
+            false,
+            self.touch_panel_offset.clone(),
+            shared,
+            self.delta.clone(),
+            self.style,
+        )
+    }
+
+    fn advance_frontier(
+        &self,
+        frontiers: SensorVec<Natural>,
+        area: &SensorArea,
+    ) -> SensorVec<Natural> {
+        advance_shared_touch_queue(&frontiers, *area)
+    }
+
+    fn update_queue(
+        &self,
+        queues: crate::input_model::SensorQueueVec<HoldNote>,
+        area: &SensorArea,
+        note: &HoldNote,
+    ) -> crate::input_model::SensorQueueVec<HoldNote> {
+        // This delegates to the installed replace_all + normalize + slot-store
+        // kernels. Their composition/primitive laws are a separate proof boundary.
+        update_sensor_hold_queue(&queues, *area, note)
+    }
+
+    fn append_active(
+        &self,
+        mut active: Vec<(SensorArea, HoldNote)>,
+        area: SensorArea,
+        note: HoldNote,
+    ) -> Vec<(SensorArea, HoldNote)> {
+        active.push((area, note));
+        active
+    }
+
+    fn append_event(&self, mut events: Vec<JudgeEvent>, event: JudgeEvent) -> Vec<JudgeEvent> {
+        events.push(event);
+        events
+    }
+}
+
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn process_touch_hold_notes(
     touch_frontiers: &SensorVec<Natural>,
@@ -1237,177 +1511,35 @@ fn process_touch_hold_notes(
     Vec<GroupState>,
     Vec<TouchHoldBodyGroupState>,
 ) {
-    match holds.split_first() {
-        None => (
-            touch_frontiers.clone(),
-            queues.clone(),
-            Vec::new(),
-            Vec::new(),
-            cursor.clone(),
-            touch_group_states.to_vec(),
-            touch_hold_body_groups.to_vec(),
-        ),
-        Some(((area, note), rest)) => {
-            let area = *area;
-            let timing = note.params.effective_timing();
-            let sensor_diff =
-                time_point_sub_duration(current_time.clone(), touch_panel_offset.clone())
-                    - timing.clone();
-            let local_body_pressed = input.get_sensor_held(area);
-            let body_groups1 = if touch_hold_body_check_active(note, current_time.clone()) {
-                match note.touch_hold_group_id.clone() {
-                    Some(group_id) => {
-                        if local_body_pressed {
-                            register_touch_hold_body_trigger(
-                                touch_hold_body_groups,
-                                group_id,
-                                note.params.note_index.clone(),
-                            )
-                        } else {
-                            unregister_touch_hold_body_trigger(
-                                touch_hold_body_groups,
-                                group_id,
-                                note.params.note_index.clone(),
-                            )
-                        }
-                    }
-                    None => touch_hold_body_groups.to_vec(),
-                }
-            } else {
-                touch_hold_body_groups.to_vec()
-            };
-            let effective_pressed = local_body_pressed
-                || match note.touch_hold_group_id.clone() {
-                    Some(group_id) => {
-                        touch_hold_body_group_majority_pressed(&body_groups1, group_id)
-                    }
-                    None => false,
-                };
-            let shared_result = match note.touch_group_id.clone() {
-                Some(group_id) => group_share_result(touch_group_states, group_id),
-                None => None,
-            };
-            let allow_input = shared_result.is_none()
-                && current_time.to_micros()
-                    <= time_point_add_duration(timing.clone(), C::TOUCH_GOOD).to_micros()
-                && hold_head_awaits_resolution(note.state)
-                && touch_queue_index_unlocked(
-                    touch_frontiers,
-                    area,
-                    note.touch_queue_index.clone(),
-                )
-                && hold_head_eligible_for_click(note, current_time.clone());
-            let (used_button, cursor_button) = if allow_input && button_ring_for_touch {
-                match area.to_outer_button_zone() {
-                    Some(zone) => try_use_button_click_at(input, cursor, zone),
-                    None => (false, cursor.clone()),
-                }
-            } else {
-                (false, cursor.clone())
-            };
-            let (used_sensor, cursor1) = if allow_input && !used_button {
-                try_use_sensor_click_at(input, &cursor_button, area)
-            } else {
-                (false, cursor_button)
-            };
-            let (new_note, evt) = hold_step(
-                note,
-                current_time.clone(),
-                if used_button {
-                    current_time.clone() - timing
-                } else {
-                    sensor_diff
-                },
-                C::TOUCH_HOLD_HEAD_IGNORE,
-                C::TOUCH_HOLD_TAIL_IGNORE,
-                used_button || used_sensor,
-                effective_pressed,
-                false,
-                false,
-                touch_panel_offset.clone(),
-                shared_result,
-                delta.clone(),
-                style,
-            );
-            let touch_frontiers2 = if entered_head_judged(note.state, new_note.state) {
-                advance_shared_touch_queue(touch_frontiers, area)
-            } else {
-                touch_frontiers.clone()
-            };
-            let queues2 = update_sensor_hold_queue(queues, area, &new_note);
-            let touch_group_states2 = if entered_head_judged(note.state, new_note.state) {
-                match (new_note.state, note.touch_group_id.clone()) {
-                    (HoldSubState::HeadJudged(grade), Some(group_id)) => {
-                        if grade.is_miss_or_too_fast() {
-                            touch_group_states.to_vec()
-                        } else {
-                            register_touch_group_result(
-                                touch_group_states,
-                                group_id,
-                                note.touch_group_size.clone(),
-                                grade,
-                                new_note.head_diff.clone(),
-                            )
-                        }
-                    }
-                    _ => touch_group_states.to_vec(),
-                }
-            } else {
-                touch_group_states.to_vec()
-            };
-            let body_groups2 = match note.touch_hold_group_id.clone() {
-                Some(group_id) => {
-                    if keep_hold_active(&new_note) {
-                        body_groups1
-                    } else {
-                        exit_touch_hold_body_group_member(
-                            &body_groups1,
-                            group_id,
-                            note.params.note_index.clone(),
-                        )
-                    }
-                }
-                None => body_groups1,
-            };
-            let (
-                rest_frontiers,
-                rest_queues,
-                mut rest_notes,
-                mut rest_evs,
-                cursor2,
-                rest_groups,
-                rest_body,
-            ) = process_touch_hold_notes(
-                &touch_frontiers2,
-                &queues2,
-                rest,
-                input,
-                current_time,
-                delta,
-                style,
-                touch_panel_offset,
-                button_ring_for_touch,
-                &cursor1,
-                &touch_group_states2,
-                &body_groups2,
-            );
-            if keep_hold_active(&new_note) {
-                rest_notes.insert(0, (area, new_note));
-            }
-            if let Some(e) = evt {
-                rest_evs.insert(0, e);
-            }
-            (
-                rest_frontiers,
-                rest_queues,
-                rest_notes,
-                rest_evs,
-                cursor2,
-                rest_groups,
-                rest_body,
-            )
-        }
-    }
+    let out = touch_hold_schedule_kernel::process(
+        &holds,
+        TouchHoldWork {
+            frontiers: touch_frontiers.clone(),
+            queues: queues.clone(),
+            cursor: cursor.clone(),
+            active: Vec::new(),
+            events: Vec::new(),
+            groups: touch_group_states.to_vec(),
+            body_groups: touch_hold_body_groups.to_vec(),
+        },
+        TouchHoldScheduleFrame {
+            input,
+            current_time,
+            delta,
+            style,
+            touch_panel_offset,
+            button_ring_for_touch,
+        },
+    );
+    (
+        out.frontiers,
+        out.queues,
+        out.active,
+        out.events,
+        out.cursor,
+        out.groups,
+        out.body_groups,
+    )
 }
 
 fn touch_queue_index_unlocked(
@@ -1479,16 +1611,176 @@ fn normalize_touch_queue_cursor(queue: &ZoneQueue<TouchNote>) -> ZoneQueue<Touch
     queue_maintenance_kernel::normalize_cursor_fuel(remaining, queue.clone(), TouchQueueMaintenance)
 }
 
-fn replace_touch_queue_note(
-    queue: &ZoneQueue<TouchNote>,
-    note: &TouchNote,
-) -> ZoneQueue<TouchNote> {
-    queue_maintenance_kernel::replace_all(
-        queue.notes.len(),
-        queue.clone(),
-        note,
+// Proposed insertion in runtime scheduler.rs immediately before
+// process_touch_queue_head_fuel. Imports/module registration are in the patch.
+
+struct TouchHeadSchedule<'a> {
+    area: SensorArea,
+    input: &'a FrameInput,
+    current_time: TimePoint,
+    style: crate::types::JudgeStyle,
+    touch_panel_offset: Duration,
+    button_ring_for_touch: bool,
+}
+
+impl
+    touch_schedule_kernel::TouchSchedule<
+        ZoneQueue<TouchNote>,
+        TouchNote,
+        SensorVec<Natural>,
+        ClickCursor,
+        Vec<GroupState>,
+        Vec<JudgeEvent>,
+        JudgeEvent,
+        TimePoint,
+        Duration,
+        SensorArea,
+        ButtonZone,
+        Natural,
+        JudgeGrade,
         TouchQueueMaintenance,
-    )
+    > for TouchHeadSchedule<'_>
+{
+    fn queue_ops(&self) -> TouchQueueMaintenance {
+        TouchQueueMaintenance
+    }
+
+    fn queue_remaining(&self, queue: &ZoneQueue<TouchNote>) -> usize {
+        queue
+            .notes
+            .len()
+            .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX))
+    }
+
+    fn queue_len(&self, queue: &ZoneQueue<TouchNote>) -> usize {
+        queue.notes.len()
+    }
+
+    fn timing(&self, note: &TouchNote) -> TimePoint {
+        note.params.effective_timing()
+    }
+
+    fn sensor_diff(&self, timing: &TimePoint) -> Duration {
+        time_point_sub_duration(self.current_time.clone(), self.touch_panel_offset.clone())
+            - timing.clone()
+    }
+
+    fn button_diff(&self, timing: TimePoint) -> Duration {
+        self.current_time.clone() - timing
+    }
+
+    fn group_id(&self, note: &TouchNote) -> Option<Natural> {
+        note.touch_group_id.clone()
+    }
+
+    fn group_size(&self, note: &TouchNote) -> Natural {
+        note.touch_group_size.clone()
+    }
+
+    fn shared_result(
+        &self,
+        groups: &Vec<GroupState>,
+        id: Natural,
+    ) -> Option<(JudgeGrade, Duration)> {
+        group_share_result(groups, id)
+    }
+
+    fn eligible(&self, note: &TouchNote) -> bool {
+        touch_click_can_engage_judge(
+            note,
+            self.current_time.clone(),
+            self.touch_panel_offset.clone(),
+        )
+    }
+
+    fn unlocked(&self, frontiers: &SensorVec<Natural>, note: &TouchNote) -> bool {
+        touch_queue_index_unlocked(frontiers, self.area, note.touch_queue_index.clone())
+    }
+
+    fn button_ring_for_touch(&self) -> bool {
+        self.button_ring_for_touch
+    }
+
+    fn sensor_area(&self, note: &TouchNote) -> SensorArea {
+        note.sensor_pos
+    }
+
+    fn outer_button(&self, area: &SensorArea) -> Option<ButtonZone> {
+        area.to_outer_button_zone()
+    }
+
+    fn button_available(&self, cursor: &ClickCursor, zone: &ButtonZone) -> bool {
+        has_unused_button_click_at(self.input, cursor, *zone)
+    }
+
+    fn sensor_available(&self, cursor: &ClickCursor, area: &SensorArea) -> bool {
+        has_unused_sensor_click_at(self.input, cursor, *area)
+    }
+
+    fn use_button(&self, mut cursor: ClickCursor, zone: &ButtonZone) -> ClickCursor {
+        let used = cursor.button_used.get_d(*zone, (0).into());
+        cursor.button_used = cursor.button_used.set(*zone, used + 1);
+        cursor
+    }
+
+    fn use_sensor(&self, mut cursor: ClickCursor, area: &SensorArea) -> ClickCursor {
+        let used = cursor.sensor_used.get_d(*area, (0).into());
+        cursor.sensor_used = cursor.sensor_used.set(*area, used + 1);
+        cursor
+    }
+
+    fn step(
+        &self,
+        note: &TouchNote,
+        diff: &Duration,
+        clicked: bool,
+        shared: Option<(JudgeGrade, Duration)>,
+    ) -> (TouchNote, Option<JudgeEvent>) {
+        touch_step(
+            note,
+            self.current_time.clone(),
+            diff.clone(),
+            clicked,
+            shared,
+            self.style,
+        )
+    }
+
+    fn ended(&self, note: &TouchNote) -> bool {
+        matches!(note.state, TouchState::Ended)
+    }
+
+    fn event_grade(&self, event: &JudgeEvent) -> JudgeGrade {
+        event.grade
+    }
+
+    fn is_miss_or_too_fast(&self, grade: &JudgeGrade) -> bool {
+        grade.is_miss_or_too_fast()
+    }
+
+    fn prepend_event(
+        &self,
+        mut events_rev: Vec<JudgeEvent>,
+        event: &JudgeEvent,
+    ) -> Vec<JudgeEvent> {
+        events_rev.insert(0, event.clone());
+        events_rev
+    }
+
+    fn register_group(
+        &self,
+        groups: Vec<GroupState>,
+        id: Natural,
+        size: Natural,
+        grade: JudgeGrade,
+        diff: Duration,
+    ) -> Vec<GroupState> {
+        register_touch_group_result(&groups, id, size, grade, diff)
+    }
+
+    fn advance_frontier(&self, frontiers: SensorVec<Natural>) -> SensorVec<Natural> {
+        advance_shared_touch_queue(&frontiers, self.area)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1512,108 +1804,31 @@ fn process_touch_queue_head_fuel(
     Vec<GroupState>,
     Vec<JudgeEvent>,
 ) {
-    let queue = normalize_touch_queue_cursor(queue);
-    if fuel == 0 {
-        return (
-            queue,
-            frontiers.clone(),
-            cursor.clone(),
-            groups.to_vec(),
-            evs_rev.to_vec(),
-        );
-    }
-    let note = match queue.peek() {
-        None => {
-            return (
-                queue,
-                frontiers.clone(),
-                cursor.clone(),
-                groups.to_vec(),
-                evs_rev.to_vec(),
-            );
-        }
-        Some(n) => n,
-    };
-    let timing = note.params.effective_timing();
-    let sensor_diff =
-        time_point_sub_duration(current_time.clone(), touch_panel_offset.clone()) - timing.clone();
-    let shared_result = match note.touch_group_id.clone() {
-        Some(group_id) => group_share_result(groups, group_id),
-        None => None,
-    };
-    let can_consume_click = shared_result.is_none()
-        && touch_click_can_engage_judge(&note, current_time.clone(), touch_panel_offset.clone())
-        && touch_queue_index_unlocked(frontiers, area, note.touch_queue_index.clone());
-    let (used_button, cursor_button) = if can_consume_click && button_ring_for_touch {
-        match note.sensor_pos.to_outer_button_zone() {
-            Some(zone) => try_use_button_click_at(input, cursor, zone),
-            None => (false, cursor.clone()),
-        }
-    } else {
-        (false, cursor.clone())
-    };
-    let (used_sensor, cursor2) = if can_consume_click && !used_button {
-        try_use_sensor_click_at(input, &cursor_button, note.sensor_pos)
-    } else {
-        (false, cursor_button)
-    };
-    let clicked = used_button || used_sensor;
-    let diff = if used_button {
-        current_time.clone() - timing
-    } else {
-        sensor_diff
-    };
-    let (new_note, evt) = touch_step(
-        &note,
-        current_time.clone(),
-        diff.clone(),
-        clicked,
-        shared_result,
-        style,
-    );
-    let resolved_now = !touch_queue_resolved(&note) && touch_queue_resolved(&new_note);
-    let mut groups2 = groups.to_vec();
-    let mut evs = evs_rev.to_vec();
-    if let Some(e) = &evt {
-        evs.insert(0, e.clone());
-        if !(!clicked || e.grade.is_miss_or_too_fast()) {
-            if let Some(group_id) = note.touch_group_id {
-                groups2 = register_touch_group_result(
-                    groups,
-                    group_id,
-                    note.touch_group_size,
-                    e.grade,
-                    diff,
-                );
-            }
-        }
-    }
-    let queue2 = normalize_touch_queue_cursor(&replace_touch_queue_note(&queue, &new_note));
-    let frontiers2 = if resolved_now {
-        advance_shared_touch_queue(frontiers, area)
-    } else {
-        frontiers.clone()
-    };
-    if matches!(new_note.state, TouchState::Ended)
-        && has_unused_touch_input_at(input, &cursor2, note.sensor_pos, button_ring_for_touch)
-    {
-        process_touch_queue_head_fuel(
-            fuel - 1,
+    let work = touch_schedule_kernel::process(
+        fuel,
+        TouchWork {
+            queue: queue.clone(),
+            frontiers: frontiers.clone(),
+            cursor: cursor.clone(),
+            groups: groups.to_vec(),
+            events_rev: evs_rev.to_vec(),
+        },
+        TouchHeadSchedule {
             area,
-            &queue2,
-            &frontiers2,
             input,
             current_time,
             style,
-            &cursor2,
             touch_panel_offset,
             button_ring_for_touch,
-            &groups2,
-            &evs,
-        )
-    } else {
-        (queue2, frontiers2, cursor2, groups2, evs)
-    }
+        },
+    );
+    (
+        work.queue,
+        work.frontiers,
+        work.cursor,
+        work.groups,
+        work.events_rev,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1657,6 +1872,91 @@ fn process_touch_queue_head(
     )
 }
 
+/// Immutable group results and frame timing for the automatic Touch pass.
+struct TouchAutomaticFrame<'a> {
+    area: SensorArea,
+    current_time: TimePoint,
+    style: crate::types::JudgeStyle,
+    touch_panel_offset: Duration,
+    groups: &'a [GroupState],
+}
+
+impl
+    lnmai_core_verify::touch_automatic::TouchAutomatic<
+        ZoneQueue<TouchNote>,
+        TouchNote,
+        Vec<TouchNote>,
+        SensorVec<Natural>,
+        Vec<JudgeEvent>,
+        JudgeEvent,
+        Duration,
+        (JudgeGrade, Duration),
+    > for TouchAutomaticFrame<'_>
+{
+    fn length(&self, source: &ZoneQueue<TouchNote>) -> usize {
+        source.notes.len()
+    }
+
+    fn get(&self, source: &ZoneQueue<TouchNote>, index: usize) -> TouchNote {
+        source.notes[index].clone()
+    }
+
+    fn before_cursor(&self, source: &ZoneQueue<TouchNote>, index: usize) -> bool {
+        index < source.current_index
+    }
+
+    fn resolved(&self, note: &TouchNote) -> bool {
+        touch_queue_resolved(note)
+    }
+
+    fn sensor_diff(&self, note: &TouchNote) -> Duration {
+        time_point_sub_duration(self.current_time.clone(), self.touch_panel_offset.clone())
+            - note.params.effective_timing()
+    }
+
+    fn shared(&self, note: &TouchNote) -> Option<(JudgeGrade, Duration)> {
+        match note.touch_group_id.clone() {
+            Some(group_id) => group_share_result(self.groups, group_id),
+            None => None,
+        }
+    }
+
+    fn too_late(&self, note: &TouchNote) -> bool {
+        self.current_time.to_micros()
+            > time_point_add_duration(note.params.effective_timing(), C::TOUCH_GOOD).to_micros()
+    }
+
+    fn step(
+        &self,
+        note: &TouchNote,
+        diff: Duration,
+        shared: Option<(JudgeGrade, Duration)>,
+    ) -> (TouchNote, Option<JudgeEvent>) {
+        touch_step(
+            note,
+            self.current_time.clone(),
+            diff,
+            false,
+            shared,
+            self.style,
+        )
+    }
+
+    fn advance_frontier(&self, frontiers: SensorVec<Natural>) -> SensorVec<Natural> {
+        advance_shared_touch_queue(&frontiers, self.area)
+    }
+
+    fn prepend_event(&self, mut events: Vec<JudgeEvent>, event: JudgeEvent) -> Vec<JudgeEvent> {
+        events.insert(0, event);
+        events
+    }
+
+    fn append_note(&self, mut notes: Vec<TouchNote>, note: TouchNote) -> Vec<TouchNote> {
+        notes.push(note);
+        notes
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_touch_queue_automatic(
     area: SensorArea,
@@ -1673,49 +1973,26 @@ fn process_touch_queue_automatic(
     Vec<GroupState>,
     Vec<JudgeEvent>,
 ) {
-    let mut notes: Vec<TouchNote> = Vec::new();
-    let mut frontiers = frontiers.clone();
-    let mut evs = evs_rev.to_vec();
-    for (index, note) in queue.notes.iter().enumerate() {
-        if index < queue.current_index || touch_queue_resolved(note) {
-            notes.push(note.clone());
-            continue;
-        }
-        let timing = note.params.effective_timing();
-        let sensor_diff = time_point_sub_duration(current_time.clone(), touch_panel_offset.clone())
-            - timing.clone();
-        let shared_result = match note.touch_group_id.clone() {
-            Some(group_id) => group_share_result(groups, group_id),
-            None => None,
-        };
-        let too_late =
-            current_time.to_micros() > time_point_add_duration(timing, C::TOUCH_GOOD).to_micros();
-        if shared_result.is_none() && !too_late {
-            notes.push(note.clone());
-        } else {
-            let (new_note, evt) = touch_step(
-                note,
-                current_time.clone(),
-                sensor_diff,
-                false,
-                shared_result,
-                style,
-            );
-            let resolved_now = !touch_queue_resolved(note) && touch_queue_resolved(&new_note);
-            if resolved_now {
-                frontiers = advance_shared_touch_queue(&frontiers, area);
-            }
-            if let Some(e) = evt {
-                evs.insert(0, e);
-            }
-            notes.push(new_note);
-        }
-    }
-    let q = normalize_touch_queue_cursor(&ZoneQueue {
-        notes,
+    let out = lnmai_core_verify::touch_automatic::process(
+        queue,
+        lnmai_core_verify::touch_automatic::TouchAutomaticWork {
+            notes: Vec::new(),
+            frontiers: frontiers.clone(),
+            events_rev: evs_rev.to_vec(),
+        },
+        TouchAutomaticFrame {
+            area,
+            current_time,
+            style,
+            touch_panel_offset,
+            groups,
+        },
+    );
+    let queue = normalize_touch_queue_cursor(&ZoneQueue {
+        notes: out.notes,
         ..queue.clone()
     });
-    (q, frontiers, groups.to_vec(), evs)
+    (queue, out.frontiers, groups.to_vec(), out.events_rev)
 }
 
 #[allow(clippy::too_many_arguments)]
