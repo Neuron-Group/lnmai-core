@@ -162,8 +162,14 @@ def chartNoteIndices (chart : ChartLoader.ChartSpec) : List Nat :=
   (chart.slideHeads.map (fun note => note.noteIndex)) ++
   judgedSlideNoteIndices chart.slides
 
+/-- Final judgments that contribute to score and note completion. A hold head
+    is a notification; its tail carries the completed note's grade. This is
+    the same exclusion used by Scheduler.foldEventIntoScore. -/
+def completedJudgmentEvents (result : RuntimeSimulationResult) : List JudgeEvent :=
+  result.events.filter (fun evt => !(evt.kind == .Hold && evt.phase == .head))
+
 def judgedNoteIndices (result : RuntimeSimulationResult) : List Nat :=
-  result.events.map (fun evt => evt.noteIndex)
+  (completedJudgmentEvents result).map (fun evt => evt.noteIndex)
 
 def missingJudgedNoteIndices (result : RuntimeSimulationResult) : List Nat :=
   let judged := judgedNoteIndices result
@@ -254,10 +260,10 @@ def simulateChartSectionWithTactic
   return simulateChartSpecWithTactic chart seq
 
 def allEventsArePerfect (result : RuntimeSimulationResult) : Bool :=
-  result.events.all (fun evt => evt.grade.isPerfectGrade)
+  (completedJudgmentEvents result).all (fun evt => evt.grade.isPerfectGrade)
 
 def allNotesJudged (result : RuntimeSimulationResult) : Bool :=
-  result.events.length = noteCount result.chart
+  (completedJudgmentEvents result).length = noteCount result.chart
 
 def endsWithNoActiveRuntimeNotes (result : RuntimeSimulationResult) : Bool :=
   result.finalState.activeHolds.isEmpty &&
@@ -275,7 +281,7 @@ def achievesAP (result : RuntimeSimulationResult) : Bool :=
 
 def achievesAPPlus (result : RuntimeSimulationResult) : Bool :=
   allNotesJudged result &&
-  result.events.all (fun evt => evt.grade = JudgeGrade.Perfect) &&
+  (completedJudgmentEvents result).all (fun evt => evt.grade = JudgeGrade.Perfect) &&
   comboState result.finalState.score = ComboState.APPlus
 
 def chartSectionAchievesAP

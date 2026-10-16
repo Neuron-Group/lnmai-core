@@ -2,18 +2,21 @@
 //!
 //! Mirrors `LnmaiCore/Simai/Timing.lean`.
 
+use crate::natural::Natural;
 use crate::rat::Rat;
 use crate::time::{self, Duration};
+use num_bigint::BigInt;
+use num_traits::{One, Zero};
 
 /// `Timing.trim`.
 pub fn trim(s: &str) -> String {
-    s.trim().to_string()
+    s.trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\r'))
+        .to_string()
 }
 
 /// `Timing.parseNatString?`.
-pub fn parse_nat_string(s: &str) -> Option<usize> {
-    let t = trim(s);
-    if t.is_empty() { None } else { t.parse::<usize>().ok() }
+pub fn parse_nat_string(s: &str) -> Option<Natural> {
+    Natural::from_lean_str(&trim(s))
 }
 
 /// `Timing.parseRatString?`.
@@ -23,34 +26,46 @@ pub fn parse_rat_string(s: &str) -> Option<Rat> {
         return None;
     }
     let negative = t.starts_with('-');
-    let unsigned = if negative { t.strip_prefix('-').unwrap_or(&t) } else { t.as_str() };
+    let unsigned = if negative {
+        t.strip_prefix('-').unwrap_or(&t)
+    } else {
+        t.as_str()
+    };
     let parts: Vec<&str> = unsigned.split('.').collect();
     match parts.as_slice() {
         [whole] => {
-            let n: i128 = whole.parse().ok()?;
-            let value = Rat::from_int(n);
-            Some(if negative { Rat::zero().sub(value) } else { value })
+            let value = Rat::from_int(Natural::from_lean_str(whole)?);
+            Some(if negative {
+                Rat::zero().sub(value)
+            } else {
+                value
+            })
         }
         [whole, frac] => {
-            let whole_nat: i128 = whole.parse().ok()?;
+            let whole_nat = Natural::from_lean_str(whole)?;
             if !frac.chars().all(|c| c.is_ascii_digit()) {
                 return None;
             }
-            let frac_nat: i128 = if frac.is_empty() { 0 } else { frac.parse().ok()? };
-            let denom = pow10(frac.len())?;
-            let value = Rat::from_int(whole_nat).add(Rat::from_int(frac_nat).div(Rat::from_int(denom)));
-            Some(if negative { Rat::zero().sub(value) } else { value })
+            let frac_nat: BigInt = if frac.is_empty() {
+                BigInt::zero()
+            } else {
+                frac.parse().ok()?
+            };
+            let denom = pow10(frac.len());
+            let value =
+                Rat::from_int(whole_nat).add(Rat::from_int(frac_nat).div(Rat::from_int(denom)));
+            Some(if negative {
+                Rat::zero().sub(value)
+            } else {
+                value
+            })
         }
         _ => None,
     }
 }
 
-fn pow10(n: usize) -> Option<i128> {
-    let mut acc: i128 = 1;
-    for _ in 0..n {
-        acc = acc.checked_mul(10)?;
-    }
-    Some(acc)
+fn pow10(n: usize) -> BigInt {
+    (0..n).fold(BigInt::one(), |acc, _| acc * 10u8)
 }
 
 /// `Timing.parseRatDef`.
@@ -59,7 +74,7 @@ pub fn parse_rat_def(s: &str, fallback: Rat) -> Rat {
 }
 
 /// `Timing.parseNatDef`.
-pub fn parse_nat_def(s: &str, fallback: usize) -> usize {
+pub fn parse_nat_def(s: &str, fallback: Natural) -> Natural {
     parse_nat_string(s).unwrap_or(fallback)
 }
 
@@ -92,7 +107,7 @@ pub fn extract_bracket_contents(token: &str) -> Vec<String> {
         match c {
             '[' => {
                 if inside {
-                    current.push('[');
+                    current.insert(0, '[');
                 } else {
                     inside = true;
                     current.clear();
@@ -132,127 +147,101 @@ pub fn split_hash1(s: &str) -> Option<(String, String)> {
     }
 }
 
-/// `Timing.parseNdDuration`.
-pub fn parse_nd_duration(bpm: Rat, timing: &str) -> Option<Duration> {
+fn parse_nd_micros(bpm: Rat, timing: &str) -> Option<Rat> {
     let parts: Vec<&str> = timing.split(':').collect();
     match parts.as_slice() {
-        [num_str, den_str] => {
-            let beat_division = parse_nat_string(num_str);
-            let num_beats = parse_nat_string(den_str);
-            match (beat_division, num_beats) {
-                (Some(beat_division), Some(num_beats)) => {
-                    if beat_division == 0 {
-                        None
-                    } else {
-                        let note_micros = time::bpm_measure_micros_rat(bpm)
-                            .mul(Rat::from_int(num_beats as i128))
-                            .div(Rat::from_int(beat_division as i128));
-                        Some(time::duration_from_rat_micros(note_micros))
-                    }
-                }
-                _ => None,
+        [division, beats] => {
+            let division = parse_nat_string(division)?;
+            let beats = parse_nat_string(beats)?;
+            if division == 0 {
+                None
+            } else {
+                Some(
+                    time::bpm_measure_micros_rat(bpm)
+                        .mul(Rat::from_int(beats))
+                        .div(Rat::from_int(division)),
+                )
             }
         }
         _ => None,
     }
 }
 
-/// `Timing.parseNdDurationExact`.
+pub fn parse_nd_duration(bpm: Rat, timing: &str) -> Option<Duration> {
+    parse_nd_micros(bpm, timing).map(time::duration_from_rat_micros)
+}
+
 pub fn parse_nd_duration_exact(bpm: Rat, timing: &str) -> Option<Duration> {
     parse_nd_duration(bpm, timing)
 }
 
-/// `Timing.parseDurationInner`.
+fn parse_seconds_micros(text: &str) -> Option<Rat> {
+    parse_seconds_rat_string(text).map(|seconds| seconds.mul(Rat::from_int(1_000_000)))
+}
+
+fn parse_ratio_or_seconds_micros(bpm: Rat, text: &str) -> Option<Rat> {
+    parse_nd_micros(bpm, text).or_else(|| parse_seconds_micros(text))
+}
+
+fn duration_bpm(current_bpm: Rat, text: &str) -> Rat {
+    parse_rat_string(text)
+        .filter(|value| Rat::zero().lt(value))
+        .unwrap_or(current_bpm)
+}
+
+fn parse_duration_inner_micros(current_bpm: Rat, inner: &str) -> Option<Rat> {
+    let parts: Vec<&str> = inner.split('#').collect();
+    match parts.as_slice() {
+        [timing] => parse_ratio_or_seconds_micros(current_bpm, timing),
+        ["", seconds] => parse_seconds_micros(seconds),
+        [custom_bpm, timing] => {
+            parse_ratio_or_seconds_micros(duration_bpm(current_bpm, custom_bpm), timing)
+        }
+        [_, _, timing] => parse_ratio_or_seconds_micros(current_bpm, timing),
+        [_, _, custom_bpm, timing] => {
+            parse_nd_micros(duration_bpm(current_bpm, custom_bpm), timing)
+        }
+        _ => None,
+    }
+}
+
 pub fn parse_duration_inner(current_bpm: Rat, inner: &str) -> Option<Duration> {
-    let hash_count = inner.matches('#').count();
-    if inner.starts_with('#') && hash_count == 1 && !inner.contains(':') {
-        parse_duration_string(&inner[1..])
-    } else if hash_count == 2 {
-        match split_hash2(inner) {
-            Some((_, _, duration_part)) => parse_duration_string(&duration_part),
-            None => None,
-        }
-    } else if hash_count == 1 {
-        match split_hash1(inner) {
-            Some((custom_bpm_str, timing_str)) => {
-                let seg_bpm = match parse_rat_string(&custom_bpm_str) {
-                    Some(v) if Rat::zero().lt(v) => v,
-                    _ => current_bpm,
-                };
-                match parse_nd_duration_exact(seg_bpm, &timing_str) {
-                    Some(duration) => Some(duration),
-                    None => parse_duration_string(&timing_str),
-                }
-            }
-            None => None,
-        }
-    } else {
-        match parse_nd_duration_exact(current_bpm, inner) {
-            Some(duration) => Some(duration),
-            None => {
-                if !inner.starts_with('#') {
-                    parse_duration_string(inner)
-                } else {
-                    None
-                }
-            }
-        }
-    }
+    parse_duration_inner_micros(current_bpm, inner).map(time::duration_from_rat_micros)
 }
 
-/// `Timing.parseDurationSpec`.
 pub fn parse_duration_spec(bpm: Rat, token: &str) -> Option<Duration> {
-    let contents = extract_bracket_contents(token);
-    contents.iter().fold(None, |acc, inner| {
-        match (acc, parse_duration_inner(bpm, inner)) {
-            (Some(sum), Some(duration)) => Some(sum + duration),
-            (Some(sum), None) => Some(sum),
-            (None, Some(duration)) => Some(duration),
-            (None, None) => None,
-        }
-    })
+    extract_bracket_contents(token)
+        .iter()
+        .filter_map(|inner| parse_duration_inner_micros(bpm.clone(), inner))
+        .reduce(|sum, duration| sum.add(duration))
+        .map(time::duration_from_rat_micros)
 }
 
-/// `Timing.parseStarWaitSpec`.
 pub fn parse_star_wait_spec(bpm: Rat, token: &str) -> Option<Duration> {
-    match extract_bracket_contents(token).first() {
-        None => Some(beat_sec(bpm)),
-        Some(inner) => {
-            let hash_count = inner.matches('#').count();
-            if hash_count == 2 {
-                match split_hash2(inner) {
-                    Some((wait_part, _, _)) => {
-                        if wait_part.is_empty() {
-                            Some(beat_sec(bpm))
-                        } else {
-                            match parse_seconds_rat_string(&wait_part) {
-                                Some(wait_seconds) => Some(time::duration_from_seconds_rat(wait_seconds)),
-                                None => parse_duration_string(&wait_part),
-                            }
-                        }
-                    }
-                    None => Some(beat_sec(bpm)),
-                }
-            } else if hash_count == 1 {
-                match split_hash1(inner) {
-                    Some((wait_bpm_str, _)) => match parse_rat_string(&wait_bpm_str) {
-                        Some(wait_bpm) if Rat::zero().lt(wait_bpm) => Some(beat_sec(wait_bpm)),
-                        _ => Some(beat_sec(bpm)),
-                    },
-                    None => Some(beat_sec(bpm)),
-                }
-            } else {
-                Some(beat_sec(bpm))
+    let custom = extract_bracket_contents(token).iter().find_map(|inner| {
+        let parts: Vec<&str> = inner.split('#').collect();
+        match parts.as_slice() {
+            [custom_bpm, _] => parse_rat_string(custom_bpm).map(|value| {
+                beat_sec(if Rat::zero().lt(&value) {
+                    value
+                } else {
+                    bpm.clone()
+                })
+            }),
+            [wait, _, _] | [wait, _, _, _] => {
+                parse_seconds_rat_string(wait).map(time::duration_from_seconds_rat)
             }
+            _ => None,
         }
-    }
+    });
+    Some(custom.unwrap_or_else(|| beat_sec(bpm)))
 }
 
 /// `Timing.noteTimingIncrement`.
-pub fn note_timing_increment(bpm: Rat, divisor: usize) -> Duration {
-    if Rat::zero().lt(bpm) && divisor > 0 {
+pub fn note_timing_increment(bpm: Rat, divisor: Natural) -> Duration {
+    if Rat::zero().lt(&bpm) && divisor > 0 {
         time::duration_from_rat_micros(
-            time::bpm_measure_micros_rat(bpm).div(Rat::from_int(divisor as i128)),
+            time::bpm_measure_micros_rat(bpm).div(Rat::from_int(divisor)),
         )
     } else {
         Duration::zero()
@@ -261,7 +250,7 @@ pub fn note_timing_increment(bpm: Rat, divisor: usize) -> Duration {
 
 /// `Timing.pseudoIncrement`.
 pub fn pseudo_increment(bpm: Rat) -> Duration {
-    if Rat::zero().lt(bpm) {
+    if Rat::zero().lt(&bpm) {
         time::duration_from_rat_micros(time::bpm_beat_micros_rat(bpm).div(Rat::from_int(32)))
     } else {
         Duration::from_micros(1000)
@@ -290,7 +279,10 @@ mod tests {
 
     #[test]
     fn bracket_contents() {
-        assert_eq!(extract_bracket_contents("1-3[4:1][8:1]"), vec!["4:1", "8:1"]);
+        assert_eq!(
+            extract_bracket_contents("1-3[4:1][8:1]"),
+            vec!["4:1", "8:1"]
+        );
         assert_eq!(extract_bracket_contents("[#0.5]"), vec!["#0.5"]);
     }
 
@@ -304,14 +296,19 @@ mod tests {
     #[test]
     fn star_wait_default_is_beat() {
         assert_eq!(
-            parse_star_wait_spec(Rat::from_int(120), "1").unwrap().to_micros(),
+            parse_star_wait_spec(Rat::from_int(120), "1")
+                .unwrap()
+                .to_micros(),
             500_000
         );
     }
 
     #[test]
     fn note_increment_bpm_zero() {
-        assert_eq!(note_timing_increment(Rat::zero(), 4).to_micros(), 0);
+        assert_eq!(
+            note_timing_increment(Rat::zero(), (4).into()).to_micros(),
+            0
+        );
         assert_eq!(pseudo_increment(Rat::zero()).to_micros(), 1000);
     }
 }

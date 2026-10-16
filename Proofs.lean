@@ -3,3 +3,7 @@ import Proofs.RealChartVerification100524
 import Proofs.RealChartVerification11358
 import Proofs.RealChartVerificationKoishiDISCO
 import Proofs.RealChartVerificationPandora
+import Proofs.RealChartVerification7thSense
+import Proofs.«RealChartVerification小石DISCO»
+import Proofs.RuntimeJudgmentCounting
+import Proofs.KoishiOverlapTactic

@@ -59,9 +59,7 @@ pub fn parse_slide_note_from_body(
 /// `parseTerminalEndArea`.
 pub fn parse_terminal_end_area(raw_text: &str) -> Result<SensorArea, ParseError> {
     let cs: Vec<char> = raw_text.chars().collect();
-    if raw_text.contains('V') {
-        parse_end_area_at(&cs, 3)
-    } else if raw_text.contains("pp") || raw_text.contains("qq") {
+    if raw_text.contains('V') || raw_text.contains("pp") || raw_text.contains("qq") {
         parse_end_area_at(&cs, 3)
     } else {
         parse_end_area_at(&cs, 2)
@@ -102,7 +100,12 @@ pub fn parse_slide_timing_point(
             is_just_right: just,
         });
     }
-    Ok(TimingPointSemantics { timing, bpm, h_speed, notes })
+    Ok(TimingPointSemantics {
+        timing,
+        bpm,
+        h_speed,
+        notes,
+    })
 }
 
 #[cfg(test)]

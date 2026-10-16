@@ -3,15 +3,18 @@
 //! Mirrors `LnmaiCore/Simai/Tokenize.lean`.
 
 use crate::areas::{OuterSlot, SensorArea};
+use crate::natural::Natural;
 use crate::rat::Rat;
 use crate::simai::shape::{detect_shape_from_text, digit_to_nat, parse_slide_body_from_text};
-use crate::simai::slide_tables::judge_queues_for_shape;
+use crate::simai::slide_tables::slide_bar_count_for_shape;
+use crate::simai::syntax::SlideKind;
 use crate::simai::syntax::{ParseError, ParseErrorKind, RawNoteKind, RawNoteToken};
 use crate::simai::timing::{
-    note_timing_increment, parse_duration_spec, parse_nat_def, parse_rat_def,
-    parse_star_wait_spec, pseudo_increment, trim,
+    parse_duration_spec, parse_nat_def, parse_rat_def, parse_star_wait_spec, trim,
 };
-use crate::time::{time_point_add_duration, Duration, TimePoint};
+use crate::time::{self, TimePoint};
+
+pub use lnmai_core_verify::tokenize::{is_slide_mark_char, is_touch_area_char};
 
 fn syntax_error(raw_text: &str, message: &str) -> ParseError {
     ParseError {
@@ -63,20 +66,44 @@ pub fn touch_area_to_sensor_area(s: &str) -> Option<SensorArea> {
     };
     match area {
         'A' => Some(pick(
-            SensorArea::A1, SensorArea::A2, SensorArea::A3, SensorArea::A4,
-            SensorArea::A5, SensorArea::A6, SensorArea::A7, SensorArea::A8,
+            SensorArea::A1,
+            SensorArea::A2,
+            SensorArea::A3,
+            SensorArea::A4,
+            SensorArea::A5,
+            SensorArea::A6,
+            SensorArea::A7,
+            SensorArea::A8,
         )),
         'D' => Some(pick(
-            SensorArea::D1, SensorArea::D2, SensorArea::D3, SensorArea::D4,
-            SensorArea::D5, SensorArea::D6, SensorArea::D7, SensorArea::D8,
+            SensorArea::D1,
+            SensorArea::D2,
+            SensorArea::D3,
+            SensorArea::D4,
+            SensorArea::D5,
+            SensorArea::D6,
+            SensorArea::D7,
+            SensorArea::D8,
         )),
         'E' => Some(pick(
-            SensorArea::E1, SensorArea::E2, SensorArea::E3, SensorArea::E4,
-            SensorArea::E5, SensorArea::E6, SensorArea::E7, SensorArea::E8,
+            SensorArea::E1,
+            SensorArea::E2,
+            SensorArea::E3,
+            SensorArea::E4,
+            SensorArea::E5,
+            SensorArea::E6,
+            SensorArea::E7,
+            SensorArea::E8,
         )),
         'B' => Some(pick(
-            SensorArea::B1, SensorArea::B2, SensorArea::B3, SensorArea::B4,
-            SensorArea::B5, SensorArea::B6, SensorArea::B7, SensorArea::B8,
+            SensorArea::B1,
+            SensorArea::B2,
+            SensorArea::B3,
+            SensorArea::B4,
+            SensorArea::B5,
+            SensorArea::B6,
+            SensorArea::B7,
+            SensorArea::B8,
         )),
         _ => None,
     }
@@ -96,20 +123,21 @@ pub fn strip_prefix_directives(token: &str) -> String {
     if t.is_empty() {
         t
     } else if t.starts_with('{') {
-        // drop through the first '}', then trim.
+        // Lean's splitOn always has a first piece. Without a closing marker,
+        // its remaining list is empty, so the entire directive is removed.
         match t.split_once('}') {
             Some((_, rest)) => trim(rest),
-            None => t,
+            None => String::new(),
         }
     } else if t.starts_with('(') {
         match t.split_once(')') {
             Some((_, rest)) => trim(rest),
-            None => t,
+            None => String::new(),
         }
     } else if t.starts_with('<') {
         match t.split_once('>') {
             Some((_, rest)) => trim(rest),
-            None => t,
+            None => String::new(),
         }
     } else {
         t
@@ -122,16 +150,6 @@ pub fn sanitize_slide_token(token: &str) -> String {
         .chars()
         .filter(|c| !matches!(c, 'b' | 'x' | 'f' | '!' | '?' | '$'))
         .collect()
-}
-
-/// `isTouchAreaChar`.
-pub fn is_touch_area_char(c: char) -> bool {
-    matches!(c, 'A' | 'B' | 'C' | 'D' | 'E')
-}
-
-/// `isSlideMarkChar`.
-pub fn is_slide_mark_char(c: char) -> bool {
-    matches!(c, '-' | '^' | 'v' | '<' | '>' | 'V' | 'p' | 'q' | 's' | 'z' | 'w')
 }
 
 /// `isSlideText`.
@@ -155,7 +173,11 @@ pub fn infer_kind(token: &str) -> RawNoteKind {
     } else {
         match t.chars().next() {
             Some(area) if is_touch_area_char(area) => {
-                if t.contains('h') { RawNoteKind::TouchHold } else { RawNoteKind::Touch }
+                if t.contains('h') {
+                    RawNoteKind::TouchHold
+                } else {
+                    RawNoteKind::Touch
+                }
             }
             _ => RawNoteKind::Unknown,
         }
@@ -164,32 +186,20 @@ pub fn infer_kind(token: &str) -> RawNoteKind {
 
 /// `splitTopLevel`.
 pub fn split_top_level(sep: char, s: &str) -> Vec<String> {
-    let mut result = Vec::new();
-    let mut depth: usize = 0;
-    let mut current = String::new();
-    for c in s.chars() {
-        match c {
-            '[' => {
-                depth += 1;
-                current.push('[');
-            }
-            ']' => {
-                depth = depth.saturating_sub(1);
-                current.push(']');
-            }
-            _ if c == sep && depth == 0 => {
-                result.push(std::mem::take(&mut current));
-            }
-            _ => current.push(c),
-        }
-    }
-    result.push(current);
-    result
+    let chars: Vec<char> = s.chars().collect();
+    lnmai_core_verify::tokenize::split_top_level(sep, &chars)
+        .into_iter()
+        .map(|piece| piece.into_iter().collect())
+        .collect()
 }
 
 /// `splitEntryTokens`.
 pub fn split_entry_tokens(entry: &str) -> Vec<String> {
-    split_top_level('/', entry).into_iter().map(|t| trim(&t)).filter(|t| !t.is_empty()).collect()
+    split_top_level('/', entry)
+        .into_iter()
+        .map(|t| trim(&t))
+        .filter(|t| !t.is_empty())
+        .collect()
 }
 
 fn take_until_slide_mark(text: &str) -> String {
@@ -216,14 +226,15 @@ pub fn parse_head_break(token: &str) -> bool {
 /// `parseSlideSegmentBreak`.
 pub fn parse_slide_segment_break(token: &str) -> bool {
     let t = strip_prefix_directives(token);
-    if !is_slide_text(&t) {
-        false
-    } else {
-        match t.split('[').next() {
-            Some(head) => head.ends_with('b'),
-            None => false,
+    let chars: Vec<char> = t.chars().collect();
+    let mut seen_slide = false;
+    for (i, c) in chars.iter().copied().enumerate() {
+        if c == 'b' && seen_slide && (i + 1 == chars.len() || chars[i + 1] == '[') {
+            return true;
         }
+        seen_slide |= is_slide_mark_char(c);
     }
+    false
 }
 
 /// `parseHSpeedDirective`.
@@ -246,40 +257,32 @@ pub fn parse_h_speed_directive(text: &str, current: Rat) -> Rat {
 /// `applyInlineDirective`.
 pub fn apply_inline_directive(
     bpm: Rat,
-    divisor: usize,
+    divisor: Natural,
     h_speed: Rat,
     segment: &str,
-) -> (Rat, usize, Rat, String) {
+) -> (Rat, Natural, Rat, String) {
     let mut bpm = bpm;
     let mut divisor = divisor;
     let mut h_speed = h_speed;
     let mut t = trim(segment);
-    loop {
+    for _ in 0..=segment.chars().count() {
+        t = trim(&t);
         if t.starts_with('(') {
-            let after = t.chars().skip(1).collect::<String>();
-            match after.split_once(')') {
-                Some((inside, rest)) => {
-                    bpm = parse_rat_def(inside, bpm);
-                    t = trim(rest);
-                }
-                None => break,
-            }
+            let (inside, rest) = t[1..].split_once(')').unwrap_or((&t[1..], ""));
+            bpm = parse_rat_def(inside, bpm);
+            t = rest.to_string();
         } else if t.starts_with('{') {
-            let after = t.chars().skip(1).collect::<String>();
-            match after.split_once('}') {
-                Some((inside, rest)) => {
-                    divisor = parse_nat_def(inside, divisor);
-                    t = trim(rest);
-                }
-                None => break,
-            }
+            let (inside, rest) = t[1..].split_once('}').unwrap_or((&t[1..], ""));
+            divisor = parse_nat_def(inside, divisor);
+            t = rest.to_string();
         } else if t.starts_with("<H") {
-            let after = match t.split_once('>') {
-                Some((_, rest)) => rest.to_string(),
-                None => t.clone(),
-            };
             h_speed = parse_h_speed_directive(&t, h_speed);
-            t = after;
+            t = t
+                .split_once('>')
+                .map(|(_, rest)| rest.to_string())
+                .unwrap_or_default();
+        } else if let Some(index) = t.find(['(', '{']) {
+            t = t[index..].to_string();
         } else {
             break;
         }
@@ -292,12 +295,16 @@ pub fn mk_raw_token(
     timing: TimePoint,
     bpm: Rat,
     h_speed: Rat,
-    divisor: usize,
+    divisor: Natural,
     token: &str,
 ) -> RawNoteToken {
     let t = trim(token);
     let kind = infer_kind(&t);
-    let parsed_text = if kind == RawNoteKind::Slide { sanitize_slide_token(&t) } else { t.clone() };
+    let parsed_text = if kind == RawNoteKind::Slide {
+        sanitize_slide_token(&t)
+    } else {
+        t.clone()
+    };
     let slot = leading_digit(&parsed_text).and_then(|n| OuterSlot::of_index(n.saturating_sub(1)));
     let sensor_pos = touch_area_to_sensor_area(&t);
     let slide_body = if kind == RawNoteKind::Slide {
@@ -305,8 +312,12 @@ pub fn mk_raw_token(
     } else {
         None
     };
-    let length = parse_duration_spec(bpm, &t);
-    let star_wait = if kind == RawNoteKind::Slide { parse_star_wait_spec(bpm, &t) } else { None };
+    let length = parse_duration_spec(bpm.clone(), &t);
+    let star_wait = if kind == RawNoteKind::Slide {
+        parse_star_wait_spec(bpm.clone(), &t)
+    } else {
+        None
+    };
     let is_break = parse_head_break(&t);
     let is_ex = t.contains('x');
     let is_hanabi = t.contains('f');
@@ -455,16 +466,21 @@ fn parse_continuous_slide_segments(
 
 fn segment_bar_count(raw_text: &str) -> Result<usize, ParseError> {
     let shape = detect_shape_from_text(raw_text)?;
-    let queues = judge_queues_for_shape(shape, false).unwrap_or_default();
-    let count = queues.iter().map(|q| q.len()).max().unwrap_or(0);
-    if count == 0 {
-        Err(syntax_error(raw_text, "missing slide table for connected slide segment"))
-    } else {
-        Ok(count)
+    if crate::simai::shape::shape_kind(&shape) == SlideKind::Wifi {
+        return Err(syntax_error(
+            raw_text,
+            "wifi slide cannot be part of a connection slide group",
+        ));
     }
+    slide_bar_count_for_shape(&shape)
+        .ok_or_else(|| syntax_error(raw_text, "missing slide table for connected slide segment"))
 }
 
-fn apply_shared_slide_flags(base: &RawNoteToken, token: &RawNoteToken, is_headless: bool) -> RawNoteToken {
+fn apply_shared_slide_flags(
+    base: &RawNoteToken,
+    token: &RawNoteToken,
+    is_headless: bool,
+) -> RawNoteToken {
     RawNoteToken {
         is_break: base.is_break,
         is_ex: base.is_ex,
@@ -477,71 +493,77 @@ fn apply_shared_slide_flags(base: &RawNoteToken, token: &RawNoteToken, is_headle
     }
 }
 
-fn tag_connected_group(group_id: usize, size: usize, tokens: Vec<RawNoteToken>) -> Vec<RawNoteToken> {
+fn tag_connected_group(
+    group_id: Natural,
+    size: usize,
+    tokens: Vec<RawNoteToken>,
+) -> Vec<RawNoteToken> {
     tokens
         .into_iter()
         .enumerate()
         .map(|(index, tok)| RawNoteToken {
-            source_group_id: Some(group_id),
-            source_group_index: Some(index),
-            source_group_size: Some(size),
+            source_group_id: Some(group_id.clone()),
+            source_group_index: Some((index).into()),
+            source_group_size: Some((size).into()),
             ..tok
         })
         .collect()
 }
 
-fn build_per_segment_chain_tokens(
-    group_id: usize,
-    timing: TimePoint,
-    bpm: Rat,
-    h_speed: Rat,
-    divisor: usize,
-    base: &RawNoteToken,
-    segments: &[ContinuousChainSegment],
-) -> Result<Vec<RawNoteToken>, ParseError> {
-    let tokens: Vec<RawNoteToken> = segments
-        .iter()
-        .enumerate()
-        .map(|(i, segment)| {
-            let tok = mk_raw_token(timing, bpm, h_speed, divisor, &segment.raw_text);
-            let headless = if i == 0 { base.is_slide_no_head } else { true };
-            apply_shared_slide_flags(base, &tok, headless)
-        })
-        .collect();
-    let size = tokens.len();
-    Ok(tag_connected_group(group_id, size, tokens))
-}
-
 fn build_whole_duration_chain_tokens(
-    group_id: usize,
+    group_id: Natural,
     timing: TimePoint,
     bpm: Rat,
     h_speed: Rat,
-    divisor: usize,
+    divisor: Natural,
     base: &RawNoteToken,
     segments: &[ContinuousChainSegment],
 ) -> Result<Vec<RawNoteToken>, ParseError> {
-    let total_length = base.length.ok_or_else(|| {
-        syntax_error(&base.raw_text, "connected slide chain requires an explicit timing spec")
+    let total_length = base.length.clone().ok_or_else(|| {
+        syntax_error(
+            &base.raw_text,
+            "connected slide chain requires an explicit timing spec",
+        )
     })?;
     let mut bar_counts = Vec::with_capacity(segments.len());
     for segment in segments {
         bar_counts.push(segment_bar_count(&segment.raw_text)?);
     }
-    let total_bars: usize = bar_counts.iter().sum();
+    let total_bars: Natural = bar_counts.iter().copied().map(Natural::from).sum();
     if total_bars == 0 {
-        return Err(syntax_error(&base.raw_text, "connected slide chain has no measurable segments"));
+        return Err(syntax_error(
+            &base.raw_text,
+            "connected slide chain has no measurable segments",
+        ));
     }
-    let base_micros = total_length.to_micros() as i128;
+    let base_micros = Rat::from_int(total_length.to_micros());
+    let mut elapsed_bars = Natural::default();
     let tokens: Vec<RawNoteToken> = segments
         .iter()
         .zip(bar_counts.iter())
         .enumerate()
         .map(|(i, (segment, bars))| {
-            let seg_tok = mk_raw_token(timing, bpm, h_speed, divisor, &segment.raw_text);
-            let seg_len = Duration::from_micros((base_micros * (*bars as i128) / total_bars as i128) as i64);
-            let seg_wait = if i == 0 { base.star_wait } else { None };
-            let tok = RawNoteToken { length: Some(seg_len), star_wait: seg_wait, ..seg_tok };
+            let seg_tok = mk_raw_token(
+                timing.clone(),
+                bpm.clone(),
+                h_speed.clone(),
+                divisor.clone(),
+                &segment.raw_text,
+            );
+            let start = time::duration_from_rat_micros(
+                base_micros.mul(Rat::new(&elapsed_bars, &total_bars)),
+            );
+            elapsed_bars += *bars;
+            let end = time::duration_from_rat_micros(
+                base_micros.mul(Rat::new(&elapsed_bars, &total_bars)),
+            );
+            let seg_len = end - start;
+            let seg_wait = if i == 0 { base.star_wait.clone() } else { None };
+            let tok = RawNoteToken {
+                length: Some(seg_len),
+                star_wait: seg_wait,
+                ..seg_tok
+            };
             let headless = if i == 0 { base.is_slide_no_head } else { true };
             apply_shared_slide_flags(base, &tok, headless)
         })
@@ -573,48 +595,48 @@ fn classify_chain_timing_layout(
                     Err(syntax_error(raw_text, "invalid connected slide timing layout"))
                 }
             }
-            Some(false) => {
-                if flags.iter().all(|f| !*f) {
-                    Err(syntax_error(
-                        raw_text,
-                        "connected slide chain requires either per-segment timing or a final overall timing spec",
-                    ))
-                } else {
-                    Err(syntax_error(raw_text, "invalid connected slide timing layout"))
-                }
-            }
+            Some(false) => Err(syntax_error(raw_text,
+                "connected slide chain requires either per-segment timing or a final overall timing spec")),
             None => Err(syntax_error(raw_text, "invalid connected slide timing layout")),
         }
     }
 }
 
 fn expand_continuous_chain_token(
-    group_id: usize,
+    group_id: Natural,
     timing: TimePoint,
     bpm: Rat,
     h_speed: Rat,
-    divisor: usize,
+    divisor: Natural,
     token: &str,
 ) -> Result<Vec<RawNoteToken>, ParseError> {
-    let base = mk_raw_token(timing, bpm, h_speed, divisor, token);
+    let base = mk_raw_token(
+        timing.clone(),
+        bpm.clone(),
+        h_speed.clone(),
+        divisor.clone(),
+        token,
+    );
     if base.kind != RawNoteKind::Slide {
         return Ok(vec![base]);
     }
     match parse_continuous_slide_segments(token)? {
         None => Ok(vec![base]),
-        Some(segments) => match classify_chain_timing_layout(&base.raw_text, &segments)? {
-            ChainTimingLayout::PerSegment => {
-                build_per_segment_chain_tokens(group_id, timing, bpm, h_speed, divisor, &base, &segments)
-            }
-            ChainTimingLayout::OverallFinal => {
-                build_whole_duration_chain_tokens(group_id, timing, bpm, h_speed, divisor, &base, &segments)
-            }
-        },
+        Some(segments) => {
+            classify_chain_timing_layout(&base.raw_text, &segments)?;
+            build_whole_duration_chain_tokens(
+                group_id, timing, bpm, h_speed, divisor, &base, &segments,
+            )
+        }
     }
 }
 
 fn same_head_group_parts(token: &str) -> Vec<String> {
-    split_top_level('*', token).into_iter().map(|t| trim(&t)).filter(|t| !t.is_empty()).collect()
+    split_top_level('*', token)
+        .into_iter()
+        .map(|t| trim(&t))
+        .filter(|t| !t.is_empty())
+        .collect()
 }
 
 fn same_head_head_prefix(token: &str) -> String {
@@ -640,137 +662,179 @@ fn same_head_head_prefix(token: &str) -> String {
     }
 }
 
-fn expand_same_head_group_rest(
-    group_id: usize,
+fn expand_same_head_group(
+    group_id: Natural,
     timing: TimePoint,
     bpm: Rat,
     h_speed: Rat,
-    divisor: usize,
-    head_prefix: &str,
-    size: usize,
-    start_idx: usize,
-    parts: &[String],
+    divisor: Natural,
+    token: &str,
 ) -> Result<Vec<RawNoteToken>, ParseError> {
-    let mut out = Vec::with_capacity(parts.len());
-    for (offset, part) in parts.iter().enumerate() {
-        let rebuilt = if head_prefix.is_empty() { part.clone() } else { format!("{}{}", head_prefix, part) };
-        let tok = mk_raw_token(timing, bpm, h_speed, divisor, &rebuilt);
-        out.push(RawNoteToken {
+    let parts = same_head_group_parts(token);
+    let Some((first, rest)) = parts.split_first() else {
+        return Ok(Vec::new());
+    };
+    let prefix = same_head_head_prefix(first);
+    let mut out = expand_continuous_chain_token(
+        group_id.clone(),
+        timing.clone(),
+        bpm.clone(),
+        h_speed.clone(),
+        divisor.clone(),
+        first,
+    )?;
+    for part in rest {
+        let rebuilt = format!("{}{}", prefix, part);
+        let tokens = expand_continuous_chain_token(
+            group_id.clone() + out.len(),
+            timing.clone(),
+            bpm.clone(),
+            h_speed.clone(),
+            divisor.clone(),
+            &rebuilt,
+        )?;
+        out.extend(tokens.into_iter().map(|tok| RawNoteToken {
             is_slide_no_head: true,
-            source_group_id: Some(group_id),
-            source_group_index: Some(start_idx + offset),
-            source_group_size: Some(size),
             ..tok
-        });
+        }));
     }
     Ok(out)
 }
 
-fn expand_same_head_group(
-    group_id: usize,
-    timing: TimePoint,
-    bpm: Rat,
-    h_speed: Rat,
-    divisor: usize,
-    token: &str,
-) -> Result<Vec<RawNoteToken>, ParseError> {
-    let parts = same_head_group_parts(token);
-    match parts.split_first() {
-        None => Ok(Vec::new()),
-        Some((first, rest)) => {
-            let head_prefix = same_head_head_prefix(first);
-            let mut first_tok = mk_raw_token(timing, bpm, h_speed, divisor, first);
-            let first_is_grouped_slide = first_tok.kind == RawNoteKind::Slide;
-            let grouped_slide_count = (if first_is_grouped_slide { 1 } else { 0 }) + rest.len();
-            if first_is_grouped_slide {
-                first_tok.source_group_id = Some(group_id);
-                first_tok.source_group_index = Some(0);
-                first_tok.source_group_size = Some(grouped_slide_count);
-            }
-            let rest_start_index = if first_is_grouped_slide { 1 } else { 0 };
-            let rest_toks = expand_same_head_group_rest(
-                group_id, timing, bpm, h_speed, divisor, &head_prefix, grouped_slide_count,
-                rest_start_index, rest,
-            )?;
-            let mut out = vec![first_tok];
-            out.extend(rest_toks);
-            Ok(out)
-        }
-    }
-}
-
 fn expand_token_list(
-    base_group_id: usize,
+    base_group_id: Natural,
     timing: TimePoint,
     bpm: Rat,
     h_speed: Rat,
-    divisor: usize,
+    divisor: Natural,
     texts: &[String],
 ) -> Result<Vec<RawNoteToken>, ParseError> {
     let mut out = Vec::new();
-    for (idx, tok_text) in texts.iter().enumerate() {
+    for tok_text in texts {
+        if infer_kind(tok_text) != RawNoteKind::Unknown && tok_text.contains(['K', '@', 'c', 'm']) {
+            return Err(syntax_error(
+                tok_text,
+                "unsupported extended slide or note modifier (K, @, c, m)",
+            ));
+        }
+        let idx = out.len();
         let current = if tok_text.contains('*') {
-            expand_same_head_group(base_group_id + idx, timing, bpm, h_speed, divisor, tok_text)?
+            expand_same_head_group(
+                base_group_id.clone() + idx,
+                timing.clone(),
+                bpm.clone(),
+                h_speed.clone(),
+                divisor.clone(),
+                tok_text,
+            )?
         } else {
-            expand_continuous_chain_token(base_group_id + idx, timing, bpm, h_speed, divisor, tok_text)?
+            expand_continuous_chain_token(
+                base_group_id.clone() + idx,
+                timing.clone(),
+                bpm.clone(),
+                h_speed.clone(),
+                divisor.clone(),
+                tok_text,
+            )?
         };
         out.extend(current);
     }
     Ok(out)
 }
 
-/// `parseSegmentNotes`.
+fn expand_entry_text(
+    timing: TimePoint,
+    bpm: Rat,
+    h_speed: Rat,
+    divisor: Natural,
+    entry: &str,
+) -> Result<Vec<RawNoteToken>, ParseError> {
+    let text = trim(entry);
+    let entries = if text.chars().count() == 2 && text.chars().all(|c| digit_to_nat(c).is_some()) {
+        text.chars().map(|c| c.to_string()).collect()
+    } else {
+        split_entry_tokens(&text)
+    };
+    expand_token_list((0).into(), timing, bpm, h_speed, divisor, &entries)
+}
+
+fn parse_segment_notes_exact(
+    segment: &str,
+    start: Rat,
+    bpm: Rat,
+    h_speed: Rat,
+    divisor: Natural,
+) -> Result<Vec<RawNoteToken>, ParseError> {
+    let normalized: String = segment
+        .chars()
+        // Lean's Char.isWhitespace excludes ASCII form feed.
+        .filter(|c| !matches!(c, ' ' | '\t' | '\r' | '\n'))
+        .collect();
+    let increment = if Rat::zero().lt(&bpm) {
+        time::bpm_beat_micros_rat(bpm.clone()).div(Rat::from_int(32))
+    } else {
+        Rat::from_int(1000)
+    };
+    let mut current_time = start;
+    let mut acc = Vec::new();
+    for part in normalized.split(char::from(96)).filter(|p| !p.is_empty()) {
+        acc.extend(expand_entry_text(
+            time::point_from_rat_micros(current_time.clone()),
+            bpm.clone(),
+            h_speed.clone(),
+            divisor.clone(),
+            part,
+        )?);
+        current_time = current_time.add(&increment);
+    }
+    Ok(acc)
+}
+
 pub fn parse_segment_notes(
     segment: &str,
     time: TimePoint,
     bpm: Rat,
     h_speed: Rat,
-    divisor: usize,
+    divisor: Natural,
 ) -> Result<Vec<RawNoteToken>, ParseError> {
-    let normalized = trim(&segment.replace('\n', ""));
-    if normalized.is_empty() {
-        Ok(Vec::new())
-    } else if normalized.contains('`') {
-        let parts: Vec<&str> = normalized.split('`').collect();
-        let mut current_time = time;
-        let mut acc: Vec<RawNoteToken> = Vec::new();
-        for part in parts {
-            let tokens = expand_token_list(0, current_time, bpm, h_speed, divisor, &split_entry_tokens(part))?;
-            current_time = time_point_add_duration(current_time, pseudo_increment(bpm));
-            acc.extend(tokens);
-        }
-        Ok(acc)
-    } else {
-        expand_token_list(0, time, bpm, h_speed, divisor, &split_entry_tokens(&normalized))
-    }
+    parse_segment_notes_exact(
+        segment,
+        Rat::from_int(time.to_micros()),
+        bpm,
+        h_speed,
+        divisor,
+    )
 }
 
-/// `parseSegments`.
+/// `parseSegments`: the existing accumulator is in reverse source order.
 pub fn parse_segments(
     segments: &[String],
-    time: TimePoint,
-    bpm: Rat,
-    h_speed: Rat,
-    divisor: usize,
+    start: TimePoint,
+    mut bpm: Rat,
+    mut h_speed: Rat,
+    mut divisor: Natural,
+    acc_rev: &[RawNoteToken],
 ) -> Result<Vec<RawNoteToken>, ParseError> {
-    let mut acc: Vec<RawNoteToken> = Vec::new();
-    let mut time = time;
-    let mut bpm = bpm;
-    let mut h_speed = h_speed;
-    let mut divisor = divisor;
+    let mut acc: Vec<_> = acc_rev.iter().rev().cloned().collect();
+    let mut time = Rat::from_int(start.to_micros());
     for segment in segments {
-        let clean = trim(segment);
-        let (bpm2, divisor2, h_speed2, body) = apply_inline_directive(bpm, divisor, h_speed, &clean);
-        let new_tokens = parse_segment_notes(&body, time, bpm2, h_speed2, divisor2)?;
-        let mut rev: Vec<RawNoteToken> = new_tokens.into_iter().rev().collect();
-        rev.extend(acc);
-        acc = rev;
-        time = time_point_add_duration(time, note_timing_increment(bpm2, divisor2));
-        bpm = bpm2;
-        h_speed = h_speed2;
-        divisor = divisor2;
+        let (new_bpm, new_divisor, new_speed, body) =
+            apply_inline_directive(bpm, divisor, h_speed, segment);
+        bpm = new_bpm;
+        divisor = new_divisor;
+        h_speed = new_speed;
+        acc.extend(parse_segment_notes_exact(
+            &body,
+            time.clone(),
+            bpm.clone(),
+            h_speed.clone(),
+            divisor.clone(),
+        )?);
+        if Rat::zero().lt(&bpm) && divisor > 0 {
+            time = time
+                .add(time::bpm_measure_micros_rat(bpm.clone()).div(Rat::from_int(divisor.clone())));
+        }
     }
-    acc.reverse();
     Ok(acc)
 }
 
@@ -786,6 +850,9 @@ mod tests {
         assert_eq!(infer_kind("A1"), RawNoteKind::Touch);
         assert_eq!(infer_kind("Ch"), RawNoteKind::TouchHold);
         assert_eq!(infer_kind(""), RawNoteKind::Rest);
+        for token in ["{4", "(120", "<-5[4:1]"] {
+            assert_eq!(infer_kind(token), RawNoteKind::Rest);
+        }
     }
 
     #[test]
@@ -804,7 +871,14 @@ mod tests {
 
     #[test]
     fn segment_notes_tap() {
-        let toks = parse_segment_notes("1", TimePoint::zero(), Rat::from_int(120), Rat::one(), 4).unwrap();
+        let toks = parse_segment_notes(
+            "1",
+            TimePoint::zero(),
+            Rat::from_int(120),
+            Rat::one(),
+            (4).into(),
+        )
+        .unwrap();
         assert_eq!(toks.len(), 1);
         assert_eq!(toks[0].kind, RawNoteKind::Tap);
         assert_eq!(toks[0].slot, Some(OuterSlot::S1));
@@ -817,7 +891,8 @@ mod tests {
             TimePoint::zero(),
             Rat::from_int(120),
             Rat::one(),
-            4,
+            (4).into(),
+            &[],
         )
         .unwrap();
         assert_eq!(toks.len(), 2);
@@ -826,7 +901,8 @@ mod tests {
 
     #[test]
     fn inline_bpm_directive() {
-        let (bpm, _, _, body) = apply_inline_directive(Rat::from_int(120), 4, Rat::one(), "(240)1");
+        let (bpm, _, _, body) =
+            apply_inline_directive(Rat::from_int(120), (4).into(), Rat::one(), "(240)1");
         assert_eq!(bpm, Rat::from_int(240));
         assert_eq!(body, "1");
     }

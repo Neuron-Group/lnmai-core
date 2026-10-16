@@ -83,14 +83,27 @@ mod tests {
 
     #[test]
     fn test_perfect_fixed() {
-        for style in &[JudgeStyle::Default, JudgeStyle::Maji, JudgeStyle::Gachi, JudgeStyle::Gori] {
-            assert_eq!(convert_grade(*style, JudgeGrade::Perfect), JudgeGrade::Perfect);
+        for style in &[
+            JudgeStyle::Default,
+            JudgeStyle::Maji,
+            JudgeStyle::Gachi,
+            JudgeStyle::Gori,
+        ] {
+            assert_eq!(
+                convert_grade(*style, JudgeGrade::Perfect),
+                JudgeGrade::Perfect
+            );
         }
     }
 
     #[test]
     fn test_miss_fixed() {
-        for style in &[JudgeStyle::Default, JudgeStyle::Maji, JudgeStyle::Gachi, JudgeStyle::Gori] {
+        for style in &[
+            JudgeStyle::Default,
+            JudgeStyle::Maji,
+            JudgeStyle::Gachi,
+            JudgeStyle::Gori,
+        ] {
             assert_eq!(convert_grade(*style, JudgeGrade::Miss), JudgeGrade::Miss);
         }
     }
@@ -98,8 +111,11 @@ mod tests {
     #[test]
     fn test_default_identity() {
         let grades = [
-            JudgeGrade::Miss, JudgeGrade::LateGood, JudgeGrade::LateGreat,
-            JudgeGrade::Perfect, JudgeGrade::TooFast,
+            JudgeGrade::Miss,
+            JudgeGrade::LateGood,
+            JudgeGrade::LateGreat,
+            JudgeGrade::Perfect,
+            JudgeGrade::TooFast,
         ];
         for grade in grades {
             assert_eq!(convert_grade(JudgeStyle::Default, grade), grade);

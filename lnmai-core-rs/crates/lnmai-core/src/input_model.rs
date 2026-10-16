@@ -5,17 +5,18 @@
 use crate::areas::{ButtonZone, OuterSlot, SensorArea};
 use crate::constants::{BUTTON_ZONE_COUNT, SENSOR_AREA_COUNT, SUBDIVIDE_SLIDE_JUDGE_GRADE};
 use crate::lifecycle::{HoldNote, SlideNote, TapFamilyNote, TouchNote};
+use crate::natural::Natural;
+use crate::runtime_score::RuntimeScoreState;
 use crate::storage::{ButtonVec, SensorVec};
 use crate::time::{time_point_sub_duration, Duration, TimePoint};
-use crate::runtime_score::RuntimeScoreState;
 use crate::types::{GroupState, JudgeDisplayOption, JudgeStyle};
 
 /// `TouchHoldBodyGroupState` (from `LnmaiCore.Types`).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TouchHoldBodyGroupState {
-    pub group_id: usize,
-    pub member_note_indices: Vec<usize>,
-    pub triggered_note_indices: Vec<usize>,
+    pub group_id: Natural,
+    pub member_note_indices: Vec<Natural>,
+    pub triggered_note_indices: Vec<Natural>,
 }
 
 fn button_vec_bool_default() -> ButtonVec<bool> {
@@ -26,27 +27,29 @@ fn sensor_vec_bool_default() -> SensorVec<bool> {
     SensorVec::replicate(SENSOR_AREA_COUNT as usize, false)
 }
 
-fn button_vec_nat_default() -> ButtonVec<usize> {
-    ButtonVec::replicate(BUTTON_ZONE_COUNT as usize, 0)
+fn button_vec_nat_default() -> ButtonVec<Natural> {
+    ButtonVec::replicate(BUTTON_ZONE_COUNT as usize, (0).into())
 }
 
-fn sensor_vec_nat_default() -> SensorVec<usize> {
-    SensorVec::replicate(SENSOR_AREA_COUNT as usize, 0)
+fn sensor_vec_nat_default() -> SensorVec<Natural> {
+    SensorVec::replicate(SENSOR_AREA_COUNT as usize, (0).into())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// `Default` matches Lean's derived `Inhabited` (empty backing vectors).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FrameInput {
     pub button_clicked: ButtonVec<bool>,
     pub button_held: ButtonVec<bool>,
     pub sensor_clicked: SensorVec<bool>,
     pub sensor_held: SensorVec<bool>,
-    pub button_click_count: ButtonVec<usize>,
-    pub sensor_click_count: SensorVec<usize>,
+    pub button_click_count: ButtonVec<Natural>,
+    pub sensor_click_count: SensorVec<Natural>,
     pub delta: Duration,
 }
 
-impl Default for FrameInput {
-    fn default() -> Self {
+impl FrameInput {
+    /// Lean `{}`: apply structure field initializers, including full input vectors.
+    pub fn with_field_defaults() -> Self {
         FrameInput {
             button_clicked: button_vec_bool_default(),
             button_held: button_vec_bool_default(),
@@ -59,7 +62,7 @@ impl Default for FrameInput {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TimedInputEvent {
     ButtonClick(TimePoint, ButtonZone),
     ButtonHold(TimePoint, ButtonZone, bool),
@@ -67,13 +70,19 @@ pub enum TimedInputEvent {
     SensorHold(TimePoint, SensorArea, bool),
 }
 
+impl Default for TimedInputEvent {
+    fn default() -> Self {
+        Self::ButtonClick(TimePoint::zero(), ButtonZone::K1)
+    }
+}
+
 impl TimedInputEvent {
     pub fn at(&self) -> TimePoint {
         match self {
-            TimedInputEvent::ButtonClick(tp, _) => *tp,
-            TimedInputEvent::ButtonHold(tp, _, _) => *tp,
-            TimedInputEvent::SensorClick(tp, _) => *tp,
-            TimedInputEvent::SensorHold(tp, _, _) => *tp,
+            TimedInputEvent::ButtonClick(tp, _) => tp.clone(),
+            TimedInputEvent::ButtonHold(tp, _, _) => tp.clone(),
+            TimedInputEvent::SensorClick(tp, _) => tp.clone(),
+            TimedInputEvent::SensorHold(tp, _, _) => tp.clone(),
         }
     }
 }
@@ -86,11 +95,14 @@ pub struct TimedInputBatch {
 
 impl Default for TimedInputBatch {
     fn default() -> Self {
-        TimedInputBatch { current_time: TimePoint::zero(), events: Vec::new() }
+        TimedInputBatch {
+            current_time: TimePoint::zero(),
+            events: Vec::new(),
+        }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FrameWindow {
     pub prev_time: TimePoint,
     pub current_time: TimePoint,
@@ -98,7 +110,10 @@ pub struct FrameWindow {
 
 impl FrameWindow {
     pub fn of_delta(current_time: TimePoint, delta: Duration) -> FrameWindow {
-        FrameWindow { prev_time: time_point_sub_duration(current_time, delta), current_time }
+        FrameWindow {
+            prev_time: time_point_sub_duration(current_time.clone(), delta),
+            current_time,
+        }
     }
 
     pub fn contains_event_time(&self, event_time: TimePoint) -> bool {
@@ -130,26 +145,30 @@ impl FrameInput {
     pub fn get_sensor_clicked(&self, area: SensorArea) -> bool {
         self.sensor_clicked.get_d(area, false)
     }
-    pub fn get_button_click_count(&self, zone: ButtonZone) -> usize {
-        let count = self.button_click_count.get_d(zone, 0);
+    pub fn get_button_click_count(&self, zone: ButtonZone) -> Natural {
+        let count = self.button_click_count.get_d(zone, (0).into());
         if count > 0 {
             count
         } else if self.get_button_clicked(zone) {
-            1
+            (1).into()
         } else {
-            0
+            (0).into()
         }
     }
-    pub fn get_sensor_click_count(&self, area: SensorArea) -> usize {
-        let count = self.sensor_click_count.get_d(area, 0);
+    pub fn get_sensor_click_count(&self, area: SensorArea) -> Natural {
+        let count = self.sensor_click_count.get_d(area, (0).into());
         if count > 0 {
             count
         } else if self.get_sensor_clicked(area) {
-            1
+            (1).into()
         } else {
-            0
+            (0).into()
         }
     }
+}
+
+pub fn prev_sensor_held_at(prev_sensor: &SensorVec<bool>, area: SensorArea) -> bool {
+    prev_sensor.get_d(area, false)
 }
 
 impl TimedInputBatch {
@@ -159,12 +178,12 @@ impl TimedInputBatch {
         prev_button_held: ButtonVec<bool>,
         prev_sensor_held: SensorVec<bool>,
     ) -> FrameInput {
-        let window = FrameWindow::of_delta(self.current_time, delta);
+        let window = FrameWindow::of_delta(self.current_time.clone(), delta.clone());
         let mut fi = FrameInput {
             button_held: prev_button_held,
             sensor_held: prev_sensor_held,
-            delta,
-            ..FrameInput::default()
+            delta: delta.clone(),
+            ..FrameInput::with_field_defaults()
         };
         for evt in &self.events {
             if !window.contains_event_time(evt.at()) {
@@ -173,12 +192,12 @@ impl TimedInputBatch {
             match evt {
                 TimedInputEvent::ButtonClick(_, zone) => {
                     fi.button_clicked = fi.button_clicked.set(*zone, true);
-                    let next = fi.button_click_count.get_d(*zone, 0) + 1;
+                    let next = fi.button_click_count.get_d(*zone, (0).into()) + 1;
                     fi.button_click_count = fi.button_click_count.set(*zone, next);
                 }
                 TimedInputEvent::SensorClick(_, area) => {
                     fi.sensor_clicked = fi.sensor_clicked.set(*area, true);
-                    let next = fi.sensor_click_count.get_d(*area, 0) + 1;
+                    let next = fi.sensor_click_count.get_d(*area, (0).into()) + 1;
                     fi.sensor_click_count = fi.sensor_click_count.set(*area, next);
                 }
                 TimedInputEvent::ButtonHold(_, zone, is_down) => {
@@ -201,12 +220,15 @@ impl TimedInputBatch {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ZoneQueue<T> {
     pub notes: Vec<T>,
-    pub current_index: usize,
+    pub current_index: Natural,
 }
 
 impl<T> Default for ZoneQueue<T> {
     fn default() -> Self {
-        ZoneQueue { notes: Vec::new(), current_index: 0 }
+        ZoneQueue {
+            notes: Vec::new(),
+            current_index: (0).into(),
+        }
     }
 }
 
@@ -216,11 +238,14 @@ impl<T: Clone> ZoneQueue<T> {
     }
 
     pub fn peek(&self) -> Option<T> {
-        self.notes.get(self.current_index).cloned()
+        self.notes.get(self.current_index.to_usize()?).cloned()
     }
 
     pub fn advance(&self) -> ZoneQueue<T> {
-        ZoneQueue { current_index: self.current_index + 1, ..self.clone() }
+        ZoneQueue {
+            current_index: self.current_index.clone() + 1,
+            ..self.clone()
+        }
     }
 }
 
@@ -263,13 +288,14 @@ pub fn set_sensor_queue_at<T: Clone>(
 // Game state
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// `Default` matches Lean's derived `Inhabited`; use field defaults for a new game.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GameState {
     pub current_time: TimePoint,
     pub prev_button: ButtonVec<bool>,
     pub prev_sensor: SensorVec<bool>,
-    pub button_queue_frontiers: ButtonVec<usize>,
-    pub touch_queue_frontiers: SensorVec<usize>,
+    pub button_queue_frontiers: ButtonVec<Natural>,
+    pub touch_queue_frontiers: SensorVec<Natural>,
     pub tap_queues: ButtonQueueVec<TapFamilyNote>,
     pub hold_queues: ButtonQueueVec<HoldNote>,
     pub touch_hold_queues: SensorQueueVec<HoldNote>,
@@ -286,20 +312,35 @@ pub struct GameState {
     pub subdivide_slide_judge_grade: bool,
     pub note_fast_late_display: JudgeDisplayOption,
     pub break_fast_late_display: JudgeDisplayOption,
+    pub display_hold_head_judge_result: bool,
+    pub button_ring_for_touch: bool,
 }
 
-impl Default for GameState {
-    fn default() -> Self {
+impl GameState {
+    /// Lean `{}`: allocate the zone vectors and apply the configured settings.
+    pub fn with_field_defaults() -> Self {
         GameState {
             current_time: TimePoint::zero(),
             prev_button: button_vec_bool_default(),
             prev_sensor: sensor_vec_bool_default(),
             button_queue_frontiers: button_vec_nat_default(),
             touch_queue_frontiers: sensor_vec_nat_default(),
-            tap_queues: button_queue_vec_replicate(BUTTON_ZONE_COUNT as usize, ZoneQueue::default()),
-            hold_queues: button_queue_vec_replicate(BUTTON_ZONE_COUNT as usize, ZoneQueue::default()),
-            touch_hold_queues: sensor_queue_vec_replicate(SENSOR_AREA_COUNT as usize, ZoneQueue::default()),
-            touch_queues: sensor_queue_vec_replicate(SENSOR_AREA_COUNT as usize, ZoneQueue::default()),
+            tap_queues: button_queue_vec_replicate(
+                BUTTON_ZONE_COUNT as usize,
+                ZoneQueue::default(),
+            ),
+            hold_queues: button_queue_vec_replicate(
+                BUTTON_ZONE_COUNT as usize,
+                ZoneQueue::default(),
+            ),
+            touch_hold_queues: sensor_queue_vec_replicate(
+                SENSOR_AREA_COUNT as usize,
+                ZoneQueue::default(),
+            ),
+            touch_queues: sensor_queue_vec_replicate(
+                SENSOR_AREA_COUNT as usize,
+                ZoneQueue::default(),
+            ),
             slides: Vec::new(),
             active_holds: Vec::new(),
             active_touch_holds: Vec::new(),
@@ -312,6 +353,8 @@ impl Default for GameState {
             subdivide_slide_judge_grade: SUBDIVIDE_SLIDE_JUDGE_GRADE,
             note_fast_late_display: JudgeDisplayOption::All,
             break_fast_late_display: JudgeDisplayOption::Disable,
+            display_hold_head_judge_result: false,
+            button_ring_for_touch: false,
         }
     }
 }

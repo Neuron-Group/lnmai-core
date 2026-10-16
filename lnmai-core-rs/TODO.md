@@ -1,187 +1,140 @@
-# TODO — completing full Rust ↔ Lean formal equivalence
+# Remaining work toward complete Rust–Lean equivalence
 
-Context: the Rust rewrite is complete and the differential harness already
-checks large parts of behaviour against Lean. This file lists the remaining
-*formal* (Aeneas + Lean) obligations, in priority order, with concrete starting
-points so another agent can finish them.
+The complete runtime pipeline is implemented, but whole-program equivalence
+has not been proved. `../verification/SPEC_MAPPING.md` identifies the current
+boundary. Do not mark this task complete solely because a corpus or test
+suite passes.
 
-## Conventions
+`../verification/SOURCE_AUDIT.md` records module coverage, concrete source
+findings, current proof builds and remaining gaps.
 
-- The verifiable Rust crate is `crates/lnmai-core-verify`. Changes there are
-  regenerated into `../verification/Verification/Generated.lean` by
-  `tools/regen_aeneas.sh`.
-- Lean proofs live in `../verification/Verification/`. Never leave `sorry` in a
-  claimed-complete module.
-- `../verification/README.md` holds the per-module status table and the
-  environment caveat (Mathlib load ≈ minutes/check).
-- Use `#print axioms <thm>` to confirm a proof does not depend on `sorryAx`.
+## Current work order
 
----
+Finish the module-by-module implementation alignment and equivalence proofs
+before running tests, as requested by the user. Rust extraction and Lean
+equivalence-proof compilation belong to this first phase. Unit, differential,
+real-chart and ABI acceptance runs are deferred until that phase is complete.
+Prioritize parser, complete lifecycles, scheduler and judgments. Defer further
+count/combo-display proofs until those priority paths are covered.
+The interrupted Koishi diagnostic is not a passing acceptance result.
+The deferred corpus includes every difficulty from `011996 Usagi Flap`,
+`011951 サイエンス` and `蛙石` (10 additional cases, 48 total). Both frontend
+comparison and complete runtime playthroughs use this same corpus. Registration
+is complete; these newly added cases have not been executed. The Lean
+real-chart acceptance also includes all ten, retaining AP and no-missing-note
+requirements.
 
-## P0 — Judge window functions (`LnmaiCore/Judge.lean`)
+## Required acceptance for each kernel/runtime change
 
-Target lemmas (in `../verification/Verification/Judge.lean`):
+- Run `tools/validate_all.sh` from the parent checkout. It checks formatting,
+  Clippy, debug/release tests, extraction freshness, Lean regressions and real
+  charts, equivalence proofs with axiom audit, all differential tests and C ABI.
+- Keep LLBC and generated Lean synchronized. Never edit generated Lean or add
+  `sorry`/custom axioms to make a claimed equivalence theorem pass.
+- Record whether evidence is a universal theorem, a bounded theorem or a
+  finite executable comparison. Preserve all theorem preconditions.
 
-```lean
-judge_tap_equiv, judge_touch_equiv, judge_slide_classic_equiv,
-judge_slide_modern_equiv, judge_hold_end_equiv, judge_hold_classic_end_equiv,
-is_too_late_slide_equiv, judge_slide_too_late_equiv
-```
+## Formal work still required
 
-**Done (`sorry`-free, standard axioms only):**
-- `judge_tap_equiv` ✅
-- `judge_touch_equiv` ✅ (with `judgeTouch_expand`, `option_map_ite`)
-- `judge_slide_classic_equiv` ✅ (with `judgeSlideClassic_expand`)
-- `judge_slide_too_late_equiv` ✅
-- `is_too_late_slide_equiv` ✅ (with `Bridge.i64_add_eq`, `Duration.toMicros_{add,min}`)
-- `judge_slide_modern_equiv` ✅ (with `Bridge.div_nat_eq`/`scale_nat_eq`, `Duration.toMicros_{add,min,scaleNat,divNat}`, `judgeSlideModern_expand`; under `stay_time ≥ 0`)
+1. Relate the actual `Integer`/`Natural`/`Rat` runtime representations and
+   operations to Lean arithmetic, including promotion/normalization, division
+   by zero, Euclidean division and saturating natural subtraction.
+2. Prove exact-time adapters, threshold clamping and runtime score/accuracy
+   implementations. Shared finite tables alone do not prove the adapters.
+3. Extend extraction/verification to Simai parsing, shape tables, timing,
+   normalization, lowering, validation and error/JSON representation.
+4. Prove chart loading, storage/map order, input state and every note lifecycle
+   transition. Cover Hold head/tail events, EX grades, parent/dependent slides,
+   touch groups, score/audio/render event order and all settings.
+5. Prove scheduler/frame composition, default tactic generation, seek/replay
+   and restoration for arbitrary traces.
+6. Prove JSON/session/FFI semantics and ownership/ABI obligations. The native
+   protocol's modulo-64-bit representation must match Lean separately from
+   unbounded gameplay arithmetic.
 
-Already available (proven):
-- `abs_spec` / `abs_eq` for `time.Duration.abs`
-  (precondition `d.micros ≠ IScalar.min .I64`).
-- `judgeTapCore` — the shared ℤ-level branch structure.
-- `ofLnmJudgeGrade_ite`, `toLnmDuration_toMicros`, `duration_abs_fromMicros`,
-  and `decide`-checked constant lemmas for all tap/touch/slide-classic windows.
+## Kernel additions in this working revision
 
-**Resolved blocker (was: the `Duration.abs` `Result` bind).** The proof pattern
-that works for `judge_tap`/`judge_touch`/`judge_slide_classic`:
+`Hold`, `HoldModern`, `Rotations`, `Time`, `Constants` and `ScoreExtra` contain
+new obligations for the formerly missing pure functions. Their completion
+requires a passing fresh proof build and axiom audit, not just the presence of
+source files. Modern-slide arithmetic now uses Euclidean division; negative
+wait times are included in the stated bounded range.
 
-1. `obtain ⟨v, hv, hvv⟩ := abs_eq diff hmin`
-   (`hv : diff.abs = ok ⟨v⟩`, `hvv : v.val = if … then -… else …`).
-2. `rw [judge.judge_tap]`, `rw [hv]`, `simp only [bind_tc_ok]`.
-3. Rewrite the spec with an `…_expand` lemma proved by `rfl` that exposes
-   `LnmaiCore.Duration.abs` (the private `absDiff` is definitionally equal).
-4. Normalize to µs-level `ℤ` comparisons using `duration_abs_toMicros`,
-   `lnmDuration_le/lt_iff_toMicros`, `i64_le/lt_iff`, the model-constant value
-   lemmas, and `← hvv`; then `ofLnmJudgeGrade_ite`, `ok_ite`, and
-   `repeat (first | rfl | split)`.
-5. For `judge_touch`, additionally eliminate the Bool `&&` guard via
-   `Bool.and_eq_true` + `decide_eq_true_eq`, and push `Option.map` through `if`
-   (`option_map_ite`); split the sign with `by_cases` and use
-   `hfast`/`(diff.micros.val < 0) = False` to reduce the model branch.
+Runtime storage and slide symmetry now re-export their extracted implementations.
+`Storage*` proofs cover arbitrary vector contents and require value-preserving
+cloning and pure callback specifications; `Symmetry` covers every machine
+rotation argument, including noncanonical representatives modulo eight.
 
-**Remaining.** The two hold-end functions: `judge_hold_end` needs `TimePoint`
-comparisons / `press_band` multiplication arithmetic; `judge_hold_classic_end`
-needs `TimePoint ↔ I64` conversion plus the `distFromPerfect` comparison.
+Runtime slide checkpoints now also use the extracted `lifecycle::SlideArea<P>`
+with arbitrary-precision progress values as the opaque parameter.
+`SlideHistory`, `SlideAreaLoops`, `SlideArea` and `SlideAreaTrace` compiled
+successfully, covering malformed histories, independent one-target legacy
+seeding, defaults, cloning, updates, observations and finite input traces.
+The runtime now also delegates ordered queue traversal to the extracted
+`slide_queue` module. That extraction and library-only typecheck succeeded;
+the queue proofs passed combined-source elaboration, while a fresh
+separate-module axiom audit is still pending.
+This does not cover the scheduler that selects checkpoint updates.
 
-## P1 — Score functions (`LnmaiCore/Score.lean`)
+The parser now uses the extracted character classifiers and bracket-aware
+top-level splitter. `Tokenize` passed combined-source elaboration and axiom
+checks, including loop termination, bounds and complete output equivalence
+for character sequences with length below `Usize.max`. UTF-8/string conversion
+and the rest of parsing/normalization/lowering remain open.
 
-Target: `scoreNonBreak_equiv`, `scoreBreak_equiv`, `updateCombo_equiv`,
-`countFastLate_equiv`, `dxScoreRank_equiv`.
+Tap and SlideHead now use the shared extracted `TapState` and `tap_transition`.
+Their fresh extraction and library-only typecheck passed. `TapLifecycle`
+single-step and finite-frame composition proofs are pending Lean acceptance;
+actual unbounded time/judgment/event adapters remain explicit boundaries.
 
-**Done (`sorry`-free, standard axioms only):**
-- `base_score_equiv` ✅
-- `score_non_break_equiv` ✅ (with `u32_mul_eq`/`u32_div_eq`/`u32_sub_eq`)
-- `update_combo_equiv` ✅
+`SlideQueueModel` has compiled separately. Extracted traversal, finite-frame
+composition and `SlideQueueReferenceTrace` now elaborate together, including
+every intermediate reference queue, ordered command list and command-free
+replay. The new `VecEquality`, `SlideAreaEquality` and `StorageEquality`
+proofs passed the same combined-source check. Clone/container hypotheses
+remain; this does not replace the fresh separate-module audit.
 
-The remaining ones combine `u32` arithmetic with enum dispatch. State each with
-explicit no-overflow preconditions (e.g. `base.val * multiple.val < 2^32`,
-`b.val * 4 < 2^32`) and use the Aeneas `U32.*_spec` lemmas (via `step*` plus
-`u32_*_eq`); the differential tests already fix the expected values.
+The default-value source pass corrected the difference between Lean's derived
+`Inhabited.default` and structure field initializers. Rust `Default` now
+matches the former; `with_field_defaults()` preserves the latter for input,
+game state, click cursors and the global registry. The corrected kernel was
+re-extracted and the runtime library typechecked; tests remain deferred.
+The unused floating-point parser at `src/simai.rs` was removed; all Cargo
+targets use the exact parser in `crates/lnmai-core/src/simai/`.
 
-`countFastLate` needs `Duration` comparisons (`== 0`, `< 0`) — reuse the
-`I64` comparison simp lemmas.
+`Shape` and `ShapeSolver` cover the shared canonical-shape solver.
+`AreasPublic` and `TypesPublic` add public defaults, arrays, clones, equality
+and order. Unbounded area adapter composition remains conditional on the
+actual runtime producing the exact natural residue/index.
+`ShapeAdapters` also passed combined-source elaboration and individual axiom
+checks for four unbounded-endpoint composition theorems. They explicitly
+assume the runtime conversion to `usize` preserves representable values and
+fails only above its maximum. Actual bigint conversion remains unproved.
 
-## P2 — Time arithmetic (`LnmaiCore/Time.lean`)
+`IntegerAdapters`, `AccuracyAdapters` and `RuntimeScore` passed combined-source
+elaboration and principal-theorem axiom checks. They establish the decoded
+Euclidean-division algorithm, five rational accuracy formulas and ordered
+event-fold/trace composition under explicit representation laws. Actual
+bigint/rational operations and unextracted runtime callers remain open.
 
-Targets: `scale_nat`, `div_nat`, the `Add`/`Sub` impls, and `from_millis`.
-Prove value specs mirroring `abs_spec`, i.e.
+Runtime grade indexing, enumeration and fixed-array reads/writes now delegate
+to the extracted `grade_counts` kernel. Fresh extraction, library-only Rust
+typechecking and the Generated module compilation passed. `GradeCounts`
+passed combined-source elaboration and axiom checks for arbitrary contents;
+its read/write theorems need no Clone law, and decoded increments assume
+the addition law. `RuntimeCounts` five-table routing/update composition also
+passed combined-source elaboration and principal axiom checks, retaining its
+explicit arithmetic/decoding laws.
+The previous full proof-build driver was stopped at a module boundary after
+fresh extraction invalidated its plan; a fresh full audit is still required.
 
-```lean
-time.Duration.scale_nat d factor ⦃ r => r.micros.val = d.micros.val * factor.val ⦄
-```
-
-with overflow preconditions or an `I64`-range argument.
-
-Notes / progress:
-- Bridge lemma `(UScalar.hcast IScalarTy.I64 x).val = x.val` (u32→i64) is
-  proved (`Bridge.hcast_i64_val`).
-- `scale_nat` and `div_nat` value specs are proved (`Bridge.scale_nat_spec`,
-  `Bridge.div_nat_spec`) with equality forms `Bridge.scale_nat_eq`/
-  `Bridge.div_nat_eq`, together with `Duration.toMicros_{add,min,scaleNat,
-  divNat}`, `i64_add_eq` and `u32_eq_zero_iff`.
-- **`div_nat` does NOT mirror `Int.ediv`.** Aeneas's division spec
-  (`IScalar.div_spec`) is `Int.tdiv` (truncation toward zero), while the spec's
-  `Duration.divNat` uses Lean `Int./`, i.e. Euclidean division. They coincide
-  exactly when the dividend is `≥ 0`. State the equivalence with
-  `0 ≤ dividend.micros.val` (modern slides pass a nonnegative `stay_time`).
-  The model returns `0` for divisor `0`; the spec does too.
-- `Add`/`Sub`/`from_millis` are still open.
-
-## P3 — Areas.rotate
-
-`SensorArea.rotate` / `ButtonZone.rotate` / `OuterSlot.rotate` equivalence.
-Lean uses `((n-1)+steps) % 8` in `Nat`; the Rust model uses `usize` arithmetic.
-State equivalence modulo `steps % 8`, and reuse the `ring_*` tables. Also prove
-`SensorArea.rotate`'s group-preservation (A/B/D/E rings independent, `C` fixed).
-
-## P4 — Constants batch
-
-Prove (by `decide`/`norm_num`) that every model constant equals its Lean
-counterpart's `.toMicros`, for all of `constants.rs` (only six tap constants
-are done). Add them as `@[simp]` lemmas so later proofs normalize constants.
-
-## P5 — Broaden differential coverage (fast, always worth it)
-
-- The harness only feeds **single-difficulty synthetic** charts (all
-  `&inote_1=`) that are mostly one measure. FFI testing against a real
-  multi-difficulty, multi-measure chart
-  (`~/.maichart/324_Jack-the-Ripper◆`) exposed — and then fixed — two bugs:
-  1. the Rust port had no `default_tactic_from_chart` (implemented in
-     `src/default_tactic.rs` + FFI/C ABI);
-  2. `collect_chart_body` reversed the chart body lines, so measures were
-     lowered in reverse order (fixed; regression test
-     `multi_measure_body_keeps_source_order`).
-  With both fixed the Rust parse now matches Lean for **every** level of that
-  chart, and the default tactic is byte-identical. `CHARTS` in
-  `tests/differential.rs` now includes multi-measure and multi-level synthetic
-  bodies (verified against the Lean CLIs), and `multi_measure_body_keeps_source_order`
-  pins the exact Lean timings.
-- Add charts for: classic holds, `#`-timed segments, `$`/`!`/`?` flags,
-  same-head `*` groups under chords, large slide chains.
-- Longer random sessions (hundreds of frames) and multiple charts per run.
-- Assert full-state invariants that both sides can express identically
-  (score, per-grade counts, `currentTime`, queue frontiers). The *whole*
-  `GameState` JSON currently uses this port's own schema; comparing it to Lean
-  requires mirroring Lean's derived encoding for every note type.
-
-## P6 — Runtime formal verification (large; scope deliberately)
-
-`Storage`, `Lifecycle`, `Scheduler`, `InputModel` are not in the verify crate
-because they use `Vec`/`Option`/generics. Options:
-- extract a `no_std`-style, `Vec`-based subset to `lnmai-core-verify` and prove
-  the queue/state transitions; or
-- treat differential testing as the primary evidence for the runtime and keep
-  the formal layer on the pure core.
-Decide and document the boundary explicitly.
-
-## P7 — CI / reproducibility
-
-- Add a CI job that runs `cargo test` and `tools/run_differential.sh` (building
-  the Lean CLIs).
-- For proof CI, use a ≥ 32 GB runner; add `verification/tools/build.sh` to a
-  workflow.
-- Keep `verification/lakefile.toml`'s Aeneas path documented (see README §3);
-  consider a setup script that rewrites it from `AENEAS_HOME`.
-
----
-
-## Handy commands
-
-```bash
-# fast inner loop
-cd lnmai-core-rs && cargo test
-
-# regenerate Aeneas model
-lnmai-core-rs/tools/regen_aeneas.sh
-
-# check proofs (slow)
-cd ../verification && lake build
-
-# differential (needs Lean CLIs)
-cd .. && lake build simai-parser-cli runtime-step-cli
-lnmai-core-rs/tools/run_differential.sh
-
-# no-axiom check for a theorem
-#   #print axioms Verification.JudgeProof.abs_eq
-```
+Runtime JSON decoding now includes Syntax/IR, autoplay, `FrameInput`, public
+FFI results and event/position types. The session registry and native output
+commit order are aligned with Lean in source; serialization and session/ABI
+proof obligations remain open.
+The source inventory covers 75 derived encoders, 71 derived decoders, 26
+concrete custom instances and 50 structure field sequences. Numeric parsing
+now accepts Lean-style digit separators, and runtime time constants share
+the kernel values. Combo-state classification uses judgment counts, including
+the stricter Break requirement for AP+. These remain source/implementation
+evidence until their representation and composition proofs are discharged.

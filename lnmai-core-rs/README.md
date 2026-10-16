@@ -1,155 +1,92 @@
-# lnmai-core-rs
+# Rust gameplay core
 
-Rust rewrite of the Lean `LnmaiCore` gameplay core, plus an Aeneas/Lean
-verification package and a differential test harness that checks the Rust
-output against the authoritative Lean implementation.
+This workspace implements the Lean `LnmaiCore` parser, gameplay state machine,
+score calculation, seek/replay, JSON interface and native C ABI. The Lean
+specification is in `../LnmaiCore`; the proof package is in `../verification`.
 
-This directory is self-contained: it contains the Rust workspace, the Lean
-verification package, helper tooling, and this documentation.
+## Architecture and verification boundary
 
-```
-lnmai-core-rs/
-  Cargo.toml                      # workspace
-  crates/
-    lnmai-core-verify/            # Aeneas-compatible pure core (single source of truth)
-    lnmai-core/                   # full port + FFI (JSON API + C ABI)
-      src/{areas,time,types,constants,convert,judge,score}.rs   (re-exported)
-      src/{storage,symmetry,rat,time,input_model,lifecycle,
-           chart_loader,runtime_score,scheduler,events,default_tactic,ffi,cabi}.rs
-      src/simai/{syntax,timing,shape,slide_tables,slide_parser,
-                 tokenize,typecheck,ir,normalize,maidata,frontend}.rs
-      tests/differential.rs       # Rust vs Lean
-  include/lnmai_ffi.h             # C ABI header
-  tools/regen_aeneas.sh           # charon + aeneas -> Verification/Generated.lean
-  tools/run_differential.sh       # run the differential suite
-```
+- `crates/lnmai-core` is the runtime implementation. Timeline values use exact
+  `Integer` arithmetic, note identifiers/counts/scores use `Natural`, and
+  accuracy and parser timing use exact `Rat`. These types preserve Lean's
+  unbounded arithmetic, Euclidean division and total division-by-zero behavior.
+- `crates/lnmai-core-verify` contains an Aeneas-compatible kernel using machine
+  integers. The runtime shares its enums, area operations, grade conversions
+  and finite judgment tables. Unbounded inputs pass through explicit adapters;
+  score arithmetic is implemented separately with exact natural numbers.
+- Charon and Aeneas extract **the kernel**, not the whole runtime. Kernel
+  equivalence theorems carry explicit overflow preconditions where needed.
+  They do not establish correctness of every adapter, the big-integer library,
+  parser, scheduler, seek implementation or FFI.
+- Differential tests compare the Rust implementation with executable Lean
+  oracles. Passing these finite tests is evidence of matching behavior, not a
+  proof of equivalence for every possible input. Whole-program formal
+  equivalence is still incomplete; see `TODO.md` and
+  `../verification/SPEC_MAPPING.md`.
 
-The Lean specification (`LnmaiCore/`) lives in the parent `lnmai-core`
-checkout; `../verification/` holds the Aeneas-generated model and the
-equivalence proofs.
+## Build and full validation
 
----
-
-## 1. Architecture
-
-- **`lnmai-core-verify`** is written in the Aeneas-compatible subset (no
-  `String`, no collections, no concurrency) and is the *single source of
-  truth* for the pure semantics: Areas, Time, Types, Constants, Convert,
-  Judge, Score. The main crate re-exports these, so the code that is proved is
-  the code that ships.
-- **`lnmai-core`** ports the rest: `Storage`, `Symmetry`, exact `Rat`,
-  the full Simai pipeline, the runtime state machines
-  (`InputModel`/`Lifecycle`/`ChartLoader`/`Scheduler`), and the FFI surface.
-- **Verification** runs `charon` on `lnmai-core-verify` to produce `.llbc`,
-  then `aeneas -backend lean` to produce `Verification/Generated.lean`, and the
-  hand-written Lean files relate that model to `LnmaiCore`.
-- **Differential testing** drives the Lean CLIs (`simai-parser-cli`,
-  `runtime-step-cli`) and compares JSON payloads field-by-field.
-
-## 2. Prerequisites
-
-- **Rust**: a recent toolchain (`cargo`). Developed with
-  `rustc 1.98.0-nightly`.
-- **Lean 4** with `elan`, toolchain `leanprover/lean4:v4.30.0-rc2`
-  (see `../lean-toolchain`). `lake` must be on `PATH`.
-- **Aeneas + Charon**:
-  - Aeneas commit used here: `ac74e1b` (its `backends/lean` pins
-    `v4.30.0-rc2`, matching this repo).
-  - Charon pinned by Aeneas to
-    `a535e914f74db4fd9e6be7048f4233270d8945c0` (version `0.1.210`).
-  - Install either with Nix
-    (`nix run github:aeneasverif/aeneas#charon`,
-     `nix run github:aeneasverif/aeneas -- -backend lean …`) or build from
-     source: Aeneas needs OCaml/opam (`make setup-charon && make`), Charon
-     needs `rustup`.
-
-## 3. Fresh-machine setup
+Run commands from the parent `lnmai-core` checkout unless shown otherwise.
 
 ```bash
-# Rust build + tests (no Lean needed)
-cd lnmai-core-rs
-cargo test
+cargo test --manifest-path lnmai-core-rs/Cargo.toml --workspace --locked
+lake build LnmaiCore Proofs simai-parser-cli runtime-step-cli
 
-# Point the tooling at your Aeneas/Charon builds
 export AENEAS_HOME=/path/to/aeneas
-export CHARON_HOME=/path/to/charon      # directory containing `charon` + `charon-driver`
+export CHARON_HOME=/path/to/charon
+bash verification/tools/wire_aeneas.sh
+bash lnmai-core-rs/tools/regen_aeneas.sh --check
+(cd verification && lake build)
+bash lnmai-core-rs/tools/run_differential.sh --release
+bash lnmai-core-rs/tools/run_native_smoke.sh
+
+# All required stages, with individual logs and failure propagation:
+bash lnmai-core-rs/tools/validate_all.sh
 ```
 
-The verification package references the Aeneas Lean backend by absolute path
-in `../verification/lakefile.toml` (`[[require]] name = "aeneas" path = ...`).
-On a new machine, edit that path to your `AENEAS_HOME/backends/lean` (or create
-it as a symlink). Lake's TOML cannot read environment variables, so this is a
-one-time manual edit. Aeneas's own `.lake/packages` may be empty; if Lake tries
-to fetch dependencies, symlink the same-revision packages from a built package
-(e.g. the verification `.lake/packages`) into `AENEAS_HOME/backends/lean/.lake/packages`.
+Lean is pinned to `leanprover/lean4:v4.30.0`. The extraction environment uses
+Aeneas `ac74e1b`, Charon `0.1.210` at
+`a535e914f74db4fd9e6be7048f4233270d8945c0`, and its pinned Rust nightly.
+The backend is wired through an ignored `.lake/local/aeneas` symlink, with no
+user-specific absolute path in the committed Lake configuration.
 
-## 4. Build & run
+`regen_aeneas.sh` updates both the LLBC artifact and generated Lean source;
+`--check` extracts to a temporary directory and rejects stale artifacts. The
+LLBC includes the extraction target: regenerate and recheck proofs after a
+target or toolchain change. Generated Lean must never be edited by hand.
 
-```bash
-# Regenerate the Aeneas Lean model from the Rust verify crate
-lnmai-core-rs/tools/regen_aeneas.sh
+## Test coverage
 
-# Build the Lean verification package (loads Mathlib; slow — see §7)
-cd ../verification && lake build          # or: tools/build.sh
+The 19 differential tests are explicitly ignored by ordinary `cargo test`.
+`run_differential.sh` enables them and fails if either Lean oracle is absent.
+`LNMAI_LEAN_PARSER_CLI` and `LNMAI_LEAN_RUNTIME_CLI` can override their paths.
 
-# Differential tests (requires the Lean CLIs below)
-cd lnmai-core && lake build simai-parser-cli runtime-step-cli
-lnmai-core-rs/tools/run_differential.sh
-```
+Coverage includes all frontend representations, parse/decode errors, timing
+and grade boundaries, large signed integers/naturals/rationals, autoplay,
+settings, seek and resume, JSON state restoration, native records and errors.
+The direct arithmetic oracle covers signed integers, naturals and rationals
+with boundary and seeded inputs up to 2048 bits, including division by zero.
+The fixture corpus contains 48 chart difficulties, including all four in
+`011996 Usagi Flap`, all four in `011951 サイエンス`, and both in `蛙石`.
+Every runtime difficulty
+is played in classic/modern mode, with autoplay enabled and disabled; each
+frame's output is compared, with full state at checkpoints and completion.
+Synthetic runtime scenarios compare full state every frame.
 
-The differential harness reads `LNMAI_LEAN_PARSER_CLI` and
-`LNMAI_LEAN_RUNTIME_CLI` (both auto-located by `run_differential.sh`). Without
-them the tests skip and pass.
+Lean real-chart acceptance also checks AP and missing completed notes. Hold
+head notifications do not count as completed Hold notes; only their tails do.
+All ten difficulties from the three added songs are registered in this Lean
+acceptance stage as well. Their execution remains deferred until code
+equivalence work is complete.
 
-### FFI
+## C interfaces
 
-- `ffi.rs` — JSON API + process-local session registry
-  (`create_empty_session_handle`, `load_chart_into_session_from_text/json`,
-  `unload_chart_from_session`, `get_lowered_chart_json_by_handle`,
-  `free_game_state_handle`, `step_game_state_handle[_light]`,
-  `parse_lowered/normalized/frontend_semantic_chart_json`,
-  `default_tactic_from_chart_json`), returning
-  `{"ok":true,"result":…}` / `{"ok":false,"error":{…}}`.
-- `cabi.rs` + `include/lnmai_ffi.h` — the same surface as a C-string ABI
-  (symbols mirror `LnmaiCore/FFI.lean`; free results with `lnmai_string_free`).
+`include/lnmai_ffi.h` exposes JSON functions; free returned strings with
+`lnmai_string_free`. `include/lnmai_native.h` exposes ABI version 3, including
+its eight native operations and owned buffer release functions. The C smoke
+test compiles against both headers and exercises success and failure paths.
+Native word conversion deliberately retains the low 64 bits, matching Lean.
 
-## 5. Status
-
-**Rewrite: complete.** The Rust port runs the whole pipeline end-to-end
-(`maidata.txt → … → ChartSpec → GameState → stepFrame`), with 68 tests.
-
-**Equivalence, differential: strong.** `tools/run_differential.sh` verifies
-- 18 charts (parse/lower),
-- 6 runtime scenarios,
-- 3 seeds × 80 frames of random input
-against Lean, field-by-field.
-
-**Equivalence, formal: partial.** Proven under `../verification`:
-Areas isomorphisms/index/conversions; Types predicates; Convert functions;
-`Duration.abs` value (`abs_spec`) and equality (`abs_eq`) specs;
-`duration_abs_fromMicros`; six `decide`-checked constant lemmas;
-`ofLnmJudgeGrade_ite`; the judge equivalences
-`judge_tap_equiv`, `judge_touch_equiv`, `judge_slide_classic_equiv`,
-`judge_slide_modern_equiv`, `judge_slide_too_late_equiv` and
-`is_too_late_slide_equiv`; and the score equivalences `score_non_break_equiv`
-and `update_combo_equiv` (all free of custom axioms; see
-`../verification/README.md` for the module table and the remaining functions).
-
-**Remaining work → `TODO.md`.**
-
-## 6. Regenerating after changing `lnmai-core-verify`
-
-1. `cargo test` (fast) — iterate here.
-2. `tools/regen_aeneas.sh` — updates `../verification/Verification/Generated.lean`.
-3. `cd ../verification && lake build` — re-check the proofs (slow).
-
-If the generated signatures change, the `admit`-free proofs under
-`verification/Verification/*.lean` may need updates; do not commit `sorry`.
-
-## 7. Environment caveat
-
-The verification package imports `LnmaiCore.*`, i.e. all of Mathlib, and the
-generated code imports Aeneas. Loaded oleans are ~5.5 GB. On a 16 GB machine
-with heavy swap, a single `lake build`/`lean` check costs several minutes.
-Do **not** put `lake build` in the inner loop; batch proof changes and run one
-background build per batch. Prefer a machine with ≥ 32 GB for proof work.
+Proof builds load Mathlib and Aeneas and can take several minutes per module
+on a 16 GB machine. Keep proof builds out of the Rust edit/test loop and avoid
+multiple overlapping proof builds.

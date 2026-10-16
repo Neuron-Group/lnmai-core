@@ -18,17 +18,41 @@ pub fn judge_tap(diff: Duration, is_ex: bool) -> JudgeGrade {
     if abs_diff.micros <= TAP_PERFECT_1ST.micros {
         JudgeGrade::Perfect
     } else if abs_diff.micros <= TAP_PERFECT_2ND.micros {
-        if is_fast { JudgeGrade::FastPerfect2nd } else { JudgeGrade::LatePerfect2nd }
+        if is_fast {
+            JudgeGrade::FastPerfect2nd
+        } else {
+            JudgeGrade::LatePerfect2nd
+        }
     } else if abs_diff.micros <= TAP_PERFECT_3RD.micros {
-        if is_fast { JudgeGrade::FastPerfect3rd } else { JudgeGrade::LatePerfect3rd }
+        if is_fast {
+            JudgeGrade::FastPerfect3rd
+        } else {
+            JudgeGrade::LatePerfect3rd
+        }
     } else if abs_diff.micros <= TAP_GREAT_1ST.micros {
-        if is_fast { JudgeGrade::FastGreat } else { JudgeGrade::LateGreat }
+        if is_fast {
+            JudgeGrade::FastGreat
+        } else {
+            JudgeGrade::LateGreat
+        }
     } else if abs_diff.micros <= TAP_GREAT_2ND.micros {
-        if is_fast { JudgeGrade::FastGreat2nd } else { JudgeGrade::LateGreat2nd }
+        if is_fast {
+            JudgeGrade::FastGreat2nd
+        } else {
+            JudgeGrade::LateGreat2nd
+        }
     } else if abs_diff.micros <= TAP_GREAT_3RD.micros {
-        if is_fast { JudgeGrade::FastGreat3rd } else { JudgeGrade::LateGreat3rd }
+        if is_fast {
+            JudgeGrade::FastGreat3rd
+        } else {
+            JudgeGrade::LateGreat3rd
+        }
     } else {
-        if is_fast { JudgeGrade::FastGood } else { JudgeGrade::LateGood }
+        if is_fast {
+            JudgeGrade::FastGood
+        } else {
+            JudgeGrade::LateGood
+        }
     }
 }
 
@@ -133,25 +157,55 @@ pub fn judge_slide_modern(diff: Duration, stay_time: Duration, _is_ex: bool) -> 
 
     // Dynamic extension: ext = min(stay_time / 4, 22-frame max)
     let stay_div4 = stay_time.div_nat(4);
-    let ext = if stay_div4.micros < SLIDE_MAX_EXT.micros { stay_div4 } else { SLIDE_MAX_EXT };
-    let seg_3rd_perfect = Duration { micros: SLIDE_PERFECT_3RD.micros + ext.micros };
+    let ext = if stay_div4.micros < SLIDE_MAX_EXT.micros {
+        stay_div4
+    } else {
+        SLIDE_MAX_EXT
+    };
+    let seg_3rd_perfect = Duration {
+        micros: SLIDE_PERFECT_3RD.micros + ext.micros,
+    };
     let seg_1st_perfect = seg_3rd_perfect.div_nat(3);
     let seg_2nd_perfect = seg_3rd_perfect.scale_nat(2).div_nat(3);
 
     if diff_msec.micros <= seg_1st_perfect.micros {
         JudgeGrade::Perfect
     } else if diff_msec.micros <= seg_2nd_perfect.micros {
-        if is_fast { JudgeGrade::FastPerfect2nd } else { JudgeGrade::LatePerfect2nd }
+        if is_fast {
+            JudgeGrade::FastPerfect2nd
+        } else {
+            JudgeGrade::LatePerfect2nd
+        }
     } else if diff_msec.micros <= seg_3rd_perfect.micros {
-        if is_fast { JudgeGrade::FastPerfect3rd } else { JudgeGrade::LatePerfect3rd }
+        if is_fast {
+            JudgeGrade::FastPerfect3rd
+        } else {
+            JudgeGrade::LatePerfect3rd
+        }
     } else if diff_msec.micros <= SLIDE_GREAT_1ST.micros {
-        if is_fast { JudgeGrade::FastGreat } else { JudgeGrade::LateGreat }
+        if is_fast {
+            JudgeGrade::FastGreat
+        } else {
+            JudgeGrade::LateGreat
+        }
     } else if diff_msec.micros <= SLIDE_GREAT_2ND.micros {
-        if is_fast { JudgeGrade::FastGreat2nd } else { JudgeGrade::LateGreat2nd }
+        if is_fast {
+            JudgeGrade::FastGreat2nd
+        } else {
+            JudgeGrade::LateGreat2nd
+        }
     } else if diff_msec.micros <= SLIDE_GREAT_3RD.micros {
-        if is_fast { JudgeGrade::FastGreat3rd } else { JudgeGrade::LateGreat3rd }
+        if is_fast {
+            JudgeGrade::FastGreat3rd
+        } else {
+            JudgeGrade::LateGreat3rd
+        }
     } else {
-        if is_fast { JudgeGrade::FastGood } else { JudgeGrade::LateGood }
+        if is_fast {
+            JudgeGrade::FastGood
+        } else {
+            JudgeGrade::LateGood
+        }
     }
 }
 
@@ -185,71 +239,152 @@ pub fn judge_hold_end(
     ignore_time: Duration,
     player_release_time: Duration,
 ) -> JudgeGrade {
-    let offset = if head_grade.is_fast() { Duration::zero() } else { judge_diff };
-    let reality_ht_raw = Duration { micros: (length.micros - ignore_time.micros) - offset.micros };
+    let reality_ht_raw = Duration {
+        micros: length.micros - ignore_time.micros,
+    };
     let hold_max = Duration::from_micros(300000);
-    let reality_ht_max = if length.micros > hold_max.micros { Duration { micros: length.micros - hold_max.micros } } else { Duration::zero() };
+    let reality_ht_max = if length.micros > hold_max.micros {
+        Duration {
+            micros: length.micros - hold_max.micros,
+        }
+    } else {
+        Duration::zero()
+    };
     let zero = Duration::zero();
-    let reality_ht = if reality_ht_raw.micros < zero.micros { zero }
-        else if reality_ht_raw.micros > reality_ht_max.micros { reality_ht_max }
-        else { reality_ht_raw };
+    let reality_ht = if reality_ht_raw.micros < zero.micros {
+        zero
+    } else if reality_ht_raw.micros > reality_ht_max.micros {
+        reality_ht_max
+    } else {
+        reality_ht_raw
+    };
 
     if reality_ht.micros <= 0 {
         return head_grade;
     }
 
-    let held_raw = Duration { micros: reality_ht.micros - player_release_time.micros };
-    let held = if held_raw.micros < zero.micros { zero } else { held_raw };
+    let held_raw = Duration {
+        micros: reality_ht.micros - player_release_time.micros,
+    };
+    let held = if held_raw.micros < zero.micros {
+        zero
+    } else {
+        held_raw
+    };
     let band = press_band_micros(held.to_micros(), reality_ht.to_micros());
+    hold_band_grade(head_grade, judge_diff.micros >= 0, band)
+}
 
+/// Finite modern-hold grade table, shared by the bounded kernel and the
+/// arbitrary-precision runtime. Band 4 (and larger values) is below 5%.
+pub fn hold_band_grade(head_grade: JudgeGrade, is_late: bool, band: u32) -> JudgeGrade {
     match band {
         0 => match head_grade {
-            JudgeGrade::LatePerfect3rd | JudgeGrade::LatePerfect2nd
-            | JudgeGrade::Perfect | JudgeGrade::FastPerfect2nd | JudgeGrade::FastPerfect3rd => head_grade,
-            JudgeGrade::LateGood | JudgeGrade::LateGreat3rd | JudgeGrade::LateGreat2nd | JudgeGrade::LateGreat => JudgeGrade::LateGreat,
-            JudgeGrade::FastGreat | JudgeGrade::FastGreat2nd | JudgeGrade::FastGreat3rd | JudgeGrade::FastGood => JudgeGrade::FastGreat,
+            JudgeGrade::LatePerfect3rd
+            | JudgeGrade::LatePerfect2nd
+            | JudgeGrade::Perfect
+            | JudgeGrade::FastPerfect2nd
+            | JudgeGrade::FastPerfect3rd => head_grade,
+            JudgeGrade::LateGood
+            | JudgeGrade::LateGreat3rd
+            | JudgeGrade::LateGreat2nd
+            | JudgeGrade::LateGreat => JudgeGrade::LateGreat,
+            JudgeGrade::FastGreat
+            | JudgeGrade::FastGreat2nd
+            | JudgeGrade::FastGreat3rd
+            | JudgeGrade::FastGood => JudgeGrade::FastGreat,
             JudgeGrade::Miss => JudgeGrade::LateGood,
             JudgeGrade::TooFast => JudgeGrade::FastGood,
         },
         1 => match head_grade {
             JudgeGrade::Perfect => {
-                if judge_diff.micros >= 0 { JudgeGrade::LatePerfect2nd } else { JudgeGrade::FastPerfect2nd }
+                if is_late {
+                    JudgeGrade::LatePerfect2nd
+                } else {
+                    JudgeGrade::FastPerfect2nd
+                }
             }
-            JudgeGrade::LatePerfect3rd | JudgeGrade::LatePerfect2nd
-            | JudgeGrade::FastPerfect2nd | JudgeGrade::FastPerfect3rd => head_grade,
-            JudgeGrade::LateGood | JudgeGrade::LateGreat3rd | JudgeGrade::LateGreat2nd | JudgeGrade::LateGreat => JudgeGrade::LateGreat,
-            JudgeGrade::FastGreat | JudgeGrade::FastGreat2nd | JudgeGrade::FastGreat3rd | JudgeGrade::FastGood => JudgeGrade::FastGreat,
+            JudgeGrade::LatePerfect3rd
+            | JudgeGrade::LatePerfect2nd
+            | JudgeGrade::FastPerfect2nd
+            | JudgeGrade::FastPerfect3rd => head_grade,
+            JudgeGrade::LateGood
+            | JudgeGrade::LateGreat3rd
+            | JudgeGrade::LateGreat2nd
+            | JudgeGrade::LateGreat => JudgeGrade::LateGreat,
+            JudgeGrade::FastGreat
+            | JudgeGrade::FastGreat2nd
+            | JudgeGrade::FastGreat3rd
+            | JudgeGrade::FastGood => JudgeGrade::FastGreat,
             JudgeGrade::Miss => JudgeGrade::LateGood,
             JudgeGrade::TooFast => JudgeGrade::FastGood,
         },
         2 => match head_grade {
             JudgeGrade::Perfect => {
-                if judge_diff.micros >= 0 { JudgeGrade::LateGreat2nd } else { JudgeGrade::FastGreat2nd }
+                if is_late {
+                    JudgeGrade::LateGreat2nd
+                } else {
+                    JudgeGrade::FastGreat2nd
+                }
             }
-            JudgeGrade::LateGood | JudgeGrade::LateGreat3rd | JudgeGrade::LateGreat2nd
-            | JudgeGrade::LateGreat | JudgeGrade::LatePerfect3rd | JudgeGrade::LatePerfect2nd => JudgeGrade::LateGreat,
-            JudgeGrade::FastPerfect2nd | JudgeGrade::FastPerfect3rd | JudgeGrade::FastGreat
-            | JudgeGrade::FastGreat2nd | JudgeGrade::FastGreat3rd | JudgeGrade::FastGood => JudgeGrade::FastGreat,
+            JudgeGrade::LateGood
+            | JudgeGrade::LateGreat3rd
+            | JudgeGrade::LateGreat2nd
+            | JudgeGrade::LateGreat
+            | JudgeGrade::LatePerfect3rd
+            | JudgeGrade::LatePerfect2nd => JudgeGrade::LateGreat,
+            JudgeGrade::FastPerfect2nd
+            | JudgeGrade::FastPerfect3rd
+            | JudgeGrade::FastGreat
+            | JudgeGrade::FastGreat2nd
+            | JudgeGrade::FastGreat3rd
+            | JudgeGrade::FastGood => JudgeGrade::FastGreat,
             JudgeGrade::Miss => JudgeGrade::LateGood,
             JudgeGrade::TooFast => JudgeGrade::FastGood,
         },
         3 => match head_grade {
             JudgeGrade::Perfect => {
-                if judge_diff.micros >= 0 { JudgeGrade::LateGood } else { JudgeGrade::FastGood }
+                if is_late {
+                    JudgeGrade::LateGood
+                } else {
+                    JudgeGrade::FastGood
+                }
             }
-            JudgeGrade::Miss | JudgeGrade::LateGood | JudgeGrade::LateGreat3rd | JudgeGrade::LateGreat2nd
-            | JudgeGrade::LateGreat | JudgeGrade::LatePerfect3rd | JudgeGrade::LatePerfect2nd => JudgeGrade::LateGood,
-            JudgeGrade::FastPerfect2nd | JudgeGrade::FastPerfect3rd | JudgeGrade::FastGreat
-            | JudgeGrade::FastGreat2nd | JudgeGrade::FastGreat3rd | JudgeGrade::FastGood | JudgeGrade::TooFast => JudgeGrade::FastGood,
+            JudgeGrade::Miss
+            | JudgeGrade::LateGood
+            | JudgeGrade::LateGreat3rd
+            | JudgeGrade::LateGreat2nd
+            | JudgeGrade::LateGreat
+            | JudgeGrade::LatePerfect3rd
+            | JudgeGrade::LatePerfect2nd => JudgeGrade::LateGood,
+            JudgeGrade::FastPerfect2nd
+            | JudgeGrade::FastPerfect3rd
+            | JudgeGrade::FastGreat
+            | JudgeGrade::FastGreat2nd
+            | JudgeGrade::FastGreat3rd
+            | JudgeGrade::FastGood
+            | JudgeGrade::TooFast => JudgeGrade::FastGood,
         },
         _ => match head_grade {
             JudgeGrade::Perfect => {
-                if judge_diff.micros >= 0 { JudgeGrade::LateGood } else { JudgeGrade::FastGood }
+                if is_late {
+                    JudgeGrade::LateGood
+                } else {
+                    JudgeGrade::FastGood
+                }
             }
-            JudgeGrade::LateGood | JudgeGrade::LateGreat3rd | JudgeGrade::LateGreat2nd
-            | JudgeGrade::LateGreat | JudgeGrade::LatePerfect3rd | JudgeGrade::LatePerfect2nd => JudgeGrade::LateGood,
-            JudgeGrade::FastPerfect2nd | JudgeGrade::FastPerfect3rd | JudgeGrade::FastGreat
-            | JudgeGrade::FastGreat2nd | JudgeGrade::FastGreat3rd | JudgeGrade::FastGood => JudgeGrade::FastGood,
+            JudgeGrade::LateGood
+            | JudgeGrade::LateGreat3rd
+            | JudgeGrade::LateGreat2nd
+            | JudgeGrade::LateGreat
+            | JudgeGrade::LatePerfect3rd
+            | JudgeGrade::LatePerfect2nd => JudgeGrade::LateGood,
+            JudgeGrade::FastPerfect2nd
+            | JudgeGrade::FastPerfect3rd
+            | JudgeGrade::FastGreat
+            | JudgeGrade::FastGreat2nd
+            | JudgeGrade::FastGreat3rd
+            | JudgeGrade::FastGood => JudgeGrade::FastGood,
             JudgeGrade::Miss | JudgeGrade::TooFast => head_grade,
         },
     }
@@ -272,7 +407,9 @@ pub fn judge_hold_classic_end(
         return head_grade;
     }
 
-    let diff = Duration { micros: timing + length.micros - release_timing };
+    let diff = Duration {
+        micros: timing + length.micros - release_timing,
+    };
     let is_fast = diff.micros > 0;
     let abs_diff = diff.abs();
 
@@ -292,13 +429,23 @@ pub fn judge_hold_classic_end(
 
     let head_dist = head_grade.dist_from_perfect();
     let end_dist = end_grade.dist_from_perfect();
-    if end_dist > head_dist { end_grade } else { head_grade }
+    if end_dist > head_dist {
+        end_grade
+    } else {
+        head_grade
+    }
 }
 
 /// Check if a slide is too late
 pub fn is_too_late_slide(diff: Duration, user_offset: Duration) -> bool {
-    let min_offset = if user_offset.micros < 0 { user_offset } else { Duration::zero() };
-    let threshold = Duration { micros: SLIDE_GOOD.micros + min_offset.micros };
+    let min_offset = if user_offset.micros < 0 {
+        user_offset
+    } else {
+        Duration::zero()
+    };
+    let threshold = Duration {
+        micros: SLIDE_GOOD.micros + min_offset.micros,
+    };
     diff.micros > threshold.micros
 }
 
@@ -308,13 +455,22 @@ mod tests {
 
     #[test]
     fn test_judge_tap_perfect() {
-        assert_eq!(judge_tap(Duration::from_micros(0), false), JudgeGrade::Perfect);
-        assert_eq!(judge_tap(Duration::from_micros(10000), false), JudgeGrade::Perfect);
+        assert_eq!(
+            judge_tap(Duration::from_micros(0), false),
+            JudgeGrade::Perfect
+        );
+        assert_eq!(
+            judge_tap(Duration::from_micros(10000), false),
+            JudgeGrade::Perfect
+        );
     }
 
     #[test]
     fn test_judge_tap_ex() {
-        assert_eq!(judge_tap(Duration::from_micros(100000), true), JudgeGrade::Perfect);
+        assert_eq!(
+            judge_tap(Duration::from_micros(100000), true),
+            JudgeGrade::Perfect
+        );
     }
 
     #[test]
@@ -325,7 +481,13 @@ mod tests {
 
     #[test]
     fn test_correct_slide_grade() {
-        assert_eq!(correct_slide_grade(JudgeGrade::LatePerfect2nd), JudgeGrade::Perfect);
-        assert_eq!(correct_slide_grade(JudgeGrade::LateGreat), JudgeGrade::LateGreat);
+        assert_eq!(
+            correct_slide_grade(JudgeGrade::LatePerfect2nd),
+            JudgeGrade::Perfect
+        );
+        assert_eq!(
+            correct_slide_grade(JudgeGrade::LateGreat),
+            JudgeGrade::LateGreat
+        );
     }
 }

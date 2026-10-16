@@ -36,18 +36,30 @@ pub fn score_break(grade: JudgeGrade, multiple: u32) -> (u32, u32, u32, u32, u32
     let m = multiple;
     match grade {
         JudgeGrade::Miss | JudgeGrade::TooFast => (0, 0, 0, 2500 * m, 100 * m, 100 * m),
-        JudgeGrade::LateGood | JudgeGrade::FastGood => (1000 * m, 30 * m, 0, 1500 * m, 70 * m, 100 * m),
-        JudgeGrade::LateGreat3rd | JudgeGrade::FastGreat3rd => (1250 * m, 40 * m, 0, 1250 * m, 60 * m, 100 * m),
-        JudgeGrade::LateGreat2nd | JudgeGrade::FastGreat2nd => (1500 * m, 40 * m, 0, 1000 * m, 60 * m, 100 * m),
-        JudgeGrade::LateGreat | JudgeGrade::FastGreat => (2000 * m, 40 * m, 0, 500 * m, 60 * m, 100 * m),
-        JudgeGrade::LatePerfect3rd | JudgeGrade::FastPerfect3rd => (2500 * m, 50 * m, 0, 0, 50 * m, 100 * m),
-        JudgeGrade::LatePerfect2nd | JudgeGrade::FastPerfect2nd => (2500 * m, 75 * m, 50 * m, 0, 25 * m, 50 * m),
+        JudgeGrade::LateGood | JudgeGrade::FastGood => {
+            (1000 * m, 30 * m, 0, 1500 * m, 70 * m, 100 * m)
+        }
+        JudgeGrade::LateGreat3rd | JudgeGrade::FastGreat3rd => {
+            (1250 * m, 40 * m, 0, 1250 * m, 60 * m, 100 * m)
+        }
+        JudgeGrade::LateGreat2nd | JudgeGrade::FastGreat2nd => {
+            (1500 * m, 40 * m, 0, 1000 * m, 60 * m, 100 * m)
+        }
+        JudgeGrade::LateGreat | JudgeGrade::FastGreat => {
+            (2000 * m, 40 * m, 0, 500 * m, 60 * m, 100 * m)
+        }
+        JudgeGrade::LatePerfect3rd | JudgeGrade::FastPerfect3rd => {
+            (2500 * m, 50 * m, 0, 0, 50 * m, 100 * m)
+        }
+        JudgeGrade::LatePerfect2nd | JudgeGrade::FastPerfect2nd => {
+            (2500 * m, 75 * m, 50 * m, 0, 25 * m, 50 * m)
+        }
         JudgeGrade::Perfect => (2500 * m, 100 * m, 100 * m, 0, 0, 0),
     }
 }
 
 /// Combo delta produced by one judgment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ComboDelta {
     pub combo: u32,
     pub p_combo: u32,
@@ -79,7 +91,7 @@ pub fn update_combo(
             combo: combo + multiple,
             p_combo: p_combo + multiple,
             c_p_combo: 0,
-            dx_score_lost: dx_score_lost - 1 * m,
+            dx_score_lost: dx_score_lost - m,
         },
         JudgeGrade::LateGreat3rd
         | JudgeGrade::LateGreat2nd
@@ -157,7 +169,8 @@ pub fn dx_score_rank(achieved: u32, max: u32) -> u32 {
     if max == 0 {
         return 0;
     }
-    let meets = |threshold: u32| -> bool { achieved * 100 >= max * threshold };
+    // Products are at most u32::MAX * 100 and fit exactly in u64.
+    let meets = |threshold: u64| -> bool { (achieved as u64) * 100 >= (max as u64) * threshold };
     if meets(97) {
         5
     } else if meets(95) {
@@ -185,7 +198,13 @@ mod tests {
 
     #[test]
     fn test_score_non_break() {
-        assert!(matches!(score_non_break(500, JudgeGrade::Perfect, 1), (500, 0)));
-        assert!(matches!(score_non_break(500, JudgeGrade::Miss, 1), (0, 500)));
+        assert!(matches!(
+            score_non_break(500, JudgeGrade::Perfect, 1),
+            (500, 0)
+        ));
+        assert!(matches!(
+            score_non_break(500, JudgeGrade::Miss, 1),
+            (0, 500)
+        ));
     }
 }

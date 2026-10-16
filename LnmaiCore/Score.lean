@@ -1,4 +1,3 @@
-import Mathlib
 
 /-
   Score and combo computation — faithful transcription of

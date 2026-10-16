@@ -17,6 +17,17 @@ noncomputable section
 
 namespace lnmai_core_verify
 
+/-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]:
+    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2473:4-2480:15
+    Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]
+    Visibility: public -/
+@[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish"]
+axiom core.fmt.Formatter.debug_struct_field2_finish
+  :
+  core.fmt.Formatter → Str → Str → Dyn (fun _dyn => core.fmt.Debug _dyn)
+    → Str → Dyn (fun _dyn => core.fmt.Debug _dyn) → Result
+    ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+
 /-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field5_finish]:
     Source: '/rustc/library/core/src/fmt/mod.rs', lines 2539:4-2552:15
     Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field5_finish]
@@ -49,7 +60,7 @@ structure core.ops.arith.Sub (Self : Type) (Rhs : Type) (Self_Output : Type)
   sub : Self → Rhs → Result Self_Output
 
 /-- [lnmai_core_verify::areas::SensorArea]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 10:0-16:1
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 10:0-45:1
     Visibility: public -/
 @[discriminant isize]
 inductive areas.SensorArea where
@@ -110,15 +121,30 @@ def areas.SensorArea.Insts.CoreMarkerCopy : core.marker.Copy areas.SensorArea
   cloneInst := areas.SensorArea.Insts.CoreCloneClone
 }
 
+/-- [lnmai_core_verify::areas::{impl core::default::Default for lnmai_core_verify::areas::SensorArea}::default]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:22-9:29
+    Visibility: public -/
+def areas.SensorArea.Insts.CoreDefaultDefault.default
+  : Result areas.SensorArea := do
+  ok areas.SensorArea.A1
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::default::Default for lnmai_core_verify::areas::SensorArea}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:22-9:29 -/
+@[reducible]
+def areas.SensorArea.Insts.CoreDefaultDefault : core.default.Default
+  areas.SensorArea := {
+  default := areas.SensorArea.Insts.CoreDefaultDefault.default
+}
+
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::marker::StructuralPartialEq for lnmai_core_verify::areas::SensorArea}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:22-9:31 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:31-9:40 -/
 @[reducible]
 def areas.SensorArea.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq areas.SensorArea := {
 }
 
 /-- [lnmai_core_verify::areas::{impl core::cmp::PartialEq<lnmai_core_verify::areas::SensorArea> for lnmai_core_verify::areas::SensorArea}::eq]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:22-9:31
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:31-9:40
     Visibility: public -/
 def areas.SensorArea.Insts.CoreCmpPartialEqSensorArea.eq
   (self : areas.SensorArea) (other : areas.SensorArea) : Result Bool := do
@@ -127,7 +153,7 @@ def areas.SensorArea.Insts.CoreCmpPartialEqSensorArea.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::PartialEq<lnmai_core_verify::areas::SensorArea> for lnmai_core_verify::areas::SensorArea}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:22-9:31 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:31-9:40 -/
 @[reducible]
 def areas.SensorArea.Insts.CoreCmpPartialEqSensorArea : core.cmp.PartialEq
   areas.SensorArea areas.SensorArea := {
@@ -135,22 +161,59 @@ def areas.SensorArea.Insts.CoreCmpPartialEqSensorArea : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::areas::{impl core::cmp::Eq for lnmai_core_verify::areas::SensorArea}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:33-9:35
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:42-9:44
     Visibility: public -/
 def areas.SensorArea.Insts.CoreCmpEq.assert_fields_are_eq
   (self : areas.SensorArea) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::Eq for lnmai_core_verify::areas::SensorArea}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:33-9:35 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:42-9:44 -/
 @[reducible]
 def areas.SensorArea.Insts.CoreCmpEq : core.cmp.Eq areas.SensorArea := {
   partialEqInst := areas.SensorArea.Insts.CoreCmpPartialEqSensorArea
   assert_fields_are_eq := areas.SensorArea.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::areas::{impl core::cmp::Ord for lnmai_core_verify::areas::SensorArea}::cmp]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:58-9:61
+    Visibility: public -/
+def areas.SensorArea.Insts.CoreCmpOrd.cmp
+  (self : areas.SensorArea) (other : areas.SensorArea) : Result Ordering := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (core.cmp.impls.OrdIsize.cmp self1 other1)
+
+/-- [lnmai_core_verify::areas::{impl core::cmp::PartialOrd<lnmai_core_verify::areas::SensorArea> for lnmai_core_verify::areas::SensorArea}::partial_cmp]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:46-9:56
+    Visibility: public -/
+def areas.SensorArea.Insts.CoreCmpPartialOrdSensorArea.partial_cmp
+  (self : areas.SensorArea) (other : areas.SensorArea) :
+  Result (Option Ordering)
+  := do
+  let o ← areas.SensorArea.Insts.CoreCmpOrd.cmp self other
+  ok (some o)
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::PartialOrd<lnmai_core_verify::areas::SensorArea> for lnmai_core_verify::areas::SensorArea}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:46-9:56 -/
+@[reducible]
+def areas.SensorArea.Insts.CoreCmpPartialOrdSensorArea : core.cmp.PartialOrd
+  areas.SensorArea areas.SensorArea := {
+  partialEqInst := areas.SensorArea.Insts.CoreCmpPartialEqSensorArea
+  partial_cmp := areas.SensorArea.Insts.CoreCmpPartialOrdSensorArea.partial_cmp
+}
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::Ord for lnmai_core_verify::areas::SensorArea}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:58-9:61 -/
+@[reducible]
+def areas.SensorArea.Insts.CoreCmpOrd : core.cmp.Ord areas.SensorArea := {
+  eqInst := areas.SensorArea.Insts.CoreCmpEq
+  partialOrdInst := areas.SensorArea.Insts.CoreCmpPartialOrdSensorArea
+  cmp := areas.SensorArea.Insts.CoreCmpOrd.cmp
+}
+
 /-- [lnmai_core_verify::areas::{impl core::fmt::Debug for lnmai_core_verify::areas::SensorArea}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:37-9:42
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:63-9:68
     Visibility: public -/
 def areas.SensorArea.Insts.CoreFmtDebug.fmt
   (self : areas.SensorArea) (f : core.fmt.Formatter) :
@@ -192,14 +255,14 @@ def areas.SensorArea.Insts.CoreFmtDebug.fmt
   | areas.SensorArea.E8 => core.fmt.Formatter.write_str f (toStr "E8")
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::fmt::Debug for lnmai_core_verify::areas::SensorArea}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:37-9:42 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 9:63-9:68 -/
 @[reducible]
 def areas.SensorArea.Insts.CoreFmtDebug : core.fmt.Debug areas.SensorArea := {
   fmt := areas.SensorArea.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::areas::ButtonZone]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 19:0-21:1
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 48:0-58:1
     Visibility: public -/
 @[discriminant isize]
 inductive areas.ButtonZone where
@@ -213,14 +276,14 @@ inductive areas.ButtonZone where
 | K8 : areas.ButtonZone
 
 /-- [lnmai_core_verify::areas::{impl core::clone::Clone for lnmai_core_verify::areas::ButtonZone}::clone]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:9-18:14
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:9-47:14
     Visibility: public -/
 def areas.ButtonZone.Insts.CoreCloneClone.clone
   (self : areas.ButtonZone) : Result areas.ButtonZone := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::clone::Clone for lnmai_core_verify::areas::ButtonZone}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:9-18:14 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:9-47:14 -/
 @[reducible]
 def areas.ButtonZone.Insts.CoreCloneClone : core.clone.Clone areas.ButtonZone
   := {
@@ -228,22 +291,37 @@ def areas.ButtonZone.Insts.CoreCloneClone : core.clone.Clone areas.ButtonZone
 }
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::marker::Copy for lnmai_core_verify::areas::ButtonZone}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:16-18:20 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:16-47:20 -/
 @[reducible]
 def areas.ButtonZone.Insts.CoreMarkerCopy : core.marker.Copy areas.ButtonZone
   := {
   cloneInst := areas.ButtonZone.Insts.CoreCloneClone
 }
 
+/-- [lnmai_core_verify::areas::{impl core::default::Default for lnmai_core_verify::areas::ButtonZone}::default]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:22-47:29
+    Visibility: public -/
+def areas.ButtonZone.Insts.CoreDefaultDefault.default
+  : Result areas.ButtonZone := do
+  ok areas.ButtonZone.K1
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::default::Default for lnmai_core_verify::areas::ButtonZone}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:22-47:29 -/
+@[reducible]
+def areas.ButtonZone.Insts.CoreDefaultDefault : core.default.Default
+  areas.ButtonZone := {
+  default := areas.ButtonZone.Insts.CoreDefaultDefault.default
+}
+
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::marker::StructuralPartialEq for lnmai_core_verify::areas::ButtonZone}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:22-18:31 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:31-47:40 -/
 @[reducible]
 def areas.ButtonZone.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq areas.ButtonZone := {
 }
 
 /-- [lnmai_core_verify::areas::{impl core::cmp::PartialEq<lnmai_core_verify::areas::ButtonZone> for lnmai_core_verify::areas::ButtonZone}::eq]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:22-18:31
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:31-47:40
     Visibility: public -/
 def areas.ButtonZone.Insts.CoreCmpPartialEqButtonZone.eq
   (self : areas.ButtonZone) (other : areas.ButtonZone) : Result Bool := do
@@ -252,7 +330,7 @@ def areas.ButtonZone.Insts.CoreCmpPartialEqButtonZone.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::PartialEq<lnmai_core_verify::areas::ButtonZone> for lnmai_core_verify::areas::ButtonZone}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:22-18:31 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:31-47:40 -/
 @[reducible]
 def areas.ButtonZone.Insts.CoreCmpPartialEqButtonZone : core.cmp.PartialEq
   areas.ButtonZone areas.ButtonZone := {
@@ -260,22 +338,59 @@ def areas.ButtonZone.Insts.CoreCmpPartialEqButtonZone : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::areas::{impl core::cmp::Eq for lnmai_core_verify::areas::ButtonZone}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:33-18:35
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:42-47:44
     Visibility: public -/
 def areas.ButtonZone.Insts.CoreCmpEq.assert_fields_are_eq
   (self : areas.ButtonZone) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::Eq for lnmai_core_verify::areas::ButtonZone}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:33-18:35 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:42-47:44 -/
 @[reducible]
 def areas.ButtonZone.Insts.CoreCmpEq : core.cmp.Eq areas.ButtonZone := {
   partialEqInst := areas.ButtonZone.Insts.CoreCmpPartialEqButtonZone
   assert_fields_are_eq := areas.ButtonZone.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::areas::{impl core::cmp::Ord for lnmai_core_verify::areas::ButtonZone}::cmp]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:58-47:61
+    Visibility: public -/
+def areas.ButtonZone.Insts.CoreCmpOrd.cmp
+  (self : areas.ButtonZone) (other : areas.ButtonZone) : Result Ordering := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (core.cmp.impls.OrdIsize.cmp self1 other1)
+
+/-- [lnmai_core_verify::areas::{impl core::cmp::PartialOrd<lnmai_core_verify::areas::ButtonZone> for lnmai_core_verify::areas::ButtonZone}::partial_cmp]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:46-47:56
+    Visibility: public -/
+def areas.ButtonZone.Insts.CoreCmpPartialOrdButtonZone.partial_cmp
+  (self : areas.ButtonZone) (other : areas.ButtonZone) :
+  Result (Option Ordering)
+  := do
+  let o ← areas.ButtonZone.Insts.CoreCmpOrd.cmp self other
+  ok (some o)
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::PartialOrd<lnmai_core_verify::areas::ButtonZone> for lnmai_core_verify::areas::ButtonZone}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:46-47:56 -/
+@[reducible]
+def areas.ButtonZone.Insts.CoreCmpPartialOrdButtonZone : core.cmp.PartialOrd
+  areas.ButtonZone areas.ButtonZone := {
+  partialEqInst := areas.ButtonZone.Insts.CoreCmpPartialEqButtonZone
+  partial_cmp := areas.ButtonZone.Insts.CoreCmpPartialOrdButtonZone.partial_cmp
+}
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::Ord for lnmai_core_verify::areas::ButtonZone}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:58-47:61 -/
+@[reducible]
+def areas.ButtonZone.Insts.CoreCmpOrd : core.cmp.Ord areas.ButtonZone := {
+  eqInst := areas.ButtonZone.Insts.CoreCmpEq
+  partialOrdInst := areas.ButtonZone.Insts.CoreCmpPartialOrdButtonZone
+  cmp := areas.ButtonZone.Insts.CoreCmpOrd.cmp
+}
+
 /-- [lnmai_core_verify::areas::{impl core::fmt::Debug for lnmai_core_verify::areas::ButtonZone}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:37-18:42
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:63-47:68
     Visibility: public -/
 def areas.ButtonZone.Insts.CoreFmtDebug.fmt
   (self : areas.ButtonZone) (f : core.fmt.Formatter) :
@@ -292,14 +407,14 @@ def areas.ButtonZone.Insts.CoreFmtDebug.fmt
   | areas.ButtonZone.K8 => core.fmt.Formatter.write_str f (toStr "K8")
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::fmt::Debug for lnmai_core_verify::areas::ButtonZone}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 18:37-18:42 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:63-47:68 -/
 @[reducible]
 def areas.ButtonZone.Insts.CoreFmtDebug : core.fmt.Debug areas.ButtonZone := {
   fmt := areas.ButtonZone.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::areas::OuterSlot]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 24:0-26:1
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 61:0-71:1
     Visibility: public -/
 @[discriminant isize]
 inductive areas.OuterSlot where
@@ -313,14 +428,14 @@ inductive areas.OuterSlot where
 | S8 : areas.OuterSlot
 
 /-- [lnmai_core_verify::areas::{impl core::clone::Clone for lnmai_core_verify::areas::OuterSlot}::clone]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:9-23:14
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:9-60:14
     Visibility: public -/
 def areas.OuterSlot.Insts.CoreCloneClone.clone
   (self : areas.OuterSlot) : Result areas.OuterSlot := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::clone::Clone for lnmai_core_verify::areas::OuterSlot}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:9-23:14 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:9-60:14 -/
 @[reducible]
 def areas.OuterSlot.Insts.CoreCloneClone : core.clone.Clone areas.OuterSlot
   := {
@@ -328,22 +443,37 @@ def areas.OuterSlot.Insts.CoreCloneClone : core.clone.Clone areas.OuterSlot
 }
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::marker::Copy for lnmai_core_verify::areas::OuterSlot}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:16-23:20 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:16-60:20 -/
 @[reducible]
 def areas.OuterSlot.Insts.CoreMarkerCopy : core.marker.Copy areas.OuterSlot
   := {
   cloneInst := areas.OuterSlot.Insts.CoreCloneClone
 }
 
+/-- [lnmai_core_verify::areas::{impl core::default::Default for lnmai_core_verify::areas::OuterSlot}::default]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:22-60:29
+    Visibility: public -/
+def areas.OuterSlot.Insts.CoreDefaultDefault.default
+  : Result areas.OuterSlot := do
+  ok areas.OuterSlot.S1
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::default::Default for lnmai_core_verify::areas::OuterSlot}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:22-60:29 -/
+@[reducible]
+def areas.OuterSlot.Insts.CoreDefaultDefault : core.default.Default
+  areas.OuterSlot := {
+  default := areas.OuterSlot.Insts.CoreDefaultDefault.default
+}
+
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::marker::StructuralPartialEq for lnmai_core_verify::areas::OuterSlot}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:22-23:31 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:31-60:40 -/
 @[reducible]
 def areas.OuterSlot.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq areas.OuterSlot := {
 }
 
 /-- [lnmai_core_verify::areas::{impl core::cmp::PartialEq<lnmai_core_verify::areas::OuterSlot> for lnmai_core_verify::areas::OuterSlot}::eq]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:22-23:31
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:31-60:40
     Visibility: public -/
 def areas.OuterSlot.Insts.CoreCmpPartialEqOuterSlot.eq
   (self : areas.OuterSlot) (other : areas.OuterSlot) : Result Bool := do
@@ -352,7 +482,7 @@ def areas.OuterSlot.Insts.CoreCmpPartialEqOuterSlot.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::PartialEq<lnmai_core_verify::areas::OuterSlot> for lnmai_core_verify::areas::OuterSlot}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:22-23:31 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:31-60:40 -/
 @[reducible]
 def areas.OuterSlot.Insts.CoreCmpPartialEqOuterSlot : core.cmp.PartialEq
   areas.OuterSlot areas.OuterSlot := {
@@ -360,22 +490,59 @@ def areas.OuterSlot.Insts.CoreCmpPartialEqOuterSlot : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::areas::{impl core::cmp::Eq for lnmai_core_verify::areas::OuterSlot}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:33-23:35
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:42-60:44
     Visibility: public -/
 def areas.OuterSlot.Insts.CoreCmpEq.assert_fields_are_eq
   (self : areas.OuterSlot) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::Eq for lnmai_core_verify::areas::OuterSlot}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:33-23:35 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:42-60:44 -/
 @[reducible]
 def areas.OuterSlot.Insts.CoreCmpEq : core.cmp.Eq areas.OuterSlot := {
   partialEqInst := areas.OuterSlot.Insts.CoreCmpPartialEqOuterSlot
   assert_fields_are_eq := areas.OuterSlot.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::areas::{impl core::cmp::Ord for lnmai_core_verify::areas::OuterSlot}::cmp]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:58-60:61
+    Visibility: public -/
+def areas.OuterSlot.Insts.CoreCmpOrd.cmp
+  (self : areas.OuterSlot) (other : areas.OuterSlot) : Result Ordering := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (core.cmp.impls.OrdIsize.cmp self1 other1)
+
+/-- [lnmai_core_verify::areas::{impl core::cmp::PartialOrd<lnmai_core_verify::areas::OuterSlot> for lnmai_core_verify::areas::OuterSlot}::partial_cmp]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:46-60:56
+    Visibility: public -/
+def areas.OuterSlot.Insts.CoreCmpPartialOrdOuterSlot.partial_cmp
+  (self : areas.OuterSlot) (other : areas.OuterSlot) :
+  Result (Option Ordering)
+  := do
+  let o ← areas.OuterSlot.Insts.CoreCmpOrd.cmp self other
+  ok (some o)
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::PartialOrd<lnmai_core_verify::areas::OuterSlot> for lnmai_core_verify::areas::OuterSlot}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:46-60:56 -/
+@[reducible]
+def areas.OuterSlot.Insts.CoreCmpPartialOrdOuterSlot : core.cmp.PartialOrd
+  areas.OuterSlot areas.OuterSlot := {
+  partialEqInst := areas.OuterSlot.Insts.CoreCmpPartialEqOuterSlot
+  partial_cmp := areas.OuterSlot.Insts.CoreCmpPartialOrdOuterSlot.partial_cmp
+}
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::cmp::Ord for lnmai_core_verify::areas::OuterSlot}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:58-60:61 -/
+@[reducible]
+def areas.OuterSlot.Insts.CoreCmpOrd : core.cmp.Ord areas.OuterSlot := {
+  eqInst := areas.OuterSlot.Insts.CoreCmpEq
+  partialOrdInst := areas.OuterSlot.Insts.CoreCmpPartialOrdOuterSlot
+  cmp := areas.OuterSlot.Insts.CoreCmpOrd.cmp
+}
+
 /-- [lnmai_core_verify::areas::{impl core::fmt::Debug for lnmai_core_verify::areas::OuterSlot}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:37-23:42
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:63-60:68
     Visibility: public -/
 def areas.OuterSlot.Insts.CoreFmtDebug.fmt
   (self : areas.OuterSlot) (f : core.fmt.Formatter) :
@@ -392,14 +559,120 @@ def areas.OuterSlot.Insts.CoreFmtDebug.fmt
   | areas.OuterSlot.S8 => core.fmt.Formatter.write_str f (toStr "S8")
 
 /-- Trait implementation: [lnmai_core_verify::areas::{impl core::fmt::Debug for lnmai_core_verify::areas::OuterSlot}]
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 23:37-23:42 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:63-60:68 -/
 @[reducible]
 def areas.OuterSlot.Insts.CoreFmtDebug : core.fmt.Debug areas.OuterSlot := {
   fmt := areas.OuterSlot.Insts.CoreFmtDebug.fmt
 }
 
+/-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::SensorArea}::all]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 75:4-111:5
+    Visibility: public -/
+def areas.SensorArea.all : Result (Array areas.SensorArea 33#usize) := do
+  ok
+    (Array.make 33#usize [
+      areas.SensorArea.A1, areas.SensorArea.A2, areas.SensorArea.A3,
+      areas.SensorArea.A4, areas.SensorArea.A5, areas.SensorArea.A6,
+      areas.SensorArea.A7, areas.SensorArea.A8, areas.SensorArea.B1,
+      areas.SensorArea.B2, areas.SensorArea.B3, areas.SensorArea.B4,
+      areas.SensorArea.B5, areas.SensorArea.B6, areas.SensorArea.B7,
+      areas.SensorArea.B8, areas.SensorArea.C, areas.SensorArea.D1,
+      areas.SensorArea.D2, areas.SensorArea.D3, areas.SensorArea.D4,
+      areas.SensorArea.D5, areas.SensorArea.D6, areas.SensorArea.D7,
+      areas.SensorArea.D8, areas.SensorArea.E1, areas.SensorArea.E2,
+      areas.SensorArea.E3, areas.SensorArea.E4, areas.SensorArea.E5,
+      areas.SensorArea.E6, areas.SensorArea.E7, areas.SensorArea.E8
+      ])
+
+/-- [lnmai_core_verify::areas::{impl core::fmt::Display for lnmai_core_verify::areas::SensorArea}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 115:4-117:5
+    Visibility: public -/
+def areas.SensorArea.Insts.CoreFmtDisplay.fmt
+  (self : areas.SensorArea) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  areas.SensorArea.Insts.CoreFmtDebug.fmt self f
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::fmt::Display for lnmai_core_verify::areas::SensorArea}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 114:0-118:1 -/
+@[reducible]
+def areas.SensorArea.Insts.CoreFmtDisplay : core.fmt.Display areas.SensorArea
+  := {
+  fmt := areas.SensorArea.Insts.CoreFmtDisplay.fmt
+}
+
+/-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::ButtonZone}::all]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 122:4-133:5
+    Visibility: public -/
+def areas.ButtonZone.all : Result (Array areas.ButtonZone 8#usize) := do
+  ok
+    (Array.make 8#usize [
+      areas.ButtonZone.K1, areas.ButtonZone.K2, areas.ButtonZone.K3,
+      areas.ButtonZone.K4, areas.ButtonZone.K5, areas.ButtonZone.K6,
+      areas.ButtonZone.K7, areas.ButtonZone.K8
+      ])
+
+/-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::ButtonZone}::storage_order]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 135:4-137:5
+    Visibility: public -/
+def areas.ButtonZone.storage_order
+  : Result (Array areas.ButtonZone 8#usize) := do
+  areas.ButtonZone.all
+
+/-- [lnmai_core_verify::areas::{impl core::fmt::Display for lnmai_core_verify::areas::ButtonZone}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 141:4-143:5
+    Visibility: public -/
+def areas.ButtonZone.Insts.CoreFmtDisplay.fmt
+  (self : areas.ButtonZone) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  areas.ButtonZone.Insts.CoreFmtDebug.fmt self f
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::fmt::Display for lnmai_core_verify::areas::ButtonZone}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 140:0-144:1 -/
+@[reducible]
+def areas.ButtonZone.Insts.CoreFmtDisplay : core.fmt.Display areas.ButtonZone
+  := {
+  fmt := areas.ButtonZone.Insts.CoreFmtDisplay.fmt
+}
+
+/-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::OuterSlot}::all]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 148:4-159:5
+    Visibility: public -/
+def areas.OuterSlot.all : Result (Array areas.OuterSlot 8#usize) := do
+  ok
+    (Array.make 8#usize [
+      areas.OuterSlot.S1, areas.OuterSlot.S2, areas.OuterSlot.S3,
+      areas.OuterSlot.S4, areas.OuterSlot.S5, areas.OuterSlot.S6,
+      areas.OuterSlot.S7, areas.OuterSlot.S8
+      ])
+
+/-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::OuterSlot}::storage_order]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 161:4-163:5
+    Visibility: public -/
+def areas.OuterSlot.storage_order
+  : Result (Array areas.OuterSlot 8#usize) := do
+  areas.OuterSlot.all
+
+/-- [lnmai_core_verify::areas::{impl core::fmt::Display for lnmai_core_verify::areas::OuterSlot}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 167:4-169:5
+    Visibility: public -/
+def areas.OuterSlot.Insts.CoreFmtDisplay.fmt
+  (self : areas.OuterSlot) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  areas.OuterSlot.Insts.CoreFmtDebug.fmt self f
+
+/-- Trait implementation: [lnmai_core_verify::areas::{impl core::fmt::Display for lnmai_core_verify::areas::OuterSlot}]
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 166:0-170:1 -/
+@[reducible]
+def areas.OuterSlot.Insts.CoreFmtDisplay : core.fmt.Display areas.OuterSlot
+  := {
+  fmt := areas.OuterSlot.Insts.CoreFmtDisplay.fmt
+}
+
 /-- [lnmai_core_verify::areas::ring_index]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 30:0-32:1 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 174:0-176:1 -/
 def areas.ring_index
   (steps : Std.Usize) (n : Std.Usize) : Result Std.Usize := do
   let i ← n - 1#usize
@@ -409,7 +682,7 @@ def areas.ring_index
   i3 + 1#usize
 
 /-- [lnmai_core_verify::areas::ring_sensor_a]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 34:0-45:1 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 178:0-189:1 -/
 def areas.ring_sensor_a (k : Std.Usize) : Result areas.SensorArea := do
   match k.val with
   | 1 => ok areas.SensorArea.A1
@@ -422,7 +695,7 @@ def areas.ring_sensor_a (k : Std.Usize) : Result areas.SensorArea := do
   | _ => ok areas.SensorArea.A8
 
 /-- [lnmai_core_verify::areas::ring_sensor_b]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 47:0-58:1 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 191:0-202:1 -/
 def areas.ring_sensor_b (k : Std.Usize) : Result areas.SensorArea := do
   match k.val with
   | 1 => ok areas.SensorArea.B1
@@ -435,7 +708,7 @@ def areas.ring_sensor_b (k : Std.Usize) : Result areas.SensorArea := do
   | _ => ok areas.SensorArea.B8
 
 /-- [lnmai_core_verify::areas::ring_sensor_d]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 60:0-71:1 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 204:0-215:1 -/
 def areas.ring_sensor_d (k : Std.Usize) : Result areas.SensorArea := do
   match k.val with
   | 1 => ok areas.SensorArea.D1
@@ -448,7 +721,7 @@ def areas.ring_sensor_d (k : Std.Usize) : Result areas.SensorArea := do
   | _ => ok areas.SensorArea.D8
 
 /-- [lnmai_core_verify::areas::ring_sensor_e]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 73:0-84:1 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 217:0-228:1 -/
 def areas.ring_sensor_e (k : Std.Usize) : Result areas.SensorArea := do
   match k.val with
   | 1 => ok areas.SensorArea.E1
@@ -461,7 +734,7 @@ def areas.ring_sensor_e (k : Std.Usize) : Result areas.SensorArea := do
   | _ => ok areas.SensorArea.E8
 
 /-- [lnmai_core_verify::areas::ring_button]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 86:0-97:1 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 230:0-241:1 -/
 def areas.ring_button (k : Std.Usize) : Result areas.ButtonZone := do
   match k.val with
   | 1 => ok areas.ButtonZone.K1
@@ -474,7 +747,7 @@ def areas.ring_button (k : Std.Usize) : Result areas.ButtonZone := do
   | _ => ok areas.ButtonZone.K8
 
 /-- [lnmai_core_verify::areas::ring_outer]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 99:0-110:1 -/
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 243:0-254:1 -/
 def areas.ring_outer (k : Std.Usize) : Result areas.OuterSlot := do
   match k.val with
   | 1 => ok areas.OuterSlot.S1
@@ -487,7 +760,7 @@ def areas.ring_outer (k : Std.Usize) : Result areas.OuterSlot := do
   | _ => ok areas.OuterSlot.S8
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::SensorArea}::rotate]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 115:4-151:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 259:4-295:5
     Visibility: public -/
 def areas.SensorArea.rotate
   (self : areas.SensorArea) (steps : Std.Usize) : Result areas.SensorArea := do
@@ -591,7 +864,7 @@ def areas.SensorArea.rotate
     areas.ring_sensor_e i
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::SensorArea}::to_outer_slot]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 154:4-166:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 298:4-310:5
     Visibility: public -/
 def areas.SensorArea.to_outer_slot
   (self : areas.SensorArea) : Result (Option areas.OuterSlot) := do
@@ -631,7 +904,7 @@ def areas.SensorArea.to_outer_slot
   | areas.SensorArea.E8 => ok none
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::OuterSlot}::to_button_zone]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 286:4-297:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 432:4-443:5
     Visibility: public -/
 def areas.OuterSlot.to_button_zone
   (self : areas.OuterSlot) : Result areas.ButtonZone := do
@@ -646,7 +919,7 @@ def areas.OuterSlot.to_button_zone
   | areas.OuterSlot.S8 => ok areas.ButtonZone.K8
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::SensorArea}::to_outer_button_zone]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 169:4-174:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 315:4-320:5
     Visibility: public -/
 def areas.SensorArea.to_outer_button_zone
   (self : areas.SensorArea) : Result (Option areas.ButtonZone) := do
@@ -657,7 +930,7 @@ def areas.SensorArea.to_outer_button_zone
                  ok (some bz)
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::ButtonZone}::to_index]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 179:4-190:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 325:4-336:5
     Visibility: public -/
 def areas.ButtonZone.to_index
   (self : areas.ButtonZone) : Result Std.Usize := do
@@ -672,7 +945,7 @@ def areas.ButtonZone.to_index
   | areas.ButtonZone.K8 => ok 7#usize
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::ButtonZone}::of_index]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 193:4-205:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 339:4-351:5
     Visibility: public -/
 def areas.ButtonZone.of_index
   (index : Std.Usize) : Result (Option areas.ButtonZone) := do
@@ -688,7 +961,7 @@ def areas.ButtonZone.of_index
   | _ => ok none
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::ButtonZone}::rotate]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 208:4-219:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 354:4-365:5
     Visibility: public -/
 def areas.ButtonZone.rotate
   (self : areas.ButtonZone) (steps : Std.Usize) : Result areas.ButtonZone := do
@@ -719,7 +992,7 @@ def areas.ButtonZone.rotate
     areas.ring_button i
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::ButtonZone}::to_outer_slot]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 222:4-233:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 368:4-379:5
     Visibility: public -/
 def areas.ButtonZone.to_outer_slot
   (self : areas.ButtonZone) : Result areas.OuterSlot := do
@@ -734,7 +1007,7 @@ def areas.ButtonZone.to_outer_slot
   | areas.ButtonZone.K8 => ok areas.OuterSlot.S8
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::OuterSlot}::to_outer_sensor_area]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 300:4-311:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 446:4-457:5
     Visibility: public -/
 def areas.OuterSlot.to_outer_sensor_area
   (self : areas.OuterSlot) : Result areas.SensorArea := do
@@ -749,7 +1022,7 @@ def areas.OuterSlot.to_outer_sensor_area
   | areas.OuterSlot.S8 => ok areas.SensorArea.A8
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::ButtonZone}::to_outer_sensor_area]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 236:4-238:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 382:4-384:5
     Visibility: public -/
 def areas.ButtonZone.to_outer_sensor_area
   (self : areas.ButtonZone) : Result areas.SensorArea := do
@@ -757,7 +1030,7 @@ def areas.ButtonZone.to_outer_sensor_area
   areas.OuterSlot.to_outer_sensor_area os
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::OuterSlot}::to_index]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 243:4-254:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 389:4-400:5
     Visibility: public -/
 def areas.OuterSlot.to_index (self : areas.OuterSlot) : Result Std.Usize := do
   match self with
@@ -771,7 +1044,7 @@ def areas.OuterSlot.to_index (self : areas.OuterSlot) : Result Std.Usize := do
   | areas.OuterSlot.S8 => ok 7#usize
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::OuterSlot}::of_index]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 257:4-269:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 403:4-415:5
     Visibility: public -/
 def areas.OuterSlot.of_index
   (index : Std.Usize) : Result (Option areas.OuterSlot) := do
@@ -787,7 +1060,7 @@ def areas.OuterSlot.of_index
   | _ => ok none
 
 /-- [lnmai_core_verify::areas::{lnmai_core_verify::areas::OuterSlot}::rotate]:
-    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 272:4-283:5
+    Source: 'crates/lnmai-core-verify/src/areas.rs', lines 418:4-429:5
     Visibility: public -/
 def areas.OuterSlot.rotate
   (self : areas.OuterSlot) (steps : Std.Usize) : Result areas.OuterSlot := do
@@ -869,7 +1142,7 @@ def constants.TAP_GREAT_3RD : time.Duration := { micros := 100002#i64 }
     Source: 'crates/lnmai-core-verify/src/constants.rs', lines 17:0-17:59
     Visibility: public -/
 @[global_simps, irreducible]
-def constants.TAP_GOOD : time.Duration := { micros := 150003#i64 }
+def constants.TAP_GOOD : time.Duration := { micros := 150000#i64 }
 
 /-- [lnmai_core_verify::constants::TOUCH_PERFECT_1ST]
     Source: 'crates/lnmai-core-verify/src/constants.rs', lines 20:0-20:68
@@ -1034,8 +1307,14 @@ def constants.TOUCH_JUDGABLE_RANGE_LATE_EXTRA : time.Duration :=
 @[global_simps, irreducible]
 def constants.SENSOR_AREA_COUNT : Std.U32 := 33#u32
 
+/-- [lnmai_core_verify::constants::SUBDIVIDE_SLIDE_JUDGE_GRADE]
+    Source: 'crates/lnmai-core-verify/src/constants.rs', lines 60:0-60:52
+    Visibility: public -/
+@[global_simps, irreducible]
+def constants.SUBDIVIDE_SLIDE_JUDGE_GRADE : Bool := false
+
 /-- [lnmai_core_verify::types::JudgeGrade]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 11:0-27:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 11:0-28:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.JudgeGrade where
@@ -1122,7 +1401,7 @@ def convert.convert_gori
   | types.JudgeGrade.TooFast => ok types.JudgeGrade.TooFast
 
 /-- [lnmai_core_verify::types::JudgeStyle]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 167:0-172:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 172:0-178:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.JudgeStyle where
@@ -1144,8 +1423,76 @@ def convert.convert_grade
   | types.JudgeStyle.Gachi => convert.convert_gachi grade
   | types.JudgeStyle.Gori => convert.convert_gori grade
 
+/-- [lnmai_core_verify::grade_counts::NUM_GRADES]
+    Source: 'crates/lnmai-core-verify/src/grade_counts.rs', lines 6:0-6:33
+    Visibility: public -/
+@[global_simps, irreducible]
+def grade_counts.NUM_GRADES : Std.Usize := 15#usize
+
+/-- [lnmai_core_verify::grade_counts::JUDGE_GRADES]
+    Source: 'crates/lnmai-core-verify/src/grade_counts.rs', lines 8:0-24:2
+    Visibility: public -/
+@[global_simps, irreducible]
+def grade_counts.JUDGE_GRADES : Array types.JudgeGrade 15#usize :=
+  Array.make 15#usize [
+    types.JudgeGrade.Miss, types.JudgeGrade.LateGood,
+    types.JudgeGrade.LateGreat3rd, types.JudgeGrade.LateGreat2nd,
+    types.JudgeGrade.LateGreat, types.JudgeGrade.LatePerfect3rd,
+    types.JudgeGrade.LatePerfect2nd, types.JudgeGrade.Perfect,
+    types.JudgeGrade.FastPerfect2nd, types.JudgeGrade.FastPerfect3rd,
+    types.JudgeGrade.FastGreat, types.JudgeGrade.FastGreat2nd,
+    types.JudgeGrade.FastGreat3rd, types.JudgeGrade.FastGood,
+    types.JudgeGrade.TooFast
+    ]
+
+/-- [lnmai_core_verify::grade_counts::grade_index]:
+    Source: 'crates/lnmai-core-verify/src/grade_counts.rs', lines 26:0-44:1
+    Visibility: public -/
+def grade_counts.grade_index
+  (grade : types.JudgeGrade) : Result Std.Usize := do
+  match grade with
+  | types.JudgeGrade.Miss => ok 0#usize
+  | types.JudgeGrade.LateGood => ok 1#usize
+  | types.JudgeGrade.LateGreat3rd => ok 2#usize
+  | types.JudgeGrade.LateGreat2nd => ok 3#usize
+  | types.JudgeGrade.LateGreat => ok 4#usize
+  | types.JudgeGrade.LatePerfect3rd => ok 5#usize
+  | types.JudgeGrade.LatePerfect2nd => ok 6#usize
+  | types.JudgeGrade.Perfect => ok 7#usize
+  | types.JudgeGrade.FastPerfect2nd => ok 8#usize
+  | types.JudgeGrade.FastPerfect3rd => ok 9#usize
+  | types.JudgeGrade.FastGreat => ok 10#usize
+  | types.JudgeGrade.FastGreat2nd => ok 11#usize
+  | types.JudgeGrade.FastGreat3rd => ok 12#usize
+  | types.JudgeGrade.FastGood => ok 13#usize
+  | types.JudgeGrade.TooFast => ok 14#usize
+
+/-- [lnmai_core_verify::grade_counts::get_count]:
+    Source: 'crates/lnmai-core-verify/src/grade_counts.rs', lines 46:0-48:1
+    Visibility: public -/
+def grade_counts.get_count
+  {N : Type} (counts : Array N 15#usize) (grade : types.JudgeGrade) :
+  Result N
+  := do
+  let i ← grade_counts.grade_index grade
+  Array.index_usize counts i
+
+/-- [lnmai_core_verify::grade_counts::set_count]:
+    Source: 'crates/lnmai-core-verify/src/grade_counts.rs', lines 50:0-52:1
+    Visibility: public -/
+def grade_counts.set_count
+  {N : Type} (counts : Array N 15#usize) (grade : types.JudgeGrade) (value : N)
+  :
+  Result (Array N 15#usize)
+  := do
+  let i ← grade_counts.grade_index grade
+  massert (i < 15#usize)
+  let (t, index_mut_back) ← Array.index_mut_usize counts i
+  let counts1 := index_mut_back t
+  Array.update counts1 i value
+
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::Duration}::abs]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 27:4-33:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 27:4-35:5
     Visibility: public -/
 def time.Duration.abs (self : time.Duration) : Result time.Duration := do
   if self.micros < 0#i64
@@ -1154,7 +1501,7 @@ def time.Duration.abs (self : time.Duration) : Result time.Duration := do
   else ok self
 
 /-- [lnmai_core_verify::judge::judge_tap]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 10:0-33:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 10:0-57:1
     Visibility: public -/
 def judge.judge_tap
   (diff : time.Duration) (is_ex : Bool) : Result types.JudgeGrade := do
@@ -1200,7 +1547,7 @@ def judge.judge_tap
                 else ok types.JudgeGrade.LateGood
 
 /-- [lnmai_core_verify::judge::judge_touch]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 36:0-61:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 60:0-85:1
     Visibility: public -/
 def judge.judge_touch
   (diff : time.Duration) (_is_ex : Bool) :
@@ -1251,7 +1598,7 @@ def judge.judge_touch
               else ok (some types.JudgeGrade.LateGood)
 
 /-- [lnmai_core_verify::judge::judge_slide_classic]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 64:0-101:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 88:0-125:1
     Visibility: public -/
 def judge.judge_slide_classic
   (diff : time.Duration) : Result types.JudgeGrade := do
@@ -1297,7 +1644,7 @@ def judge.judge_slide_classic
               else ok types.JudgeGrade.LateGood
 
 /-- [lnmai_core_verify::judge::correct_slide_grade]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 104:0-112:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 128:0-136:1
     Visibility: public -/
 def judge.correct_slide_grade
   (grade : types.JudgeGrade) : Result types.JudgeGrade := do
@@ -1319,7 +1666,7 @@ def judge.correct_slide_grade
   | types.JudgeGrade.TooFast => ok types.JudgeGrade.TooFast
 
 /-- [lnmai_core_verify::judge::judge_slide_too_late]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 115:0-121:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 139:0-145:1
     Visibility: public -/
 def judge.judge_slide_too_late
   (queue_remaining : Std.U32) : Result types.JudgeGrade := do
@@ -1328,19 +1675,23 @@ def judge.judge_slide_too_late
   else ok types.JudgeGrade.Miss
 
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::Duration}::div_nat]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 39:4-45:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 43:4-58:5
     Visibility: public -/
 def time.Duration.div_nat
   (self : time.Duration) (divisor : Std.U32) : Result time.Duration := do
   if divisor = 0#u32
   then ok { micros := 0#i64 }
   else
-    let i ← lift (UScalar.hcast .I64 divisor)
-    let i1 ← self.micros / i
-    ok { micros := i1 }
+    let divisor1 ← lift (UScalar.hcast .I64 divisor)
+    let quotient ← self.micros / divisor1
+    let remainder ← self.micros % divisor1
+    if remainder < 0#i64
+    then let quotient1 ← quotient - 1#i64
+         ok { micros := quotient1 }
+    else ok { micros := quotient }
 
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::Duration}::scale_nat]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 35:4-37:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 37:4-41:5
     Visibility: public -/
 def time.Duration.scale_nat
   (self : time.Duration) (factor : Std.U32) : Result time.Duration := do
@@ -1349,7 +1700,7 @@ def time.Duration.scale_nat
   ok { micros := i1 }
 
 /-- [lnmai_core_verify::judge::judge_slide_modern]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 130:0-156:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 154:0-210:1
     Visibility: public -/
 def judge.judge_slide_modern
   (diff : time.Duration) (stay_time : time.Duration) (_is_ex : Bool) :
@@ -1403,7 +1754,7 @@ def judge.judge_slide_modern
               else ok types.JudgeGrade.LateGood
 
 /-- [lnmai_core_verify::judge::press_band_micros]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 165:0-177:1 -/
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 219:0-231:1 -/
 def judge.press_band_micros
   (held_micros : Std.I64) (reality_micros : Std.I64) : Result Std.U32 := do
   if held_micros >= reality_micros
@@ -1423,27 +1774,6 @@ def judge.press_band_micros
         then ok 3#u32
         else ok 4#u32
 
-/-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_fast]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 34:4-45:5
-    Visibility: public -/
-def types.JudgeGrade.is_fast (self : types.JudgeGrade) : Result Bool := do
-  match self with
-  | types.JudgeGrade.Miss => ok false
-  | types.JudgeGrade.LateGood => ok false
-  | types.JudgeGrade.LateGreat3rd => ok false
-  | types.JudgeGrade.LateGreat2nd => ok false
-  | types.JudgeGrade.LateGreat => ok false
-  | types.JudgeGrade.LatePerfect3rd => ok false
-  | types.JudgeGrade.LatePerfect2nd => ok false
-  | types.JudgeGrade.Perfect => ok false
-  | types.JudgeGrade.FastPerfect2nd => ok true
-  | types.JudgeGrade.FastPerfect3rd => ok true
-  | types.JudgeGrade.FastGreat => ok true
-  | types.JudgeGrade.FastGreat2nd => ok true
-  | types.JudgeGrade.FastGreat3rd => ok true
-  | types.JudgeGrade.FastGood => ok true
-  | types.JudgeGrade.TooFast => ok true
-
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::Duration}::to_micros]:
     Source: 'crates/lnmai-core-verify/src/time.rs', lines 23:4-25:5
     Visibility: public -/
@@ -1462,8 +1792,114 @@ def time.Duration.zero : Result time.Duration := do
 def time.Duration.from_micros (micros : Std.I64) : Result time.Duration := do
   ok { micros }
 
+/-- [lnmai_core_verify::judge::hold_band_grade]:
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 280:0-391:1
+    Visibility: public -/
+def judge.hold_band_grade
+  (head_grade : types.JudgeGrade) (is_late : Bool) (band : Std.U32) :
+  Result types.JudgeGrade
+  := do
+  match band with
+  | 0#uscalar =>
+    match head_grade with
+    | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LatePerfect3rd
+    | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LatePerfect2nd
+    | types.JudgeGrade.Perfect => ok types.JudgeGrade.Perfect
+    | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastPerfect2nd
+    | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastPerfect3rd
+    | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
+  | 1#uscalar =>
+    match head_grade with
+    | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LatePerfect3rd
+    | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LatePerfect2nd
+    | types.JudgeGrade.Perfect =>
+      if is_late
+      then ok types.JudgeGrade.LatePerfect2nd
+      else ok types.JudgeGrade.FastPerfect2nd
+    | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastPerfect2nd
+    | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastPerfect3rd
+    | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
+  | 2#uscalar =>
+    match head_grade with
+    | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LateGreat
+    | types.JudgeGrade.Perfect =>
+      if is_late
+      then ok types.JudgeGrade.LateGreat2nd
+      else ok types.JudgeGrade.FastGreat2nd
+    | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGreat
+    | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
+  | 3#uscalar =>
+    match head_grade with
+    | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.Perfect =>
+      if is_late
+      then ok types.JudgeGrade.LateGood
+      else ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
+  | _ =>
+    match head_grade with
+    | types.JudgeGrade.Miss => ok types.JudgeGrade.Miss
+    | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LateGood
+    | types.JudgeGrade.Perfect =>
+      if is_late
+      then ok types.JudgeGrade.LateGood
+      else ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGood
+    | types.JudgeGrade.TooFast => ok types.JudgeGrade.TooFast
+
 /-- [lnmai_core_verify::judge::judge_hold_end]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 181:0-256:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 235:0-276:1
     Visibility: public -/
 def judge.judge_hold_end
   (head_grade : types.JudgeGrade) (judge_diff : time.Duration)
@@ -1471,138 +1907,36 @@ def judge.judge_hold_end
   (player_release_time : time.Duration) :
   Result types.JudgeGrade
   := do
-  let b ← types.JudgeGrade.is_fast head_grade
-  let offset ← if b
-                 then time.Duration.zero
-                 else ok judge_diff
   let i ← length.micros - ignore_time.micros
-  let i1 ← i - offset.micros
   let hold_max ← time.Duration.from_micros 300000#i64
   let reality_ht_max ←
     if length.micros > hold_max.micros
     then
       do
-      let i2 ← length.micros - hold_max.micros
-      ok ({ micros := i2 } : time.Duration)
+      let i1 ← length.micros - hold_max.micros
+      ok ({ micros := i1 } : time.Duration)
     else time.Duration.zero
   let zero ← time.Duration.zero
-  let i2 ←
-    if i1 < zero.micros
+  let i1 ←
+    if i < zero.micros
     then ok zero.micros
-    else if i1 > reality_ht_max.micros
+    else if i > reality_ht_max.micros
          then ok reality_ht_max.micros
-         else ok i1
-  if i2 <= 0#i64
+         else ok i
+  if i1 <= 0#i64
   then ok head_grade
   else
-    let i3 ← i2 - player_release_time.micros
-    let i4 ← if i3 < zero.micros
+    let i2 ← i1 - player_release_time.micros
+    let i3 ← if i2 < zero.micros
                then ok zero.micros
-               else ok i3
-    let i5 ← time.Duration.to_micros { micros := i4 }
-    let i6 ← time.Duration.to_micros { micros := i2 }
-    let band ← judge.press_band_micros i5 i6
-    match band with
-    | 0#uscalar =>
-      match head_grade with
-      | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LatePerfect3rd
-      | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LatePerfect2nd
-      | types.JudgeGrade.Perfect => ok types.JudgeGrade.Perfect
-      | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastPerfect2nd
-      | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastPerfect3rd
-      | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
-    | 1#uscalar =>
-      match head_grade with
-      | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LatePerfect3rd
-      | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LatePerfect2nd
-      | types.JudgeGrade.Perfect =>
-        if judge_diff.micros >= 0#i64
-        then ok types.JudgeGrade.LatePerfect2nd
-        else ok types.JudgeGrade.FastPerfect2nd
-      | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastPerfect2nd
-      | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastPerfect3rd
-      | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
-    | 2#uscalar =>
-      match head_grade with
-      | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LateGreat
-      | types.JudgeGrade.Perfect =>
-        if judge_diff.micros >= 0#i64
-        then ok types.JudgeGrade.LateGreat2nd
-        else ok types.JudgeGrade.FastGreat2nd
-      | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGreat
-      | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
-    | 3#uscalar =>
-      match head_grade with
-      | types.JudgeGrade.Miss => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.Perfect =>
-        if judge_diff.micros >= 0#i64
-        then ok types.JudgeGrade.LateGood
-        else ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.TooFast => ok types.JudgeGrade.FastGood
-    | _ =>
-      match head_grade with
-      | types.JudgeGrade.Miss => ok types.JudgeGrade.Miss
-      | types.JudgeGrade.LateGood => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGreat3rd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGreat2nd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LateGreat => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LatePerfect3rd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.LatePerfect2nd => ok types.JudgeGrade.LateGood
-      | types.JudgeGrade.Perfect =>
-        if judge_diff.micros >= 0#i64
-        then ok types.JudgeGrade.LateGood
-        else ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastPerfect2nd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastPerfect3rd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGreat => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGreat2nd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGreat3rd => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.FastGood => ok types.JudgeGrade.FastGood
-      | types.JudgeGrade.TooFast => ok types.JudgeGrade.TooFast
+               else ok i2
+    let i4 ← time.Duration.to_micros { micros := i3 }
+    let i5 ← time.Duration.to_micros { micros := i1 }
+    let band ← judge.press_band_micros i4 i5
+    judge.hold_band_grade head_grade (judge_diff.micros >= 0#i64) band
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::dist_from_perfect]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 61:4-79:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 62:4-80:5
     Visibility: public -/
 def types.JudgeGrade.dist_from_perfect
   (self : types.JudgeGrade) : Result Std.U32 := do
@@ -1624,7 +1958,7 @@ def types.JudgeGrade.dist_from_perfect
   | types.JudgeGrade.TooFast => ok 7#u32
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_miss_or_too_fast]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 30:4-32:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 31:4-33:5
     Visibility: public -/
 def types.JudgeGrade.is_miss_or_too_fast
   (self : types.JudgeGrade) : Result Bool := do
@@ -1646,7 +1980,7 @@ def types.JudgeGrade.is_miss_or_too_fast
   | types.JudgeGrade.TooFast => ok true
 
 /-- [lnmai_core_verify::judge::judge_hold_classic_end]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 265:0-296:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 400:0-437:1
     Visibility: public -/
 def judge.judge_hold_classic_end
   (head_grade : types.JudgeGrade) (timing : Std.I64) (length : time.Duration)
@@ -1679,7 +2013,7 @@ def judge.judge_hold_classic_end
     else ok head_grade
 
 /-- [lnmai_core_verify::judge::is_too_late_slide]:
-    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 299:0-303:1
+    Source: 'crates/lnmai-core-verify/src/judge.rs', lines 440:0-450:1
     Visibility: public -/
 def judge.is_too_late_slide
   (diff : time.Duration) (user_offset : time.Duration) : Result Bool := do
@@ -1690,8 +2024,1201 @@ def judge.is_too_late_slide
   let i ← constants.SLIDE_GOOD.micros + min_offset.micros
   ok (diff.micros > i)
 
+/-- [lnmai_core_verify::lifecycle::TapState]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 12:0-18:1
+    Visibility: public -/
+@[discriminant isize]
+inductive lifecycle.TapState where
+| Waiting : lifecycle.TapState
+| Judgeable : lifecycle.TapState
+| Judged : types.JudgeGrade → lifecycle.TapState
+| Ended : lifecycle.TapState
+
+/-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeGrade}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:9-10:14
+    Visibility: public -/
+def types.JudgeGrade.Insts.CoreFmtDebug.fmt
+  (self : types.JudgeGrade) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | types.JudgeGrade.Miss => core.fmt.Formatter.write_str f (toStr "Miss")
+  | types.JudgeGrade.LateGood =>
+    core.fmt.Formatter.write_str f (toStr "LateGood")
+  | types.JudgeGrade.LateGreat3rd =>
+    core.fmt.Formatter.write_str f (toStr "LateGreat3rd")
+  | types.JudgeGrade.LateGreat2nd =>
+    core.fmt.Formatter.write_str f (toStr "LateGreat2nd")
+  | types.JudgeGrade.LateGreat =>
+    core.fmt.Formatter.write_str f (toStr "LateGreat")
+  | types.JudgeGrade.LatePerfect3rd =>
+    core.fmt.Formatter.write_str f (toStr "LatePerfect3rd")
+  | types.JudgeGrade.LatePerfect2nd =>
+    core.fmt.Formatter.write_str f (toStr "LatePerfect2nd")
+  | types.JudgeGrade.Perfect =>
+    core.fmt.Formatter.write_str f (toStr "Perfect")
+  | types.JudgeGrade.FastPerfect2nd =>
+    core.fmt.Formatter.write_str f (toStr "FastPerfect2nd")
+  | types.JudgeGrade.FastPerfect3rd =>
+    core.fmt.Formatter.write_str f (toStr "FastPerfect3rd")
+  | types.JudgeGrade.FastGreat =>
+    core.fmt.Formatter.write_str f (toStr "FastGreat")
+  | types.JudgeGrade.FastGreat2nd =>
+    core.fmt.Formatter.write_str f (toStr "FastGreat2nd")
+  | types.JudgeGrade.FastGreat3rd =>
+    core.fmt.Formatter.write_str f (toStr "FastGreat3rd")
+  | types.JudgeGrade.FastGood =>
+    core.fmt.Formatter.write_str f (toStr "FastGood")
+  | types.JudgeGrade.TooFast =>
+    core.fmt.Formatter.write_str f (toStr "TooFast")
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeGrade}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:9-10:14 -/
+@[reducible]
+def types.JudgeGrade.Insts.CoreFmtDebug : core.fmt.Debug types.JudgeGrade := {
+  fmt := types.JudgeGrade.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TapState}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:9-11:14
+    Visibility: public -/
+def lifecycle.TapState.Insts.CoreFmtDebug.fmt
+  (self : lifecycle.TapState) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | lifecycle.TapState.Waiting =>
+    core.fmt.Formatter.write_str f (toStr "Waiting")
+  | lifecycle.TapState.Judgeable =>
+    core.fmt.Formatter.write_str f (toStr "Judgeable")
+  | lifecycle.TapState.Judged __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared types.JudgeGrade.Insts.CoreFmtDebug)
+        __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Judged") __self_01
+  | lifecycle.TapState.Ended => core.fmt.Formatter.write_str f (toStr "Ended")
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TapState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:9-11:14 -/
+@[reducible]
+def lifecycle.TapState.Insts.CoreFmtDebug : core.fmt.Debug lifecycle.TapState
+  := {
+  fmt := lifecycle.TapState.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TapState}::clone]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:16-11:21
+    Visibility: public -/
+def lifecycle.TapState.Insts.CoreCloneClone.clone
+  (self : lifecycle.TapState) : Result lifecycle.TapState := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TapState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:16-11:21 -/
+@[reducible]
+def lifecycle.TapState.Insts.CoreCloneClone : core.clone.Clone
+  lifecycle.TapState := {
+  clone := lifecycle.TapState.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::Copy for lnmai_core_verify::lifecycle::TapState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:23-11:27 -/
+@[reducible]
+def lifecycle.TapState.Insts.CoreMarkerCopy : core.marker.Copy
+  lifecycle.TapState := {
+  cloneInst := lifecycle.TapState.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::StructuralPartialEq for lnmai_core_verify::lifecycle::TapState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:29-11:38 -/
+@[reducible]
+def lifecycle.TapState.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq lifecycle.TapState := {
+}
+
+/-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeGrade> for lnmai_core_verify::types::JudgeGrade}::eq]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:29-10:38
+    Visibility: public -/
+def types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq
+  (self : types.JudgeGrade) (other : types.JudgeGrade) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeGrade> for lnmai_core_verify::types::JudgeGrade}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:29-10:38 -/
+@[reducible]
+def types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade : core.cmp.PartialEq
+  types.JudgeGrade types.JudgeGrade := {
+  eq := types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TapState> for lnmai_core_verify::lifecycle::TapState}::eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:29-11:38
+    Visibility: public -/
+def lifecycle.TapState.Insts.CoreCmpPartialEqTapState.eq
+  (self : lifecycle.TapState) (other : lifecycle.TapState) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  if self1 = other1
+  then
+    match self with
+    | lifecycle.TapState.Waiting => ok true
+    | lifecycle.TapState.Judgeable => ok true
+    | lifecycle.TapState.Judged __self_0 =>
+      match other with
+      | lifecycle.TapState.Waiting => ok true
+      | lifecycle.TapState.Judgeable => ok true
+      | lifecycle.TapState.Judged __arg1_0 =>
+        types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq __self_0 __arg1_0
+      | lifecycle.TapState.Ended => ok true
+    | lifecycle.TapState.Ended => ok true
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TapState> for lnmai_core_verify::lifecycle::TapState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:29-11:38 -/
+@[reducible]
+def lifecycle.TapState.Insts.CoreCmpPartialEqTapState : core.cmp.PartialEq
+  lifecycle.TapState lifecycle.TapState := {
+  eq := lifecycle.TapState.Insts.CoreCmpPartialEqTapState.eq
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TapState}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:40-11:42
+    Visibility: public -/
+def lifecycle.TapState.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : lifecycle.TapState) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TapState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:40-11:42 -/
+@[reducible]
+def lifecycle.TapState.Insts.CoreCmpEq : core.cmp.Eq lifecycle.TapState := {
+  partialEqInst := lifecycle.TapState.Insts.CoreCmpPartialEqTapState
+  assert_fields_are_eq :=
+    lifecycle.TapState.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::default::Default for lnmai_core_verify::lifecycle::TapState}::default]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:44-11:51
+    Visibility: public -/
+def lifecycle.TapState.Insts.CoreDefaultDefault.default
+  : Result lifecycle.TapState := do
+  ok lifecycle.TapState.Waiting
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::default::Default for lnmai_core_verify::lifecycle::TapState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 11:44-11:51 -/
+@[reducible]
+def lifecycle.TapState.Insts.CoreDefaultDefault : core.default.Default
+  lifecycle.TapState := {
+  default := lifecycle.TapState.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::lifecycle::TapAction]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 21:0-25:1
+    Visibility: public -/
+@[discriminant isize]
+inductive lifecycle.TapAction where
+| NoEvent : lifecycle.TapAction
+| Miss : lifecycle.TapAction
+| Judge : lifecycle.TapAction
+
+/-- [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TapAction}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:9-20:14
+    Visibility: public -/
+def lifecycle.TapAction.Insts.CoreFmtDebug.fmt
+  (self : lifecycle.TapAction) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | lifecycle.TapAction.NoEvent =>
+    core.fmt.Formatter.write_str f (toStr "NoEvent")
+  | lifecycle.TapAction.Miss => core.fmt.Formatter.write_str f (toStr "Miss")
+  | lifecycle.TapAction.Judge => core.fmt.Formatter.write_str f (toStr "Judge")
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TapAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:9-20:14 -/
+@[reducible]
+def lifecycle.TapAction.Insts.CoreFmtDebug : core.fmt.Debug lifecycle.TapAction
+  := {
+  fmt := lifecycle.TapAction.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TapAction}::clone]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:16-20:21
+    Visibility: public -/
+def lifecycle.TapAction.Insts.CoreCloneClone.clone
+  (self : lifecycle.TapAction) : Result lifecycle.TapAction := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TapAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:16-20:21 -/
+@[reducible]
+def lifecycle.TapAction.Insts.CoreCloneClone : core.clone.Clone
+  lifecycle.TapAction := {
+  clone := lifecycle.TapAction.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::Copy for lnmai_core_verify::lifecycle::TapAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:23-20:27 -/
+@[reducible]
+def lifecycle.TapAction.Insts.CoreMarkerCopy : core.marker.Copy
+  lifecycle.TapAction := {
+  cloneInst := lifecycle.TapAction.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::StructuralPartialEq for lnmai_core_verify::lifecycle::TapAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:29-20:38 -/
+@[reducible]
+def lifecycle.TapAction.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq lifecycle.TapAction := {
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TapAction> for lnmai_core_verify::lifecycle::TapAction}::eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:29-20:38
+    Visibility: public -/
+def lifecycle.TapAction.Insts.CoreCmpPartialEqTapAction.eq
+  (self : lifecycle.TapAction) (other : lifecycle.TapAction) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TapAction> for lnmai_core_verify::lifecycle::TapAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:29-20:38 -/
+@[reducible]
+def lifecycle.TapAction.Insts.CoreCmpPartialEqTapAction : core.cmp.PartialEq
+  lifecycle.TapAction lifecycle.TapAction := {
+  eq := lifecycle.TapAction.Insts.CoreCmpPartialEqTapAction.eq
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TapAction}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:40-20:42
+    Visibility: public -/
+def lifecycle.TapAction.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : lifecycle.TapAction) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TapAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 20:40-20:42 -/
+@[reducible]
+def lifecycle.TapAction.Insts.CoreCmpEq : core.cmp.Eq lifecycle.TapAction := {
+  partialEqInst := lifecycle.TapAction.Insts.CoreCmpPartialEqTapAction
+  assert_fields_are_eq :=
+    lifecycle.TapAction.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::lifecycle::tap_transition]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 29:0-60:1
+    Visibility: public -/
+def lifecycle.tap_transition
+  (state : lifecycle.TapState) (too_late : Bool) (can_judge : Bool)
+  (input_clicked : Bool) :
+  Result (lifecycle.TapState × lifecycle.TapAction)
+  := do
+  match state with
+  | lifecycle.TapState.Waiting =>
+    if too_late
+    then ok (lifecycle.TapState.Ended, lifecycle.TapAction.Miss)
+    else
+      if can_judge
+      then
+        if input_clicked
+        then ok (lifecycle.TapState.Ended, lifecycle.TapAction.Judge)
+        else ok (lifecycle.TapState.Judgeable, lifecycle.TapAction.NoEvent)
+      else ok (lifecycle.TapState.Waiting, lifecycle.TapAction.NoEvent)
+  | lifecycle.TapState.Judgeable =>
+    if too_late
+    then ok (lifecycle.TapState.Ended, lifecycle.TapAction.Miss)
+    else
+      if input_clicked
+      then
+        if can_judge
+        then ok (lifecycle.TapState.Ended, lifecycle.TapAction.Judge)
+        else ok (lifecycle.TapState.Judgeable, lifecycle.TapAction.NoEvent)
+      else ok (lifecycle.TapState.Judgeable, lifecycle.TapAction.NoEvent)
+  | lifecycle.TapState.Judged _ => ok (state, lifecycle.TapAction.NoEvent)
+  | lifecycle.TapState.Ended =>
+    ok (lifecycle.TapState.Ended, lifecycle.TapAction.NoEvent)
+
+/-- [lnmai_core_verify::lifecycle::accepted_input_engages_judge]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 62:0-64:1
+    Visibility: public -/
+def lifecycle.accepted_input_engages_judge
+  (input_clicked : Bool) : Result Bool := do
+  ok input_clicked
+
+/-- [lnmai_core_verify::lifecycle::TouchState]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 67:0-73:1
+    Visibility: public -/
+@[discriminant isize]
+inductive lifecycle.TouchState where
+| Waiting : lifecycle.TouchState
+| Judgeable : lifecycle.TouchState
+| Judged : types.JudgeGrade → lifecycle.TouchState
+| Ended : lifecycle.TouchState
+
+/-- [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TouchState}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:9-66:14
+    Visibility: public -/
+def lifecycle.TouchState.Insts.CoreFmtDebug.fmt
+  (self : lifecycle.TouchState) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | lifecycle.TouchState.Waiting =>
+    core.fmt.Formatter.write_str f (toStr "Waiting")
+  | lifecycle.TouchState.Judgeable =>
+    core.fmt.Formatter.write_str f (toStr "Judgeable")
+  | lifecycle.TouchState.Judged __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared types.JudgeGrade.Insts.CoreFmtDebug)
+        __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Judged") __self_01
+  | lifecycle.TouchState.Ended =>
+    core.fmt.Formatter.write_str f (toStr "Ended")
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TouchState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:9-66:14 -/
+@[reducible]
+def lifecycle.TouchState.Insts.CoreFmtDebug : core.fmt.Debug
+  lifecycle.TouchState := {
+  fmt := lifecycle.TouchState.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeGrade}::clone]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:16-10:21
+    Visibility: public -/
+def types.JudgeGrade.Insts.CoreCloneClone.clone
+  (self : types.JudgeGrade) : Result types.JudgeGrade := do
+  ok self
+
+/-- [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TouchState}::clone]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:16-66:21
+    Visibility: public -/
+def lifecycle.TouchState.Insts.CoreCloneClone.clone
+  (self : lifecycle.TouchState) : Result lifecycle.TouchState := do
+  match self with
+  | lifecycle.TouchState.Waiting => ok lifecycle.TouchState.Waiting
+  | lifecycle.TouchState.Judgeable => ok lifecycle.TouchState.Judgeable
+  | lifecycle.TouchState.Judged __self_0 =>
+    let jg ← types.JudgeGrade.Insts.CoreCloneClone.clone __self_0
+    ok (lifecycle.TouchState.Judged jg)
+  | lifecycle.TouchState.Ended => ok lifecycle.TouchState.Ended
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TouchState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:16-66:21 -/
+@[reducible]
+def lifecycle.TouchState.Insts.CoreCloneClone : core.clone.Clone
+  lifecycle.TouchState := {
+  clone := lifecycle.TouchState.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::StructuralPartialEq for lnmai_core_verify::lifecycle::TouchState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:23-66:32 -/
+@[reducible]
+def lifecycle.TouchState.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq lifecycle.TouchState := {
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TouchState> for lnmai_core_verify::lifecycle::TouchState}::eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:23-66:32
+    Visibility: public -/
+def lifecycle.TouchState.Insts.CoreCmpPartialEqTouchState.eq
+  (self : lifecycle.TouchState) (other : lifecycle.TouchState) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  if self1 = other1
+  then
+    match self with
+    | lifecycle.TouchState.Waiting => ok true
+    | lifecycle.TouchState.Judgeable => ok true
+    | lifecycle.TouchState.Judged __self_0 =>
+      match other with
+      | lifecycle.TouchState.Waiting => ok true
+      | lifecycle.TouchState.Judgeable => ok true
+      | lifecycle.TouchState.Judged __arg1_0 =>
+        types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq __self_0 __arg1_0
+      | lifecycle.TouchState.Ended => ok true
+    | lifecycle.TouchState.Ended => ok true
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TouchState> for lnmai_core_verify::lifecycle::TouchState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:23-66:32 -/
+@[reducible]
+def lifecycle.TouchState.Insts.CoreCmpPartialEqTouchState : core.cmp.PartialEq
+  lifecycle.TouchState lifecycle.TouchState := {
+  eq := lifecycle.TouchState.Insts.CoreCmpPartialEqTouchState.eq
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TouchState}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:34-66:36
+    Visibility: public -/
+def lifecycle.TouchState.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : lifecycle.TouchState) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TouchState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:34-66:36 -/
+@[reducible]
+def lifecycle.TouchState.Insts.CoreCmpEq : core.cmp.Eq lifecycle.TouchState
+  := {
+  partialEqInst := lifecycle.TouchState.Insts.CoreCmpPartialEqTouchState
+  assert_fields_are_eq :=
+    lifecycle.TouchState.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::default::Default for lnmai_core_verify::lifecycle::TouchState}::default]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:38-66:45
+    Visibility: public -/
+def lifecycle.TouchState.Insts.CoreDefaultDefault.default
+  : Result lifecycle.TouchState := do
+  ok lifecycle.TouchState.Waiting
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::default::Default for lnmai_core_verify::lifecycle::TouchState}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 66:38-66:45 -/
+@[reducible]
+def lifecycle.TouchState.Insts.CoreDefaultDefault : core.default.Default
+  lifecycle.TouchState := {
+  default := lifecycle.TouchState.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::lifecycle::TouchAction]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 76:0-81:1
+    Visibility: public -/
+@[discriminant isize]
+inductive lifecycle.TouchAction where
+| NoEvent : lifecycle.TouchAction
+| Miss : lifecycle.TouchAction
+| Shared : lifecycle.TouchAction
+| Judge : lifecycle.TouchAction
+
+/-- [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TouchAction}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:9-75:14
+    Visibility: public -/
+def lifecycle.TouchAction.Insts.CoreFmtDebug.fmt
+  (self : lifecycle.TouchAction) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | lifecycle.TouchAction.NoEvent =>
+    core.fmt.Formatter.write_str f (toStr "NoEvent")
+  | lifecycle.TouchAction.Miss => core.fmt.Formatter.write_str f (toStr "Miss")
+  | lifecycle.TouchAction.Shared =>
+    core.fmt.Formatter.write_str f (toStr "Shared")
+  | lifecycle.TouchAction.Judge =>
+    core.fmt.Formatter.write_str f (toStr "Judge")
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::TouchAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:9-75:14 -/
+@[reducible]
+def lifecycle.TouchAction.Insts.CoreFmtDebug : core.fmt.Debug
+  lifecycle.TouchAction := {
+  fmt := lifecycle.TouchAction.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TouchAction}::clone]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:16-75:21
+    Visibility: public -/
+def lifecycle.TouchAction.Insts.CoreCloneClone.clone
+  (self : lifecycle.TouchAction) : Result lifecycle.TouchAction := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::TouchAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:16-75:21 -/
+@[reducible]
+def lifecycle.TouchAction.Insts.CoreCloneClone : core.clone.Clone
+  lifecycle.TouchAction := {
+  clone := lifecycle.TouchAction.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::Copy for lnmai_core_verify::lifecycle::TouchAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:23-75:27 -/
+@[reducible]
+def lifecycle.TouchAction.Insts.CoreMarkerCopy : core.marker.Copy
+  lifecycle.TouchAction := {
+  cloneInst := lifecycle.TouchAction.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::StructuralPartialEq for lnmai_core_verify::lifecycle::TouchAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:29-75:38 -/
+@[reducible]
+def lifecycle.TouchAction.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq lifecycle.TouchAction := {
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TouchAction> for lnmai_core_verify::lifecycle::TouchAction}::eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:29-75:38
+    Visibility: public -/
+def lifecycle.TouchAction.Insts.CoreCmpPartialEqTouchAction.eq
+  (self : lifecycle.TouchAction) (other : lifecycle.TouchAction) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::TouchAction> for lnmai_core_verify::lifecycle::TouchAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:29-75:38 -/
+@[reducible]
+def lifecycle.TouchAction.Insts.CoreCmpPartialEqTouchAction :
+  core.cmp.PartialEq lifecycle.TouchAction lifecycle.TouchAction := {
+  eq := lifecycle.TouchAction.Insts.CoreCmpPartialEqTouchAction.eq
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TouchAction}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:40-75:42
+    Visibility: public -/
+def lifecycle.TouchAction.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : lifecycle.TouchAction) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::TouchAction}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 75:40-75:42 -/
+@[reducible]
+def lifecycle.TouchAction.Insts.CoreCmpEq : core.cmp.Eq lifecycle.TouchAction
+  := {
+  partialEqInst := lifecycle.TouchAction.Insts.CoreCmpPartialEqTouchAction
+  assert_fields_are_eq :=
+    lifecycle.TouchAction.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::lifecycle::touch_transition]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 85:0-121:1
+    Visibility: public -/
+def lifecycle.touch_transition
+  (state : lifecycle.TouchState) (too_late : Bool) (can_judge : Bool)
+  (input_clicked : Bool) (has_shared : Bool) :
+  Result (lifecycle.TouchState × lifecycle.TouchAction)
+  := do
+  match state with
+  | lifecycle.TouchState.Waiting =>
+    if too_late
+    then ok (lifecycle.TouchState.Ended, lifecycle.TouchAction.Miss)
+    else
+      if has_shared
+      then ok (lifecycle.TouchState.Ended, lifecycle.TouchAction.Shared)
+      else
+        if can_judge
+        then
+          if input_clicked
+          then ok (lifecycle.TouchState.Judgeable, lifecycle.TouchAction.Judge)
+          else
+            ok (lifecycle.TouchState.Judgeable, lifecycle.TouchAction.NoEvent)
+        else ok (lifecycle.TouchState.Waiting, lifecycle.TouchAction.NoEvent)
+  | lifecycle.TouchState.Judgeable =>
+    if too_late
+    then ok (lifecycle.TouchState.Ended, lifecycle.TouchAction.Miss)
+    else
+      if has_shared
+      then ok (lifecycle.TouchState.Ended, lifecycle.TouchAction.Shared)
+      else
+        if input_clicked
+        then ok (lifecycle.TouchState.Judgeable, lifecycle.TouchAction.Judge)
+        else ok (lifecycle.TouchState.Judgeable, lifecycle.TouchAction.NoEvent)
+  | lifecycle.TouchState.Judged _ => ok (state, lifecycle.TouchAction.NoEvent)
+  | lifecycle.TouchState.Ended =>
+    ok (lifecycle.TouchState.Ended, lifecycle.TouchAction.NoEvent)
+
+/-- [lnmai_core_verify::lifecycle::finish_touch_judgment]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 124:0-132:1
+    Visibility: public -/
+def lifecycle.finish_touch_judgment
+  (raw1 : Option types.JudgeGrade) (style : types.JudgeStyle) :
+  Result (lifecycle.TouchState × (Option types.JudgeGrade))
+  := do
+  match raw1 with
+  | none => ok (lifecycle.TouchState.Judgeable, none)
+  | some grade =>
+    let jg ← convert.convert_grade style grade
+    ok (lifecycle.TouchState.Ended, some jg)
+
+/-- [lnmai_core_verify::types::AreaPolicy]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 164:0-168:1
+    Visibility: public -/
+@[discriminant isize]
+inductive types.AreaPolicy where
+| Or : types.AreaPolicy
+| And : types.AreaPolicy
+
+/-- [lnmai_core_verify::lifecycle::SlideArea]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 135:0-146:1
+    Visibility: public -/
+structure lifecycle.SlideArea (P : Type) where
+  target_areas : alloc.vec.Vec areas.SensorArea
+  policy : types.AreaPolicy
+  is_last : Bool
+  is_skippable : Bool
+  arrow_progress_when_on : P
+  arrow_progress_when_finished : P
+  was_on : Bool
+  was_off : Bool
+  target_was_on : alloc.vec.Vec Bool
+  target_was_off : alloc.vec.Vec Bool
+
+/-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::AreaPolicy}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:9-163:14
+    Visibility: public -/
+def types.AreaPolicy.Insts.CoreFmtDebug.fmt
+  (self : types.AreaPolicy) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | types.AreaPolicy.Or => core.fmt.Formatter.write_str f (toStr "Or")
+  | types.AreaPolicy.And => core.fmt.Formatter.write_str f (toStr "And")
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::AreaPolicy}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:9-163:14 -/
+@[reducible]
+def types.AreaPolicy.Insts.CoreFmtDebug : core.fmt.Debug types.AreaPolicy := {
+  fmt := types.AreaPolicy.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::SlideArea<P>}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:9-134:14
+    Visibility: public -/
+def lifecycle.SlideArea.Insts.CoreFmtDebug.fmt
+  {P : Type} (corefmtDebugInst : core.fmt.Debug P)
+  (self : lifecycle.SlideArea P) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ (core.fmt.DebugVec areas.SensorArea.Insts.CoreFmtDebug)
+      self.target_areas
+  let dyn1 := Dyn.mk _ types.AreaPolicy.Insts.CoreFmtDebug self.policy
+  let dyn2 := Dyn.mk _ core.fmt.DebugBool self.is_last
+  let dyn3 := Dyn.mk _ core.fmt.DebugBool self.is_skippable
+  let dyn4 := Dyn.mk _ corefmtDebugInst self.arrow_progress_when_on
+  let dyn5 := Dyn.mk _ corefmtDebugInst self.arrow_progress_when_finished
+  let dyn6 := Dyn.mk _ core.fmt.DebugBool self.was_on
+  let dyn7 := Dyn.mk _ core.fmt.DebugBool self.was_off
+  let dyn8 :=
+    Dyn.mk _ (core.fmt.DebugVec core.fmt.DebugBool) self.target_was_on
+  let dyn9 :=
+    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec core.fmt.DebugBool))
+      self.target_was_off
+  let values :=
+    Array.to_slice
+      (Array.make 10#usize [
+        dyn, dyn1, dyn2, dyn3, dyn4, dyn5, dyn6, dyn7, dyn8, dyn9
+        ])
+  let s ←
+    lift (Array.to_slice
+      (Array.make 10#usize [
+        toStr "target_areas", toStr "policy", toStr "is_last", toStr
+        "is_skippable", toStr "arrow_progress_when_on", toStr
+        "arrow_progress_when_finished", toStr "was_on", toStr "was_off", toStr
+        "target_was_on", toStr "target_was_off"
+        ]))
+  core.fmt.Formatter.debug_struct_fields_finish f (toStr "SlideArea") s values
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::SlideArea<P>}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:9-134:14 -/
+@[reducible]
+def lifecycle.SlideArea.Insts.CoreFmtDebug {P : Type} (corefmtDebugInst :
+  core.fmt.Debug P) : core.fmt.Debug (lifecycle.SlideArea P) := {
+  fmt := lifecycle.SlideArea.Insts.CoreFmtDebug.fmt corefmtDebugInst
+}
+
+/-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::AreaPolicy}::clone]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:16-163:21
+    Visibility: public -/
+def types.AreaPolicy.Insts.CoreCloneClone.clone
+  (self : types.AreaPolicy) : Result types.AreaPolicy := do
+  ok self
+
+/-- [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::SlideArea<P>}::clone]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:16-134:21
+    Visibility: public -/
+def lifecycle.SlideArea.Insts.CoreCloneClone.clone
+  {P : Type} (corecloneCloneInst : core.clone.Clone P)
+  (self : lifecycle.SlideArea P) :
+  Result (lifecycle.SlideArea P)
+  := do
+  let v ←
+    alloc.vec.CloneVec.clone areas.SensorArea.Insts.CoreCloneClone
+      self.target_areas
+  let ap ← types.AreaPolicy.Insts.CoreCloneClone.clone self.policy
+  let b ← lift (core.clone.impls.CloneBool.clone self.is_last)
+  let b1 ← lift (core.clone.impls.CloneBool.clone self.is_skippable)
+  let t ← corecloneCloneInst.clone self.arrow_progress_when_on
+  let t1 ← corecloneCloneInst.clone self.arrow_progress_when_finished
+  let b2 ← lift (core.clone.impls.CloneBool.clone self.was_on)
+  let b3 ← lift (core.clone.impls.CloneBool.clone self.was_off)
+  let v1 ← alloc.vec.CloneVec.clone core.clone.CloneBool self.target_was_on
+  let v2 ← alloc.vec.CloneVec.clone core.clone.CloneBool self.target_was_off
+  ok
+    {
+      target_areas := v,
+      policy := ap,
+      is_last := b,
+      is_skippable := b1,
+      arrow_progress_when_on := t,
+      arrow_progress_when_finished := t1,
+      was_on := b2,
+      was_off := b3,
+      target_was_on := v1,
+      target_was_off := v2
+    }
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::clone::Clone for lnmai_core_verify::lifecycle::SlideArea<P>}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:16-134:21 -/
+@[reducible]
+def lifecycle.SlideArea.Insts.CoreCloneClone {P : Type} (corecloneCloneInst :
+  core.clone.Clone P) : core.clone.Clone (lifecycle.SlideArea P) := {
+  clone := lifecycle.SlideArea.Insts.CoreCloneClone.clone corecloneCloneInst
+}
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::marker::StructuralPartialEq for lnmai_core_verify::lifecycle::SlideArea<P>}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:23-134:32 -/
+@[reducible]
+def lifecycle.SlideArea.Insts.CoreMarkerStructuralPartialEq (P : Type) :
+  core.marker.StructuralPartialEq (lifecycle.SlideArea P) := {
+}
+
+/-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::AreaPolicy> for lnmai_core_verify::types::AreaPolicy}::eq]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:29-163:38
+    Visibility: public -/
+def types.AreaPolicy.Insts.CoreCmpPartialEqAreaPolicy.eq
+  (self : types.AreaPolicy) (other : types.AreaPolicy) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::SlideArea<P>> for lnmai_core_verify::lifecycle::SlideArea<P>}::eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:23-134:32
+    Visibility: public -/
+def lifecycle.SlideArea.Insts.CoreCmpPartialEqSlideArea.eq
+  {P : Type} (corecmpPartialEqInst : core.cmp.PartialEq P P)
+  (self : lifecycle.SlideArea P) (other : lifecycle.SlideArea P) :
+  Result Bool
+  := do
+  if self.is_last = other.is_last
+  then
+    if self.is_skippable = other.is_skippable
+    then
+      if self.was_on = other.was_on
+      then
+        if self.was_off = other.was_off
+        then
+          let b ←
+            alloc.vec.partial_eq.PartialEqVec.eq
+              areas.SensorArea.Insts.CoreCmpPartialEqSensorArea
+              self.target_areas other.target_areas
+          if b
+          then
+            let b1 ←
+              types.AreaPolicy.Insts.CoreCmpPartialEqAreaPolicy.eq self.policy
+                other.policy
+            if b1
+            then
+              let b2 ←
+                corecmpPartialEqInst.eq self.arrow_progress_when_on
+                  other.arrow_progress_when_on
+              if b2
+              then
+                let b3 ←
+                  corecmpPartialEqInst.eq self.arrow_progress_when_finished
+                    other.arrow_progress_when_finished
+                if b3
+                then
+                  let b4 ←
+                    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqBool
+                      self.target_was_on other.target_was_on
+                  if b4
+                  then
+                    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqBool
+                      self.target_was_off other.target_was_off
+                  else ok false
+                else ok false
+              else ok false
+            else ok false
+          else ok false
+        else ok false
+      else ok false
+    else ok false
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::PartialEq<lnmai_core_verify::lifecycle::SlideArea<P>> for lnmai_core_verify::lifecycle::SlideArea<P>}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:23-134:32 -/
+@[reducible]
+def lifecycle.SlideArea.Insts.CoreCmpPartialEqSlideArea {P : Type}
+  (corecmpPartialEqInst : core.cmp.PartialEq P P) : core.cmp.PartialEq
+  (lifecycle.SlideArea P) (lifecycle.SlideArea P) := {
+  eq := lifecycle.SlideArea.Insts.CoreCmpPartialEqSlideArea.eq
+    corecmpPartialEqInst
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::SlideArea<P>}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:34-134:36
+    Visibility: public -/
+def lifecycle.SlideArea.Insts.CoreCmpEq.assert_fields_are_eq
+  {P : Type} (corecmpEqInst : core.cmp.Eq P) (self : lifecycle.SlideArea P) :
+  Result Unit
+  := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::cmp::Eq for lnmai_core_verify::lifecycle::SlideArea<P>}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:34-134:36 -/
+@[reducible]
+def lifecycle.SlideArea.Insts.CoreCmpEq {P : Type} (corecmpEqInst : core.cmp.Eq
+  P) : core.cmp.Eq (lifecycle.SlideArea P) := {
+  partialEqInst := lifecycle.SlideArea.Insts.CoreCmpPartialEqSlideArea
+    corecmpEqInst.partialEqInst
+  assert_fields_are_eq :=
+    lifecycle.SlideArea.Insts.CoreCmpEq.assert_fields_are_eq corecmpEqInst
+}
+
+/-- [lnmai_core_verify::lifecycle::{impl core::default::Default for lnmai_core_verify::lifecycle::SlideArea<P>}::default]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 149:4-163:5
+    Visibility: public -/
+def lifecycle.SlideArea.Insts.CoreDefaultDefault.default
+  {P : Type} (coredefaultDefaultInst : core.default.Default P) :
+  Result (lifecycle.SlideArea P)
+  := do
+  let t ← coredefaultDefaultInst.default
+  ok
+    {
+      target_areas := (alloc.vec.Vec.new areas.SensorArea),
+      policy := types.AreaPolicy.Or,
+      is_last := false,
+      is_skippable := false,
+      arrow_progress_when_on := t,
+      arrow_progress_when_finished := t,
+      was_on := false,
+      was_off := false,
+      target_was_on := (alloc.vec.Vec.new Bool),
+      target_was_off := (alloc.vec.Vec.new Bool)
+    }
+
+/-- Trait implementation: [lnmai_core_verify::lifecycle::{impl core::default::Default for lnmai_core_verify::lifecycle::SlideArea<P>}]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 148:0-164:1 -/
+@[reducible]
+def lifecycle.SlideArea.Insts.CoreDefaultDefault {P : Type}
+  (coredefaultDefaultInst : core.default.Default P) : core.default.Default
+  (lifecycle.SlideArea P) := {
+  default := lifecycle.SlideArea.Insts.CoreDefaultDefault.default
+    coredefaultDefaultInst
+}
+
+/-- [lnmai_core_verify::lifecycle::history_any]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 169:4-172:5 -/
+@[rust_loop_body]
+def lifecycle.history_any_loop.body
+  (history : Slice Bool) (result : Bool) (i : Std.Usize) :
+  Result (ControlFlow (Bool × Std.Usize) Bool)
+  := do
+  let i1 := Slice.len history
+  if i < i1
+  then
+    let result1 ← if result
+                    then ok true
+                    else Slice.index_usize history i
+    let i2 ← i + 1#usize
+    ok (cont (result1, i2))
+  else ok (done result)
+
+/-- [lnmai_core_verify::lifecycle::history_any]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 169:4-172:5 -/
+@[rust_loop]
+def lifecycle.history_any_loop
+  (history : Slice Bool) (result : Bool) (i : Std.Usize) : Result Bool := do
+  loop
+    (fun (result1, i1) => lifecycle.history_any_loop.body history result1 i1)
+    (result, i)
+
+/-- [lnmai_core_verify::lifecycle::history_any]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 166:0-174:1 -/
+@[reducible]
+def lifecycle.history_any (history : Slice Bool) : Result Bool := do
+  lifecycle.history_any_loop history false 0#usize
+
+/-- [lnmai_core_verify::lifecycle::history_finished]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 184:4-191:5 -/
+@[rust_loop_body]
+def lifecycle.history_finished_loop.body
+  (on : Slice Bool) (off : Slice Bool) (policy : types.AreaPolicy)
+  (is_last : Bool) (result : Bool) (i : Std.Usize) :
+  Result (ControlFlow (Bool × Bool × Std.Usize) Bool)
+  := do
+  let i1 := Slice.len on
+  if i < i1
+  then
+    let i2 := Slice.len off
+    if i < i2
+    then
+      let b ← Slice.index_usize on i
+      let (is_last1, finished) ←
+        if b
+        then
+          do
+          let b1 ← if is_last
+                     then ok true
+                     else Slice.index_usize off i
+          ok (is_last, b1)
+        else ok (is_last, false)
+      let result1 ←
+        match policy with
+        | types.AreaPolicy.Or => if result
+                                 then ok true
+                                 else ok finished
+        | types.AreaPolicy.And => if result
+                                  then ok finished
+                                  else ok false
+      let i3 ← i + 1#usize
+      ok (cont (is_last1, result1, i3))
+    else ok (done result)
+  else ok (done result)
+
+/-- [lnmai_core_verify::lifecycle::history_finished]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 184:4-191:5 -/
+@[rust_loop]
+def lifecycle.history_finished_loop
+  (on : Slice Bool) (off : Slice Bool) (is_last : Bool)
+  (policy : types.AreaPolicy) (result : Bool) (i : Std.Usize) :
+  Result Bool
+  := do
+  loop
+    (fun (is_last1, result1, i1) => lifecycle.history_finished_loop.body on off
+      policy is_last1 result1 i1)
+    (is_last, result, i)
+
+/-- [lnmai_core_verify::lifecycle::history_finished]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 178:0-193:1 -/
+def lifecycle.history_finished
+  (on : Slice Bool) (off : Slice Bool) (is_last : Bool)
+  (policy : types.AreaPolicy) :
+  Result Bool
+  := do
+  let result ←
+    match policy with
+    | types.AreaPolicy.Or => ok false
+    | types.AreaPolicy.And => ok true
+  lifecycle.history_finished_loop on off is_last policy result 0#usize
+
+/-- [lnmai_core_verify::lifecycle::history_get]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 195:0-201:1 -/
+def lifecycle.history_get
+  (history : Slice Bool) (index : Std.Usize) : Result Bool := do
+  let i := Slice.len history
+  if index < i
+  then Slice.index_usize history index
+  else ok false
+
+/-- [lnmai_core_verify::storage::SensorVec]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 119:0-121:1
+    Visibility: public -/
+structure storage.SensorVec (T : Type) where
+  data : alloc.vec.Vec T
+
+/-- [lnmai_core_verify::storage::sensor_area_to_storage_index]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 10:0-46:1
+    Visibility: public -/
+def storage.sensor_area_to_storage_index
+  (area : areas.SensorArea) : Result Std.Usize := do
+  match area with
+  | areas.SensorArea.A1 => ok 0#usize
+  | areas.SensorArea.A2 => ok 1#usize
+  | areas.SensorArea.A3 => ok 2#usize
+  | areas.SensorArea.A4 => ok 3#usize
+  | areas.SensorArea.A5 => ok 4#usize
+  | areas.SensorArea.A6 => ok 5#usize
+  | areas.SensorArea.A7 => ok 6#usize
+  | areas.SensorArea.A8 => ok 7#usize
+  | areas.SensorArea.B1 => ok 25#usize
+  | areas.SensorArea.B2 => ok 26#usize
+  | areas.SensorArea.B3 => ok 27#usize
+  | areas.SensorArea.B4 => ok 28#usize
+  | areas.SensorArea.B5 => ok 29#usize
+  | areas.SensorArea.B6 => ok 30#usize
+  | areas.SensorArea.B7 => ok 31#usize
+  | areas.SensorArea.B8 => ok 32#usize
+  | areas.SensorArea.C => ok 16#usize
+  | areas.SensorArea.D1 => ok 8#usize
+  | areas.SensorArea.D2 => ok 9#usize
+  | areas.SensorArea.D3 => ok 10#usize
+  | areas.SensorArea.D4 => ok 11#usize
+  | areas.SensorArea.D5 => ok 12#usize
+  | areas.SensorArea.D6 => ok 13#usize
+  | areas.SensorArea.D7 => ok 14#usize
+  | areas.SensorArea.D8 => ok 15#usize
+  | areas.SensorArea.E1 => ok 17#usize
+  | areas.SensorArea.E2 => ok 18#usize
+  | areas.SensorArea.E3 => ok 19#usize
+  | areas.SensorArea.E4 => ok 20#usize
+  | areas.SensorArea.E5 => ok 21#usize
+  | areas.SensorArea.E6 => ok 22#usize
+  | areas.SensorArea.E7 => ok 23#usize
+  | areas.SensorArea.E8 => ok 24#usize
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::get_d]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 212:4-219:5
+    Visibility: public -/
+def storage.SensorVec.get_d
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.SensorVec T) (zone : areas.SensorArea) (default : T) :
+  Result T
+  := do
+  let index ← storage.sensor_area_to_storage_index zone
+  let i := alloc.vec.Vec.len self.data
+  if index < i
+  then
+    let t ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice T) self.data
+        index
+    corecloneCloneInst.clone t
+  else ok default
+
+/-- [lnmai_core_verify::lifecycle::target_history]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 212:4-221:5 -/
+@[rust_loop_body]
+def lifecycle.target_history_loop.body
+  (targets : Slice areas.SensorArea) (was_on : Slice Bool)
+  (was_off : Slice Bool) (sensor_held : storage.SensorVec Bool)
+  (on : alloc.vec.Vec Bool) (off : alloc.vec.Vec Bool) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Bool) × (alloc.vec.Vec Bool) ×
+    Std.Usize) ((alloc.vec.Vec Bool) × (alloc.vec.Vec Bool)))
+  := do
+  let i1 := Slice.len targets
+  if i < i1
+  then
+    let old_on ← lifecycle.history_get was_on i
+    let old_off ← lifecycle.history_get was_off i
+    let sa ← Slice.index_usize targets i
+    let held ←
+      storage.SensorVec.get_d core.clone.CloneBool sensor_held sa false
+    let new_on ← if old_on
+                   then ok true
+                   else ok held
+    let new_off ←
+      if old_off
+      then ok true
+      else if old_on
+           then ok (¬ held)
+           else ok false
+    let on1 ← alloc.vec.Vec.push on new_on
+    let off1 ← alloc.vec.Vec.push off new_off
+    let i2 ← i + 1#usize
+    ok (cont (on1, off1, i2))
+  else ok (done (on, off))
+
+/-- [lnmai_core_verify::lifecycle::target_history]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 212:4-221:5 -/
+@[rust_loop]
+def lifecycle.target_history_loop
+  (targets : Slice areas.SensorArea) (was_on : Slice Bool)
+  (was_off : Slice Bool) (sensor_held : storage.SensorVec Bool)
+  (on : alloc.vec.Vec Bool) (off : alloc.vec.Vec Bool) (i : Std.Usize) :
+  Result ((alloc.vec.Vec Bool) × (alloc.vec.Vec Bool))
+  := do
+  loop
+    (fun (on1, off1, i1) => lifecycle.target_history_loop.body targets was_on
+      was_off sensor_held on1 off1 i1)
+    (on, off, i)
+
+/-- [lnmai_core_verify::lifecycle::target_history]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 203:0-223:1 -/
+@[reducible]
+def lifecycle.target_history
+  (targets : Slice areas.SensorArea) (was_on : Slice Bool)
+  (was_off : Slice Bool) (sensor_held : storage.SensorVec Bool) :
+  Result ((alloc.vec.Vec Bool) × (alloc.vec.Vec Bool))
+  := do
+  lifecycle.target_history_loop targets was_on was_off sensor_held
+    (alloc.vec.Vec.new Bool) (alloc.vec.Vec.new Bool) 0#usize
+
+/-- [lnmai_core_verify::lifecycle::{lnmai_core_verify::lifecycle::SlideArea<P>}::on]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 228:4-230:5
+    Visibility: public -/
+def lifecycle.SlideArea.on
+  {P : Type} (self : lifecycle.SlideArea P) : Result Bool := do
+  ok self.was_on
+
+/-- [lnmai_core_verify::lifecycle::{lnmai_core_verify::lifecycle::SlideArea<P>}::is_finished]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 232:4-245:5
+    Visibility: public -/
+def lifecycle.SlideArea.is_finished
+  {P : Type} (self : lifecycle.SlideArea P) : Result Bool := do
+  let i := alloc.vec.Vec.len self.target_areas
+  if i = 0#usize
+  then ok false
+  else
+    let i1 := alloc.vec.Vec.len self.target_was_on
+    if i1 = 0#usize
+    then
+      if self.was_on
+      then if self.is_last
+           then ok true
+           else ok self.was_off
+      else ok false
+    else
+      let s := alloc.vec.Vec.deref self.target_was_on
+      let s1 := alloc.vec.Vec.deref self.target_was_off
+      lifecycle.history_finished s s1 self.is_last self.policy
+
+/-- [lnmai_core_verify::lifecycle::{lnmai_core_verify::lifecycle::SlideArea<P>}::check]:
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 251:4-285:5
+    Visibility: public -/
+def lifecycle.SlideArea.check
+  {P : Type} (corecloneCloneInst : core.clone.Clone P)
+  (self : lifecycle.SlideArea P) (sensor_held : storage.SensorVec Bool) :
+  Result (lifecycle.SlideArea P)
+  := do
+  let i := alloc.vec.Vec.len self.target_was_on
+  let source_on ←
+    if i = 0#usize
+    then
+      let i1 := alloc.vec.Vec.len self.target_areas
+      if i1 = 1#usize
+      then alloc.vec.Vec.push (alloc.vec.Vec.new Bool) self.was_on
+      else alloc.vec.CloneVec.clone core.clone.CloneBool self.target_was_on
+    else alloc.vec.CloneVec.clone core.clone.CloneBool self.target_was_on
+  let i1 := alloc.vec.Vec.len self.target_was_off
+  let source_off ←
+    if i1 = 0#usize
+    then
+      let i2 := alloc.vec.Vec.len self.target_areas
+      if i2 = 1#usize
+      then alloc.vec.Vec.push (alloc.vec.Vec.new Bool) self.was_off
+      else alloc.vec.CloneVec.clone core.clone.CloneBool self.target_was_off
+    else alloc.vec.CloneVec.clone core.clone.CloneBool self.target_was_off
+  let s := alloc.vec.Vec.deref self.target_areas
+  let s1 := alloc.vec.Vec.deref source_on
+  let s2 := alloc.vec.Vec.deref source_off
+  let (target_was_on, target_was_off) ←
+    lifecycle.target_history s s1 s2 sensor_held
+  let s3 := alloc.vec.Vec.deref target_was_on
+  let was_on ← lifecycle.history_any s3
+  let (ap, was_off) ←
+    match self.policy with
+    | types.AreaPolicy.Or =>
+      do
+      let s4 := alloc.vec.Vec.deref target_was_on
+      let s5 := alloc.vec.Vec.deref target_was_off
+      let was_off1 ←
+        lifecycle.history_finished s4 s5 false types.AreaPolicy.Or
+      ok (types.AreaPolicy.Or, was_off1)
+    | types.AreaPolicy.And =>
+      do
+      let i2 := alloc.vec.Vec.len self.target_areas
+      let b ←
+        if i2 != 0#usize
+        then
+          let s4 := alloc.vec.Vec.deref target_was_on
+          let s5 := alloc.vec.Vec.deref target_was_off
+          lifecycle.history_finished s4 s5 false types.AreaPolicy.And
+        else ok false
+      ok (types.AreaPolicy.And, b)
+  let sa ←
+    lifecycle.SlideArea.Insts.CoreCloneClone.clone corecloneCloneInst
+      { self with policy := ap }
+  ok { sa with was_on, was_off, target_was_on, target_was_off }
+
 /-- [lnmai_core_verify::types::NoteType]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 122:0-128:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 124:0-131:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.NoteType where
@@ -1702,7 +3229,7 @@ inductive types.NoteType where
 | Break : types.NoteType
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::NoteType}::base_score]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 131:4-139:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 134:4-142:5
     Visibility: public -/
 def types.NoteType.base_score (self : types.NoteType) : Result Std.U32 := do
   match self with
@@ -1780,7 +3307,7 @@ def score.score_non_break
   | types.JudgeGrade.TooFast => ok (0#u32, b)
 
 /-- [lnmai_core_verify::score::score_break]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 35:0-47:1
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 35:0-59:1
     Visibility: public -/
 def score.score_break
   (grade : types.JudgeGrade) (multiple : Std.U32) :
@@ -1877,7 +3404,7 @@ def score.score_break
     ok (0#u32, 0#u32, 0#u32, i, i1, i1)
 
 /-- [lnmai_core_verify::score::ComboDelta]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 51:0-56:1
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 63:0-68:1
     Visibility: public -/
 structure score.ComboDelta where
   combo : Std.U32
@@ -1886,7 +3413,7 @@ structure score.ComboDelta where
   dx_score_lost : Std.I64
 
 /-- [lnmai_core_verify::score::{impl core::fmt::Debug for lnmai_core_verify::score::ComboDelta}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:9-50:14
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:9-62:14
     Visibility: public -/
 def score.ComboDelta.Insts.CoreFmtDebug.fmt
   (self : score.ComboDelta) (f : core.fmt.Formatter) :
@@ -1902,21 +3429,21 @@ def score.ComboDelta.Insts.CoreFmtDebug.fmt
     "dx_score_lost") dyn3
 
 /-- Trait implementation: [lnmai_core_verify::score::{impl core::fmt::Debug for lnmai_core_verify::score::ComboDelta}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:9-50:14 -/
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:9-62:14 -/
 @[reducible]
 def score.ComboDelta.Insts.CoreFmtDebug : core.fmt.Debug score.ComboDelta := {
   fmt := score.ComboDelta.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::score::{impl core::clone::Clone for lnmai_core_verify::score::ComboDelta}::clone]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:16-50:21
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:16-62:21
     Visibility: public -/
 def score.ComboDelta.Insts.CoreCloneClone.clone
   (self : score.ComboDelta) : Result score.ComboDelta := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::score::{impl core::clone::Clone for lnmai_core_verify::score::ComboDelta}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:16-50:21 -/
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:16-62:21 -/
 @[reducible]
 def score.ComboDelta.Insts.CoreCloneClone : core.clone.Clone score.ComboDelta
   := {
@@ -1924,7 +3451,7 @@ def score.ComboDelta.Insts.CoreCloneClone : core.clone.Clone score.ComboDelta
 }
 
 /-- Trait implementation: [lnmai_core_verify::score::{impl core::marker::Copy for lnmai_core_verify::score::ComboDelta}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:23-50:27 -/
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:23-62:27 -/
 @[reducible]
 def score.ComboDelta.Insts.CoreMarkerCopy : core.marker.Copy score.ComboDelta
   := {
@@ -1932,14 +3459,14 @@ def score.ComboDelta.Insts.CoreMarkerCopy : core.marker.Copy score.ComboDelta
 }
 
 /-- Trait implementation: [lnmai_core_verify::score::{impl core::marker::StructuralPartialEq for lnmai_core_verify::score::ComboDelta}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:29-50:38 -/
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:29-62:38 -/
 @[reducible]
 def score.ComboDelta.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq score.ComboDelta := {
 }
 
 /-- [lnmai_core_verify::score::{impl core::cmp::PartialEq<lnmai_core_verify::score::ComboDelta> for lnmai_core_verify::score::ComboDelta}::eq]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:29-50:38
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:29-62:38
     Visibility: public -/
 def score.ComboDelta.Insts.CoreCmpPartialEqComboDelta.eq
   (self : score.ComboDelta) (other : score.ComboDelta) : Result Bool := do
@@ -1954,7 +3481,7 @@ def score.ComboDelta.Insts.CoreCmpPartialEqComboDelta.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::score::{impl core::cmp::PartialEq<lnmai_core_verify::score::ComboDelta> for lnmai_core_verify::score::ComboDelta}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:29-50:38 -/
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:29-62:38 -/
 @[reducible]
 def score.ComboDelta.Insts.CoreCmpPartialEqComboDelta : core.cmp.PartialEq
   score.ComboDelta score.ComboDelta := {
@@ -1962,22 +3489,43 @@ def score.ComboDelta.Insts.CoreCmpPartialEqComboDelta : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::score::{impl core::cmp::Eq for lnmai_core_verify::score::ComboDelta}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:40-50:42
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:40-62:42
     Visibility: public -/
 def score.ComboDelta.Insts.CoreCmpEq.assert_fields_are_eq
   (self : score.ComboDelta) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::score::{impl core::cmp::Eq for lnmai_core_verify::score::ComboDelta}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 50:40-50:42 -/
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:40-62:42 -/
 @[reducible]
 def score.ComboDelta.Insts.CoreCmpEq : core.cmp.Eq score.ComboDelta := {
   partialEqInst := score.ComboDelta.Insts.CoreCmpPartialEqComboDelta
   assert_fields_are_eq := score.ComboDelta.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::score::{impl core::default::Default for lnmai_core_verify::score::ComboDelta}::default]:
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:44-62:51
+    Visibility: public -/
+def score.ComboDelta.Insts.CoreDefaultDefault.default
+  : Result score.ComboDelta := do
+  ok
+    {
+      combo := (core.default.DefaultU32.default),
+      p_combo := (core.default.DefaultU32.default),
+      c_p_combo := (core.default.DefaultU32.default),
+      dx_score_lost := (core.default.DefaultI64.default)
+    }
+
+/-- Trait implementation: [lnmai_core_verify::score::{impl core::default::Default for lnmai_core_verify::score::ComboDelta}]
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 62:44-62:51 -/
+@[reducible]
+def score.ComboDelta.Insts.CoreDefaultDefault : core.default.Default
+  score.ComboDelta := {
+  default := score.ComboDelta.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::score::update_combo]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 59:0-108:1
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 71:0-120:1
     Visibility: public -/
 def score.update_combo
   (combo : Std.U32) (p_combo : Std.U32) (c_p_combo : Std.U32)
@@ -2023,15 +3571,13 @@ def score.update_combo
   | types.JudgeGrade.LatePerfect3rd =>
     let i ← combo + multiple
     let i1 ← p_combo + multiple
-    let i2 ← 1#i64 * m
-    let i3 ← dx_score_lost - i2
-    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i3 }
+    let i2 ← dx_score_lost - m
+    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i2 }
   | types.JudgeGrade.LatePerfect2nd =>
     let i ← combo + multiple
     let i1 ← p_combo + multiple
-    let i2 ← 1#i64 * m
-    let i3 ← dx_score_lost - i2
-    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i3 }
+    let i2 ← dx_score_lost - m
+    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i2 }
   | types.JudgeGrade.Perfect =>
     let i ← combo + multiple
     let i1 ← p_combo + multiple
@@ -2040,15 +3586,13 @@ def score.update_combo
   | types.JudgeGrade.FastPerfect2nd =>
     let i ← combo + multiple
     let i1 ← p_combo + multiple
-    let i2 ← 1#i64 * m
-    let i3 ← dx_score_lost - i2
-    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i3 }
+    let i2 ← dx_score_lost - m
+    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i2 }
   | types.JudgeGrade.FastPerfect3rd =>
     let i ← combo + multiple
     let i1 ← p_combo + multiple
-    let i2 ← 1#i64 * m
-    let i3 ← dx_score_lost - i2
-    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i3 }
+    let i2 ← dx_score_lost - m
+    ok { combo := i, p_combo := i1, c_p_combo := 0#u32, dx_score_lost := i2 }
   | types.JudgeGrade.FastGreat =>
     let i ← combo + multiple
     let i1 ← 2#i64 * m
@@ -2085,7 +3629,7 @@ def score.update_combo
       }
 
 /-- [lnmai_core_verify::types::JudgeDisplayOption]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:0-118:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 112:0-120:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.JudgeDisplayOption where
@@ -2097,7 +3641,7 @@ inductive types.JudgeDisplayOption where
 | Disable : types.JudgeDisplayOption
 
 /-- [lnmai_core_verify::score::count_fast_late]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 111:0-153:1
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 123:0-165:1
     Visibility: public -/
 def score.count_fast_late
   (grade : types.JudgeGrade) (diff : time.Duration)
@@ -2169,20 +3713,22 @@ def score.count_fast_late
         else ok (false, true)
 
 /-- [lnmai_core_verify::score::dx_score_rank::closure]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 160:16-160:78 -/
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 173:16-173:96 -/
 def score.dx_score_rank.closure := Std.U32 × Std.U32
 
-/-- [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::Fn<(u32,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}::call]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 160:16-160:78 -/
-def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call
-  (c : score.dx_score_rank.closure) (tupled_args : Std.U32) : Result Bool := do
+/-- [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::Fn<(u64,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}::call]:
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 173:16-173:96 -/
+def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
+  (c : score.dx_score_rank.closure) (tupled_args : Std.U64) : Result Bool := do
   let (i, i1) := c
-  let i2 ← i * 100#u32
-  let i3 ← i1 * tupled_args
-  ok (i2 >= i3)
+  let i2 ← lift (UScalar.cast .U64 i)
+  let i3 ← i2 * 100#u64
+  let i4 ← lift (UScalar.cast .U64 i1)
+  let i5 ← i4 * tupled_args
+  ok (i3 >= i5)
 
 /-- [lnmai_core_verify::score::dx_score_rank]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 156:0-174:1
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 168:0-187:1
     Visibility: public -/
 def score.dx_score_rank
   (achieved : Std.U32) (max : Std.U32) : Result Std.U32 := do
@@ -2190,86 +3736,2446 @@ def score.dx_score_rank
   then ok 0#u32
   else
     let b ←
-      score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call
-        (achieved, max) 97#u32
+      score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
+        (achieved, max) 97#u64
     if b
     then ok 5#u32
     else
       let b1 ←
-        score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call
-          (achieved, max) 95#u32
+        score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
+          (achieved, max) 95#u64
       if b1
       then ok 4#u32
       else
         let b2 ←
-          score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call
-            (achieved, max) 93#u32
+          score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
+            (achieved, max) 93#u64
         if b2
         then ok 3#u32
         else
           let b3 ←
-            score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call
-              (achieved, max) 90#u32
+            score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
+              (achieved, max) 90#u64
           if b3
           then ok 2#u32
           else
             let b4 ←
-              score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call
-                (achieved, max) 85#u32
+              score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
+                (achieved, max) 85#u64
             if b4
             then ok 1#u32
             else ok 0#u32
 
-/-- [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnMut<(u32,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}::call_mut]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 160:16-160:78 -/
-def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU32Bool.call_mut
-  (state : score.dx_score_rank.closure) (args : Std.U32) :
+/-- [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnMut<(u64,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}::call_mut]:
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 173:16-173:96 -/
+def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU64Bool.call_mut
+  (state : score.dx_score_rank.closure) (args : Std.U64) :
   Result (Bool × score.dx_score_rank.closure)
   := do
   let b ←
-    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call state
+    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call state
       args
   ok (b, state)
 
-/-- [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnOnce<(u32,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}::call_once]:
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 160:16-160:78 -/
+/-- [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnOnce<(u64,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}::call_once]:
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 173:16-173:96 -/
 def
-  score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU32Bool.call_once
-  (c : score.dx_score_rank.closure) (i : Std.U32) : Result Bool := do
+  score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU64Bool.call_once
+  (c : score.dx_score_rank.closure) (i : Std.U64) : Result Bool := do
   let (b, _) ←
-    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU32Bool.call_mut
+    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU64Bool.call_mut
       c i
   ok b
 
-/-- Trait implementation: [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnOnce<(u32,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 160:16-160:78 -/
+/-- Trait implementation: [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnOnce<(u64,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}]
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 173:16-173:96 -/
 @[reducible]
-def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU32Bool :
-  core.ops.function.FnOnce score.dx_score_rank.closure Std.U32 Bool := {
+def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU64Bool :
+  core.ops.function.FnOnce score.dx_score_rank.closure Std.U64 Bool := {
   call_once :=
-    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU32Bool.call_once
+    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU64Bool.call_once
 }
 
-/-- Trait implementation: [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnMut<(u32,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 160:16-160:78 -/
+/-- Trait implementation: [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::FnMut<(u64,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}]
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 173:16-173:96 -/
 @[reducible]
-def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU32Bool :
-  core.ops.function.FnMut score.dx_score_rank.closure Std.U32 Bool := {
+def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU64Bool :
+  core.ops.function.FnMut score.dx_score_rank.closure Std.U64 Bool := {
   FnOnceInst :=
-    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU32Bool
+    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnOnceTupleU64Bool
   call_mut :=
-    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU32Bool.call_mut
+    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU64Bool.call_mut
 }
 
-/-- Trait implementation: [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::Fn<(u32,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}]
-    Source: 'crates/lnmai-core-verify/src/score.rs', lines 160:16-160:78 -/
+/-- Trait implementation: [lnmai_core_verify::score::dx_score_rank::{impl core::ops::function::Fn<(u64,), bool> for lnmai_core_verify::score::dx_score_rank::closure<'_0, '_1>}]
+    Source: 'crates/lnmai-core-verify/src/score.rs', lines 173:16-173:96 -/
 @[reducible]
-def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool :
-  core.ops.function.Fn score.dx_score_rank.closure Std.U32 Bool := {
+def score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool :
+  core.ops.function.Fn score.dx_score_rank.closure Std.U64 Bool := {
   FnMutInst :=
-    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU32Bool
-  call := score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU32Bool.call
+    score.dx_score_rank.closure.Insts.CoreOpsFunctionFnMutTupleU64Bool
+  call := score.dx_score_rank.closure.Insts.CoreOpsFunctionFnTupleU64Bool.call
 }
+
+/-- [lnmai_core_verify::shape::SlideKind]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 8:0-18:1
+    Visibility: public -/
+@[discriminant isize]
+inductive shape.SlideKind where
+| Line : shape.SlideKind
+| Circle : shape.SlideKind
+| V : shape.SlideKind
+| Turn : shape.SlideKind
+| Pq : shape.SlideKind
+| Ppqq : shape.SlideKind
+| S : shape.SlideKind
+| Wifi : shape.SlideKind
+
+/-- [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::SlideKind}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:9-7:14
+    Visibility: public -/
+def shape.SlideKind.Insts.CoreFmtDebug.fmt
+  (self : shape.SlideKind) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | shape.SlideKind.Line => core.fmt.Formatter.write_str f (toStr "Line")
+  | shape.SlideKind.Circle => core.fmt.Formatter.write_str f (toStr "Circle")
+  | shape.SlideKind.V => core.fmt.Formatter.write_str f (toStr "V")
+  | shape.SlideKind.Turn => core.fmt.Formatter.write_str f (toStr "Turn")
+  | shape.SlideKind.Pq => core.fmt.Formatter.write_str f (toStr "Pq")
+  | shape.SlideKind.Ppqq => core.fmt.Formatter.write_str f (toStr "Ppqq")
+  | shape.SlideKind.S => core.fmt.Formatter.write_str f (toStr "S")
+  | shape.SlideKind.Wifi => core.fmt.Formatter.write_str f (toStr "Wifi")
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:9-7:14 -/
+@[reducible]
+def shape.SlideKind.Insts.CoreFmtDebug : core.fmt.Debug shape.SlideKind := {
+  fmt := shape.SlideKind.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::SlideKind}::clone]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:16-7:21
+    Visibility: public -/
+def shape.SlideKind.Insts.CoreCloneClone.clone
+  (self : shape.SlideKind) : Result shape.SlideKind := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:16-7:21 -/
+@[reducible]
+def shape.SlideKind.Insts.CoreCloneClone : core.clone.Clone shape.SlideKind
+  := {
+  clone := shape.SlideKind.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::Copy for lnmai_core_verify::shape::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:23-7:27 -/
+@[reducible]
+def shape.SlideKind.Insts.CoreMarkerCopy : core.marker.Copy shape.SlideKind
+  := {
+  cloneInst := shape.SlideKind.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::StructuralPartialEq for lnmai_core_verify::shape::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:29-7:38 -/
+@[reducible]
+def shape.SlideKind.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq shape.SlideKind := {
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::SlideKind> for lnmai_core_verify::shape::SlideKind}::eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:29-7:38
+    Visibility: public -/
+def shape.SlideKind.Insts.CoreCmpPartialEqSlideKind.eq
+  (self : shape.SlideKind) (other : shape.SlideKind) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::SlideKind> for lnmai_core_verify::shape::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:29-7:38 -/
+@[reducible]
+def shape.SlideKind.Insts.CoreCmpPartialEqSlideKind : core.cmp.PartialEq
+  shape.SlideKind shape.SlideKind := {
+  eq := shape.SlideKind.Insts.CoreCmpPartialEqSlideKind.eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::SlideKind}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:40-7:42
+    Visibility: public -/
+def shape.SlideKind.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : shape.SlideKind) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:40-7:42 -/
+@[reducible]
+def shape.SlideKind.Insts.CoreCmpEq : core.cmp.Eq shape.SlideKind := {
+  partialEqInst := shape.SlideKind.Insts.CoreCmpPartialEqSlideKind
+  assert_fields_are_eq := shape.SlideKind.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::SlideKind}::default]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:44-7:51
+    Visibility: public -/
+def shape.SlideKind.Insts.CoreDefaultDefault.default
+  : Result shape.SlideKind := do
+  ok shape.SlideKind.Line
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 7:44-7:51 -/
+@[reducible]
+def shape.SlideKind.Insts.CoreDefaultDefault : core.default.Default
+  shape.SlideKind := {
+  default := shape.SlideKind.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::shape::CanonicalSlideShape]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 21:0-30:1
+    Visibility: public -/
+@[discriminant isize]
+inductive shape.CanonicalSlideShape where
+| Line : Std.Usize → shape.CanonicalSlideShape
+| Circle : Std.Usize → shape.CanonicalSlideShape
+| V : Std.Usize → shape.CanonicalSlideShape
+| Turn : Std.Usize → shape.CanonicalSlideShape
+| Pq : Std.Usize → shape.CanonicalSlideShape
+| Ppqq : Std.Usize → shape.CanonicalSlideShape
+| S : shape.CanonicalSlideShape
+| Wifi : shape.CanonicalSlideShape
+
+/-- [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::CanonicalSlideShape}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:9-20:14
+    Visibility: public -/
+def shape.CanonicalSlideShape.Insts.CoreFmtDebug.fmt
+  (self : shape.CanonicalSlideShape) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | shape.CanonicalSlideShape.Line __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Line") __self_01
+  | shape.CanonicalSlideShape.Circle __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Circle") __self_01
+  | shape.CanonicalSlideShape.V __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "V") __self_01
+  | shape.CanonicalSlideShape.Turn __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Turn") __self_01
+  | shape.CanonicalSlideShape.Pq __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Pq") __self_01
+  | shape.CanonicalSlideShape.Ppqq __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Ppqq") __self_01
+  | shape.CanonicalSlideShape.S => core.fmt.Formatter.write_str f (toStr "S")
+  | shape.CanonicalSlideShape.Wifi =>
+    core.fmt.Formatter.write_str f (toStr "Wifi")
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::CanonicalSlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:9-20:14 -/
+@[reducible]
+def shape.CanonicalSlideShape.Insts.CoreFmtDebug : core.fmt.Debug
+  shape.CanonicalSlideShape := {
+  fmt := shape.CanonicalSlideShape.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::CanonicalSlideShape}::clone]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:16-20:21
+    Visibility: public -/
+def shape.CanonicalSlideShape.Insts.CoreCloneClone.clone
+  (self : shape.CanonicalSlideShape) : Result shape.CanonicalSlideShape := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::CanonicalSlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:16-20:21 -/
+@[reducible]
+def shape.CanonicalSlideShape.Insts.CoreCloneClone : core.clone.Clone
+  shape.CanonicalSlideShape := {
+  clone := shape.CanonicalSlideShape.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::Copy for lnmai_core_verify::shape::CanonicalSlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:23-20:27 -/
+@[reducible]
+def shape.CanonicalSlideShape.Insts.CoreMarkerCopy : core.marker.Copy
+  shape.CanonicalSlideShape := {
+  cloneInst := shape.CanonicalSlideShape.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::StructuralPartialEq for lnmai_core_verify::shape::CanonicalSlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:29-20:38 -/
+@[reducible]
+def shape.CanonicalSlideShape.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq shape.CanonicalSlideShape := {
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::CanonicalSlideShape> for lnmai_core_verify::shape::CanonicalSlideShape}::eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:29-20:38
+    Visibility: public -/
+def shape.CanonicalSlideShape.Insts.CoreCmpPartialEqCanonicalSlideShape.eq
+  (self : shape.CanonicalSlideShape) (other : shape.CanonicalSlideShape) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  if self1 = other1
+  then
+    match self with
+    | shape.CanonicalSlideShape.Line __self_0 =>
+      match other with
+      | shape.CanonicalSlideShape.Line __arg1_0 =>
+        lift (core.cmp.impls.PartialEqUsize.eq __self_0 __arg1_0)
+      | shape.CanonicalSlideShape.Circle _ => ok true
+      | shape.CanonicalSlideShape.V _ => ok true
+      | shape.CanonicalSlideShape.Turn _ => ok true
+      | shape.CanonicalSlideShape.Pq _ => ok true
+      | shape.CanonicalSlideShape.Ppqq _ => ok true
+      | shape.CanonicalSlideShape.S => ok true
+      | shape.CanonicalSlideShape.Wifi => ok true
+    | shape.CanonicalSlideShape.Circle __self_0 =>
+      match other with
+      | shape.CanonicalSlideShape.Line _ => ok true
+      | shape.CanonicalSlideShape.Circle __arg1_0 =>
+        lift (core.cmp.impls.PartialEqUsize.eq __self_0 __arg1_0)
+      | shape.CanonicalSlideShape.V _ => ok true
+      | shape.CanonicalSlideShape.Turn _ => ok true
+      | shape.CanonicalSlideShape.Pq _ => ok true
+      | shape.CanonicalSlideShape.Ppqq _ => ok true
+      | shape.CanonicalSlideShape.S => ok true
+      | shape.CanonicalSlideShape.Wifi => ok true
+    | shape.CanonicalSlideShape.V __self_0 =>
+      match other with
+      | shape.CanonicalSlideShape.Line _ => ok true
+      | shape.CanonicalSlideShape.Circle _ => ok true
+      | shape.CanonicalSlideShape.V __arg1_0 =>
+        lift (core.cmp.impls.PartialEqUsize.eq __self_0 __arg1_0)
+      | shape.CanonicalSlideShape.Turn _ => ok true
+      | shape.CanonicalSlideShape.Pq _ => ok true
+      | shape.CanonicalSlideShape.Ppqq _ => ok true
+      | shape.CanonicalSlideShape.S => ok true
+      | shape.CanonicalSlideShape.Wifi => ok true
+    | shape.CanonicalSlideShape.Turn __self_0 =>
+      match other with
+      | shape.CanonicalSlideShape.Line _ => ok true
+      | shape.CanonicalSlideShape.Circle _ => ok true
+      | shape.CanonicalSlideShape.V _ => ok true
+      | shape.CanonicalSlideShape.Turn __arg1_0 =>
+        lift (core.cmp.impls.PartialEqUsize.eq __self_0 __arg1_0)
+      | shape.CanonicalSlideShape.Pq _ => ok true
+      | shape.CanonicalSlideShape.Ppqq _ => ok true
+      | shape.CanonicalSlideShape.S => ok true
+      | shape.CanonicalSlideShape.Wifi => ok true
+    | shape.CanonicalSlideShape.Pq __self_0 =>
+      match other with
+      | shape.CanonicalSlideShape.Line _ => ok true
+      | shape.CanonicalSlideShape.Circle _ => ok true
+      | shape.CanonicalSlideShape.V _ => ok true
+      | shape.CanonicalSlideShape.Turn _ => ok true
+      | shape.CanonicalSlideShape.Pq __arg1_0 =>
+        lift (core.cmp.impls.PartialEqUsize.eq __self_0 __arg1_0)
+      | shape.CanonicalSlideShape.Ppqq _ => ok true
+      | shape.CanonicalSlideShape.S => ok true
+      | shape.CanonicalSlideShape.Wifi => ok true
+    | shape.CanonicalSlideShape.Ppqq __self_0 =>
+      match other with
+      | shape.CanonicalSlideShape.Line _ => ok true
+      | shape.CanonicalSlideShape.Circle _ => ok true
+      | shape.CanonicalSlideShape.V _ => ok true
+      | shape.CanonicalSlideShape.Turn _ => ok true
+      | shape.CanonicalSlideShape.Pq _ => ok true
+      | shape.CanonicalSlideShape.Ppqq __arg1_0 =>
+        lift (core.cmp.impls.PartialEqUsize.eq __self_0 __arg1_0)
+      | shape.CanonicalSlideShape.S => ok true
+      | shape.CanonicalSlideShape.Wifi => ok true
+    | shape.CanonicalSlideShape.S => ok true
+    | shape.CanonicalSlideShape.Wifi => ok true
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::CanonicalSlideShape> for lnmai_core_verify::shape::CanonicalSlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:29-20:38 -/
+@[reducible]
+def shape.CanonicalSlideShape.Insts.CoreCmpPartialEqCanonicalSlideShape :
+  core.cmp.PartialEq shape.CanonicalSlideShape shape.CanonicalSlideShape := {
+  eq := shape.CanonicalSlideShape.Insts.CoreCmpPartialEqCanonicalSlideShape.eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::CanonicalSlideShape}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:40-20:42
+    Visibility: public -/
+def shape.CanonicalSlideShape.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : shape.CanonicalSlideShape) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::CanonicalSlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 20:40-20:42 -/
+@[reducible]
+def shape.CanonicalSlideShape.Insts.CoreCmpEq : core.cmp.Eq
+  shape.CanonicalSlideShape := {
+  partialEqInst :=
+    shape.CanonicalSlideShape.Insts.CoreCmpPartialEqCanonicalSlideShape
+  assert_fields_are_eq :=
+    shape.CanonicalSlideShape.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::CanonicalSlideShape}::default]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 33:4-35:5
+    Visibility: public -/
+def shape.CanonicalSlideShape.Insts.CoreDefaultDefault.default
+  : Result shape.CanonicalSlideShape := do
+  ok (shape.CanonicalSlideShape.Line 0#usize)
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::CanonicalSlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 32:0-36:1 -/
+@[reducible]
+def shape.CanonicalSlideShape.Insts.CoreDefaultDefault : core.default.Default
+  shape.CanonicalSlideShape := {
+  default := shape.CanonicalSlideShape.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::symmetry::SlideSymmetry]
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 11:0-16:1
+    Visibility: public -/
+@[discriminant isize]
+inductive symmetry.SlideSymmetry where
+| R : Std.U32 → symmetry.SlideSymmetry
+| Sr : Std.U32 → symmetry.SlideSymmetry
+
+/-- [lnmai_core_verify::shape::SlideShape]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 39:0-42:1
+    Visibility: public -/
+structure shape.SlideShape where
+  canonical : shape.CanonicalSlideShape
+  symmetry : symmetry.SlideSymmetry
+
+/-- [lnmai_core_verify::symmetry::{impl core::fmt::Debug for lnmai_core_verify::symmetry::SlideSymmetry}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 10:9-10:14
+    Visibility: public -/
+def symmetry.SlideSymmetry.Insts.CoreFmtDebug.fmt
+  (self : symmetry.SlideSymmetry) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | symmetry.SlideSymmetry.R __self_0 =>
+    let __self_01 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU32) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "R") __self_01
+  | symmetry.SlideSymmetry.Sr __self_0 =>
+    let __self_01 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU32) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Sr") __self_01
+
+/-- Trait implementation: [lnmai_core_verify::symmetry::{impl core::fmt::Debug for lnmai_core_verify::symmetry::SlideSymmetry}]
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 10:9-10:14 -/
+@[reducible]
+def symmetry.SlideSymmetry.Insts.CoreFmtDebug : core.fmt.Debug
+  symmetry.SlideSymmetry := {
+  fmt := symmetry.SlideSymmetry.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::SlideShape}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:9-38:14
+    Visibility: public -/
+def shape.SlideShape.Insts.CoreFmtDebug.fmt
+  (self : shape.SlideShape) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ shape.CanonicalSlideShape.Insts.CoreFmtDebug self.canonical
+  let dyn1 :=
+    Dyn.mk _ (core.fmt.DebugShared symmetry.SlideSymmetry.Insts.CoreFmtDebug)
+      self.symmetry
+  core.fmt.Formatter.debug_struct_field2_finish f (toStr "SlideShape") (toStr
+    "canonical") dyn (toStr "symmetry") dyn1
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::SlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:9-38:14 -/
+@[reducible]
+def shape.SlideShape.Insts.CoreFmtDebug : core.fmt.Debug shape.SlideShape := {
+  fmt := shape.SlideShape.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::SlideShape}::clone]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:16-38:21
+    Visibility: public -/
+def shape.SlideShape.Insts.CoreCloneClone.clone
+  (self : shape.SlideShape) : Result shape.SlideShape := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::SlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:16-38:21 -/
+@[reducible]
+def shape.SlideShape.Insts.CoreCloneClone : core.clone.Clone shape.SlideShape
+  := {
+  clone := shape.SlideShape.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::Copy for lnmai_core_verify::shape::SlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:23-38:27 -/
+@[reducible]
+def shape.SlideShape.Insts.CoreMarkerCopy : core.marker.Copy shape.SlideShape
+  := {
+  cloneInst := shape.SlideShape.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::StructuralPartialEq for lnmai_core_verify::shape::SlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:29-38:38 -/
+@[reducible]
+def shape.SlideShape.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq shape.SlideShape := {
+}
+
+/-- [lnmai_core_verify::symmetry::rotation_steps]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 44:0-49:1
+    Visibility: public -/
+def symmetry.rotation_steps (g : symmetry.SlideSymmetry) : Result Std.U32 := do
+  match g with
+  | symmetry.SlideSymmetry.R k => k % 8#u32
+  | symmetry.SlideSymmetry.Sr k => k % 8#u32
+
+/-- [lnmai_core_verify::symmetry::is_mirrored]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 36:0-41:1
+    Visibility: public -/
+def symmetry.is_mirrored (g : symmetry.SlideSymmetry) : Result Bool := do
+  match g with
+  | symmetry.SlideSymmetry.R _ => ok false
+  | symmetry.SlideSymmetry.Sr _ => ok true
+
+/-- [lnmai_core_verify::symmetry::{impl core::cmp::PartialEq<lnmai_core_verify::symmetry::SlideSymmetry> for lnmai_core_verify::symmetry::SlideSymmetry}::eq]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 20:4-22:5
+    Visibility: public -/
+def symmetry.SlideSymmetry.Insts.CoreCmpPartialEqSlideSymmetry.eq
+  (self : symmetry.SlideSymmetry) (other : symmetry.SlideSymmetry) :
+  Result Bool
+  := do
+  let b ← symmetry.is_mirrored self
+  let b1 ← symmetry.is_mirrored other
+  if b = b1
+  then
+    let i ← symmetry.rotation_steps self
+    let i1 ← symmetry.rotation_steps other
+    ok (i = i1)
+  else ok false
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::SlideShape> for lnmai_core_verify::shape::SlideShape}::eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:29-38:38
+    Visibility: public -/
+def shape.SlideShape.Insts.CoreCmpPartialEqSlideShape.eq
+  (self : shape.SlideShape) (other : shape.SlideShape) : Result Bool := do
+  let b ←
+    shape.CanonicalSlideShape.Insts.CoreCmpPartialEqCanonicalSlideShape.eq
+      self.canonical other.canonical
+  if b
+  then
+    symmetry.SlideSymmetry.Insts.CoreCmpPartialEqSlideSymmetry.eq self.symmetry
+      other.symmetry
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::SlideShape> for lnmai_core_verify::shape::SlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:29-38:38 -/
+@[reducible]
+def shape.SlideShape.Insts.CoreCmpPartialEqSlideShape : core.cmp.PartialEq
+  shape.SlideShape shape.SlideShape := {
+  eq := shape.SlideShape.Insts.CoreCmpPartialEqSlideShape.eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::SlideShape}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:40-38:42
+    Visibility: public -/
+def shape.SlideShape.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : shape.SlideShape) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::SlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 38:40-38:42 -/
+@[reducible]
+def shape.SlideShape.Insts.CoreCmpEq : core.cmp.Eq shape.SlideShape := {
+  partialEqInst := shape.SlideShape.Insts.CoreCmpPartialEqSlideShape
+  assert_fields_are_eq := shape.SlideShape.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::symmetry::direct]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 26:0-28:1
+    Visibility: public -/
+def symmetry.direct : Result symmetry.SlideSymmetry := do
+  ok (symmetry.SlideSymmetry.R 0#u32)
+
+/-- [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::SlideShape}::default]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 45:4-50:5
+    Visibility: public -/
+def shape.SlideShape.Insts.CoreDefaultDefault.default
+  : Result shape.SlideShape := do
+  let ss ← symmetry.direct
+  ok { canonical := (shape.CanonicalSlideShape.Line 0#usize), symmetry := ss }
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::SlideShape}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 44:0-51:1 -/
+@[reducible]
+def shape.SlideShape.Insts.CoreDefaultDefault : core.default.Default
+  shape.SlideShape := {
+  default := shape.SlideShape.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::shape::SlideBodyKind]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 54:0-69:1
+    Visibility: public -/
+@[discriminant isize]
+inductive shape.SlideBodyKind where
+| Line : shape.SlideBodyKind
+| CircleRight : shape.SlideBodyKind
+| CircleLeft : shape.SlideBodyKind
+| CircleUp : shape.SlideBodyKind
+| V : shape.SlideBodyKind
+| Pp : shape.SlideBodyKind
+| Qq : shape.SlideBodyKind
+| P : shape.SlideBodyKind
+| Q : shape.SlideBodyKind
+| S : shape.SlideBodyKind
+| Z : shape.SlideBodyKind
+| Turn : shape.SlideBodyKind
+| Wifi : shape.SlideBodyKind
+
+/-- [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::SlideBodyKind}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:9-53:14
+    Visibility: public -/
+def shape.SlideBodyKind.Insts.CoreFmtDebug.fmt
+  (self : shape.SlideBodyKind) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | shape.SlideBodyKind.Line => core.fmt.Formatter.write_str f (toStr "Line")
+  | shape.SlideBodyKind.CircleRight =>
+    core.fmt.Formatter.write_str f (toStr "CircleRight")
+  | shape.SlideBodyKind.CircleLeft =>
+    core.fmt.Formatter.write_str f (toStr "CircleLeft")
+  | shape.SlideBodyKind.CircleUp =>
+    core.fmt.Formatter.write_str f (toStr "CircleUp")
+  | shape.SlideBodyKind.V => core.fmt.Formatter.write_str f (toStr "V")
+  | shape.SlideBodyKind.Pp => core.fmt.Formatter.write_str f (toStr "Pp")
+  | shape.SlideBodyKind.Qq => core.fmt.Formatter.write_str f (toStr "Qq")
+  | shape.SlideBodyKind.P => core.fmt.Formatter.write_str f (toStr "P")
+  | shape.SlideBodyKind.Q => core.fmt.Formatter.write_str f (toStr "Q")
+  | shape.SlideBodyKind.S => core.fmt.Formatter.write_str f (toStr "S")
+  | shape.SlideBodyKind.Z => core.fmt.Formatter.write_str f (toStr "Z")
+  | shape.SlideBodyKind.Turn => core.fmt.Formatter.write_str f (toStr "Turn")
+  | shape.SlideBodyKind.Wifi => core.fmt.Formatter.write_str f (toStr "Wifi")
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::SlideBodyKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:9-53:14 -/
+@[reducible]
+def shape.SlideBodyKind.Insts.CoreFmtDebug : core.fmt.Debug shape.SlideBodyKind
+  := {
+  fmt := shape.SlideBodyKind.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::SlideBodyKind}::clone]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:16-53:21
+    Visibility: public -/
+def shape.SlideBodyKind.Insts.CoreCloneClone.clone
+  (self : shape.SlideBodyKind) : Result shape.SlideBodyKind := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::SlideBodyKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:16-53:21 -/
+@[reducible]
+def shape.SlideBodyKind.Insts.CoreCloneClone : core.clone.Clone
+  shape.SlideBodyKind := {
+  clone := shape.SlideBodyKind.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::Copy for lnmai_core_verify::shape::SlideBodyKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:23-53:27 -/
+@[reducible]
+def shape.SlideBodyKind.Insts.CoreMarkerCopy : core.marker.Copy
+  shape.SlideBodyKind := {
+  cloneInst := shape.SlideBodyKind.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::StructuralPartialEq for lnmai_core_verify::shape::SlideBodyKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:29-53:38 -/
+@[reducible]
+def shape.SlideBodyKind.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq shape.SlideBodyKind := {
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::SlideBodyKind> for lnmai_core_verify::shape::SlideBodyKind}::eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:29-53:38
+    Visibility: public -/
+def shape.SlideBodyKind.Insts.CoreCmpPartialEqSlideBodyKind.eq
+  (self : shape.SlideBodyKind) (other : shape.SlideBodyKind) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::SlideBodyKind> for lnmai_core_verify::shape::SlideBodyKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:29-53:38 -/
+@[reducible]
+def shape.SlideBodyKind.Insts.CoreCmpPartialEqSlideBodyKind :
+  core.cmp.PartialEq shape.SlideBodyKind shape.SlideBodyKind := {
+  eq := shape.SlideBodyKind.Insts.CoreCmpPartialEqSlideBodyKind.eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::SlideBodyKind}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:40-53:42
+    Visibility: public -/
+def shape.SlideBodyKind.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : shape.SlideBodyKind) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::SlideBodyKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:40-53:42 -/
+@[reducible]
+def shape.SlideBodyKind.Insts.CoreCmpEq : core.cmp.Eq shape.SlideBodyKind := {
+  partialEqInst := shape.SlideBodyKind.Insts.CoreCmpPartialEqSlideBodyKind
+  assert_fields_are_eq :=
+    shape.SlideBodyKind.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::SlideBodyKind}::default]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:44-53:51
+    Visibility: public -/
+def shape.SlideBodyKind.Insts.CoreDefaultDefault.default
+  : Result shape.SlideBodyKind := do
+  ok shape.SlideBodyKind.Line
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::default::Default for lnmai_core_verify::shape::SlideBodyKind}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 53:44-53:51 -/
+@[reducible]
+def shape.SlideBodyKind.Insts.CoreDefaultDefault : core.default.Default
+  shape.SlideBodyKind := {
+  default := shape.SlideBodyKind.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::shape::ShapeError]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 74:0-79:1
+    Visibility: public -/
+@[discriminant isize]
+inductive shape.ShapeError where
+| EndNotOuter : shape.ShapeError
+| InvalidEnd : shape.ShapeError
+| InvalidTurnEnd : shape.ShapeError
+| InvalidTurn : shape.ShapeError
+
+/-- [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::ShapeError}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:9-73:14
+    Visibility: public -/
+def shape.ShapeError.Insts.CoreFmtDebug.fmt
+  (self : shape.ShapeError) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | shape.ShapeError.EndNotOuter =>
+    core.fmt.Formatter.write_str f (toStr "EndNotOuter")
+  | shape.ShapeError.InvalidEnd =>
+    core.fmt.Formatter.write_str f (toStr "InvalidEnd")
+  | shape.ShapeError.InvalidTurnEnd =>
+    core.fmt.Formatter.write_str f (toStr "InvalidTurnEnd")
+  | shape.ShapeError.InvalidTurn =>
+    core.fmt.Formatter.write_str f (toStr "InvalidTurn")
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::fmt::Debug for lnmai_core_verify::shape::ShapeError}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:9-73:14 -/
+@[reducible]
+def shape.ShapeError.Insts.CoreFmtDebug : core.fmt.Debug shape.ShapeError := {
+  fmt := shape.ShapeError.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::ShapeError}::clone]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:16-73:21
+    Visibility: public -/
+def shape.ShapeError.Insts.CoreCloneClone.clone
+  (self : shape.ShapeError) : Result shape.ShapeError := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::clone::Clone for lnmai_core_verify::shape::ShapeError}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:16-73:21 -/
+@[reducible]
+def shape.ShapeError.Insts.CoreCloneClone : core.clone.Clone shape.ShapeError
+  := {
+  clone := shape.ShapeError.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::Copy for lnmai_core_verify::shape::ShapeError}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:23-73:27 -/
+@[reducible]
+def shape.ShapeError.Insts.CoreMarkerCopy : core.marker.Copy shape.ShapeError
+  := {
+  cloneInst := shape.ShapeError.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::marker::StructuralPartialEq for lnmai_core_verify::shape::ShapeError}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:29-73:38 -/
+@[reducible]
+def shape.ShapeError.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq shape.ShapeError := {
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::ShapeError> for lnmai_core_verify::shape::ShapeError}::eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:29-73:38
+    Visibility: public -/
+def shape.ShapeError.Insts.CoreCmpPartialEqShapeError.eq
+  (self : shape.ShapeError) (other : shape.ShapeError) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::PartialEq<lnmai_core_verify::shape::ShapeError> for lnmai_core_verify::shape::ShapeError}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:29-73:38 -/
+@[reducible]
+def shape.ShapeError.Insts.CoreCmpPartialEqShapeError : core.cmp.PartialEq
+  shape.ShapeError shape.ShapeError := {
+  eq := shape.ShapeError.Insts.CoreCmpPartialEqShapeError.eq
+}
+
+/-- [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::ShapeError}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:40-73:42
+    Visibility: public -/
+def shape.ShapeError.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : shape.ShapeError) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::shape::{impl core::cmp::Eq for lnmai_core_verify::shape::ShapeError}]
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 73:40-73:42 -/
+@[reducible]
+def shape.ShapeError.Insts.CoreCmpEq : core.cmp.Eq shape.ShapeError := {
+  partialEqInst := shape.ShapeError.Insts.CoreCmpPartialEqShapeError
+  assert_fields_are_eq := shape.ShapeError.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::shape::shape_kind]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 82:0-93:1
+    Visibility: public -/
+def shape.shape_kind
+  (slide_shape : shape.SlideShape) : Result shape.SlideKind := do
+  match slide_shape.canonical with
+  | shape.CanonicalSlideShape.Line _ => ok shape.SlideKind.Line
+  | shape.CanonicalSlideShape.Circle _ => ok shape.SlideKind.Circle
+  | shape.CanonicalSlideShape.V _ => ok shape.SlideKind.V
+  | shape.CanonicalSlideShape.Turn _ => ok shape.SlideKind.Turn
+  | shape.CanonicalSlideShape.Pq _ => ok shape.SlideKind.Pq
+  | shape.CanonicalSlideShape.Ppqq _ => ok shape.SlideKind.Ppqq
+  | shape.CanonicalSlideShape.S => ok shape.SlideKind.S
+  | shape.CanonicalSlideShape.Wifi => ok shape.SlideKind.Wifi
+
+/-- [lnmai_core_verify::shape::shape_rel_end]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 96:0-106:1
+    Visibility: public -/
+def shape.shape_rel_end
+  (slide_shape : shape.SlideShape) : Result (Option Std.Usize) := do
+  match slide_shape.canonical with
+  | shape.CanonicalSlideShape.Line n => ok (some n)
+  | shape.CanonicalSlideShape.Circle n => ok (some n)
+  | shape.CanonicalSlideShape.V n => ok (some n)
+  | shape.CanonicalSlideShape.Turn n => ok (some n)
+  | shape.CanonicalSlideShape.Pq n => ok (some n)
+  | shape.CanonicalSlideShape.Ppqq n => ok (some n)
+  | shape.CanonicalSlideShape.S => ok none
+  | shape.CanonicalSlideShape.Wifi => ok none
+
+/-- [lnmai_core_verify::shape::shape_mirrored]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 109:0-111:1
+    Visibility: public -/
+def shape.shape_mirrored (slide_shape : shape.SlideShape) : Result Bool := do
+  symmetry.is_mirrored slide_shape.symmetry
+
+/-- [lnmai_core_verify::shape::mk_canonical_slide_shape_opt]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 114:0-147:1
+    Visibility: public -/
+def shape.mk_canonical_slide_shape_opt
+  (kind : shape.SlideKind) (rel_end : Option Std.Usize) :
+  Result (Option shape.CanonicalSlideShape)
+  := do
+  match kind with
+  | shape.SlideKind.Line =>
+    match rel_end with
+    | none => ok none
+    | some n =>
+      if 2#usize <= n
+      then
+        if n <= 8#usize
+        then ok (some (shape.CanonicalSlideShape.Line n))
+        else ok none
+      else ok none
+  | shape.SlideKind.Circle =>
+    match rel_end with
+    | none => ok none
+    | some n => ok (some (shape.CanonicalSlideShape.Circle n))
+  | shape.SlideKind.V =>
+    match rel_end with
+    | none => ok none
+    | some n =>
+      if n != 5#usize
+      then ok (some (shape.CanonicalSlideShape.V n))
+      else ok none
+  | shape.SlideKind.Turn =>
+    match rel_end with
+    | none => ok none
+    | some n =>
+      if 2#usize <= n
+      then
+        if n <= 8#usize
+        then ok (some (shape.CanonicalSlideShape.Turn n))
+        else ok none
+      else ok none
+  | shape.SlideKind.Pq =>
+    match rel_end with
+    | none => ok none
+    | some n => ok (some (shape.CanonicalSlideShape.Pq n))
+  | shape.SlideKind.Ppqq =>
+    match rel_end with
+    | none => ok none
+    | some n => ok (some (shape.CanonicalSlideShape.Ppqq n))
+  | shape.SlideKind.S =>
+    match rel_end with
+    | none => ok (some shape.CanonicalSlideShape.S)
+    | some _ => ok none
+  | shape.SlideKind.Wifi =>
+    match rel_end with
+    | none => ok (some shape.CanonicalSlideShape.Wifi)
+    | some _ => ok none
+
+/-- [lnmai_core_verify::shape::mk_canonical_slide_shape]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 149:0-157:1 -/
+def shape.mk_canonical_slide_shape
+  (kind : shape.SlideKind) (rel_end : Option Std.Usize) :
+  Result (core.result.Result shape.CanonicalSlideShape shape.ShapeError)
+  := do
+  let o ← shape.mk_canonical_slide_shape_opt kind rel_end
+  match o with
+  | none => ok (core.result.Result.Err shape.ShapeError.InvalidEnd)
+  | some shape => ok (core.result.Result.Ok shape)
+
+/-- [lnmai_core_verify::shape::mk_canonical_slide_shape_unchecked]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 160:0-180:1
+    Visibility: public -/
+def shape.mk_canonical_slide_shape_unchecked
+  (kind : shape.SlideKind) (rel_end : Option Std.Usize) :
+  Result shape.CanonicalSlideShape
+  := do
+  match kind with
+  | shape.SlideKind.Line =>
+    match rel_end with
+    | none => ok (shape.CanonicalSlideShape.Line 3#usize)
+    | some n => ok (shape.CanonicalSlideShape.Line n)
+  | shape.SlideKind.Circle =>
+    match rel_end with
+    | none => ok (shape.CanonicalSlideShape.Circle 2#usize)
+    | some n => ok (shape.CanonicalSlideShape.Circle n)
+  | shape.SlideKind.V =>
+    match rel_end with
+    | none => ok (shape.CanonicalSlideShape.V 1#usize)
+    | some n => ok (shape.CanonicalSlideShape.V n)
+  | shape.SlideKind.Turn =>
+    match rel_end with
+    | none => ok (shape.CanonicalSlideShape.Turn 2#usize)
+    | some n => ok (shape.CanonicalSlideShape.Turn n)
+  | shape.SlideKind.Pq =>
+    match rel_end with
+    | none => ok (shape.CanonicalSlideShape.Pq 1#usize)
+    | some n => ok (shape.CanonicalSlideShape.Pq n)
+  | shape.SlideKind.Ppqq =>
+    match rel_end with
+    | none => ok (shape.CanonicalSlideShape.Ppqq 1#usize)
+    | some n => ok (shape.CanonicalSlideShape.Ppqq n)
+  | shape.SlideKind.S => ok shape.CanonicalSlideShape.S
+  | shape.SlideKind.Wifi => ok shape.CanonicalSlideShape.Wifi
+
+/-- [lnmai_core_verify::shape::mk_slide_shape]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 183:0-188:1
+    Visibility: public -/
+def shape.mk_slide_shape
+  (canonical : shape.CanonicalSlideShape) (sym : symmetry.SlideSymmetry) :
+  Result shape.SlideShape
+  := do
+  ok { canonical, symmetry := sym }
+
+/-- [lnmai_core_verify::shape::digit_to_nat]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 191:0-211:1
+    Visibility: public -/
+def shape.digit_to_nat (c : Char) : Result (Option Std.Usize) := do
+  if c = '1'
+  then ok (some 1#usize)
+  else
+    if c = '2'
+    then ok (some 2#usize)
+    else
+      if c = '3'
+      then ok (some 3#usize)
+      else
+        if c = '4'
+        then ok (some 4#usize)
+        else
+          if c = '5'
+          then ok (some 5#usize)
+          else
+            if c = '6'
+            then ok (some 6#usize)
+            else
+              if c = '7'
+              then ok (some 7#usize)
+              else if c = '8'
+                   then ok (some 8#usize)
+                   else ok none
+
+/-- [lnmai_core_verify::shape::mirror_key]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 213:0-225:1 -/
+def shape.mirror_key (n : Std.Usize) : Result Std.Usize := do
+  match n.val with
+  | 1 => ok 1#usize
+  | 2 => ok 8#usize
+  | 3 => ok 7#usize
+  | 4 => ok 6#usize
+  | 5 => ok 5#usize
+  | 6 => ok 4#usize
+  | 7 => ok 3#usize
+  | 8 => ok 2#usize
+  | _ => ok n
+
+/-- [lnmai_core_verify::shape::canonical_rel_end]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 228:0-234:1
+    Visibility: public -/
+def shape.canonical_rel_end
+  (sym : symmetry.SlideSymmetry) (rel_end : Std.Usize) : Result Std.Usize := do
+  let b ← symmetry.is_mirrored sym
+  if b
+  then shape.mirror_key rel_end
+  else ok rel_end
+
+/-- [lnmai_core_verify::shape::base_rel_end]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 237:0-239:1
+    Visibility: public -/
+def shape.base_rel_end
+  (sym : symmetry.SlideSymmetry) (rel_end : Std.Usize) : Result Std.Usize := do
+  shape.canonical_rel_end sym rel_end
+
+/-- [lnmai_core_verify::shape::relative_end_pos]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 241:0-243:1 -/
+def shape.relative_end_pos
+  (start_pos : Std.Usize) (end_pos : Std.Usize) : Result Std.Usize := do
+  let i ← end_pos - 1#usize
+  let i1 ← i + 8#usize
+  let i2 ← start_pos - 1#usize
+  let i3 ← i1 - i2
+  let i4 ← i3 % 8#usize
+  i4 + 1#usize
+
+/-- [lnmai_core_verify::shape::outer_slot_is_right_half]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 245:0-247:1
+    Visibility: public -/
+def shape.outer_slot_is_right_half (slot : areas.OuterSlot) : Result Bool := do
+  let i ← areas.OuterSlot.to_index slot
+  ok (i < 4#usize)
+
+/-- [lnmai_core_verify::shape::outer_slot_is_upper_half]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 249:0-254:1
+    Visibility: public -/
+def shape.outer_slot_is_upper_half (slot : areas.OuterSlot) : Result Bool := do
+  match slot with
+  | areas.OuterSlot.S1 => ok true
+  | areas.OuterSlot.S2 => ok true
+  | areas.OuterSlot.S3 => ok false
+  | areas.OuterSlot.S4 => ok false
+  | areas.OuterSlot.S5 => ok false
+  | areas.OuterSlot.S6 => ok false
+  | areas.OuterSlot.S7 => ok true
+  | areas.OuterSlot.S8 => ok true
+
+/-- [lnmai_core_verify::shape::relative_end_from_typed]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 256:0-267:1
+    Visibility: public -/
+def shape.relative_end_from_typed
+  (start_lane : areas.OuterSlot) (end_area : areas.SensorArea) :
+  Result (core.result.Result Std.Usize shape.ShapeError)
+  := do
+  let o ← areas.SensorArea.to_outer_slot end_area
+  match o with
+  | none => ok (core.result.Result.Err shape.ShapeError.EndNotOuter)
+  | some end_zone =>
+    let i ← areas.OuterSlot.to_index start_lane
+    let i1 ← i + 1#usize
+    let i2 ← areas.OuterSlot.to_index end_zone
+    let i3 ← i2 + 1#usize
+    let i4 ← shape.relative_end_pos i1 i3
+    ok (core.result.Result.Ok i4)
+
+/-- [lnmai_core_verify::symmetry::mirror]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 31:0-33:1
+    Visibility: public -/
+def symmetry.mirror : Result symmetry.SlideSymmetry := do
+  ok (symmetry.SlideSymmetry.Sr 0#u32)
+
+/-- [lnmai_core_verify::shape::solve_shape]:
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 280:0-400:1
+    Visibility: public -/
+def shape.solve_shape
+  (kind : shape.SlideBodyKind) (start_lane : areas.OuterSlot)
+  (end_area : Option areas.SensorArea) (turn_area : Option areas.SensorArea) :
+  Result (core.result.Result shape.SlideShape shape.ShapeError)
+  := do
+  let end_area1 ←
+    lift (core.option.Option.unwrap_or end_area areas.SensorArea.A1)
+  let direct ← symmetry.direct
+  let mirror ← symmetry.mirror
+  match kind with
+  | shape.SlideBodyKind.Line =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ←
+        shape.mk_canonical_slide_shape shape.SlideKind.Line (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let ss ← shape.mk_slide_shape value1 direct
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.CircleRight =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ←
+        shape.mk_canonical_slide_shape shape.SlideKind.Circle (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let b ← shape.outer_slot_is_upper_half start_lane
+        let direct1 ← if b
+                        then ok direct
+                        else ok mirror
+        let ss ← shape.mk_slide_shape value1 direct1
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.CircleLeft =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ←
+        shape.mk_canonical_slide_shape shape.SlideKind.Circle (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let b ← shape.outer_slot_is_upper_half start_lane
+        let mirror1 ← if b
+                        then ok mirror
+                        else ok direct
+        let ss ← shape.mk_slide_shape value1 mirror1
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.CircleUp =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ←
+        shape.mk_canonical_slide_shape shape.SlideKind.Circle (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let direct1 ← if value < 5#usize
+                        then ok direct
+                        else ok mirror
+        let ss ← shape.mk_slide_shape value1 direct1
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.V =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ← shape.mk_canonical_slide_shape shape.SlideKind.V (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let ss ← shape.mk_slide_shape value1 direct
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.Pp =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ←
+        shape.mk_canonical_slide_shape shape.SlideKind.Ppqq (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let ss ← shape.mk_slide_shape value1 direct
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.Qq =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ←
+        shape.mk_canonical_slide_shape shape.SlideKind.Ppqq (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let ss ← shape.mk_slide_shape value1 mirror
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.P =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ← shape.mk_canonical_slide_shape shape.SlideKind.Pq (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let ss ← shape.mk_slide_shape value1 direct
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.Q =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ← shape.mk_canonical_slide_shape shape.SlideKind.Pq (some value)
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        let ss ← shape.mk_slide_shape value1 mirror
+        ok (core.result.Result.Ok ss)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.S =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      if value != 5#usize
+      then ok (core.result.Result.Err shape.ShapeError.InvalidEnd)
+      else
+        let r1 ← shape.mk_canonical_slide_shape shape.SlideKind.S none
+        match r1 with
+        | core.result.Result.Ok value1 =>
+          let b ←
+            shape.SlideBodyKind.Insts.CoreCmpPartialEqSlideBodyKind.eq
+              shape.SlideBodyKind.S shape.SlideBodyKind.Z
+          let sym ← if b
+                      then ok mirror
+                      else ok direct
+          let ss ← shape.mk_slide_shape value1 sym
+          ok (core.result.Result.Ok ss)
+        | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.Z =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      if value != 5#usize
+      then ok (core.result.Result.Err shape.ShapeError.InvalidEnd)
+      else
+        let r1 ← shape.mk_canonical_slide_shape shape.SlideKind.S none
+        match r1 with
+        | core.result.Result.Ok value1 =>
+          let b ←
+            shape.SlideBodyKind.Insts.CoreCmpPartialEqSlideBodyKind.eq
+              shape.SlideBodyKind.Z shape.SlideBodyKind.Z
+          let sym ← if b
+                      then ok mirror
+                      else ok direct
+          let ss ← shape.mk_slide_shape value1 sym
+          ok (core.result.Result.Ok ss)
+        | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.Turn =>
+    let turn_area1 ←
+      lift (core.option.Option.unwrap_or turn_area areas.SensorArea.A1)
+    let r ← shape.relative_end_from_typed start_lane turn_area1
+    match r with
+    | core.result.Result.Ok value =>
+      let r1 ← shape.relative_end_from_typed start_lane end_area1
+      match r1 with
+      | core.result.Result.Ok value1 =>
+        if value = 7#usize
+        then
+          if value1 < 2#usize
+          then ok (core.result.Result.Err shape.ShapeError.InvalidTurnEnd)
+          else
+            if value1 > 5#usize
+            then ok (core.result.Result.Err shape.ShapeError.InvalidTurnEnd)
+            else
+              let r2 ←
+                shape.mk_canonical_slide_shape shape.SlideKind.Turn (some
+                  value1)
+              match r2 with
+              | core.result.Result.Ok value2 =>
+                let ss ← shape.mk_slide_shape value2 direct
+                ok (core.result.Result.Ok ss)
+              | core.result.Result.Err error =>
+                ok (core.result.Result.Err error)
+        else
+          if value = 3#usize
+          then
+            if value1 < 5#usize
+            then ok (core.result.Result.Err shape.ShapeError.InvalidTurnEnd)
+            else
+              let r2 ←
+                shape.mk_canonical_slide_shape shape.SlideKind.Turn (some
+                  value1)
+              match r2 with
+              | core.result.Result.Ok value2 =>
+                let ss ← shape.mk_slide_shape value2 mirror
+                ok (core.result.Result.Ok ss)
+              | core.result.Result.Err error =>
+                ok (core.result.Result.Err error)
+          else ok (core.result.Result.Err shape.ShapeError.InvalidTurn)
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+  | shape.SlideBodyKind.Wifi =>
+    let r ← shape.relative_end_from_typed start_lane end_area1
+    match r with
+    | core.result.Result.Ok value =>
+      if value != 5#usize
+      then ok (core.result.Result.Err shape.ShapeError.InvalidEnd)
+      else
+        let r1 ← shape.mk_canonical_slide_shape shape.SlideKind.Wifi none
+        match r1 with
+        | core.result.Result.Ok value1 =>
+          let ss ← shape.mk_slide_shape value1 direct
+          ok (core.result.Result.Ok ss)
+        | core.result.Result.Err error => ok (core.result.Result.Err error)
+    | core.result.Result.Err error => ok (core.result.Result.Err error)
+
+/-- [lnmai_core_verify::slide_queue::with_head]:
+    Source: 'crates/lnmai-core-verify/src/slide_queue.rs', lines 10:0-15:1 -/
+def slide_queue.with_head
+  {P : Type} (corecloneCloneInst : core.clone.Clone P)
+  (head : lifecycle.SlideArea P) (tail : Slice (lifecycle.SlideArea P)) :
+  Result (alloc.vec.Vec (lifecycle.SlideArea P))
+  := do
+  let result ←
+    alloc.vec.Vec.push (alloc.vec.Vec.new (lifecycle.SlideArea P)) head
+  alloc.vec.Vec.extend_from_slice (lifecycle.SlideArea.Insts.CoreCloneClone
+    corecloneCloneInst) result tail
+
+/-- [lnmai_core_verify::slide_queue::prepend_progress]:
+    Source: 'crates/lnmai-core-verify/src/slide_queue.rs', lines 17:0-24:1 -/
+def slide_queue.prepend_progress
+  {P : Type} (corecloneCloneInst : core.clone.Clone P) (emit : Bool)
+  (progress : P) (rest : Slice P) :
+  Result (alloc.vec.Vec P)
+  := do
+  if emit
+  then
+    let t ← corecloneCloneInst.clone progress
+    let result ← alloc.vec.Vec.push (alloc.vec.Vec.new P) t
+    alloc.vec.Vec.extend_from_slice corecloneCloneInst result rest
+  else ok (alloc.vec.Vec.new P)
+
+/-- [lnmai_core_verify::slide_queue::advance_fuel]:
+    Source: 'crates/lnmai-core-verify/src/slide_queue.rs', lines 29:0-82:1
+    Visibility: public -/
+def slide_queue.advance_fuel
+  {P : Type} (corecloneCloneInst : core.clone.Clone P) (fuel : Std.Usize)
+  (emit : Bool) (queue : Slice (lifecycle.SlideArea P))
+  (held : storage.SensorVec Bool) :
+  Result ((alloc.vec.Vec (lifecycle.SlideArea P)) × (alloc.vec.Vec P))
+  := do
+  let i := Slice.len queue
+  if i = 0#usize
+  then ok (alloc.vec.Vec.new (lifecycle.SlideArea P), alloc.vec.Vec.new P)
+  else
+    if fuel = 0#usize
+    then
+      let v ←
+        alloc.slice.Slice.to_vec (lifecycle.SlideArea.Insts.CoreCloneClone
+          corecloneCloneInst) queue
+      ok (v, alloc.vec.Vec.new P)
+    else
+      let fuel1 ← fuel - 1#usize
+      let sa ← Slice.index_usize queue 0#usize
+      let first ← lifecycle.SlideArea.check corecloneCloneInst sa held
+      let rest ←
+        core.slice.index.Slice.index
+          (core.slice.index.SliceIndexRangeFromUsizeSlice (lifecycle.SlideArea
+          P)) queue { start := 1#usize }
+      let i1 := Slice.len rest
+      if i1 = 0#usize
+      then
+        let b ← lifecycle.SlideArea.is_finished first
+        if b
+        then
+          let s ← lift (Array.to_slice (Std.Array.empty P))
+          let commands ←
+            slide_queue.prepend_progress corecloneCloneInst emit
+              first.arrow_progress_when_finished s
+          ok (alloc.vec.Vec.new (lifecycle.SlideArea P), commands)
+        else
+          let b1 ← lifecycle.SlideArea.on first
+          if b1
+          then
+            let s ← lift (Array.to_slice (Std.Array.empty P))
+            let commands ←
+              slide_queue.prepend_progress corecloneCloneInst emit
+                first.arrow_progress_when_on s
+            let v ← slide_queue.with_head corecloneCloneInst first rest
+            ok (v, commands)
+          else
+            let v ← slide_queue.with_head corecloneCloneInst first rest
+            ok (v, alloc.vec.Vec.new P)
+      else
+        if first.is_skippable
+        then
+          let sa1 ← Slice.index_usize rest 0#usize
+          let second ← lifecycle.SlideArea.check corecloneCloneInst sa1 held
+          let rest2 ←
+            core.slice.index.Slice.index
+              (core.slice.index.SliceIndexRangeFromUsizeSlice
+              (lifecycle.SlideArea P)) rest { start := 1#usize }
+          let b ← lifecycle.SlideArea.is_finished second
+          if b
+          then
+            let (remaining, commands) ←
+              slide_queue.advance_fuel corecloneCloneInst fuel1 emit rest2 held
+            let s := alloc.vec.Vec.deref commands
+            let commands1 ←
+              slide_queue.prepend_progress corecloneCloneInst emit
+                second.arrow_progress_when_finished s
+            ok (remaining, commands1)
+          else
+            let b1 ← lifecycle.SlideArea.on second
+            if b1
+            then
+              let sa2 ←
+                lifecycle.SlideArea.Insts.CoreCloneClone.clone
+                  corecloneCloneInst second
+              let next ← slide_queue.with_head corecloneCloneInst sa2 rest2
+              let s := alloc.vec.Vec.deref next
+              let (remaining, commands) ←
+                slide_queue.advance_fuel corecloneCloneInst fuel1 emit s held
+              let s1 := alloc.vec.Vec.deref commands
+              let commands1 ←
+                slide_queue.prepend_progress corecloneCloneInst emit
+                  second.arrow_progress_when_on s1
+              ok (remaining, commands1)
+            else
+              let b2 ← lifecycle.SlideArea.is_finished first
+              if b2
+              then
+                let next ←
+                  slide_queue.with_head corecloneCloneInst second rest2
+                let s := alloc.vec.Vec.deref next
+                let (remaining, commands) ←
+                  slide_queue.advance_fuel corecloneCloneInst fuel1 emit s held
+                let s1 := alloc.vec.Vec.deref commands
+                let commands1 ←
+                  slide_queue.prepend_progress corecloneCloneInst emit
+                    first.arrow_progress_when_finished s1
+                ok (remaining, commands1)
+              else
+                let next ←
+                  slide_queue.with_head corecloneCloneInst second rest2
+                let s := alloc.vec.Vec.deref next
+                let v ← slide_queue.with_head corecloneCloneInst first s
+                ok (v, alloc.vec.Vec.new P)
+        else
+          let b ← lifecycle.SlideArea.on first
+          if b
+          then
+            let sa1 ← Slice.index_usize rest 0#usize
+            let second ←
+              lifecycle.SlideArea.check corecloneCloneInst sa1 held
+            let rest2 ←
+              core.slice.index.Slice.index
+                (core.slice.index.SliceIndexRangeFromUsizeSlice
+                (lifecycle.SlideArea P)) rest { start := 1#usize }
+            let b1 ← lifecycle.SlideArea.is_finished second
+            if b1
+            then
+              let (remaining, commands) ←
+                slide_queue.advance_fuel corecloneCloneInst fuel1 emit rest2
+                  held
+              let s := alloc.vec.Vec.deref commands
+              let commands1 ←
+                slide_queue.prepend_progress corecloneCloneInst emit
+                  second.arrow_progress_when_finished s
+              ok (remaining, commands1)
+            else
+              let b2 ← lifecycle.SlideArea.on second
+              if b2
+              then
+                let sa2 ←
+                  lifecycle.SlideArea.Insts.CoreCloneClone.clone
+                    corecloneCloneInst second
+                let next ← slide_queue.with_head corecloneCloneInst sa2 rest2
+                let s := alloc.vec.Vec.deref next
+                let (remaining, commands) ←
+                  slide_queue.advance_fuel corecloneCloneInst fuel1 emit s held
+                let s1 := alloc.vec.Vec.deref commands
+                let commands1 ←
+                  slide_queue.prepend_progress corecloneCloneInst emit
+                    second.arrow_progress_when_on s1
+                ok (remaining, commands1)
+              else
+                let b3 ← lifecycle.SlideArea.is_finished first
+                if b3
+                then
+                  let next ←
+                    slide_queue.with_head corecloneCloneInst second rest2
+                  let s := alloc.vec.Vec.deref next
+                  let (remaining, commands) ←
+                    slide_queue.advance_fuel corecloneCloneInst fuel1 emit s
+                      held
+                  let s1 := alloc.vec.Vec.deref commands
+                  let commands1 ←
+                    slide_queue.prepend_progress corecloneCloneInst emit
+                      first.arrow_progress_when_finished s1
+                  ok (remaining, commands1)
+                else
+                  let next ←
+                    slide_queue.with_head corecloneCloneInst second rest2
+                  let s := alloc.vec.Vec.deref next
+                  let v ← slide_queue.with_head corecloneCloneInst first s
+                  ok (v, alloc.vec.Vec.new P)
+          else
+            let b1 ← lifecycle.SlideArea.is_finished first
+            if b1
+            then
+              let (remaining, commands) ←
+                slide_queue.advance_fuel corecloneCloneInst fuel1 emit rest
+                  held
+              let s := alloc.vec.Vec.deref commands
+              let commands1 ←
+                slide_queue.prepend_progress corecloneCloneInst emit
+                  first.arrow_progress_when_finished s
+              ok (remaining, commands1)
+            else
+              let v ← slide_queue.with_head corecloneCloneInst first rest
+              ok (v, alloc.vec.Vec.new P)
+partial_fixpoint
+
+/-- [lnmai_core_verify::slide_queue::advance]:
+    Source: 'crates/lnmai-core-verify/src/slide_queue.rs', lines 85:0-91:1
+    Visibility: public -/
+def slide_queue.advance
+  {P : Type} (corecloneCloneInst : core.clone.Clone P) (emit : Bool)
+  (queue : Slice (lifecycle.SlideArea P)) (held : storage.SensorVec Bool) :
+  Result ((alloc.vec.Vec (lifecycle.SlideArea P)) × (alloc.vec.Vec P))
+  := do
+  let i := Slice.len queue
+  let i1 ← i + 1#usize
+  slide_queue.advance_fuel corecloneCloneInst i1 emit queue held
+
+/-- [lnmai_core_verify::storage::sensor_area_of_storage_index]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 49:0-86:1
+    Visibility: public -/
+def storage.sensor_area_of_storage_index
+  (index : Std.Usize) : Result (Option areas.SensorArea) := do
+  match index.val with
+  | 0 => ok (some areas.SensorArea.A1)
+  | 1 => ok (some areas.SensorArea.A2)
+  | 2 => ok (some areas.SensorArea.A3)
+  | 3 => ok (some areas.SensorArea.A4)
+  | 4 => ok (some areas.SensorArea.A5)
+  | 5 => ok (some areas.SensorArea.A6)
+  | 6 => ok (some areas.SensorArea.A7)
+  | 7 => ok (some areas.SensorArea.A8)
+  | 8 => ok (some areas.SensorArea.D1)
+  | 9 => ok (some areas.SensorArea.D2)
+  | 10 => ok (some areas.SensorArea.D3)
+  | 11 => ok (some areas.SensorArea.D4)
+  | 12 => ok (some areas.SensorArea.D5)
+  | 13 => ok (some areas.SensorArea.D6)
+  | 14 => ok (some areas.SensorArea.D7)
+  | 15 => ok (some areas.SensorArea.D8)
+  | 16 => ok (some areas.SensorArea.C)
+  | 17 => ok (some areas.SensorArea.E1)
+  | 18 => ok (some areas.SensorArea.E2)
+  | 19 => ok (some areas.SensorArea.E3)
+  | 20 => ok (some areas.SensorArea.E4)
+  | 21 => ok (some areas.SensorArea.E5)
+  | 22 => ok (some areas.SensorArea.E6)
+  | 23 => ok (some areas.SensorArea.E7)
+  | 24 => ok (some areas.SensorArea.E8)
+  | 25 => ok (some areas.SensorArea.B1)
+  | 26 => ok (some areas.SensorArea.B2)
+  | 27 => ok (some areas.SensorArea.B3)
+  | 28 => ok (some areas.SensorArea.B4)
+  | 29 => ok (some areas.SensorArea.B5)
+  | 30 => ok (some areas.SensorArea.B6)
+  | 31 => ok (some areas.SensorArea.B7)
+  | 32 => ok (some areas.SensorArea.B8)
+  | _ => ok none
+
+/-- [lnmai_core_verify::storage::button_zone_storage_order]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 92:4-97:5
+    Visibility: public -/
+@[rust_loop_body]
+def storage.button_zone_storage_order_loop.body
+  (out : alloc.vec.Vec areas.ButtonZone) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec areas.ButtonZone) × Std.Usize)
+    (alloc.vec.Vec areas.ButtonZone))
+  := do
+  if i < 8#usize
+  then
+    let o ← areas.ButtonZone.of_index i
+    let out1 ←
+      match o with
+      | none => ok out
+      | some zone => alloc.vec.Vec.push out zone
+    let i1 ← i + 1#usize
+    ok (cont (out1, i1))
+  else ok (done out)
+
+/-- [lnmai_core_verify::storage::button_zone_storage_order]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 92:4-97:5
+    Visibility: public -/
+@[rust_loop]
+def storage.button_zone_storage_order_loop
+  (out : alloc.vec.Vec areas.ButtonZone) (i : Std.Usize) :
+  Result (alloc.vec.Vec areas.ButtonZone)
+  := do
+  loop
+    (fun (out1, i1) => storage.button_zone_storage_order_loop.body out1 i1)
+    (out, i)
+
+/-- [lnmai_core_verify::storage::button_zone_storage_order]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 89:0-99:1
+    Visibility: public -/
+@[reducible]
+def storage.button_zone_storage_order
+  : Result (alloc.vec.Vec areas.ButtonZone) := do
+  storage.button_zone_storage_order_loop (alloc.vec.Vec.new areas.ButtonZone)
+    0#usize
+
+/-- [lnmai_core_verify::storage::sensor_area_storage_order]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 104:4-109:5
+    Visibility: public -/
+@[rust_loop_body]
+def storage.sensor_area_storage_order_loop.body
+  (out : alloc.vec.Vec areas.SensorArea) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec areas.SensorArea) × Std.Usize)
+    (alloc.vec.Vec areas.SensorArea))
+  := do
+  let i1 ← lift (UScalar.cast .Usize constants.SENSOR_AREA_COUNT)
+  if i < i1
+  then
+    let o ← storage.sensor_area_of_storage_index i
+    let out1 ←
+      match o with
+      | none => ok out
+      | some area => alloc.vec.Vec.push out area
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [lnmai_core_verify::storage::sensor_area_storage_order]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 104:4-109:5
+    Visibility: public -/
+@[rust_loop]
+def storage.sensor_area_storage_order_loop
+  (out : alloc.vec.Vec areas.SensorArea) (i : Std.Usize) :
+  Result (alloc.vec.Vec areas.SensorArea)
+  := do
+  loop
+    (fun (out1, i1) => storage.sensor_area_storage_order_loop.body out1 i1)
+    (out, i)
+
+/-- [lnmai_core_verify::storage::sensor_area_storage_order]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 101:0-111:1
+    Visibility: public -/
+@[reducible]
+def storage.sensor_area_storage_order
+  : Result (alloc.vec.Vec areas.SensorArea) := do
+  storage.sensor_area_storage_order_loop (alloc.vec.Vec.new areas.SensorArea)
+    0#usize
+
+/-- [lnmai_core_verify::storage::ButtonVec]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 114:0-116:1
+    Visibility: public -/
+structure storage.ButtonVec (T : Type) where
+  data : alloc.vec.Vec T
+
+/-- [lnmai_core_verify::storage::{impl core::fmt::Debug for lnmai_core_verify::storage::ButtonVec<T>}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:9-113:14
+    Visibility: public -/
+def storage.ButtonVec.Insts.CoreFmtDebug.fmt
+  {T : Type} (corefmtDebugInst : core.fmt.Debug T) (self : storage.ButtonVec T)
+  (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec corefmtDebugInst))
+      self.data
+  core.fmt.Formatter.debug_struct_field1_finish f (toStr "ButtonVec") (toStr
+    "data") dyn
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::fmt::Debug for lnmai_core_verify::storage::ButtonVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:9-113:14 -/
+@[reducible]
+def storage.ButtonVec.Insts.CoreFmtDebug {T : Type} (corefmtDebugInst :
+  core.fmt.Debug T) : core.fmt.Debug (storage.ButtonVec T) := {
+  fmt := storage.ButtonVec.Insts.CoreFmtDebug.fmt corefmtDebugInst
+}
+
+/-- [lnmai_core_verify::storage::{impl core::clone::Clone for lnmai_core_verify::storage::ButtonVec<T>}::clone]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:16-113:21
+    Visibility: public -/
+def storage.ButtonVec.Insts.CoreCloneClone.clone
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.ButtonVec T) :
+  Result (storage.ButtonVec T)
+  := do
+  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.data
+  ok { data := v }
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::clone::Clone for lnmai_core_verify::storage::ButtonVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:16-113:21 -/
+@[reducible]
+def storage.ButtonVec.Insts.CoreCloneClone {T : Type} (corecloneCloneInst :
+  core.clone.Clone T) : core.clone.Clone (storage.ButtonVec T) := {
+  clone := storage.ButtonVec.Insts.CoreCloneClone.clone corecloneCloneInst
+}
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::marker::StructuralPartialEq for lnmai_core_verify::storage::ButtonVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:23-113:32 -/
+@[reducible]
+def storage.ButtonVec.Insts.CoreMarkerStructuralPartialEq (T : Type) :
+  core.marker.StructuralPartialEq (storage.ButtonVec T) := {
+}
+
+/-- [lnmai_core_verify::storage::{impl core::cmp::PartialEq<lnmai_core_verify::storage::ButtonVec<T>> for lnmai_core_verify::storage::ButtonVec<T>}::eq]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:23-113:32
+    Visibility: public -/
+def storage.ButtonVec.Insts.CoreCmpPartialEqButtonVec.eq
+  {T : Type} (corecmpPartialEqInst : core.cmp.PartialEq T T)
+  (self : storage.ButtonVec T) (other : storage.ButtonVec T) :
+  Result Bool
+  := do
+  alloc.vec.partial_eq.PartialEqVec.eq corecmpPartialEqInst self.data
+    other.data
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::cmp::PartialEq<lnmai_core_verify::storage::ButtonVec<T>> for lnmai_core_verify::storage::ButtonVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:23-113:32 -/
+@[reducible]
+def storage.ButtonVec.Insts.CoreCmpPartialEqButtonVec {T : Type}
+  (corecmpPartialEqInst : core.cmp.PartialEq T T) : core.cmp.PartialEq
+  (storage.ButtonVec T) (storage.ButtonVec T) := {
+  eq := storage.ButtonVec.Insts.CoreCmpPartialEqButtonVec.eq
+    corecmpPartialEqInst
+}
+
+/-- [lnmai_core_verify::storage::{impl core::cmp::Eq for lnmai_core_verify::storage::ButtonVec<T>}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:34-113:36
+    Visibility: public -/
+def storage.ButtonVec.Insts.CoreCmpEq.assert_fields_are_eq
+  {T : Type} (corecmpEqInst : core.cmp.Eq T) (self : storage.ButtonVec T) :
+  Result Unit
+  := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::cmp::Eq for lnmai_core_verify::storage::ButtonVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 113:34-113:36 -/
+@[reducible]
+def storage.ButtonVec.Insts.CoreCmpEq {T : Type} (corecmpEqInst : core.cmp.Eq
+  T) : core.cmp.Eq (storage.ButtonVec T) := {
+  partialEqInst := storage.ButtonVec.Insts.CoreCmpPartialEqButtonVec
+    corecmpEqInst.partialEqInst
+  assert_fields_are_eq :=
+    storage.ButtonVec.Insts.CoreCmpEq.assert_fields_are_eq corecmpEqInst
+}
+
+/-- [lnmai_core_verify::storage::{impl core::fmt::Debug for lnmai_core_verify::storage::SensorVec<T>}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:9-118:14
+    Visibility: public -/
+def storage.SensorVec.Insts.CoreFmtDebug.fmt
+  {T : Type} (corefmtDebugInst : core.fmt.Debug T) (self : storage.SensorVec T)
+  (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec corefmtDebugInst))
+      self.data
+  core.fmt.Formatter.debug_struct_field1_finish f (toStr "SensorVec") (toStr
+    "data") dyn
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::fmt::Debug for lnmai_core_verify::storage::SensorVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:9-118:14 -/
+@[reducible]
+def storage.SensorVec.Insts.CoreFmtDebug {T : Type} (corefmtDebugInst :
+  core.fmt.Debug T) : core.fmt.Debug (storage.SensorVec T) := {
+  fmt := storage.SensorVec.Insts.CoreFmtDebug.fmt corefmtDebugInst
+}
+
+/-- [lnmai_core_verify::storage::{impl core::clone::Clone for lnmai_core_verify::storage::SensorVec<T>}::clone]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:16-118:21
+    Visibility: public -/
+def storage.SensorVec.Insts.CoreCloneClone.clone
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.SensorVec T) :
+  Result (storage.SensorVec T)
+  := do
+  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.data
+  ok { data := v }
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::clone::Clone for lnmai_core_verify::storage::SensorVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:16-118:21 -/
+@[reducible]
+def storage.SensorVec.Insts.CoreCloneClone {T : Type} (corecloneCloneInst :
+  core.clone.Clone T) : core.clone.Clone (storage.SensorVec T) := {
+  clone := storage.SensorVec.Insts.CoreCloneClone.clone corecloneCloneInst
+}
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::marker::StructuralPartialEq for lnmai_core_verify::storage::SensorVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:23-118:32 -/
+@[reducible]
+def storage.SensorVec.Insts.CoreMarkerStructuralPartialEq (T : Type) :
+  core.marker.StructuralPartialEq (storage.SensorVec T) := {
+}
+
+/-- [lnmai_core_verify::storage::{impl core::cmp::PartialEq<lnmai_core_verify::storage::SensorVec<T>> for lnmai_core_verify::storage::SensorVec<T>}::eq]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:23-118:32
+    Visibility: public -/
+def storage.SensorVec.Insts.CoreCmpPartialEqSensorVec.eq
+  {T : Type} (corecmpPartialEqInst : core.cmp.PartialEq T T)
+  (self : storage.SensorVec T) (other : storage.SensorVec T) :
+  Result Bool
+  := do
+  alloc.vec.partial_eq.PartialEqVec.eq corecmpPartialEqInst self.data
+    other.data
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::cmp::PartialEq<lnmai_core_verify::storage::SensorVec<T>> for lnmai_core_verify::storage::SensorVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:23-118:32 -/
+@[reducible]
+def storage.SensorVec.Insts.CoreCmpPartialEqSensorVec {T : Type}
+  (corecmpPartialEqInst : core.cmp.PartialEq T T) : core.cmp.PartialEq
+  (storage.SensorVec T) (storage.SensorVec T) := {
+  eq := storage.SensorVec.Insts.CoreCmpPartialEqSensorVec.eq
+    corecmpPartialEqInst
+}
+
+/-- [lnmai_core_verify::storage::{impl core::cmp::Eq for lnmai_core_verify::storage::SensorVec<T>}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:34-118:36
+    Visibility: public -/
+def storage.SensorVec.Insts.CoreCmpEq.assert_fields_are_eq
+  {T : Type} (corecmpEqInst : core.cmp.Eq T) (self : storage.SensorVec T) :
+  Result Unit
+  := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::cmp::Eq for lnmai_core_verify::storage::SensorVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 118:34-118:36 -/
+@[reducible]
+def storage.SensorVec.Insts.CoreCmpEq {T : Type} (corecmpEqInst : core.cmp.Eq
+  T) : core.cmp.Eq (storage.SensorVec T) := {
+  partialEqInst := storage.SensorVec.Insts.CoreCmpPartialEqSensorVec
+    corecmpEqInst.partialEqInst
+  assert_fields_are_eq :=
+    storage.SensorVec.Insts.CoreCmpEq.assert_fields_are_eq corecmpEqInst
+}
+
+/-- [lnmai_core_verify::storage::{impl core::default::Default for lnmai_core_verify::storage::ButtonVec<T>}::default]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 124:4-126:5
+    Visibility: public -/
+def storage.ButtonVec.Insts.CoreDefaultDefault.default
+  (T : Type) : Result (storage.ButtonVec T) := do
+  ok { data := (alloc.vec.Vec.new T) }
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::default::Default for lnmai_core_verify::storage::ButtonVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 123:0-127:1 -/
+@[reducible]
+def storage.ButtonVec.Insts.CoreDefaultDefault (T : Type) :
+  core.default.Default (storage.ButtonVec T) := {
+  default := storage.ButtonVec.Insts.CoreDefaultDefault.default T
+}
+
+/-- [lnmai_core_verify::storage::{impl core::default::Default for lnmai_core_verify::storage::SensorVec<T>}::default]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 130:4-132:5
+    Visibility: public -/
+def storage.SensorVec.Insts.CoreDefaultDefault.default
+  (T : Type) : Result (storage.SensorVec T) := do
+  ok { data := (alloc.vec.Vec.new T) }
+
+/-- Trait implementation: [lnmai_core_verify::storage::{impl core::default::Default for lnmai_core_verify::storage::SensorVec<T>}]
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 129:0-133:1 -/
+@[reducible]
+def storage.SensorVec.Insts.CoreDefaultDefault (T : Type) :
+  core.default.Default (storage.SensorVec T) := {
+  default := storage.SensorVec.Insts.CoreDefaultDefault.default T
+}
+
+/-- [lnmai_core_verify::storage::clone_values]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 135:0-137:1 -/
+def storage.clone_values
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (data : Slice T) :
+  Result (alloc.vec.Vec T)
+  := do
+  alloc.slice.Slice.to_vec corecloneCloneInst data
+
+/-- [lnmai_core_verify::storage::list_set_at]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 139:0-145:1 -/
+def storage.list_set_at
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (data : Slice T)
+  (index : Std.Usize) (value : T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let out ← storage.clone_values corecloneCloneInst data
+  let i := alloc.vec.Vec.len out
+  if index < i
+  then
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice T) out
+        index
+    ok (index_mut_back value)
+  else ok out
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::replicate]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 148:4-152:5
+    Visibility: public -/
+def storage.ButtonVec.replicate
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (n : Std.Usize)
+  (value : T) :
+  Result (storage.ButtonVec T)
+  := do
+  let v ← alloc.vec.from_elem corecloneCloneInst value n
+  ok { data := v }
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::get_d]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 153:4-160:5
+    Visibility: public -/
+def storage.ButtonVec.get_d
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.ButtonVec T) (zone : areas.ButtonZone) (default : T) :
+  Result T
+  := do
+  let index ← areas.ButtonZone.to_index zone
+  let i := alloc.vec.Vec.len self.data
+  if index < i
+  then
+    let t ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice T) self.data
+        index
+    corecloneCloneInst.clone t
+  else ok default
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::set]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 161:4-165:5
+    Visibility: public -/
+def storage.ButtonVec.set
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.ButtonVec T) (zone : areas.ButtonZone) (value : T) :
+  Result (storage.ButtonVec T)
+  := do
+  let s := alloc.vec.Vec.deref self.data
+  let i ← areas.ButtonZone.to_index zone
+  let v ← storage.list_set_at corecloneCloneInst s i value
+  ok { data := v }
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::to_list]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 166:4-168:5
+    Visibility: public -/
+def storage.ButtonVec.to_list
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.ButtonVec T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let s := alloc.vec.Vec.deref self.data
+  storage.clone_values corecloneCloneInst s
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::entries]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 173:8-176:9
+    Visibility: public -/
+@[rust_loop_body]
+def storage.ButtonVec.entries_loop.body
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.ButtonVec T) (keys : alloc.vec.Vec areas.ButtonZone)
+  (out : alloc.vec.Vec (areas.ButtonZone × T)) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec (areas.ButtonZone × T)) × Std.Usize)
+    (alloc.vec.Vec (areas.ButtonZone × T)))
+  := do
+  let i1 := alloc.vec.Vec.len keys
+  if i < i1
+  then
+    let i2 := alloc.vec.Vec.len self.data
+    if i < i2
+    then
+      let bz ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
+          areas.ButtonZone) keys i
+      let t ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice T)
+          self.data i
+      let t1 ← corecloneCloneInst.clone t
+      let out1 ← alloc.vec.Vec.push out (bz, t1)
+      let i3 ← i + 1#usize
+      ok (cont (out1, i3))
+    else ok (done out)
+  else ok (done out)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::entries]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 173:8-176:9
+    Visibility: public -/
+@[rust_loop]
+def storage.ButtonVec.entries_loop
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.ButtonVec T) (keys : alloc.vec.Vec areas.ButtonZone)
+  (out : alloc.vec.Vec (areas.ButtonZone × T)) (i : Std.Usize) :
+  Result (alloc.vec.Vec (areas.ButtonZone × T))
+  := do
+  loop
+    (fun (out1, i1) => storage.ButtonVec.entries_loop.body corecloneCloneInst
+      self keys out1 i1)
+    (out, i)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::entries]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 169:4-178:5
+    Visibility: public -/
+def storage.ButtonVec.entries
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.ButtonVec T) :
+  Result (alloc.vec.Vec (areas.ButtonZone × T))
+  := do
+  let keys ← storage.button_zone_storage_order
+  storage.ButtonVec.entries_loop corecloneCloneInst self keys
+    (alloc.vec.Vec.new (areas.ButtonZone × T)) 0#usize
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::of_fn]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 183:8-186:9
+    Visibility: public -/
+@[rust_loop_body]
+def storage.ButtonVec.of_fn_loop.body
+  {T : Type} {T1 : Type} (coreopsfunctionFnT1TupleButtonZoneTInst :
+  core.ops.function.Fn T1 areas.ButtonZone T) (f : T1)
+  (keys : alloc.vec.Vec areas.ButtonZone) (out : alloc.vec.Vec T)
+  (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  let i1 := alloc.vec.Vec.len keys
+  if i < i1
+  then
+    let bz ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
+        areas.ButtonZone) keys i
+    let t ← coreopsfunctionFnT1TupleButtonZoneTInst.call f bz
+    let out1 ← alloc.vec.Vec.push out t
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::of_fn]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 183:8-186:9
+    Visibility: public -/
+@[rust_loop]
+def storage.ButtonVec.of_fn_loop
+  {T : Type} {T1 : Type} (coreopsfunctionFnT1TupleButtonZoneTInst :
+  core.ops.function.Fn T1 areas.ButtonZone T) (f : T1)
+  (keys : alloc.vec.Vec areas.ButtonZone) (out : alloc.vec.Vec T)
+  (i : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (out1, i1) => storage.ButtonVec.of_fn_loop.body
+      coreopsfunctionFnT1TupleButtonZoneTInst f keys out1 i1)
+    (out, i)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::of_fn]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 179:4-188:5
+    Visibility: public -/
+def storage.ButtonVec.of_fn
+  {T : Type} {T1 : Type} (corecloneCloneInst : core.clone.Clone T)
+  (coreopsfunctionFnT1TupleButtonZoneTInst : core.ops.function.Fn T1
+  areas.ButtonZone T) (f : T1) :
+  Result (storage.ButtonVec T)
+  := do
+  let keys ← storage.button_zone_storage_order
+  let out ←
+    storage.ButtonVec.of_fn_loop coreopsfunctionFnT1TupleButtonZoneTInst f keys
+      (alloc.vec.Vec.new T) 0#usize
+  ok { data := out }
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::map_accum]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 196:8-201:9
+    Visibility: public -/
+@[rust_loop_body]
+def storage.ButtonVec.map_accum_loop.body
+  {T : Type} {S : Type} {B : Type} {F : Type} (corecloneCloneInst :
+  core.clone.Clone T) (coreopsfunctionFnFTupleButtonZoneTSPairInst :
+  core.ops.function.Fn F (areas.ButtonZone × T × S) (B × S))
+  (self : storage.ButtonVec T) (f : F) (keys : alloc.vec.Vec areas.ButtonZone)
+  (state : S) (out : alloc.vec.Vec B) (i : Std.Usize) :
+  Result (ControlFlow (S × (alloc.vec.Vec B) × Std.Usize) (S ×
+    (alloc.vec.Vec B)))
+  := do
+  let i1 := alloc.vec.Vec.len keys
+  if i < i1
+  then
+    let i2 := alloc.vec.Vec.len self.data
+    if i < i2
+    then
+      let bz ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
+          areas.ButtonZone) keys i
+      let t ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice T)
+          self.data i
+      let t1 ← corecloneCloneInst.clone t
+      let (mapped, next) ←
+        coreopsfunctionFnFTupleButtonZoneTSPairInst.call f (bz, t1, state)
+      let out1 ← alloc.vec.Vec.push out mapped
+      let i3 ← i + 1#usize
+      ok (cont (next, out1, i3))
+    else ok (done (state, out))
+  else ok (done (state, out))
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::map_accum]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 196:8-201:9
+    Visibility: public -/
+@[rust_loop]
+def storage.ButtonVec.map_accum_loop
+  {T : Type} {S : Type} {B : Type} {F : Type} (corecloneCloneInst :
+  core.clone.Clone T) (coreopsfunctionFnFTupleButtonZoneTSPairInst :
+  core.ops.function.Fn F (areas.ButtonZone × T × S) (B × S))
+  (self : storage.ButtonVec T) (state : S) (f : F)
+  (keys : alloc.vec.Vec areas.ButtonZone) (out : alloc.vec.Vec B)
+  (i : Std.Usize) :
+  Result (S × (alloc.vec.Vec B))
+  := do
+  loop
+    (fun (state1, out1, i1) => storage.ButtonVec.map_accum_loop.body
+      corecloneCloneInst coreopsfunctionFnFTupleButtonZoneTSPairInst self f
+      keys state1 out1 i1)
+    (state, out, i)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::ButtonVec<T>}::map_accum]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 189:4-203:5
+    Visibility: public -/
+def storage.ButtonVec.map_accum
+  {T : Type} {S : Type} {B : Type} {F : Type} (corecloneCloneInst :
+  core.clone.Clone T) (coreopsfunctionFnFTupleButtonZoneTSPairInst :
+  core.ops.function.Fn F (areas.ButtonZone × T × S) (B × S))
+  (self : storage.ButtonVec T) (state : S) (f : F) :
+  Result ((storage.ButtonVec B) × S)
+  := do
+  let keys ← storage.button_zone_storage_order
+  let (state1, out) ←
+    storage.ButtonVec.map_accum_loop corecloneCloneInst
+      coreopsfunctionFnFTupleButtonZoneTSPairInst self state f keys
+      (alloc.vec.Vec.new B) 0#usize
+  ok ({ data := out }, state1)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::replicate]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 207:4-211:5
+    Visibility: public -/
+def storage.SensorVec.replicate
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (n : Std.Usize)
+  (value : T) :
+  Result (storage.SensorVec T)
+  := do
+  let v ← alloc.vec.from_elem corecloneCloneInst value n
+  ok { data := v }
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::set]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 220:4-224:5
+    Visibility: public -/
+def storage.SensorVec.set
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.SensorVec T) (zone : areas.SensorArea) (value : T) :
+  Result (storage.SensorVec T)
+  := do
+  let s := alloc.vec.Vec.deref self.data
+  let i ← storage.sensor_area_to_storage_index zone
+  let v ← storage.list_set_at corecloneCloneInst s i value
+  ok { data := v }
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::to_list]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 225:4-227:5
+    Visibility: public -/
+def storage.SensorVec.to_list
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.SensorVec T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let s := alloc.vec.Vec.deref self.data
+  storage.clone_values corecloneCloneInst s
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::entries]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 232:8-235:9
+    Visibility: public -/
+@[rust_loop_body]
+def storage.SensorVec.entries_loop.body
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.SensorVec T) (keys : alloc.vec.Vec areas.SensorArea)
+  (out : alloc.vec.Vec (areas.SensorArea × T)) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec (areas.SensorArea × T)) × Std.Usize)
+    (alloc.vec.Vec (areas.SensorArea × T)))
+  := do
+  let i1 := alloc.vec.Vec.len keys
+  if i < i1
+  then
+    let i2 := alloc.vec.Vec.len self.data
+    if i < i2
+    then
+      let sa ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
+          areas.SensorArea) keys i
+      let t ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice T)
+          self.data i
+      let t1 ← corecloneCloneInst.clone t
+      let out1 ← alloc.vec.Vec.push out (sa, t1)
+      let i3 ← i + 1#usize
+      ok (cont (out1, i3))
+    else ok (done out)
+  else ok (done out)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::entries]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 232:8-235:9
+    Visibility: public -/
+@[rust_loop]
+def storage.SensorVec.entries_loop
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.SensorVec T) (keys : alloc.vec.Vec areas.SensorArea)
+  (out : alloc.vec.Vec (areas.SensorArea × T)) (i : Std.Usize) :
+  Result (alloc.vec.Vec (areas.SensorArea × T))
+  := do
+  loop
+    (fun (out1, i1) => storage.SensorVec.entries_loop.body corecloneCloneInst
+      self keys out1 i1)
+    (out, i)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::entries]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 228:4-237:5
+    Visibility: public -/
+def storage.SensorVec.entries
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (self : storage.SensorVec T) :
+  Result (alloc.vec.Vec (areas.SensorArea × T))
+  := do
+  let keys ← storage.sensor_area_storage_order
+  storage.SensorVec.entries_loop corecloneCloneInst self keys
+    (alloc.vec.Vec.new (areas.SensorArea × T)) 0#usize
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::of_fn]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 242:8-245:9
+    Visibility: public -/
+@[rust_loop_body]
+def storage.SensorVec.of_fn_loop.body
+  {T : Type} {T1 : Type} (coreopsfunctionFnT1TupleSensorAreaTInst :
+  core.ops.function.Fn T1 areas.SensorArea T) (f : T1)
+  (keys : alloc.vec.Vec areas.SensorArea) (out : alloc.vec.Vec T)
+  (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  let i1 := alloc.vec.Vec.len keys
+  if i < i1
+  then
+    let sa ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
+        areas.SensorArea) keys i
+    let t ← coreopsfunctionFnT1TupleSensorAreaTInst.call f sa
+    let out1 ← alloc.vec.Vec.push out t
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::of_fn]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 242:8-245:9
+    Visibility: public -/
+@[rust_loop]
+def storage.SensorVec.of_fn_loop
+  {T : Type} {T1 : Type} (coreopsfunctionFnT1TupleSensorAreaTInst :
+  core.ops.function.Fn T1 areas.SensorArea T) (f : T1)
+  (keys : alloc.vec.Vec areas.SensorArea) (out : alloc.vec.Vec T)
+  (i : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (out1, i1) => storage.SensorVec.of_fn_loop.body
+      coreopsfunctionFnT1TupleSensorAreaTInst f keys out1 i1)
+    (out, i)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::of_fn]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 238:4-247:5
+    Visibility: public -/
+def storage.SensorVec.of_fn
+  {T : Type} {T1 : Type} (corecloneCloneInst : core.clone.Clone T)
+  (coreopsfunctionFnT1TupleSensorAreaTInst : core.ops.function.Fn T1
+  areas.SensorArea T) (f : T1) :
+  Result (storage.SensorVec T)
+  := do
+  let keys ← storage.sensor_area_storage_order
+  let out ←
+    storage.SensorVec.of_fn_loop coreopsfunctionFnT1TupleSensorAreaTInst f keys
+      (alloc.vec.Vec.new T) 0#usize
+  ok { data := out }
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::map_accum]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 255:8-260:9
+    Visibility: public -/
+@[rust_loop_body]
+def storage.SensorVec.map_accum_loop.body
+  {T : Type} {S : Type} {B : Type} {F : Type} (corecloneCloneInst :
+  core.clone.Clone T) (coreopsfunctionFnFTupleSensorAreaTSPairInst :
+  core.ops.function.Fn F (areas.SensorArea × T × S) (B × S))
+  (self : storage.SensorVec T) (f : F) (keys : alloc.vec.Vec areas.SensorArea)
+  (state : S) (out : alloc.vec.Vec B) (i : Std.Usize) :
+  Result (ControlFlow (S × (alloc.vec.Vec B) × Std.Usize) (S ×
+    (alloc.vec.Vec B)))
+  := do
+  let i1 := alloc.vec.Vec.len keys
+  if i < i1
+  then
+    let i2 := alloc.vec.Vec.len self.data
+    if i < i2
+    then
+      let sa ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
+          areas.SensorArea) keys i
+      let t ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice T)
+          self.data i
+      let t1 ← corecloneCloneInst.clone t
+      let (mapped, next) ←
+        coreopsfunctionFnFTupleSensorAreaTSPairInst.call f (sa, t1, state)
+      let out1 ← alloc.vec.Vec.push out mapped
+      let i3 ← i + 1#usize
+      ok (cont (next, out1, i3))
+    else ok (done (state, out))
+  else ok (done (state, out))
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::map_accum]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 255:8-260:9
+    Visibility: public -/
+@[rust_loop]
+def storage.SensorVec.map_accum_loop
+  {T : Type} {S : Type} {B : Type} {F : Type} (corecloneCloneInst :
+  core.clone.Clone T) (coreopsfunctionFnFTupleSensorAreaTSPairInst :
+  core.ops.function.Fn F (areas.SensorArea × T × S) (B × S))
+  (self : storage.SensorVec T) (state : S) (f : F)
+  (keys : alloc.vec.Vec areas.SensorArea) (out : alloc.vec.Vec B)
+  (i : Std.Usize) :
+  Result (S × (alloc.vec.Vec B))
+  := do
+  loop
+    (fun (state1, out1, i1) => storage.SensorVec.map_accum_loop.body
+      corecloneCloneInst coreopsfunctionFnFTupleSensorAreaTSPairInst self f
+      keys state1 out1 i1)
+    (state, out, i)
+
+/-- [lnmai_core_verify::storage::{lnmai_core_verify::storage::SensorVec<T>}::map_accum]:
+    Source: 'crates/lnmai-core-verify/src/storage.rs', lines 248:4-262:5
+    Visibility: public -/
+def storage.SensorVec.map_accum
+  {T : Type} {S : Type} {B : Type} {F : Type} (corecloneCloneInst :
+  core.clone.Clone T) (coreopsfunctionFnFTupleSensorAreaTSPairInst :
+  core.ops.function.Fn F (areas.SensorArea × T × S) (B × S))
+  (self : storage.SensorVec T) (state : S) (f : F) :
+  Result ((storage.SensorVec B) × S)
+  := do
+  let keys ← storage.sensor_area_storage_order
+  let (state1, out) ←
+    storage.SensorVec.map_accum_loop corecloneCloneInst
+      coreopsfunctionFnFTupleSensorAreaTSPairInst self state f keys
+      (alloc.vec.Vec.new B) 0#usize
+  ok ({ data := out }, state1)
+
+/-- [lnmai_core_verify::symmetry::{impl core::clone::Clone for lnmai_core_verify::symmetry::SlideSymmetry}::clone]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 10:16-10:21
+    Visibility: public -/
+def symmetry.SlideSymmetry.Insts.CoreCloneClone.clone
+  (self : symmetry.SlideSymmetry) : Result symmetry.SlideSymmetry := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::symmetry::{impl core::clone::Clone for lnmai_core_verify::symmetry::SlideSymmetry}]
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 10:16-10:21 -/
+@[reducible]
+def symmetry.SlideSymmetry.Insts.CoreCloneClone : core.clone.Clone
+  symmetry.SlideSymmetry := {
+  clone := symmetry.SlideSymmetry.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::symmetry::{impl core::marker::Copy for lnmai_core_verify::symmetry::SlideSymmetry}]
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 10:23-10:27 -/
+@[reducible]
+def symmetry.SlideSymmetry.Insts.CoreMarkerCopy : core.marker.Copy
+  symmetry.SlideSymmetry := {
+  cloneInst := symmetry.SlideSymmetry.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::symmetry::{impl core::cmp::PartialEq<lnmai_core_verify::symmetry::SlideSymmetry> for lnmai_core_verify::symmetry::SlideSymmetry}]
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 19:0-23:1 -/
+@[reducible]
+def symmetry.SlideSymmetry.Insts.CoreCmpPartialEqSlideSymmetry :
+  core.cmp.PartialEq symmetry.SlideSymmetry symmetry.SlideSymmetry := {
+  eq := symmetry.SlideSymmetry.Insts.CoreCmpPartialEqSlideSymmetry.eq
+}
+
+/-- [lnmai_core_verify::symmetry::{impl core::cmp::Eq for lnmai_core_verify::symmetry::SlideSymmetry}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 10:29-10:31
+    Visibility: public -/
+def symmetry.SlideSymmetry.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : symmetry.SlideSymmetry) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::symmetry::{impl core::cmp::Eq for lnmai_core_verify::symmetry::SlideSymmetry}]
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 10:29-10:31 -/
+@[reducible]
+def symmetry.SlideSymmetry.Insts.CoreCmpEq : core.cmp.Eq symmetry.SlideSymmetry
+  := {
+  partialEqInst := symmetry.SlideSymmetry.Insts.CoreCmpPartialEqSlideSymmetry
+  assert_fields_are_eq :=
+    symmetry.SlideSymmetry.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::symmetry::reflect]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 52:0-88:1 -/
+def symmetry.reflect (area : areas.SensorArea) : Result areas.SensorArea := do
+  match area with
+  | areas.SensorArea.A1 => ok areas.SensorArea.A1
+  | areas.SensorArea.A2 => ok areas.SensorArea.A8
+  | areas.SensorArea.A3 => ok areas.SensorArea.A7
+  | areas.SensorArea.A4 => ok areas.SensorArea.A6
+  | areas.SensorArea.A5 => ok areas.SensorArea.A5
+  | areas.SensorArea.A6 => ok areas.SensorArea.A4
+  | areas.SensorArea.A7 => ok areas.SensorArea.A3
+  | areas.SensorArea.A8 => ok areas.SensorArea.A2
+  | areas.SensorArea.B1 => ok areas.SensorArea.B1
+  | areas.SensorArea.B2 => ok areas.SensorArea.B8
+  | areas.SensorArea.B3 => ok areas.SensorArea.B7
+  | areas.SensorArea.B4 => ok areas.SensorArea.B6
+  | areas.SensorArea.B5 => ok areas.SensorArea.B5
+  | areas.SensorArea.B6 => ok areas.SensorArea.B4
+  | areas.SensorArea.B7 => ok areas.SensorArea.B3
+  | areas.SensorArea.B8 => ok areas.SensorArea.B2
+  | areas.SensorArea.C => ok areas.SensorArea.C
+  | areas.SensorArea.D1 => ok areas.SensorArea.D1
+  | areas.SensorArea.D2 => ok areas.SensorArea.D8
+  | areas.SensorArea.D3 => ok areas.SensorArea.D7
+  | areas.SensorArea.D4 => ok areas.SensorArea.D6
+  | areas.SensorArea.D5 => ok areas.SensorArea.D5
+  | areas.SensorArea.D6 => ok areas.SensorArea.D4
+  | areas.SensorArea.D7 => ok areas.SensorArea.D3
+  | areas.SensorArea.D8 => ok areas.SensorArea.D2
+  | areas.SensorArea.E1 => ok areas.SensorArea.E1
+  | areas.SensorArea.E2 => ok areas.SensorArea.E8
+  | areas.SensorArea.E3 => ok areas.SensorArea.E7
+  | areas.SensorArea.E4 => ok areas.SensorArea.E6
+  | areas.SensorArea.E5 => ok areas.SensorArea.E5
+  | areas.SensorArea.E6 => ok areas.SensorArea.E4
+  | areas.SensorArea.E7 => ok areas.SensorArea.E3
+  | areas.SensorArea.E8 => ok areas.SensorArea.E2
+
+/-- [lnmai_core_verify::symmetry::act_on_sensor_area]:
+    Source: 'crates/lnmai-core-verify/src/symmetry.rs', lines 91:0-96:1
+    Visibility: public -/
+def symmetry.act_on_sensor_area
+  (g : symmetry.SlideSymmetry) (area : areas.SensorArea) :
+  Result areas.SensorArea
+  := do
+  match g with
+  | symmetry.SlideSymmetry.R k =>
+    let i ← lift (UScalar.cast .Usize k)
+    areas.SensorArea.rotate area i
+  | symmetry.SlideSymmetry.Sr k =>
+    let sa ← symmetry.reflect area
+    let i ← lift (UScalar.cast .Usize k)
+    areas.SensorArea.rotate sa i
 
 /-- [lnmai_core_verify::time::{impl core::fmt::Debug for lnmai_core_verify::time::Duration}::fmt]:
     Source: 'crates/lnmai-core-verify/src/time.rs', lines 9:9-9:14
@@ -2347,8 +6253,22 @@ def time.Duration.Insts.CoreCmpEq : core.cmp.Eq time.Duration := {
   assert_fields_are_eq := time.Duration.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::time::{impl core::default::Default for lnmai_core_verify::time::Duration}::default]:
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 9:44-9:51
+    Visibility: public -/
+def time.Duration.Insts.CoreDefaultDefault.default : Result time.Duration := do
+  ok { micros := (core.default.DefaultI64.default) }
+
+/-- Trait implementation: [lnmai_core_verify::time::{impl core::default::Default for lnmai_core_verify::time::Duration}]
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 9:44-9:51 -/
+@[reducible]
+def time.Duration.Insts.CoreDefaultDefault : core.default.Default time.Duration
+  := {
+  default := time.Duration.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::time::{impl core::ops::arith::Add<lnmai_core_verify::time::Duration, lnmai_core_verify::time::Duration> for lnmai_core_verify::time::Duration}::add]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 50:4-52:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:4-67:5
     Visibility: public -/
 def time.Duration.Insts.CoreOpsArithAddDurationDuration.add
   (self : time.Duration) (rhs : time.Duration) : Result time.Duration := do
@@ -2356,7 +6276,7 @@ def time.Duration.Insts.CoreOpsArithAddDurationDuration.add
   ok { micros := i }
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::ops::arith::Add<lnmai_core_verify::time::Duration, lnmai_core_verify::time::Duration> for lnmai_core_verify::time::Duration}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 48:0-53:1 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 61:0-68:1 -/
 @[reducible]
 def time.Duration.Insts.CoreOpsArithAddDurationDuration : core.ops.arith.Add
   time.Duration time.Duration time.Duration := {
@@ -2364,7 +6284,7 @@ def time.Duration.Insts.CoreOpsArithAddDurationDuration : core.ops.arith.Add
 }
 
 /-- [lnmai_core_verify::time::{impl core::ops::arith::Sub<lnmai_core_verify::time::Duration, lnmai_core_verify::time::Duration> for lnmai_core_verify::time::Duration}::sub]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 57:4-59:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 72:4-76:5
     Visibility: public -/
 def time.Duration.Insts.CoreOpsArithSubDurationDuration.sub
   (self : time.Duration) (rhs : time.Duration) : Result time.Duration := do
@@ -2372,7 +6292,7 @@ def time.Duration.Insts.CoreOpsArithSubDurationDuration.sub
   ok { micros := i }
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::ops::arith::Sub<lnmai_core_verify::time::Duration, lnmai_core_verify::time::Duration> for lnmai_core_verify::time::Duration}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 55:0-60:1 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 70:0-77:1 -/
 @[reducible]
 def time.Duration.Insts.CoreOpsArithSubDurationDuration : core.ops.arith.Sub
   time.Duration time.Duration time.Duration := {
@@ -2380,13 +6300,13 @@ def time.Duration.Insts.CoreOpsArithSubDurationDuration : core.ops.arith.Sub
 }
 
 /-- [lnmai_core_verify::time::TimePoint]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 64:0-66:1
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 81:0-83:1
     Visibility: public -/
 structure time.TimePoint where
   micros : Std.I64
 
 /-- [lnmai_core_verify::time::{impl core::fmt::Debug for lnmai_core_verify::time::TimePoint}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:9-63:14
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:9-80:14
     Visibility: public -/
 def time.TimePoint.Insts.CoreFmtDebug.fmt
   (self : time.TimePoint) (f : core.fmt.Formatter) :
@@ -2397,49 +6317,49 @@ def time.TimePoint.Insts.CoreFmtDebug.fmt
     "micros") dyn
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::fmt::Debug for lnmai_core_verify::time::TimePoint}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:9-63:14 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:9-80:14 -/
 @[reducible]
 def time.TimePoint.Insts.CoreFmtDebug : core.fmt.Debug time.TimePoint := {
   fmt := time.TimePoint.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::time::{impl core::clone::Clone for lnmai_core_verify::time::TimePoint}::clone]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:16-63:21
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:16-80:21
     Visibility: public -/
 def time.TimePoint.Insts.CoreCloneClone.clone
   (self : time.TimePoint) : Result time.TimePoint := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::clone::Clone for lnmai_core_verify::time::TimePoint}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:16-63:21 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:16-80:21 -/
 @[reducible]
 def time.TimePoint.Insts.CoreCloneClone : core.clone.Clone time.TimePoint := {
   clone := time.TimePoint.Insts.CoreCloneClone.clone
 }
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::marker::Copy for lnmai_core_verify::time::TimePoint}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:23-63:27 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:23-80:27 -/
 @[reducible]
 def time.TimePoint.Insts.CoreMarkerCopy : core.marker.Copy time.TimePoint := {
   cloneInst := time.TimePoint.Insts.CoreCloneClone
 }
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::marker::StructuralPartialEq for lnmai_core_verify::time::TimePoint}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:29-63:38 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:29-80:38 -/
 @[reducible]
 def time.TimePoint.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq time.TimePoint := {
 }
 
 /-- [lnmai_core_verify::time::{impl core::cmp::PartialEq<lnmai_core_verify::time::TimePoint> for lnmai_core_verify::time::TimePoint}::eq]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:29-63:38
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:29-80:38
     Visibility: public -/
 def time.TimePoint.Insts.CoreCmpPartialEqTimePoint.eq
   (self : time.TimePoint) (other : time.TimePoint) : Result Bool := do
   ok (self.micros = other.micros)
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::cmp::PartialEq<lnmai_core_verify::time::TimePoint> for lnmai_core_verify::time::TimePoint}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:29-63:38 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:29-80:38 -/
 @[reducible]
 def time.TimePoint.Insts.CoreCmpPartialEqTimePoint : core.cmp.PartialEq
   time.TimePoint time.TimePoint := {
@@ -2447,40 +6367,55 @@ def time.TimePoint.Insts.CoreCmpPartialEqTimePoint : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::time::{impl core::cmp::Eq for lnmai_core_verify::time::TimePoint}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:40-63:42
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:40-80:42
     Visibility: public -/
 def time.TimePoint.Insts.CoreCmpEq.assert_fields_are_eq
   (self : time.TimePoint) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::cmp::Eq for lnmai_core_verify::time::TimePoint}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 63:40-63:42 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:40-80:42 -/
 @[reducible]
 def time.TimePoint.Insts.CoreCmpEq : core.cmp.Eq time.TimePoint := {
   partialEqInst := time.TimePoint.Insts.CoreCmpPartialEqTimePoint
   assert_fields_are_eq := time.TimePoint.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::time::{impl core::default::Default for lnmai_core_verify::time::TimePoint}::default]:
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:44-80:51
+    Visibility: public -/
+def time.TimePoint.Insts.CoreDefaultDefault.default
+  : Result time.TimePoint := do
+  ok { micros := (core.default.DefaultI64.default) }
+
+/-- Trait implementation: [lnmai_core_verify::time::{impl core::default::Default for lnmai_core_verify::time::TimePoint}]
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 80:44-80:51 -/
+@[reducible]
+def time.TimePoint.Insts.CoreDefaultDefault : core.default.Default
+  time.TimePoint := {
+  default := time.TimePoint.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::TimePoint}::from_micros]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 69:4-71:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 86:4-88:5
     Visibility: public -/
 def time.TimePoint.from_micros (micros : Std.I64) : Result time.TimePoint := do
   ok { micros }
 
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::TimePoint}::zero]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 73:4-75:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 90:4-92:5
     Visibility: public -/
 def time.TimePoint.zero : Result time.TimePoint := do
   ok { micros := 0#i64 }
 
 /-- [lnmai_core_verify::time::{lnmai_core_verify::time::TimePoint}::to_micros]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 77:4-79:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 94:4-96:5
     Visibility: public -/
 def time.TimePoint.to_micros (self : time.TimePoint) : Result Std.I64 := do
   ok self.micros
 
 /-- [lnmai_core_verify::time::{impl core::ops::arith::Sub<lnmai_core_verify::time::TimePoint, lnmai_core_verify::time::Duration> for lnmai_core_verify::time::TimePoint}::sub]:
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 84:4-86:5
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 101:4-105:5
     Visibility: public -/
 def time.TimePoint.Insts.CoreOpsArithSubTimePointDuration.sub
   (self : time.TimePoint) (rhs : time.TimePoint) : Result time.Duration := do
@@ -2488,64 +6423,145 @@ def time.TimePoint.Insts.CoreOpsArithSubTimePointDuration.sub
   ok { micros := i }
 
 /-- Trait implementation: [lnmai_core_verify::time::{impl core::ops::arith::Sub<lnmai_core_verify::time::TimePoint, lnmai_core_verify::time::Duration> for lnmai_core_verify::time::TimePoint}]
-    Source: 'crates/lnmai-core-verify/src/time.rs', lines 82:0-87:1 -/
+    Source: 'crates/lnmai-core-verify/src/time.rs', lines 99:0-106:1 -/
 @[reducible]
 def time.TimePoint.Insts.CoreOpsArithSubTimePointDuration : core.ops.arith.Sub
   time.TimePoint time.TimePoint time.Duration := {
   sub := time.TimePoint.Insts.CoreOpsArithSubTimePointDuration.sub
 }
 
-/-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeGrade}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:9-10:14
+/-- [lnmai_core_verify::tokenize::is_touch_area_char]:
+    Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 4:0-6:1
     Visibility: public -/
-def types.JudgeGrade.Insts.CoreFmtDebug.fmt
-  (self : types.JudgeGrade) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+def tokenize.is_touch_area_char (c : Char) : Result Bool := do
+  if c = 'A'
+  then ok true
+  else
+    if c = 'B'
+    then ok true
+    else if c = 'C'
+         then ok true
+         else if c = 'D'
+              then ok true
+              else ok (c = 'E')
+
+/-- [lnmai_core_verify::tokenize::is_slide_mark_char]:
+    Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 8:0-21:1
+    Visibility: public -/
+def tokenize.is_slide_mark_char (c : Char) : Result Bool := do
+  if c = '-'
+  then ok true
+  else
+    if c = '^'
+    then ok true
+    else
+      if c = 'v'
+      then ok true
+      else
+        if c = '<'
+        then ok true
+        else
+          if c = '>'
+          then ok true
+          else
+            if c = 'V'
+            then ok true
+            else
+              if c = 'p'
+              then ok true
+              else
+                if c = 'q'
+                then ok true
+                else
+                  if c = 's'
+                  then ok true
+                  else
+                    if c = 'z'
+                    then ok true
+                    else if c = 'w'
+                         then ok true
+                         else ok (c = 'K')
+
+/-- [lnmai_core_verify::tokenize::split_top_level]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 30:4-45:5
+    Visibility: public -/
+@[rust_loop_body]
+def tokenize.split_top_level_loop.body
+  (sep : Char) (chars : Slice Char)
+  (result : alloc.vec.Vec (alloc.vec.Vec Char)) (depth : Std.Usize)
+  (current : alloc.vec.Vec Char) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec (alloc.vec.Vec Char)) × Std.Usize ×
+    (alloc.vec.Vec Char) × Std.Usize) ((alloc.vec.Vec (alloc.vec.Vec Char)) ×
+    (alloc.vec.Vec Char)))
   := do
-  match self with
-  | types.JudgeGrade.Miss => core.fmt.Formatter.write_str f (toStr "Miss")
-  | types.JudgeGrade.LateGood =>
-    core.fmt.Formatter.write_str f (toStr "LateGood")
-  | types.JudgeGrade.LateGreat3rd =>
-    core.fmt.Formatter.write_str f (toStr "LateGreat3rd")
-  | types.JudgeGrade.LateGreat2nd =>
-    core.fmt.Formatter.write_str f (toStr "LateGreat2nd")
-  | types.JudgeGrade.LateGreat =>
-    core.fmt.Formatter.write_str f (toStr "LateGreat")
-  | types.JudgeGrade.LatePerfect3rd =>
-    core.fmt.Formatter.write_str f (toStr "LatePerfect3rd")
-  | types.JudgeGrade.LatePerfect2nd =>
-    core.fmt.Formatter.write_str f (toStr "LatePerfect2nd")
-  | types.JudgeGrade.Perfect =>
-    core.fmt.Formatter.write_str f (toStr "Perfect")
-  | types.JudgeGrade.FastPerfect2nd =>
-    core.fmt.Formatter.write_str f (toStr "FastPerfect2nd")
-  | types.JudgeGrade.FastPerfect3rd =>
-    core.fmt.Formatter.write_str f (toStr "FastPerfect3rd")
-  | types.JudgeGrade.FastGreat =>
-    core.fmt.Formatter.write_str f (toStr "FastGreat")
-  | types.JudgeGrade.FastGreat2nd =>
-    core.fmt.Formatter.write_str f (toStr "FastGreat2nd")
-  | types.JudgeGrade.FastGreat3rd =>
-    core.fmt.Formatter.write_str f (toStr "FastGreat3rd")
-  | types.JudgeGrade.FastGood =>
-    core.fmt.Formatter.write_str f (toStr "FastGood")
-  | types.JudgeGrade.TooFast =>
-    core.fmt.Formatter.write_str f (toStr "TooFast")
+  let i := Slice.len chars
+  if index < i
+  then
+    let c ← Slice.index_usize chars index
+    let (result1, depth1, current1) ←
+      if c = '['
+      then
+        do
+        let depth2 ← depth + 1#usize
+        let current2 ← alloc.vec.Vec.push current c
+        ok (result, depth2, current2)
+      else
+        if c = ']'
+        then
+          do
+          let depth2 ← lift (core.num.Usize.saturating_sub depth 1#usize)
+          let current2 ← alloc.vec.Vec.push current c
+          ok (result, depth2, current2)
+        else
+          do
+          let (v, v1) ←
+            if c = sep
+            then
+              if depth = 0#usize
+              then
+                do
+                let result2 ← alloc.vec.Vec.push result current
+                ok (result2, alloc.vec.Vec.new Char)
+              else
+                do
+                let current2 ← alloc.vec.Vec.push current c
+                ok (result, current2)
+            else
+              do
+              let current2 ← alloc.vec.Vec.push current c
+              ok (result, current2)
+          ok (v, depth, v1)
+    let index1 ← index + 1#usize
+    ok (cont (result1, depth1, current1, index1))
+  else ok (done (result, current))
 
-/-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeGrade}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:9-10:14 -/
-@[reducible]
-def types.JudgeGrade.Insts.CoreFmtDebug : core.fmt.Debug types.JudgeGrade := {
-  fmt := types.JudgeGrade.Insts.CoreFmtDebug.fmt
-}
-
-/-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeGrade}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:16-10:21
+/-- [lnmai_core_verify::tokenize::split_top_level]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 30:4-45:5
     Visibility: public -/
-def types.JudgeGrade.Insts.CoreCloneClone.clone
-  (self : types.JudgeGrade) : Result types.JudgeGrade := do
-  ok self
+@[rust_loop]
+def tokenize.split_top_level_loop
+  (sep : Char) (chars : Slice Char)
+  (result : alloc.vec.Vec (alloc.vec.Vec Char)) (depth : Std.Usize)
+  (current : alloc.vec.Vec Char) (index : Std.Usize) :
+  Result ((alloc.vec.Vec (alloc.vec.Vec Char)) × (alloc.vec.Vec Char))
+  := do
+  loop
+    (fun (result1, depth1, current1, index1) =>
+      tokenize.split_top_level_loop.body sep chars result1 depth1 current1
+      index1)
+    (result, depth, current, index)
+
+/-- [lnmai_core_verify::tokenize::split_top_level]:
+    Source: 'crates/lnmai-core-verify/src/tokenize.rs', lines 25:0-48:1
+    Visibility: public -/
+def tokenize.split_top_level
+  (sep : Char) (chars : Slice Char) :
+  Result (alloc.vec.Vec (alloc.vec.Vec Char))
+  := do
+  let (result, current) ←
+    tokenize.split_top_level_loop sep chars (alloc.vec.Vec.new (alloc.vec.Vec
+      Char)) 0#usize (alloc.vec.Vec.new Char) 0#usize
+  alloc.vec.Vec.push result current
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeGrade}]
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:16-10:21 -/
@@ -2568,23 +6584,6 @@ def types.JudgeGrade.Insts.CoreMarkerCopy : core.marker.Copy types.JudgeGrade
 @[reducible]
 def types.JudgeGrade.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.JudgeGrade := {
-}
-
-/-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeGrade> for lnmai_core_verify::types::JudgeGrade}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:29-10:38
-    Visibility: public -/
-def types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq
-  (self : types.JudgeGrade) (other : types.JudgeGrade) : Result Bool := do
-  let self1 := read_discriminant self
-  let other1 := read_discriminant other
-  ok (self1 = other1)
-
-/-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeGrade> for lnmai_core_verify::types::JudgeGrade}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:29-10:38 -/
-@[reducible]
-def types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade : core.cmp.PartialEq
-  types.JudgeGrade types.JudgeGrade := {
-  eq := types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeGrade}::assert_fields_are_eq]:
@@ -2639,8 +6638,44 @@ def types.JudgeGrade.Insts.CoreCmpOrd : core.cmp.Ord types.JudgeGrade := {
   cmp := types.JudgeGrade.Insts.CoreCmpOrd.cmp
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeGrade}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:61-10:68
+    Visibility: public -/
+def types.JudgeGrade.Insts.CoreDefaultDefault.default
+  : Result types.JudgeGrade := do
+  ok types.JudgeGrade.Miss
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeGrade}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 10:61-10:68 -/
+@[reducible]
+def types.JudgeGrade.Insts.CoreDefaultDefault : core.default.Default
+  types.JudgeGrade := {
+  default := types.JudgeGrade.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_fast]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 35:4-46:5
+    Visibility: public -/
+def types.JudgeGrade.is_fast (self : types.JudgeGrade) : Result Bool := do
+  match self with
+  | types.JudgeGrade.Miss => ok false
+  | types.JudgeGrade.LateGood => ok false
+  | types.JudgeGrade.LateGreat3rd => ok false
+  | types.JudgeGrade.LateGreat2nd => ok false
+  | types.JudgeGrade.LateGreat => ok false
+  | types.JudgeGrade.LatePerfect3rd => ok false
+  | types.JudgeGrade.LatePerfect2nd => ok false
+  | types.JudgeGrade.Perfect => ok false
+  | types.JudgeGrade.FastPerfect2nd => ok true
+  | types.JudgeGrade.FastPerfect3rd => ok true
+  | types.JudgeGrade.FastGreat => ok true
+  | types.JudgeGrade.FastGreat2nd => ok true
+  | types.JudgeGrade.FastGreat3rd => ok true
+  | types.JudgeGrade.FastGood => ok true
+  | types.JudgeGrade.TooFast => ok true
+
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_late]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 47:4-58:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 48:4-59:5
     Visibility: public -/
 def types.JudgeGrade.is_late (self : types.JudgeGrade) : Result Bool := do
   match self with
@@ -2661,7 +6696,7 @@ def types.JudgeGrade.is_late (self : types.JudgeGrade) : Result Bool := do
   | types.JudgeGrade.TooFast => ok false
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_perfect_grade]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 81:4-90:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 82:4-91:5
     Visibility: public -/
 def types.JudgeGrade.is_perfect_grade
   (self : types.JudgeGrade) : Result Bool := do
@@ -2683,7 +6718,7 @@ def types.JudgeGrade.is_perfect_grade
   | types.JudgeGrade.TooFast => ok false
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_great_grade]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 92:4-102:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 93:4-103:5
     Visibility: public -/
 def types.JudgeGrade.is_great_grade
   (self : types.JudgeGrade) : Result Bool := do
@@ -2705,7 +6740,7 @@ def types.JudgeGrade.is_great_grade
   | types.JudgeGrade.TooFast => ok false
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_good_grade]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 104:4-106:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 105:4-107:5
     Visibility: public -/
 def types.JudgeGrade.is_good_grade
   (self : types.JudgeGrade) : Result Bool := do
@@ -2727,7 +6762,7 @@ def types.JudgeGrade.is_good_grade
   | types.JudgeGrade.TooFast => ok false
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeDisplayOption}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:9-110:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:9-111:14
     Visibility: public -/
 def types.JudgeDisplayOption.Insts.CoreFmtDebug.fmt
   (self : types.JudgeDisplayOption) (f : core.fmt.Formatter) :
@@ -2748,7 +6783,7 @@ def types.JudgeDisplayOption.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.write_str f (toStr "Disable")
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeDisplayOption}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:9-110:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:9-111:14 -/
 @[reducible]
 def types.JudgeDisplayOption.Insts.CoreFmtDebug : core.fmt.Debug
   types.JudgeDisplayOption := {
@@ -2756,14 +6791,14 @@ def types.JudgeDisplayOption.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeDisplayOption}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:16-110:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:16-111:21
     Visibility: public -/
 def types.JudgeDisplayOption.Insts.CoreCloneClone.clone
   (self : types.JudgeDisplayOption) : Result types.JudgeDisplayOption := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeDisplayOption}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:16-110:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:16-111:21 -/
 @[reducible]
 def types.JudgeDisplayOption.Insts.CoreCloneClone : core.clone.Clone
   types.JudgeDisplayOption := {
@@ -2771,7 +6806,7 @@ def types.JudgeDisplayOption.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::JudgeDisplayOption}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:23-110:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:23-111:27 -/
 @[reducible]
 def types.JudgeDisplayOption.Insts.CoreMarkerCopy : core.marker.Copy
   types.JudgeDisplayOption := {
@@ -2779,14 +6814,14 @@ def types.JudgeDisplayOption.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::JudgeDisplayOption}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:29-110:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:29-111:38 -/
 @[reducible]
 def types.JudgeDisplayOption.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.JudgeDisplayOption := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeDisplayOption> for lnmai_core_verify::types::JudgeDisplayOption}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:29-110:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:29-111:38
     Visibility: public -/
 def types.JudgeDisplayOption.Insts.CoreCmpPartialEqJudgeDisplayOption.eq
   (self : types.JudgeDisplayOption) (other : types.JudgeDisplayOption) :
@@ -2797,7 +6832,7 @@ def types.JudgeDisplayOption.Insts.CoreCmpPartialEqJudgeDisplayOption.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeDisplayOption> for lnmai_core_verify::types::JudgeDisplayOption}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:29-110:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:29-111:38 -/
 @[reducible]
 def types.JudgeDisplayOption.Insts.CoreCmpPartialEqJudgeDisplayOption :
   core.cmp.PartialEq types.JudgeDisplayOption types.JudgeDisplayOption := {
@@ -2805,14 +6840,14 @@ def types.JudgeDisplayOption.Insts.CoreCmpPartialEqJudgeDisplayOption :
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeDisplayOption}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:40-110:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:40-111:42
     Visibility: public -/
 def types.JudgeDisplayOption.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.JudgeDisplayOption) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeDisplayOption}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 110:40-110:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:40-111:42 -/
 @[reducible]
 def types.JudgeDisplayOption.Insts.CoreCmpEq : core.cmp.Eq
   types.JudgeDisplayOption := {
@@ -2822,8 +6857,23 @@ def types.JudgeDisplayOption.Insts.CoreCmpEq : core.cmp.Eq
     types.JudgeDisplayOption.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeDisplayOption}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:44-111:51
+    Visibility: public -/
+def types.JudgeDisplayOption.Insts.CoreDefaultDefault.default
+  : Result types.JudgeDisplayOption := do
+  ok types.JudgeDisplayOption.All
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeDisplayOption}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 111:44-111:51 -/
+@[reducible]
+def types.JudgeDisplayOption.Insts.CoreDefaultDefault : core.default.Default
+  types.JudgeDisplayOption := {
+  default := types.JudgeDisplayOption.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::NoteType}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:9-121:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:9-123:14
     Visibility: public -/
 def types.NoteType.Insts.CoreFmtDebug.fmt
   (self : types.NoteType) (f : core.fmt.Formatter) :
@@ -2837,42 +6887,42 @@ def types.NoteType.Insts.CoreFmtDebug.fmt
   | types.NoteType.Break => core.fmt.Formatter.write_str f (toStr "Break")
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::NoteType}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:9-121:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:9-123:14 -/
 @[reducible]
 def types.NoteType.Insts.CoreFmtDebug : core.fmt.Debug types.NoteType := {
   fmt := types.NoteType.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::NoteType}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:16-121:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:16-123:21
     Visibility: public -/
 def types.NoteType.Insts.CoreCloneClone.clone
   (self : types.NoteType) : Result types.NoteType := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::NoteType}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:16-121:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:16-123:21 -/
 @[reducible]
 def types.NoteType.Insts.CoreCloneClone : core.clone.Clone types.NoteType := {
   clone := types.NoteType.Insts.CoreCloneClone.clone
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::NoteType}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:23-121:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:23-123:27 -/
 @[reducible]
 def types.NoteType.Insts.CoreMarkerCopy : core.marker.Copy types.NoteType := {
   cloneInst := types.NoteType.Insts.CoreCloneClone
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::NoteType}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:29-121:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:29-123:38 -/
 @[reducible]
 def types.NoteType.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.NoteType := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::NoteType> for lnmai_core_verify::types::NoteType}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:29-121:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:29-123:38
     Visibility: public -/
 def types.NoteType.Insts.CoreCmpPartialEqNoteType.eq
   (self : types.NoteType) (other : types.NoteType) : Result Bool := do
@@ -2881,7 +6931,7 @@ def types.NoteType.Insts.CoreCmpPartialEqNoteType.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::NoteType> for lnmai_core_verify::types::NoteType}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:29-121:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:29-123:38 -/
 @[reducible]
 def types.NoteType.Insts.CoreCmpPartialEqNoteType : core.cmp.PartialEq
   types.NoteType types.NoteType := {
@@ -2889,22 +6939,37 @@ def types.NoteType.Insts.CoreCmpPartialEqNoteType : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::NoteType}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:40-121:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:40-123:42
     Visibility: public -/
 def types.NoteType.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.NoteType) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::NoteType}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 121:40-121:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:40-123:42 -/
 @[reducible]
 def types.NoteType.Insts.CoreCmpEq : core.cmp.Eq types.NoteType := {
   partialEqInst := types.NoteType.Insts.CoreCmpPartialEqNoteType
   assert_fields_are_eq := types.NoteType.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::NoteType}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:44-123:51
+    Visibility: public -/
+def types.NoteType.Insts.CoreDefaultDefault.default
+  : Result types.NoteType := do
+  ok types.NoteType.Tap
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::NoteType}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 123:44-123:51 -/
+@[reducible]
+def types.NoteType.Insts.CoreDefaultDefault : core.default.Default
+  types.NoteType := {
+  default := types.NoteType.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::NoteType}::extra_score]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 142:4-147:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 145:4-150:5
     Visibility: public -/
 def types.NoteType.extra_score (self : types.NoteType) : Result Std.U32 := do
   match self with
@@ -2915,7 +6980,7 @@ def types.NoteType.extra_score (self : types.NoteType) : Result Std.U32 := do
   | types.NoteType.Break => ok 100#u32
 
 /-- [lnmai_core_verify::types::SlideKind]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 152:0-156:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 155:0-160:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.SlideKind where
@@ -2924,7 +6989,7 @@ inductive types.SlideKind where
 | ConnPart : types.SlideKind
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::SlideKind}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:9-151:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:9-154:14
     Visibility: public -/
 def types.SlideKind.Insts.CoreFmtDebug.fmt
   (self : types.SlideKind) (f : core.fmt.Formatter) :
@@ -2937,21 +7002,21 @@ def types.SlideKind.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.write_str f (toStr "ConnPart")
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::SlideKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:9-151:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:9-154:14 -/
 @[reducible]
 def types.SlideKind.Insts.CoreFmtDebug : core.fmt.Debug types.SlideKind := {
   fmt := types.SlideKind.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::SlideKind}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:16-151:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:16-154:21
     Visibility: public -/
 def types.SlideKind.Insts.CoreCloneClone.clone
   (self : types.SlideKind) : Result types.SlideKind := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::SlideKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:16-151:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:16-154:21 -/
 @[reducible]
 def types.SlideKind.Insts.CoreCloneClone : core.clone.Clone types.SlideKind
   := {
@@ -2959,7 +7024,7 @@ def types.SlideKind.Insts.CoreCloneClone : core.clone.Clone types.SlideKind
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::SlideKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:23-151:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:23-154:27 -/
 @[reducible]
 def types.SlideKind.Insts.CoreMarkerCopy : core.marker.Copy types.SlideKind
   := {
@@ -2967,14 +7032,14 @@ def types.SlideKind.Insts.CoreMarkerCopy : core.marker.Copy types.SlideKind
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::SlideKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:29-151:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:29-154:38 -/
 @[reducible]
 def types.SlideKind.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.SlideKind := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::SlideKind> for lnmai_core_verify::types::SlideKind}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:29-151:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:29-154:38
     Visibility: public -/
 def types.SlideKind.Insts.CoreCmpPartialEqSlideKind.eq
   (self : types.SlideKind) (other : types.SlideKind) : Result Bool := do
@@ -2983,7 +7048,7 @@ def types.SlideKind.Insts.CoreCmpPartialEqSlideKind.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::SlideKind> for lnmai_core_verify::types::SlideKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:29-151:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:29-154:38 -/
 @[reducible]
 def types.SlideKind.Insts.CoreCmpPartialEqSlideKind : core.cmp.PartialEq
   types.SlideKind types.SlideKind := {
@@ -2991,55 +7056,37 @@ def types.SlideKind.Insts.CoreCmpPartialEqSlideKind : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::SlideKind}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:40-151:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:40-154:42
     Visibility: public -/
 def types.SlideKind.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.SlideKind) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::SlideKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 151:40-151:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:40-154:42 -/
 @[reducible]
 def types.SlideKind.Insts.CoreCmpEq : core.cmp.Eq types.SlideKind := {
   partialEqInst := types.SlideKind.Insts.CoreCmpPartialEqSlideKind
   assert_fields_are_eq := types.SlideKind.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
-/-- [lnmai_core_verify::types::AreaPolicy]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 160:0-163:1
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::SlideKind}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:44-154:51
     Visibility: public -/
-@[discriminant isize]
-inductive types.AreaPolicy where
-| Or : types.AreaPolicy
-| And : types.AreaPolicy
+def types.SlideKind.Insts.CoreDefaultDefault.default
+  : Result types.SlideKind := do
+  ok types.SlideKind.Single
 
-/-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::AreaPolicy}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:9-159:14
-    Visibility: public -/
-def types.AreaPolicy.Insts.CoreFmtDebug.fmt
-  (self : types.AreaPolicy) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  match self with
-  | types.AreaPolicy.Or => core.fmt.Formatter.write_str f (toStr "Or")
-  | types.AreaPolicy.And => core.fmt.Formatter.write_str f (toStr "And")
-
-/-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::AreaPolicy}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:9-159:14 -/
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::SlideKind}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:44-154:51 -/
 @[reducible]
-def types.AreaPolicy.Insts.CoreFmtDebug : core.fmt.Debug types.AreaPolicy := {
-  fmt := types.AreaPolicy.Insts.CoreFmtDebug.fmt
+def types.SlideKind.Insts.CoreDefaultDefault : core.default.Default
+  types.SlideKind := {
+  default := types.SlideKind.Insts.CoreDefaultDefault.default
 }
 
-/-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::AreaPolicy}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:16-159:21
-    Visibility: public -/
-def types.AreaPolicy.Insts.CoreCloneClone.clone
-  (self : types.AreaPolicy) : Result types.AreaPolicy := do
-  ok self
-
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::AreaPolicy}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:16-159:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:16-163:21 -/
 @[reducible]
 def types.AreaPolicy.Insts.CoreCloneClone : core.clone.Clone types.AreaPolicy
   := {
@@ -3047,7 +7094,7 @@ def types.AreaPolicy.Insts.CoreCloneClone : core.clone.Clone types.AreaPolicy
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::AreaPolicy}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:23-159:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:23-163:27 -/
 @[reducible]
 def types.AreaPolicy.Insts.CoreMarkerCopy : core.marker.Copy types.AreaPolicy
   := {
@@ -3055,23 +7102,14 @@ def types.AreaPolicy.Insts.CoreMarkerCopy : core.marker.Copy types.AreaPolicy
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::AreaPolicy}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:29-159:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:29-163:38 -/
 @[reducible]
 def types.AreaPolicy.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.AreaPolicy := {
 }
 
-/-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::AreaPolicy> for lnmai_core_verify::types::AreaPolicy}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:29-159:38
-    Visibility: public -/
-def types.AreaPolicy.Insts.CoreCmpPartialEqAreaPolicy.eq
-  (self : types.AreaPolicy) (other : types.AreaPolicy) : Result Bool := do
-  let self1 := read_discriminant self
-  let other1 := read_discriminant other
-  ok (self1 = other1)
-
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::AreaPolicy> for lnmai_core_verify::types::AreaPolicy}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:29-159:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:29-163:38 -/
 @[reducible]
 def types.AreaPolicy.Insts.CoreCmpPartialEqAreaPolicy : core.cmp.PartialEq
   types.AreaPolicy types.AreaPolicy := {
@@ -3079,22 +7117,37 @@ def types.AreaPolicy.Insts.CoreCmpPartialEqAreaPolicy : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::AreaPolicy}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:40-159:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:40-163:42
     Visibility: public -/
 def types.AreaPolicy.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.AreaPolicy) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::AreaPolicy}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 159:40-159:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:40-163:42 -/
 @[reducible]
 def types.AreaPolicy.Insts.CoreCmpEq : core.cmp.Eq types.AreaPolicy := {
   partialEqInst := types.AreaPolicy.Insts.CoreCmpPartialEqAreaPolicy
   assert_fields_are_eq := types.AreaPolicy.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::AreaPolicy}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:44-163:51
+    Visibility: public -/
+def types.AreaPolicy.Insts.CoreDefaultDefault.default
+  : Result types.AreaPolicy := do
+  ok types.AreaPolicy.Or
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::AreaPolicy}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 163:44-163:51 -/
+@[reducible]
+def types.AreaPolicy.Insts.CoreDefaultDefault : core.default.Default
+  types.AreaPolicy := {
+  default := types.AreaPolicy.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeStyle}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:9-166:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:9-171:14
     Visibility: public -/
 def types.JudgeStyle.Insts.CoreFmtDebug.fmt
   (self : types.JudgeStyle) (f : core.fmt.Formatter) :
@@ -3108,21 +7161,21 @@ def types.JudgeStyle.Insts.CoreFmtDebug.fmt
   | types.JudgeStyle.Gori => core.fmt.Formatter.write_str f (toStr "Gori")
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeStyle}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:9-166:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:9-171:14 -/
 @[reducible]
 def types.JudgeStyle.Insts.CoreFmtDebug : core.fmt.Debug types.JudgeStyle := {
   fmt := types.JudgeStyle.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeStyle}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:16-166:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:16-171:21
     Visibility: public -/
 def types.JudgeStyle.Insts.CoreCloneClone.clone
   (self : types.JudgeStyle) : Result types.JudgeStyle := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeStyle}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:16-166:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:16-171:21 -/
 @[reducible]
 def types.JudgeStyle.Insts.CoreCloneClone : core.clone.Clone types.JudgeStyle
   := {
@@ -3130,7 +7183,7 @@ def types.JudgeStyle.Insts.CoreCloneClone : core.clone.Clone types.JudgeStyle
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::JudgeStyle}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:23-166:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:23-171:27 -/
 @[reducible]
 def types.JudgeStyle.Insts.CoreMarkerCopy : core.marker.Copy types.JudgeStyle
   := {
@@ -3138,14 +7191,14 @@ def types.JudgeStyle.Insts.CoreMarkerCopy : core.marker.Copy types.JudgeStyle
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::JudgeStyle}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:29-166:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:29-171:38 -/
 @[reducible]
 def types.JudgeStyle.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.JudgeStyle := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeStyle> for lnmai_core_verify::types::JudgeStyle}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:29-166:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:29-171:38
     Visibility: public -/
 def types.JudgeStyle.Insts.CoreCmpPartialEqJudgeStyle.eq
   (self : types.JudgeStyle) (other : types.JudgeStyle) : Result Bool := do
@@ -3154,7 +7207,7 @@ def types.JudgeStyle.Insts.CoreCmpPartialEqJudgeStyle.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeStyle> for lnmai_core_verify::types::JudgeStyle}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:29-166:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:29-171:38 -/
 @[reducible]
 def types.JudgeStyle.Insts.CoreCmpPartialEqJudgeStyle : core.cmp.PartialEq
   types.JudgeStyle types.JudgeStyle := {
@@ -3162,22 +7215,37 @@ def types.JudgeStyle.Insts.CoreCmpPartialEqJudgeStyle : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeStyle}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:40-166:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:40-171:42
     Visibility: public -/
 def types.JudgeStyle.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.JudgeStyle) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeStyle}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 166:40-166:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:40-171:42 -/
 @[reducible]
 def types.JudgeStyle.Insts.CoreCmpEq : core.cmp.Eq types.JudgeStyle := {
   partialEqInst := types.JudgeStyle.Insts.CoreCmpPartialEqJudgeStyle
   assert_fields_are_eq := types.JudgeStyle.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeStyle}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:44-171:51
+    Visibility: public -/
+def types.JudgeStyle.Insts.CoreDefaultDefault.default
+  : Result types.JudgeStyle := do
+  ok types.JudgeStyle.Default
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeStyle}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 171:44-171:51 -/
+@[reducible]
+def types.JudgeStyle.Insts.CoreDefaultDefault : core.default.Default
+  types.JudgeStyle := {
+  default := types.JudgeStyle.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::NoteStatus]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 176:0-183:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 182:0-190:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.NoteStatus where
@@ -3189,7 +7257,7 @@ inductive types.NoteStatus where
 | End : types.NoteStatus
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::NoteStatus}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:9-175:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:9-181:14
     Visibility: public -/
 def types.NoteStatus.Insts.CoreFmtDebug.fmt
   (self : types.NoteStatus) (f : core.fmt.Formatter) :
@@ -3207,21 +7275,21 @@ def types.NoteStatus.Insts.CoreFmtDebug.fmt
   | types.NoteStatus.End => core.fmt.Formatter.write_str f (toStr "End")
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::NoteStatus}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:9-175:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:9-181:14 -/
 @[reducible]
 def types.NoteStatus.Insts.CoreFmtDebug : core.fmt.Debug types.NoteStatus := {
   fmt := types.NoteStatus.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::NoteStatus}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:16-175:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:16-181:21
     Visibility: public -/
 def types.NoteStatus.Insts.CoreCloneClone.clone
   (self : types.NoteStatus) : Result types.NoteStatus := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::NoteStatus}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:16-175:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:16-181:21 -/
 @[reducible]
 def types.NoteStatus.Insts.CoreCloneClone : core.clone.Clone types.NoteStatus
   := {
@@ -3229,7 +7297,7 @@ def types.NoteStatus.Insts.CoreCloneClone : core.clone.Clone types.NoteStatus
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::NoteStatus}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:23-175:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:23-181:27 -/
 @[reducible]
 def types.NoteStatus.Insts.CoreMarkerCopy : core.marker.Copy types.NoteStatus
   := {
@@ -3237,14 +7305,14 @@ def types.NoteStatus.Insts.CoreMarkerCopy : core.marker.Copy types.NoteStatus
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::NoteStatus}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:29-175:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:29-181:38 -/
 @[reducible]
 def types.NoteStatus.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.NoteStatus := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::NoteStatus> for lnmai_core_verify::types::NoteStatus}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:29-175:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:29-181:38
     Visibility: public -/
 def types.NoteStatus.Insts.CoreCmpPartialEqNoteStatus.eq
   (self : types.NoteStatus) (other : types.NoteStatus) : Result Bool := do
@@ -3253,7 +7321,7 @@ def types.NoteStatus.Insts.CoreCmpPartialEqNoteStatus.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::NoteStatus> for lnmai_core_verify::types::NoteStatus}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:29-175:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:29-181:38 -/
 @[reducible]
 def types.NoteStatus.Insts.CoreCmpPartialEqNoteStatus : core.cmp.PartialEq
   types.NoteStatus types.NoteStatus := {
@@ -3261,22 +7329,37 @@ def types.NoteStatus.Insts.CoreCmpPartialEqNoteStatus : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::NoteStatus}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:40-175:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:40-181:42
     Visibility: public -/
 def types.NoteStatus.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.NoteStatus) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::NoteStatus}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 175:40-175:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:40-181:42 -/
 @[reducible]
 def types.NoteStatus.Insts.CoreCmpEq : core.cmp.Eq types.NoteStatus := {
   partialEqInst := types.NoteStatus.Insts.CoreCmpPartialEqNoteStatus
   assert_fields_are_eq := types.NoteStatus.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::NoteStatus}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:44-181:51
+    Visibility: public -/
+def types.NoteStatus.Insts.CoreDefaultDefault.default
+  : Result types.NoteStatus := do
+  ok types.NoteStatus.Start
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::NoteStatus}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 181:44-181:51 -/
+@[reducible]
+def types.NoteStatus.Insts.CoreDefaultDefault : core.default.Default
+  types.NoteStatus := {
+  default := types.NoteStatus.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::NoteStatus}::leq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 186:4-206:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 193:4-213:5
     Visibility: public -/
 def types.NoteStatus.leq
   (a : types.NoteStatus) (b : types.NoteStatus) : Result Bool := do
@@ -3324,7 +7407,7 @@ def types.NoteStatus.leq
     | types.NoteStatus.End => ok true
 
 /-- [lnmai_core_verify::types::ComboState]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 211:0-217:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 218:0-225:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.ComboState where
@@ -3335,7 +7418,7 @@ inductive types.ComboState where
 | APPlus : types.ComboState
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::ComboState}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:9-210:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:9-217:14
     Visibility: public -/
 def types.ComboState.Insts.CoreFmtDebug.fmt
   (self : types.ComboState) (f : core.fmt.Formatter) :
@@ -3349,21 +7432,21 @@ def types.ComboState.Insts.CoreFmtDebug.fmt
   | types.ComboState.APPlus => core.fmt.Formatter.write_str f (toStr "APPlus")
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:9-210:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:9-217:14 -/
 @[reducible]
 def types.ComboState.Insts.CoreFmtDebug : core.fmt.Debug types.ComboState := {
   fmt := types.ComboState.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::ComboState}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:16-210:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:16-217:21
     Visibility: public -/
 def types.ComboState.Insts.CoreCloneClone.clone
   (self : types.ComboState) : Result types.ComboState := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:16-210:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:16-217:21 -/
 @[reducible]
 def types.ComboState.Insts.CoreCloneClone : core.clone.Clone types.ComboState
   := {
@@ -3371,7 +7454,7 @@ def types.ComboState.Insts.CoreCloneClone : core.clone.Clone types.ComboState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:23-210:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:23-217:27 -/
 @[reducible]
 def types.ComboState.Insts.CoreMarkerCopy : core.marker.Copy types.ComboState
   := {
@@ -3379,14 +7462,14 @@ def types.ComboState.Insts.CoreMarkerCopy : core.marker.Copy types.ComboState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:29-210:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:29-217:38 -/
 @[reducible]
 def types.ComboState.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.ComboState := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::ComboState> for lnmai_core_verify::types::ComboState}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:29-210:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:29-217:38
     Visibility: public -/
 def types.ComboState.Insts.CoreCmpPartialEqComboState.eq
   (self : types.ComboState) (other : types.ComboState) : Result Bool := do
@@ -3395,7 +7478,7 @@ def types.ComboState.Insts.CoreCmpPartialEqComboState.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::ComboState> for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:29-210:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:29-217:38 -/
 @[reducible]
 def types.ComboState.Insts.CoreCmpPartialEqComboState : core.cmp.PartialEq
   types.ComboState types.ComboState := {
@@ -3403,14 +7486,14 @@ def types.ComboState.Insts.CoreCmpPartialEqComboState : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::ComboState}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:40-210:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:40-217:42
     Visibility: public -/
 def types.ComboState.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.ComboState) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:40-210:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:40-217:42 -/
 @[reducible]
 def types.ComboState.Insts.CoreCmpEq : core.cmp.Eq types.ComboState := {
   partialEqInst := types.ComboState.Insts.CoreCmpPartialEqComboState
@@ -3418,7 +7501,7 @@ def types.ComboState.Insts.CoreCmpEq : core.cmp.Eq types.ComboState := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Ord for lnmai_core_verify::types::ComboState}::cmp]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:56-210:59
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:56-217:59
     Visibility: public -/
 def types.ComboState.Insts.CoreCmpOrd.cmp
   (self : types.ComboState) (other : types.ComboState) : Result Ordering := do
@@ -3427,7 +7510,7 @@ def types.ComboState.Insts.CoreCmpOrd.cmp
   ok (core.cmp.impls.OrdIsize.cmp self1 other1)
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialOrd<lnmai_core_verify::types::ComboState> for lnmai_core_verify::types::ComboState}::partial_cmp]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:44-210:54
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:44-217:54
     Visibility: public -/
 def types.ComboState.Insts.CoreCmpPartialOrdComboState.partial_cmp
   (self : types.ComboState) (other : types.ComboState) :
@@ -3437,7 +7520,7 @@ def types.ComboState.Insts.CoreCmpPartialOrdComboState.partial_cmp
   ok (some o)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialOrd<lnmai_core_verify::types::ComboState> for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:44-210:54 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:44-217:54 -/
 @[reducible]
 def types.ComboState.Insts.CoreCmpPartialOrdComboState : core.cmp.PartialOrd
   types.ComboState types.ComboState := {
@@ -3446,7 +7529,7 @@ def types.ComboState.Insts.CoreCmpPartialOrdComboState : core.cmp.PartialOrd
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Ord for lnmai_core_verify::types::ComboState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 210:56-210:59 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:56-217:59 -/
 @[reducible]
 def types.ComboState.Insts.CoreCmpOrd : core.cmp.Ord types.ComboState := {
   eqInst := types.ComboState.Insts.CoreCmpEq
@@ -3454,8 +7537,23 @@ def types.ComboState.Insts.CoreCmpOrd : core.cmp.Ord types.ComboState := {
   cmp := types.ComboState.Insts.CoreCmpOrd.cmp
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::ComboState}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:61-217:68
+    Visibility: public -/
+def types.ComboState.Insts.CoreDefaultDefault.default
+  : Result types.ComboState := do
+  ok types.ComboState.None
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::ComboState}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 217:61-217:68 -/
+@[reducible]
+def types.ComboState.Insts.CoreDefaultDefault : core.default.Default
+  types.ComboState := {
+  default := types.ComboState.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::RuntimePos]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 221:0-224:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 229:0-232:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.RuntimePos where
@@ -3463,7 +7561,7 @@ inductive types.RuntimePos where
 | Sensor : areas.SensorArea → types.RuntimePos
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::RuntimePos}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:9-220:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:9-228:14
     Visibility: public -/
 def types.RuntimePos.Insts.CoreFmtDebug.fmt
   (self : types.RuntimePos) (f : core.fmt.Formatter) :
@@ -3482,21 +7580,21 @@ def types.RuntimePos.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Sensor") __self_01
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::RuntimePos}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:9-220:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:9-228:14 -/
 @[reducible]
 def types.RuntimePos.Insts.CoreFmtDebug : core.fmt.Debug types.RuntimePos := {
   fmt := types.RuntimePos.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::RuntimePos}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:16-220:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:16-228:21
     Visibility: public -/
 def types.RuntimePos.Insts.CoreCloneClone.clone
   (self : types.RuntimePos) : Result types.RuntimePos := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::RuntimePos}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:16-220:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:16-228:21 -/
 @[reducible]
 def types.RuntimePos.Insts.CoreCloneClone : core.clone.Clone types.RuntimePos
   := {
@@ -3504,7 +7602,7 @@ def types.RuntimePos.Insts.CoreCloneClone : core.clone.Clone types.RuntimePos
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::RuntimePos}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:23-220:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:23-228:27 -/
 @[reducible]
 def types.RuntimePos.Insts.CoreMarkerCopy : core.marker.Copy types.RuntimePos
   := {
@@ -3512,14 +7610,14 @@ def types.RuntimePos.Insts.CoreMarkerCopy : core.marker.Copy types.RuntimePos
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::RuntimePos}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:29-220:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:29-228:38 -/
 @[reducible]
 def types.RuntimePos.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.RuntimePos := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::RuntimePos> for lnmai_core_verify::types::RuntimePos}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:29-220:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:29-228:38
     Visibility: public -/
 def types.RuntimePos.Insts.CoreCmpPartialEqRuntimePos.eq
   (self : types.RuntimePos) (other : types.RuntimePos) : Result Bool := do
@@ -3541,7 +7639,7 @@ def types.RuntimePos.Insts.CoreCmpPartialEqRuntimePos.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::RuntimePos> for lnmai_core_verify::types::RuntimePos}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:29-220:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:29-228:38 -/
 @[reducible]
 def types.RuntimePos.Insts.CoreCmpPartialEqRuntimePos : core.cmp.PartialEq
   types.RuntimePos types.RuntimePos := {
@@ -3549,22 +7647,54 @@ def types.RuntimePos.Insts.CoreCmpPartialEqRuntimePos : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::RuntimePos}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:40-220:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:40-228:42
     Visibility: public -/
 def types.RuntimePos.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.RuntimePos) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::RuntimePos}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 220:40-220:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:40-228:42 -/
 @[reducible]
 def types.RuntimePos.Insts.CoreCmpEq : core.cmp.Eq types.RuntimePos := {
   partialEqInst := types.RuntimePos.Insts.CoreCmpPartialEqRuntimePos
   assert_fields_are_eq := types.RuntimePos.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::RuntimePos}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 235:4-237:5
+    Visibility: public -/
+def types.RuntimePos.Insts.CoreDefaultDefault.default
+  : Result types.RuntimePos := do
+  ok (types.RuntimePos.Button areas.ButtonZone.K1)
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::RuntimePos}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 234:0-238:1 -/
+@[reducible]
+def types.RuntimePos.Insts.CoreDefaultDefault : core.default.Default
+  types.RuntimePos := {
+  default := types.RuntimePos.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::types::{impl core::fmt::Display for lnmai_core_verify::types::JudgeGrade}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 241:4-243:5
+    Visibility: public -/
+def types.JudgeGrade.Insts.CoreFmtDisplay.fmt
+  (self : types.JudgeGrade) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  types.JudgeGrade.Insts.CoreFmtDebug.fmt self f
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Display for lnmai_core_verify::types::JudgeGrade}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 240:0-244:1 -/
+@[reducible]
+def types.JudgeGrade.Insts.CoreFmtDisplay : core.fmt.Display types.JudgeGrade
+  := {
+  fmt := types.JudgeGrade.Insts.CoreFmtDisplay.fmt
+}
+
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::RuntimePos}::button_zone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 227:4-232:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 247:4-252:5
     Visibility: public -/
 def types.RuntimePos.button_zone
   (self : types.RuntimePos) : Result (Option areas.ButtonZone) := do
@@ -3573,7 +7703,7 @@ def types.RuntimePos.button_zone
   | types.RuntimePos.Sensor _ => ok none
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::RuntimePos}::sensor_area]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 234:4-239:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 254:4-259:5
     Visibility: public -/
 def types.RuntimePos.sensor_area
   (self : types.RuntimePos) : Result (Option areas.SensorArea) := do
@@ -3582,7 +7712,7 @@ def types.RuntimePos.sensor_area
   | types.RuntimePos.Sensor area => ok (some area)
 
 /-- [lnmai_core_verify::types::JudgeEventKind]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 244:0-250:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 264:0-271:1
     Visibility: public -/
 @[discriminant isize]
 inductive types.JudgeEventKind where
@@ -3593,7 +7723,7 @@ inductive types.JudgeEventKind where
 | Break : types.JudgeEventKind
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeEventKind}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:9-243:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:9-263:14
     Visibility: public -/
 def types.JudgeEventKind.Insts.CoreFmtDebug.fmt
   (self : types.JudgeEventKind) (f : core.fmt.Formatter) :
@@ -3610,7 +7740,7 @@ def types.JudgeEventKind.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.write_str f (toStr "Break")
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeEventKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:9-243:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:9-263:14 -/
 @[reducible]
 def types.JudgeEventKind.Insts.CoreFmtDebug : core.fmt.Debug
   types.JudgeEventKind := {
@@ -3618,14 +7748,14 @@ def types.JudgeEventKind.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeEventKind}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:16-243:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:16-263:21
     Visibility: public -/
 def types.JudgeEventKind.Insts.CoreCloneClone.clone
   (self : types.JudgeEventKind) : Result types.JudgeEventKind := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeEventKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:16-243:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:16-263:21 -/
 @[reducible]
 def types.JudgeEventKind.Insts.CoreCloneClone : core.clone.Clone
   types.JudgeEventKind := {
@@ -3633,7 +7763,7 @@ def types.JudgeEventKind.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::JudgeEventKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:23-243:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:23-263:27 -/
 @[reducible]
 def types.JudgeEventKind.Insts.CoreMarkerCopy : core.marker.Copy
   types.JudgeEventKind := {
@@ -3641,14 +7771,14 @@ def types.JudgeEventKind.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::JudgeEventKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:29-243:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:29-263:38 -/
 @[reducible]
 def types.JudgeEventKind.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.JudgeEventKind := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeEventKind> for lnmai_core_verify::types::JudgeEventKind}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:29-243:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:29-263:38
     Visibility: public -/
 def types.JudgeEventKind.Insts.CoreCmpPartialEqJudgeEventKind.eq
   (self : types.JudgeEventKind) (other : types.JudgeEventKind) :
@@ -3659,7 +7789,7 @@ def types.JudgeEventKind.Insts.CoreCmpPartialEqJudgeEventKind.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeEventKind> for lnmai_core_verify::types::JudgeEventKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:29-243:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:29-263:38 -/
 @[reducible]
 def types.JudgeEventKind.Insts.CoreCmpPartialEqJudgeEventKind :
   core.cmp.PartialEq types.JudgeEventKind types.JudgeEventKind := {
@@ -3667,14 +7797,14 @@ def types.JudgeEventKind.Insts.CoreCmpPartialEqJudgeEventKind :
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeEventKind}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:40-243:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:40-263:42
     Visibility: public -/
 def types.JudgeEventKind.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.JudgeEventKind) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeEventKind}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 243:40-243:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:40-263:42 -/
 @[reducible]
 def types.JudgeEventKind.Insts.CoreCmpEq : core.cmp.Eq types.JudgeEventKind
   := {
@@ -3683,8 +7813,23 @@ def types.JudgeEventKind.Insts.CoreCmpEq : core.cmp.Eq types.JudgeEventKind
     types.JudgeEventKind.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeEventKind}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:44-263:51
+    Visibility: public -/
+def types.JudgeEventKind.Insts.CoreDefaultDefault.default
+  : Result types.JudgeEventKind := do
+  ok types.JudgeEventKind.Tap
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeEventKind}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:44-263:51 -/
+@[reducible]
+def types.JudgeEventKind.Insts.CoreDefaultDefault : core.default.Default
+  types.JudgeEventKind := {
+  default := types.JudgeEventKind.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::NoteJudgeResult]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 254:0-259:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 275:0-280:1
     Visibility: public -/
 structure types.NoteJudgeResult where
   grade : types.JudgeGrade
@@ -3693,7 +7838,7 @@ structure types.NoteJudgeResult where
   is_ex : Bool
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::NoteJudgeResult}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:9-253:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:9-274:14
     Visibility: public -/
 def types.NoteJudgeResult.Insts.CoreFmtDebug.fmt
   (self : types.NoteJudgeResult) (f : core.fmt.Formatter) :
@@ -3708,7 +7853,7 @@ def types.NoteJudgeResult.Insts.CoreFmtDebug.fmt
     "is_ex") dyn3
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::NoteJudgeResult}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:9-253:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:9-274:14 -/
 @[reducible]
 def types.NoteJudgeResult.Insts.CoreFmtDebug : core.fmt.Debug
   types.NoteJudgeResult := {
@@ -3716,14 +7861,14 @@ def types.NoteJudgeResult.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::NoteJudgeResult}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:16-253:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:16-274:21
     Visibility: public -/
 def types.NoteJudgeResult.Insts.CoreCloneClone.clone
   (self : types.NoteJudgeResult) : Result types.NoteJudgeResult := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::NoteJudgeResult}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:16-253:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:16-274:21 -/
 @[reducible]
 def types.NoteJudgeResult.Insts.CoreCloneClone : core.clone.Clone
   types.NoteJudgeResult := {
@@ -3731,7 +7876,7 @@ def types.NoteJudgeResult.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::NoteJudgeResult}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:23-253:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:23-274:27 -/
 @[reducible]
 def types.NoteJudgeResult.Insts.CoreMarkerCopy : core.marker.Copy
   types.NoteJudgeResult := {
@@ -3739,14 +7884,14 @@ def types.NoteJudgeResult.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::NoteJudgeResult}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:29-253:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:29-274:38 -/
 @[reducible]
 def types.NoteJudgeResult.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.NoteJudgeResult := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::NoteJudgeResult> for lnmai_core_verify::types::NoteJudgeResult}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:29-253:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:29-274:38
     Visibility: public -/
 def types.NoteJudgeResult.Insts.CoreCmpPartialEqNoteJudgeResult.eq
   (self : types.NoteJudgeResult) (other : types.NoteJudgeResult) :
@@ -3766,7 +7911,7 @@ def types.NoteJudgeResult.Insts.CoreCmpPartialEqNoteJudgeResult.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::NoteJudgeResult> for lnmai_core_verify::types::NoteJudgeResult}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:29-253:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:29-274:38 -/
 @[reducible]
 def types.NoteJudgeResult.Insts.CoreCmpPartialEqNoteJudgeResult :
   core.cmp.PartialEq types.NoteJudgeResult types.NoteJudgeResult := {
@@ -3774,14 +7919,14 @@ def types.NoteJudgeResult.Insts.CoreCmpPartialEqNoteJudgeResult :
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::NoteJudgeResult}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:40-253:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:40-274:42
     Visibility: public -/
 def types.NoteJudgeResult.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.NoteJudgeResult) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::NoteJudgeResult}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 253:40-253:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:40-274:42 -/
 @[reducible]
 def types.NoteJudgeResult.Insts.CoreCmpEq : core.cmp.Eq types.NoteJudgeResult
   := {
@@ -3790,8 +7935,26 @@ def types.NoteJudgeResult.Insts.CoreCmpEq : core.cmp.Eq types.NoteJudgeResult
     types.NoteJudgeResult.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::NoteJudgeResult}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:44-274:51
+    Visibility: public -/
+def types.NoteJudgeResult.Insts.CoreDefaultDefault.default
+  : Result types.NoteJudgeResult := do
+  let jg ← types.JudgeGrade.Insts.CoreDefaultDefault.default
+  let d ← time.Duration.Insts.CoreDefaultDefault.default
+  let b ← core.default.DefaultBool.default
+  ok { grade := jg, diff := d, is_break := b, is_ex := b }
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::NoteJudgeResult}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 274:44-274:51 -/
+@[reducible]
+def types.NoteJudgeResult.Insts.CoreDefaultDefault : core.default.Default
+  types.NoteJudgeResult := {
+  default := types.NoteJudgeResult.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::NoteJudgeResult}::is_fast]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 262:4-264:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 283:4-285:5
     Visibility: public -/
 def types.NoteJudgeResult.is_fast
   (self : types.NoteJudgeResult) : Result Bool := do
@@ -3799,14 +7962,14 @@ def types.NoteJudgeResult.is_fast
   ok (i < 0#i64)
 
 /-- [lnmai_core_verify::types::{lnmai_core_verify::types::NoteJudgeResult}::is_miss_or_too_fast]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 266:4-268:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 287:4-289:5
     Visibility: public -/
 def types.NoteJudgeResult.is_miss_or_too_fast
   (self : types.NoteJudgeResult) : Result Bool := do
   types.JudgeGrade.is_miss_or_too_fast self.grade
 
 /-- [lnmai_core_verify::types::GroupState]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 273:0-279:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:0-300:1
     Visibility: public -/
 structure types.GroupState where
   group_id : Std.Usize
@@ -3816,7 +7979,7 @@ structure types.GroupState where
   diff : time.Duration
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::GroupState}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:9-272:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:9-293:14
     Visibility: public -/
 def types.GroupState.Insts.CoreFmtDebug.fmt
   (self : types.GroupState) (f : core.fmt.Formatter) :
@@ -3833,21 +7996,21 @@ def types.GroupState.Insts.CoreFmtDebug.fmt
     dyn3 (toStr "diff") dyn4
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::GroupState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:9-272:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:9-293:14 -/
 @[reducible]
 def types.GroupState.Insts.CoreFmtDebug : core.fmt.Debug types.GroupState := {
   fmt := types.GroupState.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::GroupState}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:16-272:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:16-293:21
     Visibility: public -/
 def types.GroupState.Insts.CoreCloneClone.clone
   (self : types.GroupState) : Result types.GroupState := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::GroupState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:16-272:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:16-293:21 -/
 @[reducible]
 def types.GroupState.Insts.CoreCloneClone : core.clone.Clone types.GroupState
   := {
@@ -3855,7 +8018,7 @@ def types.GroupState.Insts.CoreCloneClone : core.clone.Clone types.GroupState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::GroupState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:23-272:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:23-293:27 -/
 @[reducible]
 def types.GroupState.Insts.CoreMarkerCopy : core.marker.Copy types.GroupState
   := {
@@ -3863,14 +8026,14 @@ def types.GroupState.Insts.CoreMarkerCopy : core.marker.Copy types.GroupState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::GroupState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:29-272:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:29-293:38 -/
 @[reducible]
 def types.GroupState.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.GroupState := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::GroupState> for lnmai_core_verify::types::GroupState}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:29-272:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:29-293:38
     Visibility: public -/
 def types.GroupState.Insts.CoreCmpPartialEqGroupState.eq
   (self : types.GroupState) (other : types.GroupState) : Result Bool := do
@@ -3892,7 +8055,7 @@ def types.GroupState.Insts.CoreCmpPartialEqGroupState.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::GroupState> for lnmai_core_verify::types::GroupState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:29-272:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:29-293:38 -/
 @[reducible]
 def types.GroupState.Insts.CoreCmpPartialEqGroupState : core.cmp.PartialEq
   types.GroupState types.GroupState := {
@@ -3900,73 +8063,207 @@ def types.GroupState.Insts.CoreCmpPartialEqGroupState : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::GroupState}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:40-272:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:40-293:42
     Visibility: public -/
 def types.GroupState.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.GroupState) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::GroupState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 272:40-272:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:40-293:42 -/
 @[reducible]
 def types.GroupState.Insts.CoreCmpEq : core.cmp.Eq types.GroupState := {
   partialEqInst := types.GroupState.Insts.CoreCmpPartialEqGroupState
   assert_fields_are_eq := types.GroupState.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::GroupState}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:44-293:51
+    Visibility: public -/
+def types.GroupState.Insts.CoreDefaultDefault.default
+  : Result types.GroupState := do
+  let jg ← types.JudgeGrade.Insts.CoreDefaultDefault.default
+  let d ← time.Duration.Insts.CoreDefaultDefault.default
+  ok
+    {
+      group_id := (core.default.DefaultUsize.default),
+      count := (core.default.DefaultUsize.default),
+      size := (core.default.DefaultUsize.default),
+      grade := jg,
+      diff := d
+    }
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::GroupState}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 293:44-293:51 -/
+@[reducible]
+def types.GroupState.Insts.CoreDefaultDefault : core.default.Default
+  types.GroupState := {
+  default := types.GroupState.Insts.CoreDefaultDefault.default
+}
+
+/-- [lnmai_core_verify::types::JudgePhase]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 303:0-307:1
+    Visibility: public -/
+@[discriminant isize]
+inductive types.JudgePhase where
+| Head : types.JudgePhase
+| Tail : types.JudgePhase
+
+/-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgePhase}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:9-302:14
+    Visibility: public -/
+def types.JudgePhase.Insts.CoreFmtDebug.fmt
+  (self : types.JudgePhase) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | types.JudgePhase.Head => core.fmt.Formatter.write_str f (toStr "Head")
+  | types.JudgePhase.Tail => core.fmt.Formatter.write_str f (toStr "Tail")
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgePhase}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:9-302:14 -/
+@[reducible]
+def types.JudgePhase.Insts.CoreFmtDebug : core.fmt.Debug types.JudgePhase := {
+  fmt := types.JudgePhase.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgePhase}::clone]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:16-302:21
+    Visibility: public -/
+def types.JudgePhase.Insts.CoreCloneClone.clone
+  (self : types.JudgePhase) : Result types.JudgePhase := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgePhase}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:16-302:21 -/
+@[reducible]
+def types.JudgePhase.Insts.CoreCloneClone : core.clone.Clone types.JudgePhase
+  := {
+  clone := types.JudgePhase.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::JudgePhase}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:23-302:27 -/
+@[reducible]
+def types.JudgePhase.Insts.CoreMarkerCopy : core.marker.Copy types.JudgePhase
+  := {
+  cloneInst := types.JudgePhase.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::JudgePhase}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:29-302:38 -/
+@[reducible]
+def types.JudgePhase.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq types.JudgePhase := {
+}
+
+/-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgePhase> for lnmai_core_verify::types::JudgePhase}::eq]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:29-302:38
+    Visibility: public -/
+def types.JudgePhase.Insts.CoreCmpPartialEqJudgePhase.eq
+  (self : types.JudgePhase) (other : types.JudgePhase) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgePhase> for lnmai_core_verify::types::JudgePhase}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:29-302:38 -/
+@[reducible]
+def types.JudgePhase.Insts.CoreCmpPartialEqJudgePhase : core.cmp.PartialEq
+  types.JudgePhase types.JudgePhase := {
+  eq := types.JudgePhase.Insts.CoreCmpPartialEqJudgePhase.eq
+}
+
+/-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgePhase}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:40-302:42
+    Visibility: public -/
+def types.JudgePhase.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : types.JudgePhase) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgePhase}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:40-302:42 -/
+@[reducible]
+def types.JudgePhase.Insts.CoreCmpEq : core.cmp.Eq types.JudgePhase := {
+  partialEqInst := types.JudgePhase.Insts.CoreCmpPartialEqJudgePhase
+  assert_fields_are_eq := types.JudgePhase.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgePhase}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:44-302:51
+    Visibility: public -/
+def types.JudgePhase.Insts.CoreDefaultDefault.default
+  : Result types.JudgePhase := do
+  ok types.JudgePhase.Head
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgePhase}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:44-302:51 -/
+@[reducible]
+def types.JudgePhase.Insts.CoreDefaultDefault : core.default.Default
+  types.JudgePhase := {
+  default := types.JudgePhase.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::JudgeEvent]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 283:0-291:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 311:0-321:1
     Visibility: public -/
 structure types.JudgeEvent where
   kind : types.JudgeEventKind
+  phase : types.JudgePhase
   grade : types.JudgeGrade
   diff : time.Duration
   position : types.RuntimePos
   note_index : Std.Usize
   is_break : Bool
+  is_ex : Bool
   multiple : Std.Usize
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeEvent}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:9-282:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:9-310:14
     Visibility: public -/
 def types.JudgeEvent.Insts.CoreFmtDebug.fmt
   (self : types.JudgeEvent) (f : core.fmt.Formatter) :
   Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
   := do
   let dyn := Dyn.mk _ types.JudgeEventKind.Insts.CoreFmtDebug self.kind
-  let dyn1 := Dyn.mk _ types.JudgeGrade.Insts.CoreFmtDebug self.grade
-  let dyn2 := Dyn.mk _ time.Duration.Insts.CoreFmtDebug self.diff
-  let dyn3 := Dyn.mk _ types.RuntimePos.Insts.CoreFmtDebug self.position
-  let dyn4 := Dyn.mk _ core.fmt.DebugUsize self.note_index
-  let dyn5 := Dyn.mk _ core.fmt.DebugBool self.is_break
-  let dyn6 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) self.multiple
+  let dyn1 := Dyn.mk _ types.JudgePhase.Insts.CoreFmtDebug self.phase
+  let dyn2 := Dyn.mk _ types.JudgeGrade.Insts.CoreFmtDebug self.grade
+  let dyn3 := Dyn.mk _ time.Duration.Insts.CoreFmtDebug self.diff
+  let dyn4 := Dyn.mk _ types.RuntimePos.Insts.CoreFmtDebug self.position
+  let dyn5 := Dyn.mk _ core.fmt.DebugUsize self.note_index
+  let dyn6 := Dyn.mk _ core.fmt.DebugBool self.is_break
+  let dyn7 := Dyn.mk _ core.fmt.DebugBool self.is_ex
+  let dyn8 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) self.multiple
   let values :=
     Array.to_slice
-      (Array.make 7#usize [ dyn, dyn1, dyn2, dyn3, dyn4, dyn5, dyn6 ])
+      (Array.make 9#usize [
+        dyn, dyn1, dyn2, dyn3, dyn4, dyn5, dyn6, dyn7, dyn8
+        ])
   let s ←
     lift (Array.to_slice
-      (Array.make 7#usize [
-        toStr "kind", toStr "grade", toStr "diff", toStr "position", toStr
-        "note_index", toStr "is_break", toStr "multiple"
+      (Array.make 9#usize [
+        toStr "kind", toStr "phase", toStr "grade", toStr "diff", toStr
+        "position", toStr "note_index", toStr "is_break", toStr "is_ex", toStr
+        "multiple"
         ]))
   core.fmt.Formatter.debug_struct_fields_finish f (toStr "JudgeEvent") s values
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeEvent}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:9-282:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:9-310:14 -/
 @[reducible]
 def types.JudgeEvent.Insts.CoreFmtDebug : core.fmt.Debug types.JudgeEvent := {
   fmt := types.JudgeEvent.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeEvent}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:16-282:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:16-310:21
     Visibility: public -/
 def types.JudgeEvent.Insts.CoreCloneClone.clone
   (self : types.JudgeEvent) : Result types.JudgeEvent := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::JudgeEvent}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:16-282:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:16-310:21 -/
 @[reducible]
 def types.JudgeEvent.Insts.CoreCloneClone : core.clone.Clone types.JudgeEvent
   := {
@@ -3974,7 +8271,7 @@ def types.JudgeEvent.Insts.CoreCloneClone : core.clone.Clone types.JudgeEvent
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::JudgeEvent}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:23-282:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:23-310:27 -/
 @[reducible]
 def types.JudgeEvent.Insts.CoreMarkerCopy : core.marker.Copy types.JudgeEvent
   := {
@@ -3982,40 +8279,50 @@ def types.JudgeEvent.Insts.CoreMarkerCopy : core.marker.Copy types.JudgeEvent
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::JudgeEvent}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:29-282:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:29-310:38 -/
 @[reducible]
 def types.JudgeEvent.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.JudgeEvent := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeEvent> for lnmai_core_verify::types::JudgeEvent}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:29-282:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:29-310:38
     Visibility: public -/
 def types.JudgeEvent.Insts.CoreCmpPartialEqJudgeEvent.eq
   (self : types.JudgeEvent) (other : types.JudgeEvent) : Result Bool := do
   if self.is_break = other.is_break
   then
-    let b ←
-      types.JudgeEventKind.Insts.CoreCmpPartialEqJudgeEventKind.eq self.kind
-        other.kind
-    if b
+    if self.is_ex = other.is_ex
     then
-      let b1 ←
-        types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq self.grade
-          other.grade
-      if b1
+      let b ←
+        types.JudgeEventKind.Insts.CoreCmpPartialEqJudgeEventKind.eq
+          self.kind other.kind
+      if b
       then
-        let b2 ←
-          time.Duration.Insts.CoreCmpPartialEqDuration.eq self.diff other.diff
-        if b2
+        let b1 ←
+          types.JudgePhase.Insts.CoreCmpPartialEqJudgePhase.eq self.phase
+            other.phase
+        if b1
         then
-          let b3 ←
-            types.RuntimePos.Insts.CoreCmpPartialEqRuntimePos.eq self.position
-              other.position
-          if b3
+          let b2 ←
+            types.JudgeGrade.Insts.CoreCmpPartialEqJudgeGrade.eq self.grade
+              other.grade
+          if b2
           then
-            if self.note_index = other.note_index
-            then ok (self.multiple = other.multiple)
+            let b3 ←
+              time.Duration.Insts.CoreCmpPartialEqDuration.eq self.diff
+                other.diff
+            if b3
+            then
+              let b4 ←
+                types.RuntimePos.Insts.CoreCmpPartialEqRuntimePos.eq
+                  self.position other.position
+              if b4
+              then
+                if self.note_index = other.note_index
+                then ok (self.multiple = other.multiple)
+                else ok false
+              else ok false
             else ok false
           else ok false
         else ok false
@@ -4024,7 +8331,7 @@ def types.JudgeEvent.Insts.CoreCmpPartialEqJudgeEvent.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::JudgeEvent> for lnmai_core_verify::types::JudgeEvent}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:29-282:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:29-310:38 -/
 @[reducible]
 def types.JudgeEvent.Insts.CoreCmpPartialEqJudgeEvent : core.cmp.PartialEq
   types.JudgeEvent types.JudgeEvent := {
@@ -4032,22 +8339,53 @@ def types.JudgeEvent.Insts.CoreCmpPartialEqJudgeEvent : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeEvent}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:40-282:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:40-310:42
     Visibility: public -/
 def types.JudgeEvent.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.JudgeEvent) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::JudgeEvent}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 282:40-282:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:40-310:42 -/
 @[reducible]
 def types.JudgeEvent.Insts.CoreCmpEq : core.cmp.Eq types.JudgeEvent := {
   partialEqInst := types.JudgeEvent.Insts.CoreCmpPartialEqJudgeEvent
   assert_fields_are_eq := types.JudgeEvent.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
+/-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeEvent}::default]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:4-337:5
+    Visibility: public -/
+def types.JudgeEvent.Insts.CoreDefaultDefault.default
+  : Result types.JudgeEvent := do
+  let jek ← types.JudgeEventKind.Insts.CoreDefaultDefault.default
+  let jp ← types.JudgePhase.Insts.CoreDefaultDefault.default
+  let jg ← types.JudgeGrade.Insts.CoreDefaultDefault.default
+  let d ← time.Duration.Insts.CoreDefaultDefault.default
+  let rp ← types.RuntimePos.Insts.CoreDefaultDefault.default
+  ok
+    {
+      kind := jek,
+      phase := jp,
+      grade := jg,
+      diff := d,
+      position := rp,
+      note_index := 0#usize,
+      is_break := false,
+      is_ex := false,
+      multiple := 0#usize
+    }
+
+/-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeEvent}]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 323:0-338:1 -/
+@[reducible]
+def types.JudgeEvent.Insts.CoreDefaultDefault : core.default.Default
+  types.JudgeEvent := {
+  default := types.JudgeEvent.Insts.CoreDefaultDefault.default
+}
+
 /-- [lnmai_core_verify::types::ScoreState]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 295:0-311:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 342:0-358:1
     Visibility: public -/
 structure types.ScoreState where
   combo : Std.Usize
@@ -4067,7 +8405,7 @@ structure types.ScoreState where
   late_count : Std.Usize
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::ScoreState}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:9-294:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:9-341:14
     Visibility: public -/
 def types.ScoreState.Insts.CoreFmtDebug.fmt
   (self : types.ScoreState) (f : core.fmt.Formatter) :
@@ -4107,21 +8445,21 @@ def types.ScoreState.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_fields_finish f (toStr "ScoreState") s values
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:9-294:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:9-341:14 -/
 @[reducible]
 def types.ScoreState.Insts.CoreFmtDebug : core.fmt.Debug types.ScoreState := {
   fmt := types.ScoreState.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::ScoreState}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:16-294:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:16-341:21
     Visibility: public -/
 def types.ScoreState.Insts.CoreCloneClone.clone
   (self : types.ScoreState) : Result types.ScoreState := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:16-294:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:16-341:21 -/
 @[reducible]
 def types.ScoreState.Insts.CoreCloneClone : core.clone.Clone types.ScoreState
   := {
@@ -4129,7 +8467,7 @@ def types.ScoreState.Insts.CoreCloneClone : core.clone.Clone types.ScoreState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:23-294:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:23-341:27 -/
 @[reducible]
 def types.ScoreState.Insts.CoreMarkerCopy : core.marker.Copy types.ScoreState
   := {
@@ -4137,14 +8475,14 @@ def types.ScoreState.Insts.CoreMarkerCopy : core.marker.Copy types.ScoreState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:29-294:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:29-341:38 -/
 @[reducible]
 def types.ScoreState.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.ScoreState := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::ScoreState> for lnmai_core_verify::types::ScoreState}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:29-294:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:29-341:38
     Visibility: public -/
 def types.ScoreState.Insts.CoreCmpPartialEqScoreState.eq
   (self : types.ScoreState) (other : types.ScoreState) : Result Bool := do
@@ -4192,7 +8530,7 @@ def types.ScoreState.Insts.CoreCmpPartialEqScoreState.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::ScoreState> for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:29-294:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:29-341:38 -/
 @[reducible]
 def types.ScoreState.Insts.CoreCmpPartialEqScoreState : core.cmp.PartialEq
   types.ScoreState types.ScoreState := {
@@ -4200,14 +8538,14 @@ def types.ScoreState.Insts.CoreCmpPartialEqScoreState : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::ScoreState}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:40-294:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:40-341:42
     Visibility: public -/
 def types.ScoreState.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.ScoreState) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 294:40-294:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:40-341:42 -/
 @[reducible]
 def types.ScoreState.Insts.CoreCmpEq : core.cmp.Eq types.ScoreState := {
   partialEqInst := types.ScoreState.Insts.CoreCmpPartialEqScoreState
@@ -4215,7 +8553,7 @@ def types.ScoreState.Insts.CoreCmpEq : core.cmp.Eq types.ScoreState := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::ScoreState}::default]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 314:4-332:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 363:4-381:5
     Visibility: public -/
 def types.ScoreState.Insts.CoreDefaultDefault.default
   : Result types.ScoreState := do
@@ -4239,30 +8577,11 @@ def types.ScoreState.Insts.CoreDefaultDefault.default
     }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 313:0-333:1 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 362:0-382:1 -/
 @[reducible]
 def types.ScoreState.Insts.CoreDefaultDefault : core.default.Default
   types.ScoreState := {
   default := types.ScoreState.Insts.CoreDefaultDefault.default
 }
-
-/-- [lnmai_core_verify::types::AudioCommandPlaceholder]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 338:0-338:35
-    Visibility: public -/
-@[reducible]
-def types.AudioCommandPlaceholder := Unit
-
-/-- [lnmai_core_verify::types::RenderCommandPlaceholder]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:0-341:36
-    Visibility: public -/
-@[reducible]
-def types.RenderCommandPlaceholder := Unit
-
-/-- [lnmai_core_verify::types::_time_point_unused]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 344:0-344:58
-    Visibility: public -/
-def types._time_point_unused
-  (_p : time.TimePoint) (_s : areas.OuterSlot) : Result Unit := do
-  ok ()
 
 end lnmai_core_verify

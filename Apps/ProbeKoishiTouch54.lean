@@ -60,7 +60,7 @@ private def summarizeTouchHoldHead (q : InputModel.ZoneQueue Lifecycle.HoldNote)
   | none => "none"
 
 def main : IO Unit := do
-  let content ← IO.FS.readFile "../assets/小石DISCO/maidata.txt"
+  let content ← IO.FS.readFile "tools/assets/小石DISCO/maidata.txt"
   let chart ←
     match Simai.compileLowered content 5 with
     | .ok chart => pure chart

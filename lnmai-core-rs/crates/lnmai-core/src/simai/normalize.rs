@@ -6,6 +6,7 @@ use crate::chart_loader::{
     ChartSpec, HoldChartNote, SlideChartNote, SlideHeadChartNote, TapChartNote, TouchChartNote,
     TouchHoldChartNote,
 };
+use crate::natural::Natural;
 use crate::rat::Rat;
 use crate::simai::ir::{
     NormalizedChart, NormalizedHold, NormalizedSlide, NormalizedSlideDebug, NormalizedTap,
@@ -16,9 +17,11 @@ use crate::simai::slide_parser::{
     parse_slide_just_text, parse_slide_note, parse_slide_note_from_body, parse_terminal_end_area,
 };
 use crate::simai::slide_tables::{
-    judge_queues_for_shape, rotate_judge_queues, SlideAreaSpec,
+    judge_queues_for_shape, rotate_judge_queues, slide_last_wait_ratio_for_shape, SlideAreaSpec,
 };
-use crate::simai::syntax::{RawNoteKind, RawNoteToken, SlideKind as ShapeSlideKind, SlideNoteSemantics};
+use crate::simai::syntax::{
+    RawNoteKind, RawNoteToken, SlideKind as ShapeSlideKind, SlideNoteSemantics,
+};
 use crate::simai::timing::note_timing_increment;
 use crate::time::{time_point_add_duration, Duration, TimePoint};
 use crate::types::SlideKind;
@@ -44,42 +47,77 @@ fn apply_single_track_conn_rules_normalized(
             }
             [first, second, rest @ ..] => {
                 let mut out = Vec::with_capacity(queue.len());
-                out.push(SlideAreaSpec { is_skippable: slide.is_group_head, ..first.clone() });
-                out.push(SlideAreaSpec { is_skippable: slide.is_group_end, ..second.clone() });
+                out.push(SlideAreaSpec {
+                    is_skippable: slide.is_group_head,
+                    ..first.clone()
+                });
+                out.push(SlideAreaSpec {
+                    is_skippable: slide.is_group_end,
+                    ..second.clone()
+                });
                 out.extend_from_slice(rest);
                 out
             }
         }
     } else {
-        queue.to_vec()
+        queue
+            .iter()
+            .map(|area| SlideAreaSpec {
+                is_skippable: true,
+                ..area.clone()
+            })
+            .collect()
     }
 }
 
 fn attach_judge_queues(slide: &NormalizedSlide) -> NormalizedSlide {
-    let raw_queues = judge_queues_for_shape(slide.simai_shape, slide.is_classic).unwrap_or_default();
-    let placed_queues = rotate_judge_queues(slide.slot.to_index() as usize, &raw_queues);
-    let with_len = NormalizedSlide {
-        total_judge_queue_len: total_judge_queue_len(&placed_queues),
-        ..slide.clone()
-    };
-    let queues: Vec<Vec<SlideAreaSpec>> = match placed_queues.as_slice() {
-        [queue] => vec![apply_single_track_conn_rules_normalized(&with_len, queue)],
-        _ => placed_queues,
-    };
+    let raw_queues =
+        judge_queues_for_shape(&slide.simai_shape, slide.is_classic).unwrap_or_default();
+    let placed_queues = rotate_judge_queues(slide.slot.to_index(), &raw_queues);
     NormalizedSlide {
-        judge_queues: queues.clone(),
-        total_judge_queue_len: total_judge_queue_len(&queues),
-        ..with_len
+        total_judge_queue_len: (total_judge_queue_len(&placed_queues)).into(),
+        judge_queues: placed_queues,
+        ..slide.clone()
     }
 }
 
-fn slide_debug_for(chart: &NormalizedChart, note_index: usize) -> Option<NormalizedSlideDebug> {
-    chart.slide_debug.iter().find(|dbg| dbg.note_index == note_index).cloned()
+fn apply_connected_queue_rules(group: &[NormalizedSlide]) -> Vec<NormalizedSlide> {
+    let total = group
+        .iter()
+        .map(|s| s.total_judge_queue_len.clone())
+        .sum::<Natural>()
+        .saturating_sub(group.len().saturating_sub(1));
+    group
+        .iter()
+        .map(|slide| {
+            let with_len = NormalizedSlide {
+                total_judge_queue_len: total.clone(),
+                ..slide.clone()
+            };
+            NormalizedSlide {
+                judge_queues: with_len
+                    .judge_queues
+                    .iter()
+                    .map(|q| apply_single_track_conn_rules_normalized(&with_len, q))
+                    .collect(),
+                ..with_len
+            }
+        })
+        .collect()
+}
+
+fn slide_debug_for(chart: &NormalizedChart, note_index: Natural) -> Option<NormalizedSlideDebug> {
+    chart
+        .slide_debug
+        .iter()
+        .find(|dbg| dbg.note_index == note_index)
+        .cloned()
 }
 
 /// `lowerSlideToken`.
-pub fn lower_slide_token(
-    note_index: usize,
+pub fn lower_slide_token_with_mode(
+    is_classic: bool,
+    note_index: Natural,
     token: &RawNoteToken,
 ) -> Option<(NormalizedSlide, SlideNoteSemantics)> {
     let slot = token.slot?;
@@ -89,22 +127,31 @@ pub fn lower_slide_token(
         None => parse_slide_note(&token.raw_text, slot, end_area),
     }
     .ok()?;
-    let is_wifi = shape_kind(parsed.shape) == ShapeSlideKind::Wifi;
-    let length = token
-        .length
-        .unwrap_or_else(|| note_timing_increment(token.bpm, token.divisor.max(1)));
-    let star_wait = token.star_wait.unwrap_or_else(Duration::zero);
-    let start_timing = time_point_add_duration(token.timing, star_wait);
-    let judge_at = time_point_add_duration(start_timing, length);
+    let is_wifi = shape_kind(&parsed.shape) == ShapeSlideKind::Wifi;
+    let length = token.length.clone().unwrap_or_else(|| {
+        note_timing_increment(token.bpm.clone(), token.divisor.clone().max((1).into()))
+    });
+    let star_wait = token.star_wait.clone().unwrap_or_else(Duration::zero);
+    let start_timing = time_point_add_duration(token.timing.clone(), star_wait);
+    let last_wait_ratio =
+        slide_last_wait_ratio_for_shape(&parsed.shape, is_classic).unwrap_or_else(Rat::zero);
+    let judge_duration = crate::time::duration_from_rat_micros(
+        Rat::from_int(length.to_micros()).mul(Rat::one().sub(last_wait_ratio)),
+    );
+    let judge_at = time_point_add_duration(start_timing.clone(), judge_duration);
     let slide = NormalizedSlide {
-        head_timing: token.timing,
+        head_timing: token.timing.clone(),
         slot,
         length,
         start_timing,
-        h_speed: token.h_speed,
-        slide_kind: if is_wifi { SlideKind::Wifi } else { SlideKind::Single },
-        is_classic: false,
-        track_count: if is_wifi { 3 } else { 1 },
+        h_speed: token.h_speed.clone(),
+        slide_kind: if is_wifi {
+            SlideKind::Wifi
+        } else {
+            SlideKind::Single
+        },
+        is_classic,
+        track_count: if is_wifi { (3).into() } else { (1).into() },
         judge_at: Some(judge_at),
         is_break: token.is_break,
         is_ex: token.is_ex,
@@ -115,26 +162,37 @@ pub fn lower_slide_token(
         is_force_star: token.is_force_star,
         is_fake_rotate: token.is_fake_rotate,
         is_slide_break: token.is_slide_break,
-        source_group_id: token.source_group_id,
-        source_group_index: token.source_group_index,
-        source_group_size: token.source_group_size,
-        multiple: 1,
+        source_group_id: token.source_group_id.clone(),
+        source_group_index: token.source_group_index.clone(),
+        source_group_size: token.source_group_size.clone(),
+        multiple: 1.into(),
         note_index,
-        simai_shape: parsed.shape,
+        simai_shape: parsed.shape.clone(),
         ..NormalizedSlide::default()
     };
     Some((slide, parsed))
 }
 
+pub fn lower_slide_token(
+    note_index: Natural,
+    token: &RawNoteToken,
+) -> Option<(NormalizedSlide, SlideNoteSemantics)> {
+    lower_slide_token_with_mode(false, note_index, token)
+}
+
 fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedSlide> {
     let mut acc: Vec<NormalizedSlide> = Vec::new();
-    let mut current_group_id: Option<usize> = None;
-    let mut parent_note_index: Option<usize> = None;
+    let mut current_group_id: Option<Natural> = None;
+    let mut parent_note_index: Option<Natural> = None;
     let mut parent_end_timing: Option<TimePoint> = None;
     let mut group_start_timing_state: Option<TimePoint> = None;
 
     for slide in slides {
-        match (slide.source_group_id, slide.source_group_index, slide.source_group_size) {
+        match (
+            slide.source_group_id.clone(),
+            slide.source_group_index.clone(),
+            slide.source_group_size.clone(),
+        ) {
             (Some(gid), Some(idx), Some(size)) => {
                 let actual_parent = if idx == 0 { None } else { parent_note_index };
                 let is_conn = size > 1;
@@ -146,18 +204,25 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
                     SlideKind::ConnPart
                 };
                 let start_timing = if idx == 0 {
-                    slide.start_timing
+                    slide.start_timing.clone()
                 } else {
-                    parent_end_timing.unwrap_or(slide.start_timing)
+                    parent_end_timing.unwrap_or(slide.start_timing.clone())
                 };
                 let group_start_timing = if idx == 0 {
-                    slide.start_timing
+                    slide.start_timing.clone()
                 } else {
-                    group_start_timing_state.unwrap_or(slide.start_timing)
+                    group_start_timing_state.unwrap_or(slide.start_timing.clone())
                 };
-                let stored_group_start = if is_conn { Some(group_start_timing) } else { None };
-                let start_shift = slide.start_timing - start_timing;
-                let judge_at = slide.judge_at.map(|tp| time_point_add_duration(tp, start_shift));
+                let stored_group_start = if is_conn {
+                    Some(group_start_timing.clone())
+                } else {
+                    None
+                };
+                let start_shift = start_timing.clone() - slide.start_timing.clone();
+                let judge_at = slide
+                    .judge_at
+                    .clone()
+                    .map(|tp| time_point_add_duration(tp, start_shift));
                 let updated = NormalizedSlide {
                     start_timing,
                     group_start_timing: stored_group_start,
@@ -166,12 +231,13 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
                     is_conn_slide: is_conn,
                     parent_note_index: actual_parent,
                     is_group_head: idx == 0,
-                    is_group_end: idx + 1 == size,
+                    is_group_end: idx.clone() + 1 == size,
                     ..slide.clone()
                 };
-                let next_parent_end = time_point_add_duration(updated.start_timing, updated.length);
-                let is_end = idx + 1 == size;
-                let reset_chain = current_group_id != Some(gid) && idx != 0;
+                let next_parent_end =
+                    time_point_add_duration(updated.start_timing.clone(), updated.length.clone());
+                let is_end = idx.clone() + 1 == size;
+                let reset_chain = current_group_id != Some(gid.clone()) && idx != 0;
                 if reset_chain {
                     acc.push(NormalizedSlide {
                         is_conn_slide: false,
@@ -187,9 +253,17 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
                 } else {
                     acc.push(updated.clone());
                     current_group_id = if is_end { None } else { Some(gid) };
-                    parent_note_index = if is_end { None } else { Some(updated.note_index) };
+                    parent_note_index = if is_end {
+                        None
+                    } else {
+                        Some(updated.note_index)
+                    };
                     parent_end_timing = if is_end { None } else { Some(next_parent_end) };
-                    group_start_timing_state = if is_end { None } else { Some(group_start_timing) };
+                    group_start_timing_state = if is_end {
+                        None
+                    } else {
+                        Some(group_start_timing)
+                    };
                 }
             }
             _ => {
@@ -234,10 +308,16 @@ fn slide_fold_fields_match(left: &NormalizedSlide, right: &NormalizedSlide) -> b
         && left.simai_shape == right.simai_shape
 }
 
-fn take_same_source_group(gid: usize, slides: &[NormalizedSlide]) -> (Vec<NormalizedSlide>, Vec<NormalizedSlide>) {
+fn take_same_source_group(
+    gid: Natural,
+    slides: &[NormalizedSlide],
+) -> (Vec<NormalizedSlide>, Vec<NormalizedSlide>) {
     let mut group = Vec::new();
     let mut i = 0;
-    while i < slides.len() && slides[i].source_group_id == Some(gid) {
+    while i < slides.len()
+        && slides[i].source_group_id == Some(gid.clone())
+        && slides[i].source_group_index != Some((0).into())
+    {
         group.push(slides[i].clone());
         i += 1;
     }
@@ -248,7 +328,7 @@ fn split_slide_multiplicity_units(slides: &[NormalizedSlide]) -> Vec<Vec<Normali
     let mut units = Vec::new();
     let mut rest: Vec<NormalizedSlide> = slides.to_vec();
     while !rest.is_empty() {
-        match rest[0].source_group_id {
+        match rest[0].source_group_id.clone() {
             None => {
                 units.push(vec![rest[0].clone()]);
                 rest.remove(0);
@@ -267,7 +347,7 @@ fn split_slide_multiplicity_units(slides: &[NormalizedSlide]) -> Vec<Vec<Normali
 
 fn slide_multiplicity_units_can_fold(left: &[NormalizedSlide], right: &[NormalizedSlide]) -> bool {
     match (left.first(), right.first()) {
-        (Some(lh), Some(rh)) => match (lh.source_group_id, rh.source_group_id) {
+        (Some(lh), Some(rh)) => match (lh.source_group_id.clone(), rh.source_group_id.clone()) {
             (None, None) => match (left, right) {
                 ([ls], [rs]) => slide_fold_fields_match(ls, rs),
                 _ => false,
@@ -275,7 +355,10 @@ fn slide_multiplicity_units_can_fold(left: &[NormalizedSlide], right: &[Normaliz
             (Some(lg), Some(rg)) => {
                 lg != rg
                     && left.len() == right.len()
-                    && left.iter().zip(right.iter()).all(|(l, r)| slide_fold_fields_match(l, r))
+                    && left
+                        .iter()
+                        .zip(right.iter())
+                        .all(|(l, r)| slide_fold_fields_match(l, r))
             }
             _ => false,
         },
@@ -289,14 +372,20 @@ fn merge_slide_multiplicity_unit(
 ) -> Vec<NormalizedSlide> {
     left.iter()
         .zip(right.iter())
-        .map(|(l, r)| NormalizedSlide { multiple: l.multiple + r.multiple, ..l.clone() })
+        .map(|(l, r)| NormalizedSlide {
+            multiple: l.multiple.clone() + r.multiple.clone(),
+            ..l.clone()
+        })
         .collect()
 }
 
 fn fold_slide_multiplicity(slides: &[NormalizedSlide]) -> Vec<NormalizedSlide> {
     let mut units: Vec<Vec<NormalizedSlide>> = Vec::new();
     for unit in split_slide_multiplicity_units(slides) {
-        if let Some(pos) = units.iter().position(|u| slide_multiplicity_units_can_fold(u, &unit)) {
+        if let Some(pos) = units
+            .iter()
+            .position(|u| slide_multiplicity_units_can_fold(u, &unit))
+        {
             let merged = merge_slide_multiplicity_unit(&units[pos], &unit);
             units[pos] = merged;
         } else {
@@ -307,11 +396,12 @@ fn fold_slide_multiplicity(slides: &[NormalizedSlide]) -> Vec<NormalizedSlide> {
 }
 
 /// `lowerRawTokens`.
-pub fn lower_raw_tokens(
+pub fn lower_raw_tokens_with_mode(
+    is_classic: bool,
     measure_dur_sec: &dyn Fn(Rat) -> Duration,
     tokens: &[RawNoteToken],
 ) -> (NormalizedChart, Vec<SlideNoteSemantics>) {
-    let mut note_index: usize = 1;
+    let mut note_index: Natural = 1.into();
     let mut taps: Vec<NormalizedTap> = Vec::new();
     let mut holds: Vec<NormalizedHold> = Vec::new();
     let mut touches: Vec<NormalizedTouch> = Vec::new();
@@ -325,13 +415,13 @@ pub fn lower_raw_tokens(
             RawNoteKind::Tap => {
                 if let Some(slot) = token.slot {
                     taps.push(NormalizedTap {
-                        timing: token.timing,
+                        timing: token.timing.clone(),
                         slot,
                         is_break: token.is_break,
                         is_ex: token.is_ex,
                         is_hanabi: token.is_hanabi,
                         is_force_star: token.is_force_star,
-                        note_index,
+                        note_index: note_index.clone(),
                     });
                     note_index += 1;
                 }
@@ -339,13 +429,16 @@ pub fn lower_raw_tokens(
             RawNoteKind::Hold => {
                 if let Some(slot) = token.slot {
                     holds.push(NormalizedHold {
-                        timing: token.timing,
+                        timing: token.timing.clone(),
                         slot,
-                        length: token.length.unwrap_or_else(|| measure_dur_sec(token.bpm)),
+                        length: token
+                            .length
+                            .clone()
+                            .unwrap_or_else(|| measure_dur_sec(token.bpm.clone())),
                         is_break: token.is_break,
                         is_ex: token.is_ex,
                         is_hanabi: token.is_hanabi,
-                        note_index,
+                        note_index: note_index.clone(),
                     });
                     note_index += 1;
                 }
@@ -353,14 +446,14 @@ pub fn lower_raw_tokens(
             RawNoteKind::Touch => {
                 if let Some(sensor_pos) = token.sensor_pos {
                     touches.push(NormalizedTouch {
-                        timing: token.timing,
+                        timing: token.timing.clone(),
                         sensor_pos,
                         is_break: token.is_break,
                         is_hanabi: token.is_hanabi,
-                        source_group_id: token.source_group_id,
-                        source_group_index: token.source_group_index,
-                        source_group_size: token.source_group_size,
-                        note_index,
+                        source_group_id: token.source_group_id.clone(),
+                        source_group_index: token.source_group_index.clone(),
+                        source_group_size: token.source_group_size.clone(),
+                        note_index: note_index.clone(),
                     });
                     note_index += 1;
                 }
@@ -368,25 +461,30 @@ pub fn lower_raw_tokens(
             RawNoteKind::TouchHold => {
                 if let Some(sensor_pos) = token.sensor_pos {
                     touch_holds.push(NormalizedTouchHold {
-                        timing: token.timing,
+                        timing: token.timing.clone(),
                         sensor_pos,
-                        length: token.length.unwrap_or_else(|| measure_dur_sec(token.bpm)),
+                        length: token
+                            .length
+                            .clone()
+                            .unwrap_or_else(|| measure_dur_sec(token.bpm.clone())),
                         is_break: token.is_break,
                         is_ex: token.is_ex,
                         is_hanabi: token.is_hanabi,
-                        source_group_id: token.source_group_id,
-                        source_group_index: token.source_group_index,
-                        source_group_size: token.source_group_size,
-                        note_index,
+                        source_group_id: token.source_group_id.clone(),
+                        source_group_index: token.source_group_index.clone(),
+                        source_group_size: token.source_group_size.clone(),
+                        note_index: note_index.clone(),
                     });
                     note_index += 1;
                 }
             }
             RawNoteKind::Slide => {
-                if let Some((slide, parsed)) = lower_slide_token(note_index, token) {
+                if let Some((slide, parsed)) =
+                    lower_slide_token_with_mode(is_classic, note_index.clone(), token)
+                {
                     slides.push(slide);
                     slide_debug.push(NormalizedSlideDebug {
-                        note_index,
+                        note_index: note_index.clone(),
                         raw_text: token.raw_text.clone(),
                     });
                     slide_semantics.push(parsed);
@@ -399,7 +497,11 @@ pub fn lower_raw_tokens(
 
     let folded = fold_slide_multiplicity(&slides);
     let folded = apply_connected_slide_metadata(&folded);
-    let lowered_slides: Vec<NormalizedSlide> = folded.iter().map(attach_judge_queues).collect();
+    let attached: Vec<NormalizedSlide> = folded.iter().map(attach_judge_queues).collect();
+    let lowered_slides = split_slide_multiplicity_units(&attached)
+        .iter()
+        .flat_map(|group| apply_connected_queue_rules(group))
+        .collect();
 
     (
         NormalizedChart {
@@ -416,22 +518,29 @@ pub fn lower_raw_tokens(
 }
 
 /// `toChartSpec`.
+pub fn lower_raw_tokens(
+    measure_dur_sec: &dyn Fn(Rat) -> Duration,
+    tokens: &[RawNoteToken],
+) -> (NormalizedChart, Vec<SlideNoteSemantics>) {
+    lower_raw_tokens_with_mode(false, measure_dur_sec, tokens)
+}
+
 pub fn to_chart_spec(chart: &NormalizedChart) -> ChartSpec {
-    let mut max_note_index = 0usize;
+    let mut max_note_index = Natural::from(0);
     for note in &chart.taps {
-        max_note_index = max_note_index.max(note.note_index);
+        max_note_index = max_note_index.max(note.note_index.clone());
     }
     for note in &chart.holds {
-        max_note_index = max_note_index.max(note.note_index);
+        max_note_index = max_note_index.max(note.note_index.clone());
     }
     for note in &chart.touches {
-        max_note_index = max_note_index.max(note.note_index);
+        max_note_index = max_note_index.max(note.note_index.clone());
     }
     for note in &chart.touch_holds {
-        max_note_index = max_note_index.max(note.note_index);
+        max_note_index = max_note_index.max(note.note_index.clone());
     }
     for note in &chart.slides {
-        max_note_index = max_note_index.max(note.note_index);
+        max_note_index = max_note_index.max(note.note_index.clone());
     }
 
     let mut next_note_index = max_note_index + 1;
@@ -440,15 +549,16 @@ pub fn to_chart_spec(chart: &NormalizedChart) -> ChartSpec {
         if !note.has_head_note {
             continue;
         }
-        let count = note.multiple.max(1);
-        let mut generated: Vec<SlideHeadChartNote> = (0..count)
+        let count = note.multiple.clone().max((1).into());
+        let mut generated: Vec<SlideHeadChartNote> = count
+            .range()
             .map(|offset| SlideHeadChartNote {
-                timing: note.head_timing,
+                timing: note.head_timing.clone(),
                 slot: note.slot,
                 is_break: note.is_break,
                 is_ex: note.is_ex,
-                logical_slide_id: note.note_index,
-                note_index: next_note_index + offset,
+                logical_slide_id: note.note_index.clone(),
+                note_index: next_note_index.clone() + offset,
             })
             .collect();
         generated.reverse();
@@ -463,11 +573,11 @@ pub fn to_chart_spec(chart: &NormalizedChart) -> ChartSpec {
             .taps
             .iter()
             .map(|note| TapChartNote {
-                timing: note.timing,
+                timing: note.timing.clone(),
                 slot: note.slot,
                 is_break: note.is_break,
                 is_ex: note.is_ex,
-                note_index: note.note_index,
+                note_index: note.note_index.clone(),
                 ..TapChartNote::default()
             })
             .collect(),
@@ -475,13 +585,13 @@ pub fn to_chart_spec(chart: &NormalizedChart) -> ChartSpec {
             .holds
             .iter()
             .map(|note| HoldChartNote {
-                timing: note.timing,
+                timing: note.timing.clone(),
                 slot: note.slot,
-                length: note.length,
+                length: note.length.clone(),
                 is_break: note.is_break,
                 is_ex: note.is_ex,
                 is_touch: false,
-                note_index: note.note_index,
+                note_index: note.note_index.clone(),
                 ..HoldChartNote::default()
             })
             .collect(),
@@ -489,13 +599,13 @@ pub fn to_chart_spec(chart: &NormalizedChart) -> ChartSpec {
             .touches
             .iter()
             .map(|note| TouchChartNote {
-                timing: note.timing,
+                timing: note.timing.clone(),
                 sensor_pos: note.sensor_pos,
                 is_break: note.is_break,
-                source_group_id: note.source_group_id,
-                source_group_index: note.source_group_index,
-                source_group_size: note.source_group_size,
-                note_index: note.note_index,
+                source_group_id: note.source_group_id.clone(),
+                source_group_index: note.source_group_index.clone(),
+                source_group_size: note.source_group_size.clone(),
+                note_index: note.note_index.clone(),
                 ..TouchChartNote::default()
             })
             .collect(),
@@ -503,15 +613,15 @@ pub fn to_chart_spec(chart: &NormalizedChart) -> ChartSpec {
             .touch_holds
             .iter()
             .map(|note| TouchHoldChartNote {
-                timing: note.timing,
+                timing: note.timing.clone(),
                 sensor_pos: note.sensor_pos,
-                length: note.length,
+                length: note.length.clone(),
                 is_break: note.is_break,
                 is_ex: note.is_ex,
-                source_group_id: note.source_group_id,
-                source_group_index: note.source_group_index,
-                source_group_size: note.source_group_size,
-                note_index: note.note_index,
+                source_group_id: note.source_group_id.clone(),
+                source_group_index: note.source_group_index.clone(),
+                source_group_size: note.source_group_size.clone(),
+                note_index: note.note_index.clone(),
                 ..TouchHoldChartNote::default()
             })
             .collect(),
@@ -520,34 +630,35 @@ pub fn to_chart_spec(chart: &NormalizedChart) -> ChartSpec {
             .slides
             .iter()
             .map(|note| SlideChartNote {
-                head_timing: note.head_timing,
+                head_timing: note.head_timing.clone(),
                 slot: note.slot,
-                length: note.length,
-                start_timing: note.start_timing,
-                group_start_timing: note.group_start_timing,
+                length: note.length.clone(),
+                start_timing: note.start_timing.clone(),
+                group_start_timing: note.group_start_timing.clone(),
                 slide_kind: note.slide_kind,
                 is_classic: note.is_classic,
                 is_slide_no_head: note.is_slide_no_head,
                 is_conn_slide: note.is_conn_slide,
-                parent_note_index: note.parent_note_index,
+                parent_note_index: note.parent_note_index.clone(),
                 is_group_head: note.is_group_head,
                 is_group_end: note.is_group_end,
-                total_judge_queue_len: note.total_judge_queue_len,
-                track_count: note.track_count,
-                judge_at: note.judge_at,
+                total_judge_queue_len: note.total_judge_queue_len.clone(),
+                track_count: note.track_count.clone(),
+                judge_at: note.judge_at.clone(),
                 is_break: note.is_slide_break,
                 is_ex: note.is_ex,
-                multiple: note.multiple,
-                logical_slide_id: note.note_index,
-                note_index: note.note_index,
+                multiple: note.multiple.clone(),
+                logical_slide_id: note.note_index.clone(),
+                note_index: note.note_index.clone(),
                 judge_queues: note.judge_queues.clone(),
-                debug_simai: slide_debug_for(chart, note.note_index).map(|dbg| {
+                debug_simai: slide_debug_for(chart, note.note_index.clone()).map(|dbg| {
                     let just = parse_slide_just_text(&dbg.raw_text).unwrap_or(false);
-                    (dbg.raw_text, shape_key(note.simai_shape), just)
+                    (dbg.raw_text, shape_key(&note.simai_shape), just)
                 }),
                 ..SlideChartNote::default()
             })
             .collect(),
+        button_ring_for_touch: None,
         slide_skipping: Some(chart.slide_skipping),
     }
 }

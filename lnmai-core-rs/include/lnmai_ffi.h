@@ -24,12 +24,21 @@ uint64_t lnmai_abi_version(void);
 char *lnmai_ffi_version_json(void);
 
 /* Parse APIs (chart text + level index -> JSON IR). */
+char *lnmai_parse_frontend_chart_json(const char *content, uint32_t level_index);
+char *lnmai_parse_frontend_chart_mode_json(const char *content, uint32_t level_index, uint8_t is_classic);
+char *lnmai_parse_frontend_inspection_chart_json(const char *content, uint32_t level_index);
 char *lnmai_parse_lowered_chart_json(const char *content, uint32_t level_index);
+char *lnmai_parse_lowered_chart_mode_json(const char *content, uint32_t level_index, uint8_t is_classic);
 char *lnmai_parse_normalized_chart_json(const char *content, uint32_t level_index);
 char *lnmai_parse_frontend_semantic_chart_json(const char *content, uint32_t level_index);
 
 /* Default autoplay tactic (ChartSpec JSON -> TimedInputEvent list). */
 char *lnmai_default_tactic_from_chart_json(const char *chart_spec_json);
+
+/* Stateless runtime and state restoration. */
+char *lnmai_build_game_state_json(const char *chart_spec_json);
+char *lnmai_step_game_state_json(const char *state_json, const char *batch_json);
+char *lnmai_create_game_state_handle(const char *chart_spec_json);
 
 /* Session runtime APIs (preferred gameplay surface). */
 char *lnmai_create_empty_session_handle(void);

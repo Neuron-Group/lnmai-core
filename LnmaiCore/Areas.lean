@@ -1,4 +1,4 @@
-import Mathlib
+import Mathlib.Tactic.IntervalCases
 import Lean.Data.Json
 import LnmaiCore.Constants
 

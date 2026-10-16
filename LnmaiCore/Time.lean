@@ -1,4 +1,5 @@
-import Mathlib
+import Mathlib.Data.Rat.Defs
+import Mathlib.Data.List.Pairwise
 import Lean.Data.Json
 
 open Lean
@@ -36,6 +37,10 @@ instance : LT TimeTick where
 
 instance : LE TimeTick where
   le a b := a.val ≤ b.val
+
+instance : DecidableLT TimeTick := fun a b => inferInstanceAs (Decidable (a.val < b.val))
+
+instance : DecidableLE TimeTick := fun a b => inferInstanceAs (Decidable (a.val ≤ b.val))
 
 instance : Ord TimeTick where
   compare a b := compare a.val b.val
@@ -92,6 +97,10 @@ instance : LT Duration where
 
 instance : LE Duration where
   le a b := a.toInt ≤ b.toInt
+
+instance : DecidableLT Duration := fun a b => inferInstanceAs (Decidable (a.toInt < b.toInt))
+
+instance : DecidableLE Duration := fun a b => inferInstanceAs (Decidable (a.toInt ≤ b.toInt))
 
 instance : Ord Duration where
   compare a b := compare a.toInt b.toInt
@@ -181,6 +190,10 @@ instance : LT TimePoint where
 
 instance : LE TimePoint where
   le a b := a.toInt ≤ b.toInt
+
+instance : DecidableLT TimePoint := fun a b => inferInstanceAs (Decidable (a.toInt < b.toInt))
+
+instance : DecidableLE TimePoint := fun a b => inferInstanceAs (Decidable (a.toInt ≤ b.toInt))
 
 instance : Ord TimePoint where
   compare a b := compare a.toInt b.toInt

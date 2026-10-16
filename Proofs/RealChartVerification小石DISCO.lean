@@ -1,106 +1,55 @@
-import LnmaiCore
+import Proofs.RealChartVerificationKoishiDISCO
 
 open LnmaiCore
 
-namespace Proofs.RealChartVerification小石DISCO
+namespace Proofs.«RealChartVerification小石DISCO»
 
-def checkpointName : String := "小石DISCO"
+-- Both module names refer to the same fixture and regression obligations.
+-- Reuse the checked results so the full simulation is evaluated only once.
 
-def checkpointAssetPath : String :=
-  "../assets/小石DISCO/maidata.txt"
+abbrev checkpointName := RealChartVerificationKoishiDISCO.checkpointName
 
-def checkpointLevel : Nat := 5
+abbrev checkpointAssetPath := RealChartVerificationKoishiDISCO.checkpointAssetPath
 
-def checkpointChart : ChartLoader.ChartSpec :=
-  simai_lowered_chart_file_at! 5 "../assets/小石DISCO/maidata.txt"
+abbrev checkpointLevel := RealChartVerificationKoishiDISCO.checkpointLevel
 
-def checkpointResult : RuntimeSimulationResult :=
-  simulateChartSpecWithTactic checkpointChart (defaultTacticFromChart checkpointChart)
+abbrev checkpointChart := RealChartVerificationKoishiDISCO.checkpointChart
 
-private def exactHoldReleaseModule (noteIndex : Nat) : TimingSkeletonModule :=
-  noteIndexModule noteIndex (fun entry =>
-    match entry with
-    | .hold _ _ inputTime releaseInputTime zone =>
-        mkManualTacticSequence
-          [ tapAtTime inputTime zone
-          , holdButtonAtTime inputTime zone true
-          , holdButtonAtTime releaseInputTime zone false ]
-    | _ => resolveDefaultTimingSkeleton entry)
+abbrev checkpointResult := RealChartVerificationKoishiDISCO.checkpointResult
 
-private def exactSensorHoldModule (noteIndex : Nat) : TimingSkeletonModule :=
-  noteIndexModule noteIndex (fun entry =>
-    match entry with
-    | .hold _ _ inputTime releaseInputTime zone =>
-        let area := zone.toOuterSensorArea
-        mkManualTacticSequence
-          [ touchAtTime inputTime area
-          , holdSensorAtTime inputTime area true
-          , holdSensorAtTime releaseInputTime area false ]
-    | _ => resolveDefaultTimingSkeleton entry)
+abbrev checkpointHoldReleaseResult := RealChartVerificationKoishiDISCO.checkpointHoldReleaseResult
 
-private def holdReleaseModules : List TimingSkeletonModule :=
-  [ exactHoldReleaseModule 31
-  , exactHoldReleaseModule 179
-  , exactHoldReleaseModule 181
-  , exactHoldReleaseModule 235
-  , exactHoldReleaseModule 992
-  , exactHoldReleaseModule 993
-  , exactHoldReleaseModule 1030
-  , exactHoldReleaseModule 1037 ]
+abbrev checkpointOverlapSplitResult := RealChartVerificationKoishiDISCO.checkpointOverlapSplitResult
 
-def checkpointHoldReleaseResult : RuntimeSimulationResult :=
-  simulateChartSpecWithTactic checkpointChart
-    (tacticFromChartWithModules checkpointChart holdReleaseModules)
-
-private def overlapSplitModules : List TimingSkeletonModule :=
-  [ exactHoldReleaseModule 31
-  , exactSensorHoldModule 33
-  , exactSensorHoldModule 43
-  , exactSensorHoldModule 179
-  , exactHoldReleaseModule 181
-  , exactSensorHoldModule 243
-  , exactSensorHoldModule 251
-  , exactSensorHoldModule 257
-  , exactSensorHoldModule 993
-  , exactSensorHoldModule 995
-  , exactSensorHoldModule 1032
-  , exactSensorHoldModule 1037 ]
-
-def checkpointOverlapSplitResult : RuntimeSimulationResult :=
-  simulateChartSpecWithTactic checkpointChart
-    (tacticFromChartWithModules checkpointChart overlapSplitModules)
-
-def checkpointOverlapSplitNonPerfects : List (Nat × JudgeGrade) :=
-  checkpointOverlapSplitResult.events.filterMap (fun evt =>
-    if evt.grade = .Perfect then none else some (evt.noteIndex, evt.grade))
+abbrev checkpointOverlapSplitNonPerfects := RealChartVerificationKoishiDISCO.checkpointOverlapSplitNonPerfects
 
 theorem checkpoint_has_no_missing_notes :
-    missingJudgedNoteIndices checkpointResult = [] := by
-  native_decide
+    missingJudgedNoteIndices checkpointResult = [] :=
+  RealChartVerificationKoishiDISCO.checkpoint_has_no_missing_notes
 
 theorem checkpoint_default_tactic_does_not_achieve_ap :
-    achievesAP checkpointResult = false := by
-  native_decide
+    achievesAP checkpointResult = false :=
+  RealChartVerificationKoishiDISCO.checkpoint_default_tactic_does_not_achieve_ap
 
 theorem checkpoint_has_non_perfect_notes :
     (checkpointResult.events.filterMap fun evt =>
-      if evt.grade = JudgeGrade.Perfect then none else some evt.noteIndex) ≠ [] := by
-  native_decide
+      if evt.grade = JudgeGrade.Perfect then none else some evt.noteIndex) ≠ [] :=
+  RealChartVerificationKoishiDISCO.checkpoint_has_non_perfect_notes
 
 theorem checkpoint_hold_release_pass_has_no_missing_notes :
-    missingJudgedNoteIndices checkpointHoldReleaseResult = [] := by
-  native_decide
+    missingJudgedNoteIndices checkpointHoldReleaseResult = [] :=
+  RealChartVerificationKoishiDISCO.checkpoint_hold_release_pass_has_no_missing_notes
 
 theorem checkpoint_overlap_split_has_no_missing_notes :
-    missingJudgedNoteIndices checkpointOverlapSplitResult = [] := by
-  native_decide
+    missingJudgedNoteIndices checkpointOverlapSplitResult = [] :=
+  RealChartVerificationKoishiDISCO.checkpoint_overlap_split_has_no_missing_notes
 
 theorem checkpoint_overlap_split_achieves_ap :
-    achievesAP checkpointOverlapSplitResult = true := by
-  native_decide
+    achievesAP checkpointOverlapSplitResult = true :=
+  RealChartVerificationKoishiDISCO.checkpoint_overlap_split_achieves_ap
 
 theorem checkpoint_overlap_split_has_no_non_perfect_notes :
-    checkpointOverlapSplitNonPerfects = [] := by
-  native_decide
+    checkpointOverlapSplitNonPerfects = [] :=
+  RealChartVerificationKoishiDISCO.checkpoint_overlap_split_has_no_non_perfect_notes
 
-end Proofs.RealChartVerification小石DISCO
+end Proofs.«RealChartVerification小石DISCO»

@@ -3,12 +3,13 @@
 //! Mirrors `LnmaiCore/Types.lean`. Pure data only; no `String`, no
 //! collections, so the module stays inside the Aeneas subset.
 
-use super::areas::{ButtonZone, OuterSlot, SensorArea};
-use super::time::{Duration, TimePoint};
+use super::areas::{ButtonZone, SensorArea};
+use super::time::Duration;
 
 /// Judgment grades (15-tier lattice, ordered by quality ascending).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum JudgeGrade {
+    #[default]
     Miss,
     LateGood,
     LateGreat3rd,
@@ -107,8 +108,9 @@ impl JudgeGrade {
 }
 
 /// Display/counting option mirrored from MajdataPlay's `JudgeDisplayOption`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum JudgeDisplayOption {
+    #[default]
     All,
     BelowCP,
     BelowP,
@@ -118,8 +120,9 @@ pub enum JudgeDisplayOption {
 }
 
 /// Note types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NoteType {
+    #[default]
     Tap,
     Hold,
     Slide,
@@ -148,23 +151,26 @@ impl NoteType {
 }
 
 /// Slide kinds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SlideKind {
+    #[default]
     Single,
     Wifi,
     ConnPart,
 }
 
 /// Area policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AreaPolicy {
+    #[default]
     Or,
     And,
 }
 
 /// Difficulty / judgment style.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum JudgeStyle {
+    #[default]
     Default,
     Maji,
     Gachi,
@@ -172,8 +178,9 @@ pub enum JudgeStyle {
 }
 
 /// Note lifecycle status.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NoteStatus {
+    #[default]
     Start,
     Inited,
     Scaling,
@@ -207,8 +214,9 @@ impl NoteStatus {
 }
 
 /// Combo display state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum ComboState {
+    #[default]
     None,
     FC,
     FCPlus,
@@ -221,6 +229,18 @@ pub enum ComboState {
 pub enum RuntimePos {
     Button(ButtonZone),
     Sensor(SensorArea),
+}
+
+impl Default for RuntimePos {
+    fn default() -> Self {
+        Self::Button(ButtonZone::K1)
+    }
+}
+
+impl core::fmt::Display for JudgeGrade {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(self, f)
+    }
 }
 
 impl RuntimePos {
@@ -240,8 +260,9 @@ impl RuntimePos {
 }
 
 /// Judge event kind.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum JudgeEventKind {
+    #[default]
     Tap,
     Hold,
     Slide,
@@ -250,7 +271,7 @@ pub enum JudgeEventKind {
 }
 
 /// A single note's judgment result.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct NoteJudgeResult {
     pub grade: JudgeGrade,
     pub diff: Duration,
@@ -269,7 +290,7 @@ impl NoteJudgeResult {
 }
 
 /// Group state for multi-part notes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct GroupState {
     pub group_id: usize,
     pub count: usize,
@@ -278,16 +299,42 @@ pub struct GroupState {
     pub diff: Duration,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum JudgePhase {
+    #[default]
+    Head,
+    Tail,
+}
+
 /// Judge event emitted by Core, consumed by the host for rendering.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JudgeEvent {
     pub kind: JudgeEventKind,
+    pub phase: JudgePhase,
     pub grade: JudgeGrade,
     pub diff: Duration,
     pub position: RuntimePos,
     pub note_index: usize,
     pub is_break: bool,
+    pub is_ex: bool,
     pub multiple: usize,
+}
+
+impl Default for JudgeEvent {
+    fn default() -> Self {
+        Self {
+            kind: JudgeEventKind::default(),
+            phase: JudgePhase::default(),
+            grade: JudgeGrade::default(),
+            diff: Duration::default(),
+            position: RuntimePos::default(),
+            note_index: 0,
+            is_break: false,
+            is_ex: false,
+            // Lean's derived Inhabited uses Nat.default, not the field initializer.
+            multiple: 0,
+        }
+    }
 }
 
 /// Score accumulation state.
@@ -310,6 +357,8 @@ pub struct ScoreState {
     pub late_count: usize,
 }
 
+// Explicit zero fields avoid external Default calls in the extracted model.
+#[allow(clippy::derivable_impls)]
 impl Default for ScoreState {
     fn default() -> Self {
         ScoreState {
@@ -331,17 +380,6 @@ impl Default for ScoreState {
         }
     }
 }
-
-/// Audio/render command enums exist in Lean for the FFI event boundary.
-/// They are unmodelled here until M4 (FFI shell).
-#[allow(dead_code)]
-pub struct AudioCommandPlaceholder;
-
-#[allow(dead_code)]
-pub struct RenderCommandPlaceholder;
-
-#[allow(dead_code)]
-pub fn _time_point_unused(_p: TimePoint, _s: OuterSlot) {}
 
 #[cfg(test)]
 mod tests {

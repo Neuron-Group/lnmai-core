@@ -23,4 +23,9 @@ for f in "$LNMAI_LEAN_PARSER_CLI" "$LNMAI_LEAN_RUNTIME_CLI"; do
 done
 
 cd "$here"
-cargo test -p lnmai_core --test differential -- --nocapture "$@"
+profile=()
+if [[ "${1:-}" == --release ]]; then
+  profile=(--release)
+  shift
+fi
+cargo test --locked "${profile[@]}" -p lnmai_core --test differential -- --ignored --nocapture "$@"

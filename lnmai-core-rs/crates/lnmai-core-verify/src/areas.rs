@@ -6,23 +6,167 @@
 //! The Lean module defines index/rotation functions only for `ButtonZone` and
 //! `OuterSlot`; `SensorArea` has no `toIndex` in Lean, so none is provided here.
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum SensorArea {
-    A1, A2, A3, A4, A5, A6, A7, A8,
-    B1, B2, B3, B4, B5, B6, B7, B8,
+    #[default]
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    B1,
+    B2,
+    B3,
+    B4,
+    B5,
+    B6,
+    B7,
+    B8,
     C,
-    D1, D2, D3, D4, D5, D6, D7, D8,
-    E1, E2, E3, E4, E5, E6, E7, E8,
+    D1,
+    D2,
+    D3,
+    D4,
+    D5,
+    D6,
+    D7,
+    D8,
+    E1,
+    E2,
+    E3,
+    E4,
+    E5,
+    E6,
+    E7,
+    E8,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum ButtonZone {
-    K1, K2, K3, K4, K5, K6, K7, K8,
+    #[default]
+    K1,
+    K2,
+    K3,
+    K4,
+    K5,
+    K6,
+    K7,
+    K8,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum OuterSlot {
-    S1, S2, S3, S4, S5, S6, S7, S8,
+    #[default]
+    S1,
+    S2,
+    S3,
+    S4,
+    S5,
+    S6,
+    S7,
+    S8,
+}
+
+impl SensorArea {
+    /// Constructor order from `SensorArea.all` in Lean.
+    pub fn all() -> [Self; 33] {
+        [
+            Self::A1,
+            Self::A2,
+            Self::A3,
+            Self::A4,
+            Self::A5,
+            Self::A6,
+            Self::A7,
+            Self::A8,
+            Self::B1,
+            Self::B2,
+            Self::B3,
+            Self::B4,
+            Self::B5,
+            Self::B6,
+            Self::B7,
+            Self::B8,
+            Self::C,
+            Self::D1,
+            Self::D2,
+            Self::D3,
+            Self::D4,
+            Self::D5,
+            Self::D6,
+            Self::D7,
+            Self::D8,
+            Self::E1,
+            Self::E2,
+            Self::E3,
+            Self::E4,
+            Self::E5,
+            Self::E6,
+            Self::E7,
+            Self::E8,
+        ]
+    }
+}
+
+impl core::fmt::Display for SensorArea {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(self, f)
+    }
+}
+
+impl ButtonZone {
+    /// Constructor order from `ButtonZone.all` in Lean.
+    pub fn all() -> [Self; 8] {
+        [
+            Self::K1,
+            Self::K2,
+            Self::K3,
+            Self::K4,
+            Self::K5,
+            Self::K6,
+            Self::K7,
+            Self::K8,
+        ]
+    }
+
+    pub fn storage_order() -> [Self; 8] {
+        Self::all()
+    }
+}
+
+impl core::fmt::Display for ButtonZone {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(self, f)
+    }
+}
+
+impl OuterSlot {
+    /// Constructor order from `OuterSlot.all` in Lean.
+    pub fn all() -> [Self; 8] {
+        [
+            Self::S1,
+            Self::S2,
+            Self::S3,
+            Self::S4,
+            Self::S5,
+            Self::S6,
+            Self::S7,
+            Self::S8,
+        ]
+    }
+
+    pub fn storage_order() -> [Self; 8] {
+        Self::all()
+    }
+}
+
+impl core::fmt::Display for OuterSlot {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(self, f)
+    }
 }
 
 /// `((n - 1) + steps) % 8 + 1` with `steps` reduced first so the addition
@@ -166,6 +310,8 @@ impl SensorArea {
     }
 
     /// `SensorArea.toOuterButtonZone?`.
+    // Explicit matching keeps the extracted function first-order.
+    #[allow(clippy::manual_map)]
     pub fn to_outer_button_zone(self) -> Option<ButtonZone> {
         match self.to_outer_slot() {
             Some(slot) => Some(slot.to_button_zone()),

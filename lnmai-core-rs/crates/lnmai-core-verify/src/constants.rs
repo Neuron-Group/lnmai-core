@@ -14,7 +14,7 @@ pub const TAP_PERFECT_3RD: Duration = Duration { micros: 50001 };
 pub const TAP_GREAT_1ST: Duration = Duration { micros: 66668 };
 pub const TAP_GREAT_2ND: Duration = Duration { micros: 83335 };
 pub const TAP_GREAT_3RD: Duration = Duration { micros: 100002 };
-pub const TAP_GOOD: Duration = Duration { micros: 150003 };
+pub const TAP_GOOD: Duration = Duration { micros: 150000 };
 
 // Touch judgment windows
 pub const TOUCH_PERFECT_1ST: Duration = Duration { micros: 150003 };
@@ -58,4 +58,3 @@ pub const SENSOR_AREA_COUNT: u32 = 33;
 
 // Judge offset applied to slide sub-grade subdivision.
 pub const SUBDIVIDE_SLIDE_JUDGE_GRADE: bool = false;
-

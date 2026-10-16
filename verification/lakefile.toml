@@ -4,12 +4,12 @@ defaultTargets = ["Verification"]
 precompileModules = false
 
 [[require]]
-name = "aeneas"
-path = "/home/pingfanh/aeneas/backends/lean"
-
-[[require]]
 name = "lnmai-core"
 path = ".."
+
+[[require]]
+name = "aeneas"
+path = ".lake/local/aeneas"
 
 [[lean_lib]]
 name = "Verification"

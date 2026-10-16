@@ -6,7 +6,6 @@
   some structures; manual Eq instances are provided where needed.
 -/
 
-import Mathlib
 import Lean.Data.Json
 import LnmaiCore.Areas
 import LnmaiCore.Time

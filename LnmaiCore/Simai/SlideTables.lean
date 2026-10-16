@@ -1,4 +1,3 @@
-import Mathlib
 import LnmaiCore.Areas
 import LnmaiCore.Types
 import LnmaiCore.Simai.Syntax

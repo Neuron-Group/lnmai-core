@@ -19,7 +19,7 @@ private def activeForArea (state : InputModel.GameState) (area : SensorArea) :
     , (state.currentTime - entry.2.params.effectiveTiming).toMicros))
 
 def main : IO Unit := do
-  let content ← IO.FS.readFile "../assets/小石DISCO/maidata.txt"
+  let content ← IO.FS.readFile "tools/assets/小石DISCO/maidata.txt"
   let chart ←
     match Simai.compileLowered content 5 with
     | .ok chart => pure chart

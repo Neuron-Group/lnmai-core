@@ -4,101 +4,147 @@
 //! grade → count table per note type), matching `LnmaiCore/Types.lean`.
 //! Counts are stored as fixed arrays indexed by the Lean `JudgeGrade` order.
 
+use crate::natural::Natural;
 use crate::score::{base_score, count_fast_late, score_break, score_non_break, update_combo};
-use crate::time::Duration;
-use crate::types::{JudgeDisplayOption, JudgeEvent, JudgeEventKind, JudgeGrade, NoteType};
+use crate::types::{
+    ComboState, JudgeDisplayOption, JudgeEvent, JudgeEventKind, JudgeGrade, NoteType,
+};
+use lnmai_core_verify::grade_counts::{get_count, set_count, NUM_GRADES};
+pub use lnmai_core_verify::grade_counts::{grade_index, JUDGE_GRADES};
+use num_bigint::{BigInt, BigUint};
+use num_traits::Zero;
 
-/// Index of a grade in the canonical 15-tier order.
-pub fn grade_index(g: JudgeGrade) -> usize {
-    match g {
-        JudgeGrade::Miss => 0,
-        JudgeGrade::LateGood => 1,
-        JudgeGrade::LateGreat3rd => 2,
-        JudgeGrade::LateGreat2nd => 3,
-        JudgeGrade::LateGreat => 4,
-        JudgeGrade::LatePerfect3rd => 5,
-        JudgeGrade::LatePerfect2nd => 6,
-        JudgeGrade::Perfect => 7,
-        JudgeGrade::FastPerfect2nd => 8,
-        JudgeGrade::FastPerfect3rd => 9,
-        JudgeGrade::FastGreat => 10,
-        JudgeGrade::FastGreat2nd => 11,
-        JudgeGrade::FastGreat3rd => 12,
-        JudgeGrade::FastGood => 13,
-        JudgeGrade::TooFast => 14,
-    }
+pub type JudgeCounts = [BigUint; NUM_GRADES];
+
+pub fn empty_judge_counts() -> JudgeCounts {
+    std::array::from_fn(|_| BigUint::zero())
 }
-
-const NUM_GRADES: usize = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NoteTypeJudgeCounts {
-    pub tap: [usize; NUM_GRADES],
-    pub hold: [usize; NUM_GRADES],
-    pub slide: [usize; NUM_GRADES],
-    pub touch: [usize; NUM_GRADES],
-    pub break_: [usize; NUM_GRADES],
+    pub tap: [BigUint; NUM_GRADES],
+    pub hold: [BigUint; NUM_GRADES],
+    pub slide: [BigUint; NUM_GRADES],
+    pub touch: [BigUint; NUM_GRADES],
+    pub break_: [BigUint; NUM_GRADES],
 }
 
 impl Default for NoteTypeJudgeCounts {
     fn default() -> Self {
         NoteTypeJudgeCounts {
-            tap: [0; NUM_GRADES],
-            hold: [0; NUM_GRADES],
-            slide: [0; NUM_GRADES],
-            touch: [0; NUM_GRADES],
-            break_: [0; NUM_GRADES],
+            tap: std::array::from_fn(|_| BigUint::zero()),
+            hold: std::array::from_fn(|_| BigUint::zero()),
+            slide: std::array::from_fn(|_| BigUint::zero()),
+            touch: std::array::from_fn(|_| BigUint::zero()),
+            break_: std::array::from_fn(|_| BigUint::zero()),
         }
     }
 }
 
 impl NoteTypeJudgeCounts {
-    pub fn grade_count(&self, grade: JudgeGrade) -> usize {
-        let i = grade_index(grade);
-        self.tap[i] + self.hold[i] + self.slide[i] + self.touch[i] + self.break_[i]
+    pub fn grade_count(&self, grade: JudgeGrade) -> BigUint {
+        get_count(&self.tap, grade)
+            + get_count(&self.hold, grade)
+            + get_count(&self.slide, grade)
+            + get_count(&self.touch, grade)
+            + get_count(&self.break_, grade)
+    }
+
+    pub fn grade_count_where(&self, mut pred: impl FnMut(JudgeGrade) -> bool) -> BigUint {
+        JUDGE_GRADES
+            .into_iter()
+            .fold(BigUint::zero(), |acc, grade| {
+                if pred(grade) {
+                    acc + self.grade_count(grade)
+                } else {
+                    acc
+                }
+            })
+    }
+
+    pub fn break_grade_count_where(&self, mut pred: impl FnMut(JudgeGrade) -> bool) -> BigUint {
+        JUDGE_GRADES
+            .into_iter()
+            .fold(BigUint::zero(), |acc, grade| {
+                if pred(grade) {
+                    acc + get_count(&self.break_, grade)
+                } else {
+                    acc
+                }
+            })
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+pub fn empty_note_type_judge_counts() -> NoteTypeJudgeCounts {
+    NoteTypeJudgeCounts::default()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimeScoreState {
-    pub combo: usize,
-    pub p_combo: usize,
-    pub c_p_combo: usize,
-    pub total_base: usize,
-    pub total_extra: usize,
-    pub earned_base: usize,
-    pub earned_extra: usize,
-    pub earned_classic_extra: usize,
-    pub lost_base: usize,
-    pub lost_extra: usize,
-    pub lost_classic_extra: usize,
-    pub dx_score: i64,
-    pub max_dx_score: usize,
-    pub fast_count: usize,
-    pub late_count: usize,
+    pub combo: BigUint,
+    pub p_combo: BigUint,
+    pub c_p_combo: BigUint,
+    pub total_base: BigUint,
+    pub total_extra: BigUint,
+    pub earned_base: BigUint,
+    pub earned_extra: BigUint,
+    pub earned_classic_extra: BigUint,
+    pub lost_base: BigUint,
+    pub lost_extra: BigUint,
+    pub lost_classic_extra: BigUint,
+    pub dx_score: BigInt,
+    pub max_dx_score: BigUint,
+    pub fast_count: BigUint,
+    pub late_count: BigUint,
     pub counts: NoteTypeJudgeCounts,
 }
 
-impl Default for RuntimeScoreState {
-    fn default() -> Self {
-        RuntimeScoreState {
-            combo: 0,
-            p_combo: 0,
-            c_p_combo: 0,
-            total_base: 0,
-            total_extra: 0,
-            earned_base: 0,
-            earned_extra: 0,
-            earned_classic_extra: 0,
-            lost_base: 0,
-            lost_extra: 0,
-            lost_classic_extra: 0,
-            dx_score: 0,
-            max_dx_score: 0,
-            fast_count: 0,
-            late_count: 0,
-            counts: NoteTypeJudgeCounts::default(),
+/// `LnmaiCore.comboState`: derive the display from judgment counts, including
+/// the separate requirement that AP+ has at least one critically judged Break.
+pub fn combo_state(s: &RuntimeScoreState) -> ComboState {
+    let noncritical_perfect = |grade| {
+        matches!(
+            grade,
+            JudgeGrade::LatePerfect3rd
+                | JudgeGrade::LatePerfect2nd
+                | JudgeGrade::FastPerfect2nd
+                | JudgeGrade::FastPerfect3rd
+        )
+    };
+    let critical = s.counts.grade_count(JudgeGrade::Perfect);
+    let perfect = s.counts.grade_count_where(noncritical_perfect);
+    let great = s.counts.grade_count_where(|g| g.is_great_grade());
+    let good = s.counts.grade_count_where(|g| g.is_good_grade());
+    let miss = s.counts.grade_count_where(|g| g.is_miss_or_too_fast());
+    let all_non_miss = critical + perfect + &great + &good;
+    let is_full_combo = !all_non_miss.is_zero() && miss.is_zero();
+    let is_full_combo_plus = is_full_combo && good.is_zero();
+    let is_all_perfect = is_full_combo_plus && great.is_zero();
+    let break_critical = get_count(&s.counts.break_, JudgeGrade::Perfect);
+    let break_perfect = s.counts.break_grade_count_where(noncritical_perfect);
+    let break_great = s.counts.break_grade_count_where(|g| g.is_great_grade());
+    let break_good = s.counts.break_grade_count_where(|g| g.is_good_grade());
+    let break_miss = s
+        .counts
+        .break_grade_count_where(|g| g.is_miss_or_too_fast());
+    let break_all_non_miss = break_critical + &break_perfect + &break_great + &break_good;
+    let break_is_all_perfect = !break_all_non_miss.is_zero()
+        && break_miss.is_zero()
+        && break_good.is_zero()
+        && break_great.is_zero();
+    let break_is_theoretical = break_is_all_perfect && break_perfect.is_zero();
+    if !is_full_combo {
+        ComboState::None
+    } else if is_all_perfect {
+        if break_is_theoretical {
+            ComboState::APPlus
+        } else {
+            ComboState::AP
         }
+    } else if is_full_combo_plus {
+        ComboState::FCPlus
+    } else {
+        ComboState::FC
     }
 }
 
@@ -117,15 +163,22 @@ fn event_score_note_type(evt: &JudgeEvent) -> NoteType {
 }
 
 /// Returns `(earnedBase, earnedExtra, earnedClassicExtra, lostBase, lostExtra, lostClassicExtra)`.
-fn event_score_deltas(evt: &JudgeEvent, multiple: usize) -> (usize, usize, usize, usize, usize, usize) {
+fn event_score_deltas(evt: &JudgeEvent, multiple: &Natural) -> [BigUint; 6] {
     match event_score_note_type(evt) {
         NoteType::Break => {
-            let (eb, ee, ece, lb, le, lce) = score_break(evt.grade, multiple as u32);
-            (eb as usize, ee as usize, ece as usize, lb as usize, le as usize, lce as usize)
+            let (a, b, c, d, e, f) = score_break(evt.grade, multiple);
+            [a, b, c, d, e, f].map(Into::into)
         }
         kind => {
-            let (earned, lost) = score_non_break(base_score(kind), evt.grade, multiple as u32);
-            (earned as usize, 0, 0, lost as usize, 0, 0)
+            let (earned, lost) = score_non_break(base_score(kind), evt.grade, multiple);
+            [
+                earned.into(),
+                BigUint::zero(),
+                BigUint::zero(),
+                lost.into(),
+                BigUint::zero(),
+                BigUint::zero(),
+            ]
         }
     }
 }
@@ -137,48 +190,60 @@ pub fn fold_event_into_score(
     s: &RuntimeScoreState,
     evt: &JudgeEvent,
 ) -> RuntimeScoreState {
-    let multiple = evt.multiple.max(1);
+    if evt.kind == JudgeEventKind::Hold && evt.phase == crate::types::JudgePhase::Head {
+        return s.clone();
+    }
+    let multiple = evt.multiple.clone().max(1.into());
     let combo_delta = update_combo(
-        s.combo as u32,
-        s.p_combo as u32,
-        s.c_p_combo as u32,
-        s.dx_score,
+        s.combo.clone(),
+        s.p_combo.clone(),
+        s.c_p_combo.clone(),
+        s.dx_score.clone(),
         evt.grade,
-        multiple as u32,
+        &multiple,
     );
-    let (eb, ee, ece, lb, le, lce) = event_score_deltas(evt, multiple);
+    let [eb, ee, ece, lb, le, lce] = event_score_deltas(evt, &multiple);
+    let multiple = multiple.to_biguint();
     let display = if evt.is_break || evt.kind == JudgeEventKind::Break {
         break_display
     } else {
         note_display
     };
-    let (is_fast, is_late) = count_fast_late(evt.grade, evt.diff, display);
-    let gi = grade_index(evt.grade);
+    let (is_fast, is_late) = count_fast_late(evt.grade, evt.diff.clone(), display);
     let mut counts = s.counts.clone();
+    let bump = |table: &mut JudgeCounts| {
+        let value = get_count(table, evt.grade) + &multiple;
+        set_count(table, evt.grade, value);
+    };
     if evt.is_break || evt.kind == JudgeEventKind::Break {
-        counts.break_[gi] += multiple;
+        bump(&mut counts.break_);
     } else {
         match evt.kind {
-            JudgeEventKind::Tap => counts.tap[gi] += multiple,
-            JudgeEventKind::Hold => counts.hold[gi] += multiple,
-            JudgeEventKind::Slide => counts.slide[gi] += multiple,
-            JudgeEventKind::Touch => counts.touch[gi] += multiple,
-            JudgeEventKind::Break => counts.break_[gi] += multiple,
+            JudgeEventKind::Tap => bump(&mut counts.tap),
+            JudgeEventKind::Hold => bump(&mut counts.hold),
+            JudgeEventKind::Slide => bump(&mut counts.slide),
+            JudgeEventKind::Touch => bump(&mut counts.touch),
+            JudgeEventKind::Break => bump(&mut counts.break_),
         }
     }
     RuntimeScoreState {
-        combo: combo_delta.combo as usize,
-        p_combo: combo_delta.p_combo as usize,
-        c_p_combo: combo_delta.c_p_combo as usize,
-        earned_base: s.earned_base + eb,
-        earned_extra: s.earned_extra + ee,
-        earned_classic_extra: s.earned_classic_extra + ece,
-        lost_base: s.lost_base + lb,
-        lost_extra: s.lost_extra + le,
-        lost_classic_extra: s.lost_classic_extra + lce,
+        combo: combo_delta.combo.into(),
+        p_combo: combo_delta.p_combo.into(),
+        c_p_combo: combo_delta.c_p_combo.into(),
+        earned_base: &s.earned_base + eb,
+        earned_extra: &s.earned_extra + ee,
+        earned_classic_extra: &s.earned_classic_extra + ece,
+        lost_base: &s.lost_base + lb,
+        lost_extra: &s.lost_extra + le,
+        lost_classic_extra: &s.lost_classic_extra + lce,
         dx_score: combo_delta.dx_score_lost,
-        fast_count: s.fast_count + if is_fast { multiple } else { 0 },
-        late_count: s.late_count + if is_late { multiple } else { 0 },
+        fast_count: &s.fast_count
+            + if is_fast {
+                multiple.clone()
+            } else {
+                BigUint::zero()
+            },
+        late_count: &s.late_count + if is_late { multiple } else { BigUint::zero() },
         counts,
         ..s.clone()
     }
@@ -197,6 +262,3 @@ pub fn fold_events_into_score(
     }
     acc
 }
-
-#[allow(dead_code)]
-fn _unused(_d: Duration) {}

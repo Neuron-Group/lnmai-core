@@ -431,7 +431,7 @@ theorem judgeSlideModern_expand (d s : LnmaiCore.Duration) (is_ex : Bool) :
   rfl
 
 theorem judge_slide_modern_equiv (diff stay_time : time.Duration) (is_ex : Bool)
-    (hmin : diff.micros ≠ IScalar.min .I64) (hstay : 0 ≤ stay_time.micros.val)
+    (hmin : diff.micros ≠ IScalar.min .I64) (hstay : -2^40 ≤ stay_time.micros.val)
     (hstay_hi : stay_time.micros.val ≤ 2^40) :
     judge.judge_slide_modern diff stay_time is_ex =
       ok (ofLnmJudgeGrade
@@ -447,23 +447,23 @@ theorem judge_slide_modern_equiv (diff stay_time : time.Duration) (is_ex : Bool)
       min (LnmaiCore.Duration.divNat (toLnmDuration stay_time) 4)
         LnmaiCore.Constants.SLIDE_JUDGE_MAXIMUM_ALLOWED_EXT_LENGTH_MSEC with hS
   have hsdediv : stay_time.micros.val / 4 = sd4.micros.val := by
-    have h' : sd4.micros.val = (stay_time.micros.val).tdiv 4 := by simpa using hsd4v
-    rw [h']; exact (Int.tdiv_eq_ediv_of_nonneg hstay).symm
+    have h' : sd4.micros.val = stay_time.micros.val / 4 := by simpa using hsd4v
+    exact h'.symm
+  have hsd_lower : -2^40 ≤ sd4.micros.val := by omega
   by_cases hext : sd4.micros < constants.SLIDE_MAX_EXT.micros
   · have hextv : sd4.micros.val < 366674 := by simpa [slideMaxExt_model] using hext
     rw [if_pos hext]; simp only [bind_tc_ok]
     obtain ⟨iv, hiv, hivv⟩ := i64_add_eq constants.SLIDE_PERFECT_3RD.micros sd4.micros
-      (by rw [slideP3_model]; (first | omega | scalar_tac)) (by rw [slideP3_model]; (first | omega | scalar_tac))
+      (by rw [slideP3_model, IScalar.min_IScalarTy_I64_eq, I64.min_eq]; omega) (by rw [slideP3_model, IScalar.max_IScalarTy_I64_eq, I64.max_eq]; omega)
     rw [hiv]; simp only [bind_tc_ok]
     obtain ⟨s1, hs1, hs1v⟩ := div_nat_eq { micros := iv } 3#u32 (by simp)
     rw [hs1]; simp only [bind_tc_ok]
     obtain ⟨d, hd, hdv⟩ := scale_nat_eq { micros := iv } 2#u32
-      (by rw [hivv, slideP3_model]; (first | omega | scalar_tac))
-      (by rw [hivv, slideP3_model]; (first | omega | scalar_tac))
+      (by rw [hivv, slideP3_model, IScalar.min_IScalarTy_I64_eq, I64.min_eq]; norm_num; omega)
+      (by rw [hivv, slideP3_model, IScalar.max_IScalarTy_I64_eq, I64.max_eq]; norm_num; omega)
     rw [hd]; simp only [bind_tc_ok]
     obtain ⟨s2, hs2, hs2v⟩ := div_nat_eq d 3#u32 (by simp)
     rw [hs2]; simp only [bind_tc_ok]
-    have hivnn : 0 ≤ iv.val := by rw [hivv, slideP3_model]; omega
     have hidv : d.micros.val = iv.val * 2 := by simpa using hdv
     have hs3 : S.toMicros = iv.val := by
       rw [hS, Duration.toMicros_add, Duration.toMicros_min, Duration.toMicros_divNat,
@@ -472,14 +472,14 @@ theorem judge_slide_modern_equiv (diff stay_time : time.Duration) (is_ex : Bool)
         min_eq_left (by omega : sd4.micros.val ≤ 366674), hivv, slideP3_model]
     have hs1eq : (LnmaiCore.Duration.divNat S 3).toMicros = s1.micros.val := by
       rw [Duration.toMicros_divNat, hs3, if_neg (by norm_num : ¬ (3:Nat) = 0)]
-      have h' : s1.micros.val = (iv.val).tdiv 3 := by simpa using hs1v
-      rw [h']; exact (Int.tdiv_eq_ediv_of_nonneg hivnn).symm
+      have h' : s1.micros.val = iv.val / 3 := by simpa using hs1v
+      exact h'.symm
     have hs2eq : (LnmaiCore.Duration.divNat (LnmaiCore.Duration.scaleNat S 2) 3).toMicros = s2.micros.val := by
       rw [Duration.toMicros_divNat, Duration.toMicros_scaleNat, hs3,
         if_neg (by norm_num : ¬ (3:Nat) = 0)]
-      have h' : s2.micros.val = (d.micros.val).tdiv 3 := by simpa using hs2v
+      have h' : s2.micros.val = d.micros.val / 3 := by simpa using hs2v
       rw [h', hidv]
-      exact (Int.tdiv_eq_ediv_of_nonneg (by omega)).symm
+      rfl
     simp only [lnmDuration_le_iff_toMicros, duration_abs_toMicros, hs3, hs1eq, hs2eq,
       slideG1_spec, slideG2_spec, slideG3_spec,
       slideG1_model, slideG2_model, slideG3_model, toLnmDuration_lt_zero,
@@ -512,14 +512,14 @@ theorem judge_slide_modern_equiv (diff stay_time : time.Duration) (is_ex : Bool)
         min_eq_right (by omega : 366674 ≤ sd4.micros.val), hivv, slideP3_model, slideMaxExt_model]
     have hs1eq : (LnmaiCore.Duration.divNat S 3).toMicros = s1.micros.val := by
       rw [Duration.toMicros_divNat, hs3, if_neg (by norm_num : ¬ (3:Nat) = 0)]
-      have h' : s1.micros.val = (iv.val).tdiv 3 := by simpa using hs1v
-      rw [h']; exact (Int.tdiv_eq_ediv_of_nonneg hivnn).symm
+      have h' : s1.micros.val = iv.val / 3 := by simpa using hs1v
+      exact h'.symm
     have hs2eq : (LnmaiCore.Duration.divNat (LnmaiCore.Duration.scaleNat S 2) 3).toMicros = s2.micros.val := by
       rw [Duration.toMicros_divNat, Duration.toMicros_scaleNat, hs3,
         if_neg (by norm_num : ¬ (3:Nat) = 0)]
-      have h' : s2.micros.val = (d.micros.val).tdiv 3 := by simpa using hs2v
+      have h' : s2.micros.val = d.micros.val / 3 := by simpa using hs2v
       rw [h', hidv]
-      exact (Int.tdiv_eq_ediv_of_nonneg (by omega)).symm
+      rfl
     simp only [lnmDuration_le_iff_toMicros, duration_abs_toMicros, hs3, hs1eq, hs2eq,
       slideG1_spec, slideG2_spec, slideG3_spec,
       slideG1_model, slideG2_model, slideG3_model, toLnmDuration_lt_zero,

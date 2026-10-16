@@ -3,19 +3,19 @@
 //! Mirrors `LnmaiCore/Simai/Shape.lean`.
 
 use crate::areas::{OuterSlot, SensorArea};
+use crate::natural::Natural;
 use crate::simai::syntax::{
     CanonicalSlideShape, ParseError, ParseErrorKind, ParsedSlideBody, SlideBodyKind, SlideKind,
     SlideShape,
 };
-use crate::symmetry::{self, SlideSymmetry};
+use crate::symmetry;
+use lnmai_core_verify::shape as kernel;
 
-fn error(kind: ParseErrorKind, raw_text: &str, message: &str) -> ParseError {
-    ParseError { kind, raw_text: raw_text.to_string(), message: message.to_string(), span: None }
-}
+pub use kernel::digit_to_nat;
+use kernel::{outer_slot_is_right_half, outer_slot_is_upper_half};
 
-/// `SlideShape.kind`.
-pub fn shape_kind(shape: SlideShape) -> SlideKind {
-    match shape.canonical {
+pub fn shape_kind(shape: &SlideShape) -> SlideKind {
+    match &shape.canonical {
         CanonicalSlideShape::Line(_) => SlideKind::Line,
         CanonicalSlideShape::Circle(_) => SlideKind::Circle,
         CanonicalSlideShape::V(_) => SlideKind::V,
@@ -27,50 +27,135 @@ pub fn shape_kind(shape: SlideShape) -> SlideKind {
     }
 }
 
-/// `SlideShape.relEnd`.
-pub fn shape_rel_end(shape: SlideShape) -> Option<usize> {
-    match shape.canonical {
+pub fn shape_rel_end(shape: &SlideShape) -> Option<Natural> {
+    match &shape.canonical {
         CanonicalSlideShape::Line(n)
         | CanonicalSlideShape::Circle(n)
         | CanonicalSlideShape::V(n)
         | CanonicalSlideShape::Turn(n)
         | CanonicalSlideShape::Pq(n)
-        | CanonicalSlideShape::Ppqq(n) => Some(n),
+        | CanonicalSlideShape::Ppqq(n) => Some(n.clone()),
         CanonicalSlideShape::S | CanonicalSlideShape::Wifi => None,
     }
 }
 
-/// `SlideShape.mirrored`.
-pub fn shape_mirrored(shape: SlideShape) -> bool {
+pub fn shape_mirrored(shape: &SlideShape) -> bool {
     symmetry::is_mirrored(shape.symmetry)
 }
 
-/// `mkCanonicalSlideShape?`.
 pub fn mk_canonical_slide_shape_opt(
     kind: SlideKind,
-    rel_end: Option<usize>,
+    rel_end: Option<Natural>,
 ) -> Option<CanonicalSlideShape> {
-    match (kind, rel_end) {
-        (SlideKind::Line, Some(n)) => {
-            if (2..=8).contains(&n) { Some(CanonicalSlideShape::Line(n)) } else { None }
+    match rel_end {
+        None => kernel::mk_canonical_slide_shape_opt(kind, None).map(Into::into),
+        Some(n) => match n.to_usize() {
+            Some(small) => kernel::mk_canonical_slide_shape_opt(kind, Some(small)).map(Into::into),
+            // Only these constructors accept endpoints beyond the machine range.
+            None => match kind {
+                SlideKind::Circle => Some(CanonicalSlideShape::Circle(n)),
+                SlideKind::V => Some(CanonicalSlideShape::V(n)),
+                SlideKind::Pq => Some(CanonicalSlideShape::Pq(n)),
+                SlideKind::Ppqq => Some(CanonicalSlideShape::Ppqq(n)),
+                _ => None,
+            },
+        },
+    }
+}
+
+pub fn mk_canonical_slide_shape_unchecked(
+    kind: SlideKind,
+    rel_end: Option<Natural>,
+) -> CanonicalSlideShape {
+    match rel_end {
+        None => kernel::mk_canonical_slide_shape_unchecked(kind, None).into(),
+        Some(n) => match n.to_usize() {
+            Some(small) => kernel::mk_canonical_slide_shape_unchecked(kind, Some(small)).into(),
+            None => match kind {
+                SlideKind::Line => CanonicalSlideShape::Line(n),
+                SlideKind::Circle => CanonicalSlideShape::Circle(n),
+                SlideKind::V => CanonicalSlideShape::V(n),
+                SlideKind::Turn => CanonicalSlideShape::Turn(n),
+                SlideKind::Pq => CanonicalSlideShape::Pq(n),
+                SlideKind::Ppqq => CanonicalSlideShape::Ppqq(n),
+                SlideKind::S => CanonicalSlideShape::S,
+                SlideKind::Wifi => CanonicalSlideShape::Wifi,
+            },
+        },
+    }
+}
+
+pub fn mk_slide_shape(
+    canonical: CanonicalSlideShape,
+    symmetry: symmetry::SlideSymmetry,
+) -> SlideShape {
+    SlideShape {
+        canonical,
+        symmetry,
+    }
+}
+
+pub fn canonical_rel_end(sym: symmetry::SlideSymmetry, rel_end: impl Into<Natural>) -> Natural {
+    let rel_end = rel_end.into();
+    match rel_end.to_usize() {
+        Some(n) => kernel::canonical_rel_end(sym, n).into(),
+        // Lean's mirrorKey is the identity outside 1..=8.
+        None => rel_end,
+    }
+}
+
+pub fn base_rel_end(sym: symmetry::SlideSymmetry, rel_end: impl Into<Natural>) -> Natural {
+    canonical_rel_end(sym, rel_end)
+}
+
+fn shape_error(raw_text: &str, failure: kernel::ShapeError) -> ParseError {
+    match failure {
+        kernel::ShapeError::EndNotOuter => error(
+            ParseErrorKind::InvalidEndPosition,
+            "",
+            "slide end must be on outer A-ring",
+        ),
+        kernel::ShapeError::InvalidEnd => {
+            error(ParseErrorKind::InvalidEndPosition, raw_text, "invalid end")
         }
-        (SlideKind::Circle, Some(n)) => Some(CanonicalSlideShape::Circle(n)),
-        (SlideKind::V, Some(n)) => if n != 5 { Some(CanonicalSlideShape::V(n)) } else { None },
-        (SlideKind::Turn, Some(n)) => {
-            if (2..=8).contains(&n) { Some(CanonicalSlideShape::Turn(n)) } else { None }
+        kernel::ShapeError::InvalidTurnEnd => {
+            error(ParseErrorKind::InvalidTurnPosition, raw_text, "invalid end")
         }
-        (SlideKind::Pq, Some(n)) => Some(CanonicalSlideShape::Pq(n)),
-        (SlideKind::Ppqq, Some(n)) => Some(CanonicalSlideShape::Ppqq(n)),
-        (SlideKind::S, None) => Some(CanonicalSlideShape::S),
-        (SlideKind::Wifi, None) => Some(CanonicalSlideShape::Wifi),
-        _ => None,
+        kernel::ShapeError::InvalidTurn => error(
+            ParseErrorKind::InvalidTurnPosition,
+            raw_text,
+            "invalid turn",
+        ),
+    }
+}
+
+fn relative_end_from_typed(
+    start_lane: OuterSlot,
+    end_area: SensorArea,
+) -> Result<usize, ParseError> {
+    kernel::relative_end_from_typed(start_lane, end_area).map_err(|err| shape_error("", err))
+}
+
+/// solveSlideShape: use the same pure implementation that is extracted for Lean.
+pub fn solve_slide_shape(body: &ParsedSlideBody) -> Result<SlideShape, ParseError> {
+    kernel::solve_shape(body.kind, body.start_lane, body.end_area, body.turn_area)
+        .map(Into::into)
+        .map_err(|err| shape_error(&body.raw_text, err))
+}
+
+fn error(kind: ParseErrorKind, raw_text: &str, message: &str) -> ParseError {
+    ParseError {
+        kind,
+        raw_text: raw_text.to_string(),
+        message: message.to_string(),
+        span: None,
     }
 }
 
 /// `mkCanonicalSlideShape`.
 pub fn mk_canonical_slide_shape(
     kind: SlideKind,
-    rel_end: Option<usize>,
+    rel_end: Option<Natural>,
     raw_text: &str,
     message: &str,
 ) -> Result<CanonicalSlideShape, ParseError> {
@@ -80,52 +165,9 @@ pub fn mk_canonical_slide_shape(
     }
 }
 
-/// `mkCanonicalSlideShapeUnchecked`.
-pub fn mk_canonical_slide_shape_unchecked(
-    kind: SlideKind,
-    rel_end: Option<usize>,
-) -> CanonicalSlideShape {
-    match (kind, rel_end) {
-        (SlideKind::Line, Some(n)) => CanonicalSlideShape::Line(n),
-        (SlideKind::Circle, Some(n)) => CanonicalSlideShape::Circle(n),
-        (SlideKind::V, Some(n)) => CanonicalSlideShape::V(n),
-        (SlideKind::Turn, Some(n)) => CanonicalSlideShape::Turn(n),
-        (SlideKind::Pq, Some(n)) => CanonicalSlideShape::Pq(n),
-        (SlideKind::Ppqq, Some(n)) => CanonicalSlideShape::Ppqq(n),
-        (SlideKind::S, _) => CanonicalSlideShape::S,
-        (SlideKind::Wifi, _) => CanonicalSlideShape::Wifi,
-        (SlideKind::Line, None) => CanonicalSlideShape::Line(3),
-        (SlideKind::Circle, None) => CanonicalSlideShape::Circle(2),
-        (SlideKind::V, None) => CanonicalSlideShape::V(1),
-        (SlideKind::Turn, None) => CanonicalSlideShape::Turn(2),
-        (SlideKind::Pq, None) => CanonicalSlideShape::Pq(1),
-        (SlideKind::Ppqq, None) => CanonicalSlideShape::Ppqq(1),
-    }
-}
-
-/// `mkSlideShape`.
-pub fn mk_slide_shape(canonical: CanonicalSlideShape, sym: SlideSymmetry) -> SlideShape {
-    SlideShape { canonical, symmetry: sym }
-}
-
 /// `getAt?`.
-pub fn get_at(xs: &[char], n: usize) -> Option<char> {
-    xs.get(n).copied()
-}
-
-/// `digitToNat?`.
-pub fn digit_to_nat(c: char) -> Option<usize> {
-    match c {
-        '1' => Some(1),
-        '2' => Some(2),
-        '3' => Some(3),
-        '4' => Some(4),
-        '5' => Some(5),
-        '6' => Some(6),
-        '7' => Some(7),
-        '8' => Some(8),
-        _ => None,
-    }
+pub fn get_at(xs: &[char], n: impl Into<Natural>) -> Option<char> {
+    xs.get(n.into().to_usize()?).copied()
 }
 
 fn key_pos_to_outer_slot(pos: usize) -> Option<OuterSlot> {
@@ -136,34 +178,10 @@ fn key_pos_to_outer_sensor_area(pos: usize) -> Option<SensorArea> {
     OuterSlot::of_index(pos.saturating_sub(1)).map(OuterSlot::to_outer_sensor_area)
 }
 
-fn mirror_key(n: usize) -> usize {
-    match n {
-        1 => 1,
-        2 => 8,
-        3 => 7,
-        4 => 6,
-        5 => 5,
-        6 => 4,
-        7 => 3,
-        8 => 2,
-        n => n,
-    }
-}
-
-/// `canonicalRelEnd`.
-pub fn canonical_rel_end(sym: SlideSymmetry, rel_end: usize) -> usize {
-    if symmetry::is_mirrored(sym) { mirror_key(rel_end) } else { rel_end }
-}
-
-/// `baseRelEnd`.
-pub fn base_rel_end(sym: SlideSymmetry, rel_end: usize) -> usize {
-    canonical_rel_end(sym, rel_end)
-}
-
 /// `canonicalShapeKey`.
-pub fn canonical_shape_key(shape: SlideShape) -> String {
+pub fn canonical_shape_key(shape: &SlideShape) -> String {
     let sym = shape.symmetry;
-    match shape.canonical {
+    match &shape.canonical {
         CanonicalSlideShape::Line(n) => format!("line{}", n),
         CanonicalSlideShape::Circle(n) => format!("circle{}", base_rel_end(sym, n)),
         CanonicalSlideShape::V(n) => format!("v{}", n),
@@ -176,7 +194,7 @@ pub fn canonical_shape_key(shape: SlideShape) -> String {
 }
 
 /// `displayShapeKey`.
-pub fn display_shape_key(shape: SlideShape) -> String {
+pub fn display_shape_key(shape: &SlideShape) -> String {
     let base = canonical_shape_key(shape);
     if base == "wifi" || base.is_empty() || !symmetry::is_mirrored(shape.symmetry) {
         base
@@ -186,40 +204,11 @@ pub fn display_shape_key(shape: SlideShape) -> String {
 }
 
 /// `shapeKey`.
-pub fn shape_key(shape: SlideShape) -> String {
+pub fn shape_key(shape: &SlideShape) -> String {
     display_shape_key(shape)
 }
 
-fn relative_end_pos(start_pos: usize, end_pos: usize) -> usize {
-    (((end_pos - 1) + 8 - (start_pos - 1)) % 8) + 1
-}
-
-fn outer_slot_is_right_half(slot: OuterSlot) -> bool {
-    slot.to_index() < 4
-}
-
-fn outer_slot_is_upper_half(slot: OuterSlot) -> bool {
-    matches!(slot, OuterSlot::S7 | OuterSlot::S8 | OuterSlot::S1 | OuterSlot::S2)
-}
-
-fn relative_end_from_typed(
-    start_lane: OuterSlot,
-    end_area: SensorArea,
-) -> Result<usize, ParseError> {
-    match end_area.to_outer_slot() {
-        Some(end_zone) => Ok(relative_end_pos(
-            start_lane.to_index() as usize + 1,
-            end_zone.to_index() as usize + 1,
-        )),
-        None => Err(error(
-            ParseErrorKind::InvalidEndPosition,
-            "",
-            "slide end must be on outer A-ring",
-        )),
-    }
-}
-
-fn read_digit_at(content: &[char], index: usize) -> Result<usize, ParseError> {
+fn read_digit_at(content: &[char], index: &Natural) -> Result<usize, ParseError> {
     match get_at(content, index) {
         Some(c) => match digit_to_nat(c) {
             Some(n) => Ok(n),
@@ -237,8 +226,12 @@ fn read_digit_at(content: &[char], index: usize) -> Result<usize, ParseError> {
     }
 }
 
-fn read_start_lane_at(content: &[char], index: usize) -> Result<OuterSlot, ParseError> {
-    let pos = read_digit_at(content, index)?;
+fn read_start_lane_at(
+    content: &[char],
+    index: impl Into<Natural>,
+) -> Result<OuterSlot, ParseError> {
+    let index = index.into();
+    let pos = read_digit_at(content, &index)?;
     match key_pos_to_outer_slot(pos) {
         Some(zone) => Ok(zone),
         None => Err(error(
@@ -249,8 +242,9 @@ fn read_start_lane_at(content: &[char], index: usize) -> Result<OuterSlot, Parse
     }
 }
 
-fn read_end_area_at(content: &[char], index: usize) -> Result<SensorArea, ParseError> {
-    let pos = read_digit_at(content, index)?;
+fn read_end_area_at(content: &[char], index: impl Into<Natural>) -> Result<SensorArea, ParseError> {
+    let index = index.into();
+    let pos = read_digit_at(content, &index)?;
     match key_pos_to_outer_sensor_area(pos) {
         Some(area) => Ok(area),
         None => Err(error(
@@ -306,109 +300,11 @@ pub fn parse_slide_body_from_text(content: &str) -> Result<ParsedSlideBody, Pars
     } else if content.contains('w') {
         Ok(body(SlideBodyKind::Wifi, end(2)?, None))
     } else {
-        Err(error(ParseErrorKind::InvalidShape, content, "unrecognized Simai slide shape"))
-    }
-}
-
-/// `solveSlideShape`.
-pub fn solve_slide_shape(body: &ParsedSlideBody) -> Result<SlideShape, ParseError> {
-    let end_area = body.end_area.unwrap_or(SensorArea::A1);
-    let direct = symmetry::direct();
-    let mirror = symmetry::mirror();
-    let raw = body.raw_text.as_str();
-    match body.kind {
-        SlideBodyKind::Line => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Line, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(canonical, direct))
-        }
-        SlideBodyKind::CircleRight => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Circle, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(
-                canonical,
-                if outer_slot_is_upper_half(body.start_lane) { direct } else { mirror },
-            ))
-        }
-        SlideBodyKind::CircleLeft => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Circle, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(
-                canonical,
-                if !outer_slot_is_upper_half(body.start_lane) { direct } else { mirror },
-            ))
-        }
-        SlideBodyKind::CircleUp => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Circle, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(canonical, if rel_end < 5 { direct } else { mirror }))
-        }
-        SlideBodyKind::V => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::V, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(canonical, direct))
-        }
-        SlideBodyKind::Pp => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Ppqq, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(canonical, direct))
-        }
-        SlideBodyKind::Qq => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Ppqq, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(canonical, mirror))
-        }
-        SlideBodyKind::P => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Pq, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(canonical, direct))
-        }
-        SlideBodyKind::Q => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            let canonical = mk_canonical_slide_shape(SlideKind::Pq, Some(rel_end), raw, "invalid end")?;
-            Ok(mk_slide_shape(canonical, mirror))
-        }
-        SlideBodyKind::S | SlideBodyKind::Z => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            if rel_end != 5 {
-                Err(error(ParseErrorKind::InvalidEndPosition, raw, "invalid end"))
-            } else {
-                let canonical = mk_canonical_slide_shape(SlideKind::S, None, raw, "invalid end")?;
-                let sym = if body.kind == SlideBodyKind::Z { mirror } else { direct };
-                Ok(mk_slide_shape(canonical, sym))
-            }
-        }
-        SlideBodyKind::Turn => {
-            let turn_area = body.turn_area.unwrap_or(SensorArea::A1);
-            let turn_rel = relative_end_from_typed(body.start_lane, turn_area)?;
-            let end_rel = relative_end_from_typed(body.start_lane, end_area)?;
-            if turn_rel == 7 {
-                if end_rel < 2 || end_rel > 5 {
-                    Err(error(ParseErrorKind::InvalidTurnPosition, raw, "invalid end"))
-                } else {
-                    let canonical = mk_canonical_slide_shape(SlideKind::Turn, Some(end_rel), raw, "invalid end")?;
-                    Ok(mk_slide_shape(canonical, direct))
-                }
-            } else if turn_rel == 3 {
-                if end_rel < 5 {
-                    Err(error(ParseErrorKind::InvalidTurnPosition, raw, "invalid end"))
-                } else {
-                    let canonical = mk_canonical_slide_shape(SlideKind::Turn, Some(end_rel), raw, "invalid end")?;
-                    Ok(mk_slide_shape(canonical, mirror))
-                }
-            } else {
-                Err(error(ParseErrorKind::InvalidTurnPosition, raw, "invalid turn"))
-            }
-        }
-        SlideBodyKind::Wifi => {
-            let rel_end = relative_end_from_typed(body.start_lane, end_area)?;
-            if rel_end != 5 {
-                Err(error(ParseErrorKind::InvalidEndPosition, raw, "invalid end"))
-            } else {
-                let canonical = mk_canonical_slide_shape(SlideKind::Wifi, None, raw, "invalid end")?;
-                Ok(mk_slide_shape(canonical, direct))
-            }
-        }
+        Err(error(
+            ParseErrorKind::InvalidShape,
+            content,
+            "unrecognized Simai slide shape",
+        ))
     }
 }
 
@@ -422,7 +318,11 @@ pub fn detect_shape_from_text(content: &str) -> Result<SlideShape, ParseError> {
 pub fn detect_just_type(content: &str) -> Result<bool, ParseError> {
     let cs: Vec<char> = content.chars().collect();
     let need_outer = || {
-        error(ParseErrorKind::InvalidEndPosition, content, "slide end must be on outer A-ring")
+        error(
+            ParseErrorKind::InvalidEndPosition,
+            content,
+            "slide end must be on outer A-ring",
+        )
     };
     if content.contains('>') {
         let start_lane = read_start_lane_at(&cs, 0)?;
@@ -459,12 +359,18 @@ pub fn detect_just_type(content: &str) -> Result<bool, ParseError> {
 }
 
 /// `parseStartLaneAt`.
-pub fn parse_start_lane_at(content: &[char], index: usize) -> Result<OuterSlot, ParseError> {
+pub fn parse_start_lane_at(
+    content: &[char],
+    index: impl Into<Natural>,
+) -> Result<OuterSlot, ParseError> {
     read_start_lane_at(content, index)
 }
 
 /// `parseEndAreaAt`.
-pub fn parse_end_area_at(content: &[char], index: usize) -> Result<SensorArea, ParseError> {
+pub fn parse_end_area_at(
+    content: &[char],
+    index: impl Into<Natural>,
+) -> Result<SensorArea, ParseError> {
     read_end_area_at(content, index)
 }
 
@@ -475,8 +381,8 @@ mod tests {
     #[test]
     fn straight_line() {
         let shape = detect_shape_from_text("1-3").unwrap();
-        assert_eq!(shape.canonical, CanonicalSlideShape::Line(3));
-        assert_eq!(canonical_shape_key(shape), "line3");
+        assert_eq!(shape.canonical, CanonicalSlideShape::Line(3.into()));
+        assert_eq!(canonical_shape_key(&shape), "line3");
     }
 
     #[test]
@@ -495,6 +401,6 @@ mod tests {
     #[test]
     fn just_type_ishape() {
         // "1>3": circle right from S1 (upper half) → isJustRight true.
-        assert_eq!(detect_just_type("1>3").unwrap(), true);
+        assert!(detect_just_type("1>3").unwrap());
     }
 }

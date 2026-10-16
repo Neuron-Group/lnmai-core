@@ -146,14 +146,26 @@ theorem u32_eq_zero_iff (x : Std.U32) : (x = 0#u32) ↔ x.val = 0 := by
   · intro h; rw [h]; rfl
   · intro h; exact UScalar.eq_of_val_eq (by simpa using h)
 
-/-- `Duration.div_nat` value spec. Note the model divides with truncation
-toward zero (`Int.tdiv`), matching Rust; the spec's `Duration.divNat` uses
-Lean's Euclidean `/`. Use only with a nonnegative dividend. -/
+/-- Correct a truncating quotient to Lean's Euclidean quotient. -/
+theorem ediv_of_tdiv_tmod (a b : ℤ) (hb : 0 < b) :
+    (if a.tmod b < 0 then a.tdiv b - 1 else a.tdiv b) = a / b := by
+  have hmod := Int.emod_nonneg a (by omega : b ≠ 0)
+  have hlt := Int.emod_lt_of_pos a hb
+  by_cases h : 0 ≤ a ∨ b ∣ a
+  · simp only [Int.tdiv_eq_ediv, Int.tmod_eq_emod, if_pos h,
+      Int.cast_ofNat_Int, sub_zero, add_zero]
+    rw [if_neg (by omega)]
+  · simp only [Int.tdiv_eq_ediv, Int.tmod_eq_emod, if_neg h,
+      Int.sign_eq_one_of_pos hb, Int.natAbs_of_nonneg (by omega : 0 ≤ b)]
+    rw [if_pos (by omega)]
+    omega
+
+/-- The corrected Rust division agrees with Lean for negative dividends too. -/
 theorem div_nat_spec (d : time.Duration) (divisor : Std.U32)
     (hNoOverflow : ¬ (d.micros.val = IScalar.min .I64 ∧ (divisor.val : ℤ) = -1)) :
     time.Duration.div_nat d divisor ⦃ r =>
       r.micros.val = (if divisor.val = 0 then 0
-        else Int.tdiv d.micros.val (divisor.val : ℤ)) ⦄ := by
+        else d.micros.val / (divisor.val : ℤ)) ⦄ := by
   unfold time.Duration.div_nat
   split
   · rename_i hdiv
@@ -169,16 +181,33 @@ theorem div_nat_spec (d : time.Duration) (divisor : Std.U32)
         (UScalar.hcast IScalarTy.I64 divisor).val = -1) := by
       rw [hcast_i64_val]; exact hNoOverflow
     simp only [lift, bind_tc_ok]
-    step
-    rw [i1_post, hcast_i64_val]
-    simp [hnz2]
+    have hpos : 0 < (UScalar.hcast IScalarTy.I64 divisor).val := by
+      rw [hcast_i64_val]; omega
+    have hlo : IScalar.min .I64 ≤ d.micros.val / (divisor.val : ℤ) := by
+      have hd : IScalar.min .I64 ≤ d.micros.val := by
+        have hbound := d.micros.hmin
+        scalar_tac
+      have hdiv : 0 < (divisor.val : ℤ) := by omega
+      apply (Int.le_ediv_iff_mul_le hdiv).2
+      have hmul : IScalar.min .I64 * (divisor.val : ℤ) ≤ IScalar.min .I64 := by
+        have hge : (1 : ℤ) ≤ divisor.val := by omega
+        have := mul_le_mul_of_nonpos_left hge (show IScalar.min .I64 ≤ 0 by scalar_tac)
+        simpa using this
+      omega
+    step as ⟨quotient, hquot⟩
+    step as ⟨remainder, hrem⟩
+    have hformula := ediv_of_tdiv_tmod d.micros.val
+      (UScalar.hcast IScalarTy.I64 divisor).val hpos
+    split
+    · step <;> simp_all [hcast_i64_val] <;> scalar_tac
+    · simp_all [hcast_i64_val] <;> split at hformula <;> omega
 
 /-- Equality form of the `div_nat` value spec. -/
 theorem div_nat_eq (d : time.Duration) (divisor : Std.U32)
     (hNoOverflow : ¬ (d.micros.val = IScalar.min .I64 ∧ (divisor.val : ℤ) = -1)) :
     ∃ r : time.Duration, time.Duration.div_nat d divisor = ok r ∧
       r.micros.val = (if divisor.val = 0 then 0
-        else Int.tdiv d.micros.val (divisor.val : ℤ)) := by
+        else d.micros.val / (divisor.val : ℤ)) := by
   have h := div_nat_spec d divisor hNoOverflow
   cases hf : time.Duration.div_nat d divisor with
   | ok x => refine ⟨x, rfl, ?_⟩; rw [hf, WP.spec_ok] at h; exact h

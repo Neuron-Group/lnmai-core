@@ -5,6 +5,7 @@
 //! `syntax` → `timing` → `shape` → `slide_tables` → `slide_parser`
 //! → `tokenize` → `ir` → `normalize` → `frontend`.
 
+pub mod dsl;
 pub mod frontend;
 pub mod ir;
 pub mod maidata;

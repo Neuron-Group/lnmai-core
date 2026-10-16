@@ -1,27 +1,28 @@
 //! Source/IR data types for the Simai pipeline.
 //!
-//! Mirrors `LnmaiCore/Simai/Syntax.lean`. JSON instances are not ported here
-//! (they live at the FFI boundary, M4); the focus is the pure data model.
+//! Mirrors `LnmaiCore/Simai/Syntax.lean`. The corresponding JSON instances
+//! are implemented in `json_encode` and `json_decode`.
 
 use crate::areas::{OuterSlot, SensorArea};
+use crate::natural::Natural;
 use crate::rat::Rat;
-use crate::symmetry::SlideSymmetry;
 use crate::time::{Duration, TimePoint};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SourcePos {
-    pub line: usize,
-    pub column: usize,
+    pub line: Natural,
+    pub column: Natural,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SourceSpan {
     pub start: SourcePos,
     pub stop: SourcePos,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ParseErrorKind {
+    #[default]
     InvalidSyntax,
     InvalidShape,
     InvalidEndPosition,
@@ -29,7 +30,7 @@ pub enum ParseErrorKind {
     InvalidChainTiming,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ParseError {
     pub kind: ParseErrorKind,
     pub raw_text: String,
@@ -37,57 +38,65 @@ pub struct ParseError {
     pub span: Option<SourceSpan>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SlideKind {
-    Line,
-    Circle,
-    V,
-    Turn,
-    Pq,
-    Ppqq,
-    S,
-    Wifi,
-}
+pub use lnmai_core_verify::shape::{SlideBodyKind, SlideKind};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Lean allows arbitrary natural endpoints even in unchecked shapes.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CanonicalSlideShape {
-    Line(usize),
-    Circle(usize),
-    V(usize),
-    Turn(usize),
-    Pq(usize),
-    Ppqq(usize),
+    Line(Natural),
+    Circle(Natural),
+    V(Natural),
+    Turn(Natural),
+    Pq(Natural),
+    Ppqq(Natural),
     S,
     Wifi,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+impl Default for CanonicalSlideShape {
+    fn default() -> Self {
+        Self::Line(0.into())
+    }
+}
+
+impl From<lnmai_core_verify::shape::CanonicalSlideShape> for CanonicalSlideShape {
+    fn from(shape: lnmai_core_verify::shape::CanonicalSlideShape) -> Self {
+        use lnmai_core_verify::shape::CanonicalSlideShape as Kernel;
+        match shape {
+            Kernel::Line(n) => Self::Line(n.into()),
+            Kernel::Circle(n) => Self::Circle(n.into()),
+            Kernel::V(n) => Self::V(n.into()),
+            Kernel::Turn(n) => Self::Turn(n.into()),
+            Kernel::Pq(n) => Self::Pq(n.into()),
+            Kernel::Ppqq(n) => Self::Ppqq(n.into()),
+            Kernel::S => Self::S,
+            Kernel::Wifi => Self::Wifi,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SlideShape {
     pub canonical: CanonicalSlideShape,
-    pub symmetry: SlideSymmetry,
+    pub symmetry: crate::symmetry::SlideSymmetry,
 }
 
 impl Default for SlideShape {
     fn default() -> Self {
-        SlideShape { canonical: CanonicalSlideShape::S, symmetry: crate::symmetry::direct() }
+        Self {
+            canonical: CanonicalSlideShape::default(),
+            symmetry: crate::symmetry::direct(),
+        }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SlideBodyKind {
-    Line,
-    CircleRight,
-    CircleLeft,
-    CircleUp,
-    V,
-    Pp,
-    Qq,
-    P,
-    Q,
-    S,
-    Z,
-    Turn,
-    Wifi,
+impl From<lnmai_core_verify::shape::SlideShape> for SlideShape {
+    fn from(shape: lnmai_core_verify::shape::SlideShape) -> Self {
+        Self {
+            canonical: shape.canonical.into(),
+            symmetry: shape.symmetry,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,6 +108,18 @@ pub struct ParsedSlideBody {
     pub turn_area: Option<SensorArea>,
 }
 
+impl Default for ParsedSlideBody {
+    fn default() -> Self {
+        Self {
+            raw_text: String::new(),
+            start_lane: OuterSlot::S1,
+            kind: SlideBodyKind::Line,
+            end_area: None,
+            turn_area: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SlideNoteSemantics {
     pub raw_text: String,
@@ -108,12 +129,35 @@ pub struct SlideNoteSemantics {
     pub is_just_right: bool,
 }
 
+impl Default for SlideNoteSemantics {
+    fn default() -> Self {
+        Self {
+            raw_text: String::new(),
+            start_slot: OuterSlot::S1,
+            end_area: SensorArea::A1,
+            shape: SlideShape::default(),
+            is_just_right: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimingPointSemantics {
     pub timing: TimePoint,
     pub bpm: Rat,
     pub h_speed: Rat,
     pub notes: Vec<SlideNoteSemantics>,
+}
+
+impl Default for TimingPointSemantics {
+    fn default() -> Self {
+        Self {
+            timing: TimePoint::zero(),
+            bpm: Rat::zero(),
+            h_speed: Rat::zero(),
+            notes: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -125,8 +169,9 @@ pub struct SimaiChartSemantics {
     pub level: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RawNoteKind {
+    #[default]
     Tap,
     Hold,
     Slide,
@@ -143,7 +188,7 @@ pub struct MaidataMetadata {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MaidataChartBlock {
-    pub level_index: usize,
+    pub level_index: Natural,
     pub raw_body: String,
 }
 
@@ -160,7 +205,7 @@ pub struct RawNoteToken {
     pub timing: TimePoint,
     pub bpm: Rat,
     pub h_speed: Rat,
-    pub divisor: usize,
+    pub divisor: Natural,
     pub slot: Option<OuterSlot>,
     pub sensor_pos: Option<SensorArea>,
     pub slide_body: Option<ParsedSlideBody>,
@@ -173,13 +218,42 @@ pub struct RawNoteToken {
     pub is_force_star: bool,
     pub is_fake_rotate: bool,
     pub is_slide_break: bool,
-    pub source_group_id: Option<usize>,
-    pub source_group_index: Option<usize>,
-    pub source_group_size: Option<usize>,
+    pub source_group_id: Option<Natural>,
+    pub source_group_index: Option<Natural>,
+    pub source_group_size: Option<Natural>,
     pub source_pos: Option<SourceSpan>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl Default for RawNoteToken {
+    fn default() -> Self {
+        Self {
+            raw_text: String::new(),
+            kind: RawNoteKind::Tap,
+            timing: TimePoint::zero(),
+            bpm: Rat::zero(),
+            h_speed: Rat::zero(),
+            divisor: 0.into(),
+            slot: None,
+            sensor_pos: None,
+            slide_body: None,
+            length: None,
+            star_wait: None,
+            is_break: false,
+            is_ex: false,
+            is_hanabi: false,
+            is_slide_no_head: false,
+            is_force_star: false,
+            is_fake_rotate: false,
+            is_slide_break: false,
+            source_group_id: None,
+            source_group_index: None,
+            source_group_size: None,
+            source_pos: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SourceNote {
     pub token: RawNoteToken,
     pub source_pos: Option<SourceSpan>,
@@ -190,7 +264,7 @@ pub struct SourceEvent {
     pub timing: TimePoint,
     pub bpm: Rat,
     pub h_speed: Rat,
-    pub divisor: usize,
+    pub divisor: Natural,
     pub notes: Vec<SourceNote>,
     pub source_pos: Option<SourceSpan>,
 }
@@ -200,8 +274,8 @@ impl Default for SourceEvent {
         SourceEvent {
             timing: TimePoint::zero(),
             bpm: Rat::zero(),
-            h_speed: Rat::one(),
-            divisor: 4,
+            h_speed: Rat::zero(),
+            divisor: 0.into(),
             notes: Vec::new(),
             source_pos: None,
         }

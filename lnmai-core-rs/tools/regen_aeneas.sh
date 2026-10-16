@@ -1,41 +1,73 @@
 #!/usr/bin/env bash
-# Regenerate verification/Verification/Generated.lean from the Rust
-# verification-facing crate.
-#
-# Pipeline: cargo -> charon (LLBC) -> aeneas (Lean model) -> lake package.
-#
-# Toolchain locations can be overridden via environment variables:
-#   AENEAS_HOME  (default: /Users/pingfanh/bin/aeneas)
-#   CHARON_HOME  (default: /Users/pingfanh/bin/charon)
-#
-# The generated namespace is the crate name (`lnmai_core_verify`).
+# Extract the Rust kernel. --check compares without changing artifacts.
+# Use AENEAS_HOME/CHARON_HOME, AENEAS_BIN/CHARON_BIN or executables on PATH.
 set -euo pipefail
 
-AENEAS_HOME="${AENEAS_HOME:-/Users/pingfanh/bin/aeneas}"
-CHARON_HOME="${CHARON_HOME:-/Users/pingfanh/bin/charon}"
-
+mode=write
+if [[ "${1:-}" == --check ]]; then mode=check; shift; fi
+if [[ $# != 0 ]]; then echo 'usage: regen_aeneas.sh [--check]' >&2; exit 2; fi
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 repo="$(cd "$here/.." && pwd)"
-crate_dir="$here/crates/lnmai-core-verify"
-dest="$repo/verification/Verification/Generated.lean"
-
-export PATH="$CHARON_HOME:$PATH"
-
-echo "[1/3] charon: extracting LLBC from lnmai-core-verify"
-(cd "$crate_dir" && charon cargo --preset=aeneas)
-
-llbc="$here/lnmai_core_verify.llbc"
-test -f "$llbc" || { echo "missing $llbc" >&2; exit 1; }
+if [[ -n "${CHARON_HOME:-}" ]]; then export PATH="$CHARON_HOME:$PATH"; fi
+charon_bin="${CHARON_BIN:-$(command -v charon || true)}"
+aeneas_bin="${AENEAS_BIN:-${AENEAS_HOME:+$AENEAS_HOME/bin/aeneas}}"
+aeneas_bin="${aeneas_bin:-$(command -v aeneas || true)}"
+for exe in "$charon_bin" "$aeneas_bin"; do
+  if [[ ! -x "$exe" || -d "$exe" ]]; then
+    echo 'Set AENEAS_HOME and CHARON_HOME, or AENEAS_BIN and CHARON_BIN.' >&2
+    exit 1
+  fi
+done
 
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
-
-echo "[2/3] aeneas: generating Lean model"
-"$AENEAS_HOME/bin/aeneas" -backend lean -dest "$out" "$llbc"
-
-gen="$out/LnmaiCoreVerify.lean"
-test -f "$gen" || { echo "missing $gen" >&2; exit 1; }
-
-echo "[3/3] installing $dest"
-cp "$gen" "$dest"
-echo "done: $(wc -l < "$dest") lines"
+llbc="$out/lnmai_core_verify.llbc"
+echo '[1/3] charon: extracting the Rust kernel'
+(cd "$here/crates/lnmai-core-verify" && "$charon_bin" cargo --preset=aeneas --dest-file "$llbc" -- --locked)
+# Destination is bookkeeping, not part of the extracted program.
+python3 - "$llbc" <<'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+model = json.loads(p.read_text())
+if model['has_errors']:
+    raise SystemExit('Charon reported extraction errors')
+model['translated']['options']['dest_file'] = None
+# Charon serializes this name lookup table in hash-map iteration order.
+# Sort the entries, preserving every key/value, so repeat extractions compare
+# the program rather than a randomized bookkeeping order.
+model['translated']['short_names'].sort(
+    key=lambda entry: json.dumps(entry, sort_keys=True)
+)
+p.write_text(json.dumps(model, ensure_ascii=False, separators=(',', ':')))
+PY
+echo '[2/3] aeneas: generating the Lean model'
+"$aeneas_bin" -backend lean -dest "$out" "$llbc"
+generated="$out/LnmaiCoreVerify.lean"
+destination="$repo/verification/Verification/Generated.lean"
+test -f "$generated"
+# Normalize only trailing layout emitted by Aeneas, identically for writes
+# and freshness checks. The generated program is otherwise left untouched.
+python3 - "$generated" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+p.write_text('\n'.join(line.rstrip() for line in p.read_text().splitlines()) + '\n')
+PY
+if [[ "$mode" == check ]]; then
+  echo '[3/3] checking generated model freshness'
+  if ! cmp -s "$generated" "$destination"; then
+    echo 'Generated.lean is stale; regenerate it and recheck the proofs.' >&2
+    diff -u "$destination" "$generated" || true
+    exit 1
+  fi
+  python3 - "$here/lnmai_core_verify.llbc" "$llbc" <<'PY'
+import json, sys
+a, b = (json.load(open(p)) for p in sys.argv[1:])
+if a != b:
+    raise SystemExit('lnmai_core_verify.llbc is stale or was extracted for a different target')
+PY
+else
+  echo '[3/3] installing extracted artifacts'
+  cp "$llbc" "$here/lnmai_core_verify.llbc"
+  cp "$generated" "$destination"
+fi
+echo 'Aeneas artifacts match the Rust source.'

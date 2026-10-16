@@ -1,184 +1,117 @@
-# SPEC.md — Extracted Theorems & Proof Obligations
+# Equivalence theorem contracts
 
-Generated: 2026-06-10 | From LnmaiCore Lean Specification + Rust Rewrite
+The authoritative contracts are the theorem statements in `Verification/`.
+This document explains their scope; it is not an alternate executable model.
 
----
+## Representation
 
-## Theorems from LnmaiCore/Convert.lean
+Constructor bridges for finite enums are bijections. A machine duration maps
+to `Duration.fromMicros d.micros.val`; machine naturals map to `.val`. These
+embeddings do not represent every Lean integer/natural. The runtime uses
+separate arbitrary-precision types whose full refinement proof remains open.
 
-### perfect_fixed
-```
-Precondition: ∀ style : JudgeStyle
-Postcondition: convertGrade style JudgeGrade.Perfect = JudgeGrade.Perfect
-Proved in Rust: convert_grade(style, Perfect) == Perfect
-Status: ✅ Equiv.lean (convertGrade_equiv, case analysis)
-```
+## Arithmetic
 
-### miss_fixed
-```
-Precondition: ∀ style : JudgeStyle
-Postcondition: convertGrade style Miss = Miss
-Proved in Rust: Yes
-Status: ✅
-```
+- `abs_eq`/`abs_spec`: exclude `i64::MIN`, whose absolute value is not an i64.
+- Addition/subtraction/scaling: mathematical result must lie between i64 min
+  and max.
+- `div_nat_spec`/`div_nat_eq`: exact Euclidean quotient, including negative
+  dividends; divisor zero returns zero. The stated overflow guard is trivial
+  for the nonnegative u32 divisor.
+- Rotations: all machine-size step counts; reduce steps modulo eight before
+  addition. Ring indices lie in 1–8.
+  `AreasPublic` additionally composes these theorems with arbitrary Lean
+  naturals when the machine argument equals the exact residue modulo eight.
+  Index adapters require either exact representation or proof that the
+  natural index is at least eight. The bigint-to-residue implementation is
+  still a runtime refinement obligation.
 
-### tooFast_fixed_maji_gachi
-```
-Precondition: style ∈ {Maji, Gachi}
-Postcondition: convertMaji TooFast = TooFast ∧ convertGachi TooFast = TooFast
-Status: ✅
-```
+## Public finite interfaces and shapes
 
-### perfect_is_upper_bound
-```
-Precondition: ∀ style : JudgeStyle, g : JudgeGrade
-Postcondition: convertGrade style g = Perfect → g = Perfect
-Status: ✅ (case analysis)
-```
+`AreasPublic` and `TypesPublic` cover extracted defaults, enumeration arrays,
+clones, equality and the exported order operations, including `RuntimePos`,
+`JudgeEventKind` and `JudgePhase`. They do not cover JSON or debug formatting.
 
----
+`Shape` and `ShapeSolver` cover canonical-shape constructors, equality, digit
+parsing, endpoint/mirror formulas and solving for the extracted argument
+types. Runtime unbounded endpoint conversion and parser/table composition
+remain separate obligations.
 
-## Theorems from LnmaiCore/Time.lean
+## Slide checkpoints
 
-### toMicros_injective (Duration)
-```
-Precondition: ∀ a b : Duration
-Postcondition: a.toMicros = b.toMicros ↔ a = b
-Status: ✅ (Lean spec internal theorem)
-Bridge implication: IScalar.val equality implies I64 equality for game values
-```
+The runtime aliases the extracted `lifecycle::SlideArea<P>` with its exact
+natural-number progress type. `SlideHistory` relates indexed target histories
+to the original Lean recursion; `SlideAreaLoops` and `SlideArea` state the loop
+and public-checkpoint contracts. Their current build/audit status is recorded
+in `SOURCE_AUDIT.md`; the contracts alone do not establish a passing proof.
 
-### duration_toMicros_order_preserving
-```
-Precondition: ∀ a b : Duration
-Postcondition: a ≤ b ↔ a.toMicros ≤ b.toMicros
-Status: ✅ (implied by duration construction)
-Bridge: i64_le_ok lemma in Bridge.lean
-```
+The statements quantify arbitrary target, held-sensor and history vectors.
+Missing held/history entries are false. Completion truncates histories to
+their common length, including AND over an empty zip. Legacy on/off flags seed
+their respective empty histories independently, and only for a single target.
+The `check` aggregate additionally requires nonempty targets for AND completion.
 
----
+Progress values are opaque to these operations. The default theorem requires
+the supplied default to represent zero; cloning/checking require a pure clone
+that preserves the value. `SlideAreaEquality` additionally requires progress
+comparison to agree with equality of its natural-number representation. It
+compares every checkpoint field, including the full, independently sized
+history vectors. These conditions do not establish the bigint
+representation refinement. `SlideAreaTrace` composes the actual extracted
+update over arbitrary finite sensor-input lists and relates both final state
+and public observations to the reference fold. This covers repeated calls to
+one checkpoint. The runtime now delegates queue traversal to the extracted
+`slide_queue` module. `SlideQueueModel` factors render routing out of the Lean
+reference, while `SlideQueue` and `SlideQueueTraversal` carry the extracted
+recursion obligations. These new queue proofs are still being compiled.
+The fuel-bounded statement permits every machine fuel value; the public
+length-based wrapper additionally needs queue length strictly below
+`Usize.max`. Render routing must retain command order and suppress all
+commands when replay disables emission. Parent gating, note transitions and
+scheduler composition remain separate obligations.
 
-## Theorems from LnmaiCore/Judge.lean
+## Container equality
 
-### judgeTap boundaries
-```
-Precondition: diff : Duration, isEX : Bool, diff.micros ≠ i64::MIN
-Postcondition: returns one of 7 grades (Perfect through Good, on fast or late side)
-Status: ✅ Verification/Judge.lean (judge_tap_equiv); standard axioms only
-  `Duration.abs` handled via abs_eq (no duration_abs_exists axiom needed)
-```
+`VecEquality` relates the extracted Vec comparison to equality of lists of
+represented elements. It requires a pure element comparator that returns the
+correct represented equality. Unequal vector lengths compare false.
+`StorageEquality` applies this result to both storage wrappers, preserving all
+backing entries even when their length differs from the physical zone count.
+These new proofs are pending compilation; `SOURCE_AUDIT.md` records results.
 
-### judgeTouch boundaries
-```
-Precondition: diff : Duration, isEX : Bool, diff.micros ≠ i64::MIN
-Postcondition: returns Option JudgeGrade (none if too-early fast)
-Status: ✅ Verification/Judge.lean (judge_touch_equiv); standard axioms only
-```
+## Judgments
 
-### judgeSlideClassic
-```
-Precondition: diff : Duration, diff.micros ≠ i64::MIN
-Postcondition: uses fixed fast/late threshold tables
-Status: ✅ Verification/Judge.lean (judge_slide_classic_equiv); standard axioms only
-```
+- Tap, touch and classic slide: all representable diffs except i64 min.
+- Modern slide: diff excludes i64 min; stay time lies in `[-2^40, 2^40]`.
+- Classic Hold end: timing, release and length lie in `[-2^40, 2^40]`.
+- Modern Hold end: length, ignore and release lie in `[-2^38, 2^38]`; the diff
+  is unrestricted because only its sign is inspected. The finite grade-table
+  theorem covers all grades, both timing signs and every u32 band.
+- Slide timeout: the adjusted deadline must fit i64.
 
-### judgeSlideModern
-```
-Precondition: diff stay_time : Duration, isEX : Bool, stay_time.micros ≥ 0
-Postcondition: dynamic extension based on stay_time
-Status: ✅ Verification/Judge.lean (judge_slide_modern_equiv); under `stay_time ≥ 0`
-Proof obligation: model extraction + threshold alignment (see TODO P0/P2)
-```
+The runtime adapters preserve unbounded inputs and use shared finite tables.
+The above bounded theorems do not by themselves prove those adapters.
 
-### judgeHoldEnd
-```
-Precondition: headGrade : JudgeGrade, judgeDiff length ignoreTime playerReleaseTime : Duration
-Postcondition: press-band lookup (0-4) determines final grade
-Status: ❌ not yet proved
-Proof obligation: press_band arithmetic (multiplication comparisons)
-```
+## Score
 
-### judgeHoldClassicEnd
-```
-Precondition: headGrade : JudgeGrade, timing : TimePoint, length : Duration, releaseTiming : TimePoint
-Postcondition: worse of head vs end grade by distFromPerfect
-Status: ❌ not yet proved
-Proof obligation: TimePoint ↔ I64 conversion
-```
+`score_non_break_equiv` and `update_combo_equiv` state explicit no-overflow
+conditions on products, sums and DX loss. `score_break_equiv` requires
+`2500 * multiple < 2^32`. `count_fast_late_equiv` covers all grades, display
+modes and representable diffs including i64 min. `dx_score_rank_equiv` covers
+all u32 achieved/max values by widening intermediate products to u64.
 
----
+Runtime score and accuracy now use exact naturals/rationals. There is no
+remaining float/rational conversion to justify, but their actual Rust
+implementations still need a refinement proof.
 
-## Theorems from LnmaiCore/Score.lean
+## Trust and validation
 
-### baseScore
-```
-Precondition: nt : NoteType
-Postcondition: baseScore ∈ {500, 1000, 1500, 2500}
-Status: ✅ Verification/Score.lean (base_score_equiv)
-```
+`Verification.Audit` traverses theorem dependencies and rejects every axiom
+except `propext`, `Classical.choice` and `Quot.sound`. The extraction pipeline
+and the Lean kernel remain part of the verification trust boundary. Imported
+upstream `sorry` declarations must not be reachable from our theorems.
 
-### scoreNonBreak proportions
-```
-Precondition: baseScore : Nat, grade : JudgeGrade, multiple : Nat
-Postcondition: 
-  - Miss/TooFast → (0, b)
-  - Good → (b/2, b - b/2)  (50%)
-  - Great → (b*4/5, b - b*4/5)  (80%)
-  - Perfect → (b, 0)  (100%)
-Status: ✅ Verification/Score.lean (score_non_break_equiv); no-overflow preconditions
-Proof obligation: Bounded U32 arithmetic matches Nat for game values
-```
-
-### updateCombo invariants
-```
-Precondition: combo : Nat, grade : JudgeGrade, multiple : Nat
-Postcondition:
-  - Perfect (CP) → all three combos increment
-  - Perfect2nd/3rd → combo + pCombo increment, cPCombo resets
-  - Great → combo increments, pCombo/cPCombo reset
-  - Good → combo increments, pCombo/cPCombo reset
-  - Miss/TooFast → combo resets to 0
-Status: ✅ Verification/Score.lean (update_combo_equiv)
-```
-
-### dxScoreRank
-```
-Precondition: achievedDxScore maxDxScore : Nat
-Postcondition: result ∈ {0,1,2,3,4,5} by percentage thresholds (97/95/93/90/85)
-Status: ❌ not yet proved (U32/Nat discrepancy)
-```
-
----
-
-## Proof Obligations Summary
-
-| Obligation | Status | Blocking |
-|---|---|---|
-| `duration_abs_exists` axiom | Obsolete | replaced by `abs_spec`/`abs_eq`; judgeTap & judgeSlideClassic proved without it |
-| `ofLnmDuration` constructive definition | Axiom | Duration roundtrip |
-| Bounded U32 ↔ unbounded Nat bridge | Partial | done for scoreNonBreak/updateCombo (no-overflow preconditions); pending scoreBreak/dxScoreRank/countFastLate |
-| Duration arithmetic bridge (+/*/div) | Deferred | judgeSlideModern |
-| press_band arithmetic | Deferred | judgeHoldEnd |
-| TimePoint ↔ I64 conversion | Deferred | judgeHoldClassicEnd |
-| Rational ↔ f64 bridge | Not started | computeAccRates |
-| ChartLoader verification | Not started | — |
-| Lifecycle/Scheduler/Storage | Not started | — |
-
----
-
-## Verification Architecture
-
-```
-Lean Spec (LnmaiCore/           Aeneas Model (Generated.lean
-  Areas.lean, Time.lean,          + GeneratedExt.lean)
-  Types.lean, Convert.lean,
-  Judge.lean, Score.lean)               │
-         │                                │
-         └───────┬────────────────────────┘
-                 │
-          verification/
-          ├── Bridge.lean    ← integer semantics bridge
-          ├── Iso.lean       ← type isomorphisms
-          ├── Equiv.lean     ← function equivalence proofs
-          └── SPEC_MAPPING.md, SPEC.md
-```
+Parent-package `native_decide` regressions and Rust/Lean differential tests
+are execution-based checks. They do not replace universal theorems for the
+parser, runtime, state restoration or FFI. See `SPEC_MAPPING.md` for every
+remaining runtime obligation.

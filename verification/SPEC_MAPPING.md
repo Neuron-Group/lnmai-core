@@ -1,131 +1,135 @@
-# SPEC_MAPPING.md — Lean ↔ Rust Equivalence Mapping
+# Lean ↔ Rust verification map
 
-Generated: 2026-06-10 | LnmaiCore v0.1.0
+The source of truth is `LnmaiCore/`. There are two distinct Rust layers:
+`lnmai-core-verify` is extracted by Aeneas; `lnmai-core` is the arbitrary-precision
+runtime. A theorem about the first does not automatically cover the second.
+The required validation command is `bash lnmai-core-rs/tools/validate_all.sh`.
 
----
+## Extracted kernel
 
-## Module: Areas
+The following table names proof modules, not a blanket claim that every
+function in the corresponding Rust module is proved. A fresh `lake build` and
+`Verification.Audit` must accept the current source and generated artifacts.
 
-| Lean (LnmaiCore/Areas.lean) | Rust (aeneas-core-verify/src/areas.rs) | Verification |
+| Lean specification | Extracted Rust | Proof module and scope |
 |---|---|---|
-| `SensorArea` (33 variants) | `SensorArea` enum | Iso: `sensorArea_roundtrip_l/r` ✅ |
-| `ButtonZone` (8 variants) | `ButtonZone` enum | Iso: `buttonZone_roundtrip_l/r` ✅ |
-| `OuterSlot` (8 variants) | `OuterSlot` enum | Iso: `outerSlot_roundtrip_l/r` ✅ |
-| `SensorArea.toIndex` → `Nat` | `SensorArea::to_index` → `usize` | Generated.lean ✅ |
-| `SensorArea.fromIndex` | `SensorArea::from_index` | Generated.lean ✅ |
-| `OuterSlot.toButtonZone` | `OuterSlot::to_button_zone` | Generated.lean ✅ |
+| `Areas` | `areas.rs` | `Areas`: enum bridges, button/slot indices and conversions. `Rotations`: rotations for every machine-size step count. `AreasPublic`: defaults, arrays, clones, equality/order, storage order and conditional arbitrary-Nat rotation/index composition. |
+| `Types` | `types.rs` | `Types`: grade/style/note/status/position bridges, grade predicates, score metadata. `TypesExtra`: status order, judgment-result predicates and initial score counters. `TypesPublic`: defaults, clones, equality and exported order, including event kind/phase and runtime positions. |
+| `Constants` | `constants.rs` | `Constants`: every exported kernel constant, checked by Lean reduction. Window constants also occur in judge proofs. |
+| `Time` | `time.rs` | `Bridge`, `Time`, `Judge`: construction, projection, zero, addition/subtraction, absolute value, scale and Euclidean division. Overflow preconditions are explicit. |
+| `Convert` | `convert.rs` | `Convert`: all four grade conversion functions, all enum values. |
+| `Judge` | `judge.rs` | `Judge`: tap, touch, classic/modern slide, grade correction and late timeout. `Hold`: classic tail judgment and press-band arithmetic. `HoldModern`: modern tail calculation and all grade-table branches. |
+| `Score` | `score.rs` | `Score`: base score, nonbreak score and combo. `ScoreExtra`: break score, fast/late flags and DX rank. |
+| `Types.JudgeCounts` | `grade_counts.rs` (also used by runtime scoring) | `GradeCounts`: all 15 indices and grade order, generic fixed-array reads/writes, decoded point updates and increments. Bounds are discharged for every grade. No Clone law is needed; the increment theorem assumes decoded addition. |
+| `Storage` | `storage.rs` (also re-exported by the runtime) | `Storage`, `StorageLoops`, `StorageAccum`, `StoragePublic`: indices/order, empty defaults, replication, read/write, list conversion, entries, function construction, state accumulation and cloning. Quantifies arbitrary stored values and representable vector lengths. |
+| `Simai.Symmetry` | `symmetry.rs` (also re-exported by the runtime) | `Symmetry`: direct/mirror constructors, cloning, mirrored flag, rotation steps, equality modulo eight and action on every sensor area for every `u32` rotation argument. |
+| `Simai.Shape` | `shape.rs` | `Shape`, `ShapeSolver`: default, equality, shape constructors, digits, mirror and relative endpoints, and canonical-shape solving for the extracted argument types. |
+| `Simai.Tokenize` | `tokenize.rs` (also used by the runtime parser) | `Tokenize`: both character classifiers, bracket-depth scanning, termination and buffer bounds, and exact top-level split results for arbitrary character sequences with length below `Usize.max`. Includes unmatched brackets and empty pieces. Principal theorems passed combined-source elaboration and axiom checks; UTF-8/string conversion and the remaining parser are outside this proof. |
+| `Lifecycle.SlideArea` | `lifecycle.rs` (also used by the runtime) | `SlideHistory`, `SlideAreaLoops`, `SlideArea`, `SlideAreaTrace`: indexed history model, loop bounds/termination, defaults, cloning, on/completion queries, checkpoint updates and arbitrary finite repetition of those updates. Progress is an opaque parameter; cloning must preserve values. Current proof-build status is tracked in `SOURCE_AUDIT.md`. |
+| `Lifecycle.slideQueueCoreFuel`, `slideQueueCore`, `replaySlideQueue` | `slide_queue.rs`, runtime `lifecycle.rs` | Runtime delegates traversal to the extracted kernel. `SlideQueueModel` compiled separately. `SlideQueue`, `SlideQueueTraversal`, `SlideQueueTrace` and `SlideQueueReferenceTrace` passed combined-source elaboration: extracted recursion, entry points, every intermediate queue, ordered commands and command-free replay over finite frame traces. Fresh separate-module audit is pending. Clone purity and machine container-length conditions remain explicit. |
 
----
+`Defaults` additionally states the six extracted structure-default contracts
+for duration, time point, judgment result, group state, judgment event and
+combo delta. The event default preserves Lean's derived multiplicity of zero;
+event construction and the custom JSON fallback separately use one. See
+`SOURCE_AUDIT.md` for their current compilation/audit status.
 
-## Module: Time
+Representative theorem names are `judge_tap_equiv`, `judge_touch_equiv`,
+`judge_slide_classic_equiv`, `judge_slide_modern_equiv`,
+`judge_slide_too_late_equiv`, `is_too_late_slide_equiv`,
+`judge_hold_classic_end_equiv`, `judge_hold_end_equiv`,
+`hold_band_grade_equiv`, `score_non_break_equiv`, `update_combo_equiv`,
+`score_break_equiv`, `count_fast_late_equiv` and `dx_score_rank_equiv`.
 
-| Lean (LnmaiCore/Time.lean) | Rust (aeneas-core-verify/src/time.rs) | Verification |
+Machine durations embed into Lean integers through `Bridge.toLnmDuration`;
+this is not an isomorphism with all Lean durations. Kernel addition,
+subtraction, multiplication, absolute value and scoring require representable
+intermediates. Corrected `div_nat` uses Euclidean division even on negative
+inputs and returns zero for divisor zero. DX rank widens products to `u64`, so
+its theorem covers every `u32` input.
+
+Storage proofs relate the extracted implementation directly to `LnmaiCore.Storage`,
+including short/long backing vectors, unchanged out-of-range writes and zip
+truncation. The `VecEquality` and `StorageEquality` proofs additionally
+cover exact backing-list equality, including unequal vector lengths.
+`SlideAreaEquality` applies represented equality to all checkpoint fields.
+These three modules passed combined-source elaboration; their fresh
+separate-module audit is pending.
+Loop proofs include termination and bounds for indexing, increments
+and pushes. Generic theorems explicitly require value-preserving `Clone` and
+callbacks that return the specified pure result; proving those conditions for
+each runtime element/callback remains a separate obligation. Allocation/resource
+failures, derived debug formatting and JSON serialization are outside this scope.
+
+## Runtime modules
+
+`Adapters` and `AdapterJudgments` prove mathematical clamp invariance for
+arbitrary integer judgment inputs and compose it with the extracted kernel
+theorems. They also model the exact modern-Hold adapter and cover classic Hold
+and fast/late flags. `AdapterScore` proves the finite coefficient decomposition
+for arbitrary natural scores and combo counters. These are conditional on
+the runtime representations implementing the stated integer/natural operations;
+the actual Rust `Integer`, `Natural` and bigint-library connection is still
+required.
+
+`IntegerAdapters` proves the runtime's mathematical Euclidean-division
+algorithm for positive, negative and zero divisors. `AccuracyAdapters`
+composes the five rational formulas under explicit arithmetic/decoding laws.
+`RuntimeScore` composes the extracted score coefficients and fast/late flags
+with the reference's single-event fold, ordered list fold and intermediate
+score trace. Their principal theorems passed combined-source elaboration
+and axiom checks; the actual bigint/rational implementations and unextracted
+runtime callers remain to be connected to those contracts.
+`RuntimeCounts` additionally proves decoded select/replace and five-table
+routing/update composition using the extracted generic array accessors. Its
+principal theorems passed combined-source elaboration and axiom checks under
+explicit arithmetic/decoding laws; this does not discharge the runtime bigint
+representation or the unextracted caller.
+
+`ShapeAdapters` composes the extracted shape constructors and endpoint
+operations with the runtime branches for natural endpoints beyond `usize`.
+Its four main theorems passed combined-source elaboration and their axiom
+checks. They assume conversion succeeds exactly for representable values
+and preserves the value; the actual `Natural::to_usize` implementation still
+needs to be connected to this contract. Large endpoints remain unchanged by
+mirroring; checked constructors accept them only for circle, v, pq and ppqq.
+
+| Runtime Rust modules | Lean counterpart / validation | Remaining formal obligation |
 |---|---|---|
-| `Duration { ticks : TimeTick { val : ℤ } }` | `Duration { micros : i64 }` | Iso: `toLnmDuration` (constructive) ✅ |
-| `TimePoint { ticks : TimeTick { val : ℤ } }` | `TimePoint { micros : i64 }` | Iso: `toLnmTimePoint` (constructive) ✅ |
-| `Duration.zero` | `Duration::zero()` | Bridge ✅ |
-| `Duration.abs` | `Duration::abs()` → `core::num::i64::abs` | Bridge: `abs_spec` + `abs_eq` (no overflow at `i64::MIN`) ✅ |
-| `Duration.scaleNat` | `Duration::scale_nat` | Value spec ✅ (`Bridge.scale_nat_spec`, `Bridge.hcast_i64_val`) |
-| `Duration.divNat` | `Duration::div_nat` | Value spec ✅ (`Bridge.div_nat_spec`); **see division-semantics caveat below** |
+| `areas`, `convert` | Shared extracted enum/conversion code; `AreasPublic` composes arbitrary-Nat rotations/indices with the kernel. | Prove actual unbounded adapters satisfy the exact residue/representation hypotheses. |
+| `integer`, `natural`, `rat`, `time` | Exact arithmetic and Lean JSON/numeric oracles, including values beyond 64/128 bits. | Extract or verify the representation, normalization, library operations and all adapters. |
+| `types`, `constants`, `judge` | Shared enums/tables; mathematical adapter proofs and grade/timing differential tests. | Connect the actual Rust representations and operations to the proved adapters. |
+| `score`, `accuracy`, `runtime_score` | Coefficient, conditional accuracy and event-fold/trace proofs; actual shared count-array reads/writes. Deferred numeric and restored-state comparisons. | Connect actual unbounded arithmetic and runtime callers to the formulas; complete count/state composition. |
+| `simai/*` | All frontend modes, shape tables, valid/invalid syntax, errors and the deferred 48-difficulty corpus. | Parser, normalization and lowering equivalence for all inputs. |
+| `storage` | Re-exports the extracted implementation; generic operations proved in `Storage*`. | Discharge generic clone/callback hypotheses for runtime types; serialization and allocation assumptions. |
+| `symmetry` | Re-exports the extracted implementation; `Symmetry` relates its operations to Lean's dihedral group. | JSON decoding of unbounded rotation arguments and derived debug formatting remain outside the kernel proof. |
+| `chart_loader`, `input_model` | Chart/state decoding, loading, ordering and frame comparisons. | Representation invariants and operations on arrays/maps. |
+| `lifecycle`, `scheduler`, `events`, `default_tactic` | Synthetic frames, seeded input, full corpus playthroughs in four mode combinations. | Transition relation, event ordering, scoring/audio/render and tactic generation. |
+| `runtime_seek` | Forward/backward seek, settings, autoplay, replay and JSON restoration scenarios. | Arbitrary trace equivalence and state restoration invariants. |
+| `json_decode`, `lean_json`, `ffi`, `cabi`, `native` | Malformed input, JSON text, native records/session errors and compiled C smoke test. | Serialization and session lifecycle equivalence, memory ownership and ABI correctness. |
 
-**Integer semantics:**
-- Lean `Duration` uses `ℤ` (unbounded)
-- Rust `Duration` uses `i64` (bounded, modeled as `Std.I64 = IScalar .I64` in Aeneas)
-- Bridge: `IScalar.val` extracts `ℤ` from bounded type
-- Gap: `core.num.I64.abs` is modeled by Aeneas; `abs_spec`/`abs_eq` give its
-  behavior for all inputs except `i64::MIN` (which game diffs never reach).
+Native encoding deliberately converts mathematical integers to their low
+64-bit words, as Lean's native interface does. This conversion is separate
+from gameplay arithmetic, which remains unbounded. Physical array positions
+remain machine-size indices; note IDs and gameplay counts do not.
 
-**Division-semantics caveat (`divNat`).** The spec's `Duration.divNat` uses
-Lean's `/` on `ℤ`, which is *Euclidean* division (`(-7)/2 = -4`), while the
-Rust/model `/` is Aeneas `IScalar.div_spec`'s `Int.tdiv`, which truncates toward
-zero (`(-7).tdiv 2 = -3`). The two agree exactly when the dividend is
-nonnegative. Callers pass a wait/segment duration (`stay_time`, nonnegative), so
-the modern-slide equivalence is stated with `0 ≤ stay_time.micros.val`.
+## What constitutes evidence
 
----
+1. `regen_aeneas.sh --check` checks that extracted LLBC and generated Lean
+   correspond to the current kernel source.
+2. `lake build` in `verification` checks the declared theorems and runs the
+   transitive axiom audit. Only Lean's standard logical axioms are allowed.
+3. Differential tests execute both runtimes. Ordinary Cargo tests explicitly
+   ignore this suite; the required script enables it and rejects a missing
+   oracle. Full corpus outputs are compared every frame; full states are
+   compared periodically and at completion. Synthetic traces compare states
+   every frame.
+4. Native C tests exercise exported symbols, ABI layout, ownership and errors.
 
-## Module: Types
+These checks have different scopes. Even when all pass, the unproved runtime
+rows above prevent a claim of whole-program formal equivalence.
 
-| Lean (LnmaiCore/Types.lean) | Rust (aeneas-core-verify/src/types.rs) | Verification |
-|---|---|---|
-| `JudgeGrade` (15 variants) | `JudgeGrade` enum | Iso: `judgeGrade_roundtrip_l/r` ✅ |
-| `JudgeStyle` (4 variants) | `JudgeStyle` enum | Iso: `judgeStyle_roundtrip_l/r` ✅ |
-| `NoteType` (5 variants) | `NoteType` enum | Iso: `noteType_roundtrip_l/r` ✅ |
-| `SlideKind` (3 variants) | `SlideKind` enum | Iso: `slideKind_roundtrip_l/r` ✅ |
-| `AreaPolicy` (2 variants) | `AreaPolicy` enum | Iso: `areaPolicy_roundtrip_l/r` ✅ |
-| `JudgeGrade.isMissOrTooFast` | `JudgeGrade::is_miss_or_too_fast` | Generated.lean |
-| `JudgeGrade.isFast` | `JudgeGrade::is_fast` | Generated.lean |
-| `JudgeGrade.distFromPerfect` | `JudgeGrade::dist_from_perfect` | Generated.lean |
-| `JudgeGrade.isPerfectGrade` | `JudgeGrade::is_perfect_grade` | Generated.lean |
-
----
-
-## Module: Constants
-
-| Lean (LnmaiCore/Constants.lean) | Rust (aeneas-core-verify/src/constants.rs) | Verification |
-|---|---|---|
-| `FRAME_LENGTH` (16667µs) | `FRAME_LENGTH` | Generated.lean: same value |
-| `TAP_JUDGE_SEG_1ST_PERFECT_MSEC` = 16667 | `TAP_PERFECT_1ST` = 16667 | Bridge ✅ |
-| `TAP_JUDGE_SEG_2ND_PERFECT_MSEC` = 33334 | `TAP_PERFECT_2ND` = 33334 | Same value |
-| ... all 30+ timing constants | ... | All verified to match by computation |
-
----
-
-## Module: Convert
-
-| Lean (LnmaiCore/Convert.lean) | Rust (aeneas-core-verify/src/convert.rs) | Verification |
-|---|---|---|
-| `convertMaji : JudgeGrade → JudgeGrade` | `convert_maji(grade) → JudgeGrade` | Equiv: `convertMaji_equiv` ✅ |
-| `convertGachi` | `convert_gachi` | Equiv: `convertGachi_equiv` ✅ |
-| `convertGori` | `convert_gori` | Equiv: `convertGori_equiv` ✅ |
-| `convertGrade (style) (g)` | `convert_grade(style, grade)` | Equiv: `convertGrade_equiv` ✅ |
-
----
-
-## Module: Judge
-
-| Lean (LnmaiCore/Judge.lean) | Rust | Verification |
-|---|---|---|
-| `judgeTap (diff : Duration) (isEX : Bool) → JudgeGrade` | `judge_tap(diff, is_ex) → JudgeGrade` | Equiv: `judgeTap_equiv` ✅ |
-| `judgeTouch (diff) (isEX) → Option JudgeGrade` | `judge_touch(diff, is_ex) → Option<JudgeGrade>` | Equiv: `judgeTouch_equiv` ✅ |
-| `judgeSlideModern (diff) (stay_time) (isEX)` | `judge_slide_modern(diff, stay_time, is_ex)` | Equiv: `judge_slide_modern_equiv` ✅ (`stay_time ≥ 0`) |
-| `judgeSlideClassic (diff) → JudgeGrade` | `judge_slide_classic(diff) → JudgeGrade` | Equiv: `judgeSlideClassic_equiv` ✅ |
-| `correctSlideGrade : JudgeGrade → JudgeGrade` | `correct_slide_grade(grade) → JudgeGrade` | Equiv: `correctSlideGrade_equiv` ✅ |
-| `judgeHoldEnd (headGrade) ...` | `judge_hold_end(...)` | Equiv: `judgeHoldEnd_equiv` ❌ (sorry) |
-| `judgeHoldClassicEnd (headGrade) ...` | `judge_hold_classic_end(...)` | Equiv: `judgeHoldClassicEnd_equiv` ❌ (sorry) |
-| `judgeSlideTooLate (queueRemaining : Nat)` | `judge_slide_too_late(queue_remaining: u32)` | Equiv: `judgeSlideTooLate_equiv` ✅ |
-| `isTooLateSlide (diff) (userOffset)` | `is_too_late_slide(diff, user_offset)` | Equiv: `is_too_late_slide_equiv` ✅ (no-overflow precondition) |
-
----
-
-## Module: Score
-
-| Lean (LnmaiCore/Score.lean) | Rust | Verification |
-|---|---|---|
-| `baseScore (nt : NoteType) : Nat` | `base_score(nt) → u32` | Equiv: `baseScore_equiv` ✅ |
-| `scoreNonBreak (baseScore) (grade) (multiple) : Nat × Nat` | `score_non_break(base, grade, multiple) → (u32, u32)` | Equiv: `score_non_break_equiv` ✅ (no-overflow preconditions) |
-| `scoreBreak (grade) (multiple) : ...` | `score_break(grade, multiple)` | ❌ not yet proved |
-| `updateCombo (combo, pCombo, cPCombo, dXScoreLost, grade, multiple) → ComboDelta` | `update_combo(...) → ComboDelta` | Equiv: `update_combo_equiv` ✅ (no-overflow preconditions) |
-| `dxScoreRank (achievedDxScore) (maxDxScore) : Nat` | `dx_score_rank(achieved, max) → u32` | ❌ not yet proved |
-| `countFastLate (grade) (diff) (display) : Bool × Bool` | `count_fast_late(grade, diff, display)` | Not yet modeled |
-| `computeAccRates ... : AccRates` | `compute_acc_rates(score) → AccRates` | Not yet modeled |
-
----
-
-## Summary
-
-| Category | Count | Status |
-|---|---|---|
-| Sum-type isomorphisms | 9 types | All proved ✅ |
-| Convert functions | 4 functions | All proved ✅ |
-| Judge functions | 9 functions | 7 proved (`judgeTap`, `judgeTouch`, `judgeSlideClassic`, `judgeSlideModern`, `judgeSlideTooLate`, `isTooLateSlide`, `correctSlideGrade`); 2 pending (both hold-ends) |
-| Score functions | 7 functions | 3 proved (`baseScore`, `scoreNonBreak`, `updateCombo`); 3 pending (`scoreBreak`, `dxScoreRank`, `countFastLate`); 1 not modeled (`computeAccRates`) |
-| Axioms in use | 0 | The active `Verification` library proves everything from standard axioms only |
-
-## Remaining Gaps
-
-1. **Bounded/Unbounded Arithmetic Bridge**: U32 arithmetic in Rust differs from Nat in Lean for overflow cases. `score_non_break_equiv` and `update_combo_equiv` are proved with explicit no-overflow preconditions; `scoreBreak`/`dxScoreRank`/`countFastLate` remain.
-2. **judgeSlideModern**: needs `Duration.divNat`/`scaleNat` (P2).
-3. **judgeHoldEnd / judgeHoldClassicEnd**: complex structural proofs pending (`Duration` arithmetic/comparison bridges).
-4. **computeAccRates**: Uses `f64` in Rust vs `Rat` in Lean — rational number bridge needed.
-5. **ChartLoader, Lifecycle, Scheduler, Storage, Domain, InputModel**: Not yet verified.
+`SOURCE_AUDIT.md` tracks source coverage and the current work order. The
+validation scenarios listed above are coverage descriptions, not a claim
+that the current revision has passed them. Tests remain deferred until the
+implementation-equivalence pass is complete.
