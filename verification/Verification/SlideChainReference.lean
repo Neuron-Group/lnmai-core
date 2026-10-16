@@ -4,8 +4,8 @@ import Lean.Elab.Tactic.Omega
 
 /-!
 SOURCE-ONLY DRAFT. No elaboration, compiler, test or extraction was run.
-These lemmas factor the actual original private Lean definitions. They are not
-proofs of Generated.slide_chain, which is absent from the delivery's baseline.
+These lemmas factor the actual original private Lean definitions. They do not
+assert proofs of Generated.slide_chain; the extraction connection is separate.
 There is no assumed whole-chain equation and no admitted/axiomatic theorem.
 The main worker must elaborate and repair the tactic scripts before using them.
 -/
@@ -13,12 +13,16 @@ The main worker must elaborate and repair the tactic scripts before using them.
 namespace Verification.SlideChainReference
 open LnmaiCore LnmaiCore.Simai
 
-open private ContinuousChainSegment chainSyntaxError readDigitChar
+open private ContinuousChainSegment ContinuousChainSegment.mk chainSyntaxError readDigitChar
   readBracketSuffixFuel readBracketSuffix parseSlideShapeChars
   parseContinuousSlideSegmentsCoreFuel parseContinuousSlideSegmentsCore
   parseContinuousSlideSegments? from LnmaiCore.Simai.Tokenize
 
 abbrev OriginalSegment := ContinuousChainSegment
+
+/-- Explicit access to the original private constructor; no replacement datatype. -/
+def mkOriginalSegment (rawText : String) (hasTiming : Bool) : OriginalSegment :=
+  ContinuousChainSegment.mk rawText hasTiming
 
 abbrev originalFuel (fuel : Nat) (raw : String) (head : Char) (chars : List Char) :=
   parseContinuousSlideSegmentsCoreFuel fuel raw head chars
@@ -45,9 +49,9 @@ def resultView (raw : String) (view : α → β) : Except Issue α → Except Pa
   | .ok value => .ok (view value)
 
 /-- Prefix is discarded on error, including an error after successful segments. -/
-def prefixResult (prefix : List α) : Except ε (List α) → Except ε (List α)
+def prefixResult (accSegments : List α) : Except ε (List α) → Except ε (List α)
   | .error error => .error error
-  | .ok tail => .ok (prefix ++ tail)
+  | .ok tail => .ok (accSegments ++ tail)
 
 theorem prefixResult_nil (result : Except ε (List α)) :
     prefixResult [] result = result := by
@@ -90,9 +94,9 @@ def referenceStep (raw : String) (head c : Char) (rest : List Char) :
   else
     let (shape, rest) ← parseSlideShapeChars raw c rest
     let (suffix, rest, hasTiming) ← timingStep raw rest
-    pure { segment := { rawText := (String.singleton head ++ shape) ++ suffix, hasTiming }
-           nextHead := shape.toList.reverse.head?.getD head
-           rest }
+    pure { segment := mkOriginalSegment ((String.singleton head ++ shape) ++ suffix) hasTiming,
+           nextHead := shape.toList.reverse.head?.getD head,
+           rest := rest }
 
 /-- Exact one-step factoring, valid for errors and for every natural fuel. -/
 theorem originalFuel_cons (fuel : Nat) (raw : String) (head c : Char) (rest : List Char) :
@@ -100,7 +104,7 @@ theorem originalFuel_cons (fuel : Nat) (raw : String) (head c : Char) (rest : Li
       (do let step ← referenceStep raw head c rest
           let tail ← originalFuel fuel raw step.nextHead step.rest
           pure (step.segment :: tail)) := by
-  simp only [originalFuel, parseContinuousSlideSegmentsCoreFuel, referenceStep]
+  simp only [originalFuel, parseContinuousSlideSegmentsCoreFuel, referenceStep, mkOriginalSegment]
   split
   · rfl
   · split
@@ -111,19 +115,19 @@ theorem originalFuel_cons (fuel : Nat) (raw : String) (head c : Char) (rest : Li
 /-- A forward-accumulator factoring of the old recursion. Empty precedes fuel. -/
 def collectFuel (raw : String) : Nat → Char → List Char → List OriginalSegment →
     Except ParseError (List OriginalSegment)
-  | _, _, [], prefix => .ok prefix
+  | _, _, [], accSegments => .ok accSegments
   | 0, _, _ :: _, _ => .error (decodeIssue raw .invalidSyntax)
-  | fuel + 1, head, c :: rest, prefix =>
+  | fuel + 1, head, c :: rest, accSegments =>
       match referenceStep raw head c rest with
       | .error error => .error error
       | .ok step =>
-          collectFuel raw fuel step.nextHead step.rest (prefix ++ [step.segment])
+          collectFuel raw fuel step.nextHead step.rest (accSegments ++ [step.segment])
 
 /-- This is a source factoring theorem, not an assumed complete parser law. -/
 theorem collectFuel_reference (fuel : Nat) (raw : String) (head : Char)
-    (chars : List Char) (prefix : List OriginalSegment) :
-    collectFuel raw fuel head chars prefix = prefixResult prefix (originalFuel fuel raw head chars) := by
-  induction fuel generalizing head chars prefix with
+    (chars : List Char) (accSegments : List OriginalSegment) :
+    collectFuel raw fuel head chars accSegments = prefixResult accSegments (originalFuel fuel raw head chars) := by
+  induction fuel generalizing head chars accSegments with
   | zero =>
       cases chars <;>
         simp [collectFuel, originalFuel, parseContinuousSlideSegmentsCoreFuel,
@@ -206,12 +210,12 @@ def shapePrefix (op : Char) (chars : List Char) : String × List Char :=
 
 theorem shapePrefix_remaining_le (op : Char) (chars : List Char) :
     (shapePrefix op chars).2.length ≤ chars.length := by
-  unfold shapePrefix
-  split
+  by_cases hp : (decide (op = 'p') || decide (op = 'q')) = true
   · cases chars with
-    | nil => simp
-    | cons c rest => split <;> simp
-  · simp
+    | nil => simp [shapePrefix, hp]
+    | cons c rest =>
+        by_cases hc : c = op <;> simp [shapePrefix, hp, hc]
+  · simp [shapePrefix, hp]
 
 /-- Successful V reads two digits; doubled p/q reads exactly one extra mark;
 every other accepted mark still requires one digit. -/
@@ -257,10 +261,10 @@ theorem bracket_remaining_le (raw : String) (chars acc : List Char)
   | nil => simp [readBracketSuffixFuel] at h
   | cons c tail ih =>
       by_cases hc : c = ']'
-      · simp only [readBracketSuffixFuel, hc, if_true, pure, Except.pure,
-          Except.ok.injEq, Prod.mk.injEq] at h
-        rcases h with ⟨_, rfl⟩
-        simp
+      · subst c
+        cases fuel <;>
+          simp [readBracketSuffixFuel, pure, Except.pure] at h <;>
+          rcases h with ⟨_, rfl⟩ <;> simp
       · cases fuel with
         | zero => simp [readBracketSuffixFuel, hc] at h
         | succ fuel =>
@@ -330,12 +334,12 @@ theorem originalFuel_stable (raw : String) (fuel other : Nat)
     originalFuel fuel raw head chars = originalFuel other raw head chars := by
   induction fuel generalizing other head chars with
   | zero =>
-      have hempty : chars = [] := List.length_eq_zero.mp (by omega)
+      have hempty : chars = [] := List.length_eq_zero_iff.mp (by omega)
       subst chars
-      rfl
+      simp [originalFuel, parseContinuousSlideSegmentsCoreFuel]
   | succ fuel ih =>
       cases chars with
-      | nil => rfl
+      | nil => simp [originalFuel, parseContinuousSlideSegmentsCoreFuel]
       | cons c rest =>
           cases other with
           | zero => simp at hg

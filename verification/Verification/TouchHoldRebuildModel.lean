@@ -78,7 +78,8 @@ theorem insertMissing_eq (items : List Nat) (note : Nat) :
       cases hf : items.findIdx? (fun item => item == note) with
       | none =>
           have hn := (find_note_none_iff items note).1 hf
-          simp [hc] at hn
+          have hfalse : (true : Bool) = false := hc.symm.trans hn
+          cases hfalse
       | some index => simp [insertMissing, hf, hc]
 
 theorem removeFirst_eq_erase (items : List Nat) (note : Nat) :
@@ -175,7 +176,8 @@ theorem member_length (group : TouchHoldBodyGroupState) (note : Nat) (triggered 
     (after group note triggered).memberNoteIndices.length =
       if group.memberNoteIndices.contains note then group.memberNoteIndices.length
       else group.memberNoteIndices.length + 1 := by
-  cases h : group.memberNoteIndices.contains note <;> simp [after, h]
+  by_cases h : note ∈ group.memberNoteIndices <;>
+    simp [after, List.contains_eq_mem, h]
 
 /-- A false trigger deletes ONE occurrence even when the stored list has duplicates. -/
 theorem trigger_length (group : TouchHoldBodyGroupState) (note : Nat) (triggered : Bool) :
@@ -279,6 +281,7 @@ theorem rebuildFrom_length_bounds (holds : Holds) (groups : Groups) :
 
 namespace SchedulerReference
 open private touchHoldBodyGroupStatesFromHolds touchHoldBodyGroupStatesFromHolds.loop
+  touchHoldBodyGroupStatesFromHolds.loop.upsert
   from LnmaiCore.Scheduler
 
 /-- Alias, not a replacement of the original reference recursion. -/
@@ -289,10 +292,23 @@ def reference (holds : Holds) : Groups := touchHoldBodyGroupStatesFromHolds hold
 
 @[simp] theorem resume_nil (groups : Groups) : resume [] groups = groups.reverse := rfl
 
+private theorem upsert_eq (id note : Nat) (triggered : Bool) (groups : Groups) :
+    touchHoldBodyGroupStatesFromHolds.loop.upsert id note triggered groups =
+      upsert id note triggered groups := by
+  induction groups with
+  | nil => rfl
+  | cons group rest ih =>
+      change
+        (if group.groupId == id then after group note triggered :: rest
+          else group :: touchHoldBodyGroupStatesFromHolds.loop.upsert id note triggered rest) =
+        (if group.groupId == id then after group note triggered :: rest
+          else group :: upsert id note triggered rest)
+      rw [ih]
+
 theorem resume_cons (area : SensorArea) (note : HoldNote) (rest : Holds) (groups : Groups) :
     resume ((area, note) :: rest) groups = resume rest (step note groups) := by
   cases hg : note.touchHoldGroupId <;>
-    simp only [resume, touchHoldBodyGroupStatesFromHolds.loop, step, hg] <;> rfl
+    simp only [resume, touchHoldBodyGroupStatesFromHolds.loop, step, hg, upsert_eq]
 
 theorem resume_eq_walk (holds : Holds) (groups : Groups) :
     resume holds groups = (walk holds groups).reverse := by
@@ -306,6 +322,7 @@ end SchedulerReference
 
 namespace ChartLoaderReference
 open private touchHoldBodyGroupStatesFromHolds touchHoldBodyGroupStatesFromHolds.loop
+  touchHoldBodyGroupStatesFromHolds.loop.upsert
   from LnmaiCore.ChartLoader
 
 def resume (holds : Holds) (groups : Groups) : Groups :=
@@ -315,10 +332,23 @@ def reference (holds : Holds) : Groups := touchHoldBodyGroupStatesFromHolds hold
 
 @[simp] theorem resume_nil (groups : Groups) : resume [] groups = groups.reverse := rfl
 
+private theorem upsert_eq (id note : Nat) (triggered : Bool) (groups : Groups) :
+    touchHoldBodyGroupStatesFromHolds.loop.upsert id note triggered groups =
+      upsert id note triggered groups := by
+  induction groups with
+  | nil => rfl
+  | cons group rest ih =>
+      change
+        (if group.groupId == id then after group note triggered :: rest
+          else group :: touchHoldBodyGroupStatesFromHolds.loop.upsert id note triggered rest) =
+        (if group.groupId == id then after group note triggered :: rest
+          else group :: upsert id note triggered rest)
+      rw [ih]
+
 theorem resume_cons (area : SensorArea) (note : HoldNote) (rest : Holds) (groups : Groups) :
     resume ((area, note) :: rest) groups = resume rest (step note groups) := by
   cases hg : note.touchHoldGroupId <;>
-    simp only [resume, touchHoldBodyGroupStatesFromHolds.loop, step, hg] <;> rfl
+    simp only [resume, touchHoldBodyGroupStatesFromHolds.loop, step, hg, upsert_eq]
 
 theorem resume_eq_walk (holds : Holds) (groups : Groups) :
     resume holds groups = (walk holds groups).reverse := by

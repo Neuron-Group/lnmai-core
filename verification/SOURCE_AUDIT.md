@@ -52,16 +52,28 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
-The next Touch/TouchHold/parser batch is a work-in-progress checkpoint. Its 36
-kernel sources match the real extraction in
-`/tmp/lnmai-touch-parser-batch-extraction-2/`; formatting and library-only Cargo
-checking passed. Generated, TouchAutomaticModel, TouchAutomatic,
-TouchAutomaticJudgments, TouchAutomaticQueue, StorageSensorRefinement,
-NormalizationModel, NormalizationPoints, Normalization and TouchScheduleModel
-have compiled independently. The Touch head composition, TouchHold traversal,
-frontend connection and frame connection still need repairs or compilation.
-This checkpoint does not supersede the accepted v24 evidence below, and is
-not a claim of completed equivalence or test acceptance.
+Checkpoint `f304971` contains the next parser/rebuild batch. All 40 kernel
+source hashes match the real extraction in
+`/tmp/lnmai-parser-rebuild-batch-extraction-3/`; the installed Generated SHA256
+is `d037f357eb395803e657d1ca4b445cc73908e6910c59bb5c37af0de3493ab1bf`
+and LLBC SHA256 is
+`6751f3cdccc3f32e4c87e650f02da956778ee84a3bab69785ed92cc97dd49125`.
+Formatting and library-only Cargo checking passed for this extraction. The
+current model contains six external formatting declarations; the axiom audit
+must establish that no accepted theorem depends on them.
+
+The sequential rebuilds in `/tmp/lnmai-current-extraction-batch-22.log` and
+`/tmp/lnmai-current-extraction-batch-23.log` compiled the lifecycle/judgment
+dependencies and the complete five-phase `SchedulerFrameAllTraversals`
+composition against this extraction. `NormalizationFrontend`,
+`TouchHoldRebuildModel`, `TouchHoldRebuildReverse` and the actual extracted
+reverse/slice-swap proofs also compiled. Their transitive axiom audit remains
+pending. `TimingNumberReference` has a further prefix-proof repair awaiting
+compilation; `TimingNumber`, `SlideChain*` and `MaidataScan*` remain pending.
+The SlideChain source proof failed at its timing-step correspondence. These
+successful compilations and draft repairs do not supersede the accepted v24
+evidence below. Concrete runtime contracts still remain open. No full
+equivalence or test acceptance is claimed.
 
 The 2026-10-17 composition batch passed combined-source elaboration with 76
 current source modules, 93 principal axiom reports and a transitive audit of

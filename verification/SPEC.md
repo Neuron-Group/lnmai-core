@@ -106,6 +106,25 @@ implementations still need a refinement proof.
 
 ## Trust and validation
 
+The current parser batch connects signed decimal timing syntax to the original
+`parseRatString?`, including whole-part underscores, empty fractional parts,
+minus signs and rejection order. `StringSplit` supplies the installed legacy
+splitter connection; `TimingNumberReference` and `TimingNumber` separate that
+reference connection from the actual extracted loops. Decimal zero, one and
+append operations, character decoding and concrete rational representation
+remain explicit boundaries. `SlideChain*` and `MaidataScan*` contain further
+grammar and scan proofs under development. Current acceptance, including
+failed or pending compilations, is recorded in `SOURCE_AUDIT.md`.
+
+`SchedulerFrameAllTraversals` composes the five phase implementations without
+a whole-phase correctness premise. Its field, integer, encoding, capacity and
+initialization contracts remain obligations for the concrete runtime. The
+TouchHold rebuild work separately proves the original group update model and
+the indexed reversal invariant. `TouchHoldRebuildReverseExtracted` connects
+that invariant to the actual extracted body, loop and wrapper under length
+and two-slot swap laws. This does not establish the concrete Vec facade or
+the remaining rebuild operations. These new modules still require acceptance.
+
 `Verification.Audit` traverses theorem dependencies and rejects every axiom
 except `propext`, `Classical.choice` and `Quot.sound`. The extraction pipeline
 and the Lean kernel remain part of the verification trust boundary. Imported

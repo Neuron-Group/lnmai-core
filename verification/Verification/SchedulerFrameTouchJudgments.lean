@@ -66,8 +66,11 @@ theorem fields_installed (input : FrameInput)
     SchedulerFrameTouchProof.FrameFieldsAgree
       (install inst integerOps decode encode touch repr input)
       (installedAdapters inst integerOps decode encode touch repr input) repr := by
-  exact { frontiers := fields.frontiers, queues := fields.queues,
-    cursor := fields.cursor, groups := fields.groups, write := fields.write }
+  exact { frontiers := fields.frontiers
+          queues := fields.queues
+          cursor := fields.cursor
+          groups := fields.groups
+          write := fields.write }
 
 /-- Uniform contracts over represented frames, not a reachability invariant.
 GroupRoom is the bounded missing-id append obligation inherited from the pass. -/

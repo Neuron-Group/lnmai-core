@@ -107,6 +107,7 @@ import Verification.SlideChainModel
 import Verification.MaidataScanModel
 import Verification.TouchHoldRebuildModel
 import Verification.TouchHoldRebuildReverse
+import Verification.TouchHoldRebuildReverseExtracted
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -125,11 +126,25 @@ run_cmd do
     ``Verification.TimingNumberProof.parse_loop_spec,
     ``Verification.TimingNumberProof.parse_spec,
     ``Verification.TimingNumberProof.parse_value_eq_original,
+    ``Verification.SlideChainReference.collectFuel_reference,
+    ``Verification.SlideChainReference.bracket_remaining_fuel,
+    ``Verification.SlideChainReference.original_remaining_fuel,
+    ``Verification.SlideChainModel.readShapeAt_spec,
+    ``Verification.SlideChainModel.timingEndFuel_reference,
+    ``Verification.SlideChainModel.stepAt_reference,
+    ``Verification.SlideChainModel.scanFuel_reference,
+    ``Verification.SlideChainModel.parsePlans_spans,
+    ``Verification.SlideChainModel.parseSegments_reference,
     ``Verification.MaidataScanModel.parse_public_factor,
     ``Verification.MaidataScanModel.group_public_factor,
     ``Verification.MaidataScanModel.groupFuel_stable,
     ``Verification.TouchHoldRebuildModel.upsertIndexed_eq,
     ``Verification.TouchHoldRebuildModel.indexedWalk_eq,
+    ``Verification.TouchHoldRebuildReverseExtractedProof.slice_swap_points,
+    ``Verification.TouchHoldRebuildReverseExtractedProof.reverse_body_step,
+    ``Verification.TouchHoldRebuildReverseExtractedProof.reverse_groups_loop_spec,
+    ``Verification.TouchHoldRebuildReverseExtractedProof.reverse_groups_spec,
+    ``Verification.TouchHoldRebuildReverseExtractedProof.reverse_groups_equiv,
     ``Verification.SchedulerFrameTouchHoldProof.reference_touch_hold,
     ``Verification.SchedulerFrameTouchHoldProof.initial_work_spec,
     ``Verification.SchedulerFrameTouchHoldProof.touch_hold_phase_refines,

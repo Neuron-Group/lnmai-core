@@ -107,8 +107,9 @@ theorem parse_string_shape (s : String) :
       have hstarts : s.startsWith "-" = (c == '-') := by
         have hiff : (s.startsWith "-" = true) ↔ ((c == '-') = true) := by
           simp only [String.startsWith_string_iff, show ("-" : String).toList = ['-'] from rfl,
-            hchars, List.singleton_prefix_cons_iff, beq_iff_eq, eq_comm]
-        exact Bool.eq_iff_iff.mpr (by simpa only [eq_comm] using hiff)
+            hchars, List.singleton_prefix_cons_iff, beq_iff_eq]
+          exact eq_comm
+        exact Bool.eq_iff_iff.mpr hiff
       have hdrop : (s.drop 1).toString.toList = rest := by
         change (s.drop 1).copy.toList = rest
         simp [String.toList_copy_drop, hchars]
