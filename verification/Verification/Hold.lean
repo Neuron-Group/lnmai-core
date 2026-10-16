@@ -19,8 +19,24 @@ open Bridge
        else if held.val * 100 ≥ reality.val * 67 then 1
        else if held.val * 100 ≥ reality.val * 33 then 2
        else if held.val * 100 ≥ reality.val * 5 then 3 else 4) ⦄ := by
-  unfold judge.press_band_micros
-  step* <;> simp_all <;> split_ifs <;> scalar_tac
+  -- Establish the four checked products once, before splitting the bands.
+  -- Symbolic execution after every split repeats the same overflow proofs.
+  obtain ⟨held100, hheld100, vheld100⟩ := WP.spec_imp_exists
+    (IScalar.mul_spec (by scalar_tac) (by scalar_tac) :
+      held * (100#i64 : Std.I64) ⦃ r => r.val = held.val * 100 ⦄)
+  obtain ⟨reality67, hreality67, vreality67⟩ := WP.spec_imp_exists
+    (IScalar.mul_spec (by scalar_tac) (by scalar_tac) :
+      reality * (67#i64 : Std.I64) ⦃ r => r.val = reality.val * 67 ⦄)
+  obtain ⟨reality33, hreality33, vreality33⟩ := WP.spec_imp_exists
+    (IScalar.mul_spec (by scalar_tac) (by scalar_tac) :
+      reality * (33#i64 : Std.I64) ⦃ r => r.val = reality.val * 33 ⦄)
+  obtain ⟨reality5, hreality5, vreality5⟩ := WP.spec_imp_exists
+    (IScalar.mul_spec (by scalar_tac) (by scalar_tac) :
+      reality * (5#i64 : Std.I64) ⦃ r => r.val = reality.val * 5 ⦄)
+  simp only [judge.press_band_micros, hheld100, hreality67, hreality33, hreality5,
+    bind_tc_ok, i64_le_iff, vheld100, vreality67, vreality33, vreality5,
+    IScalar.ofInt_val_eq]
+  split_ifs <;> simp
 
 def classicHoldCore (head : LnmaiCore.JudgeGrade) (diff : ℤ) : LnmaiCore.JudgeGrade :=
   if head.isMissOrTooFast then head else

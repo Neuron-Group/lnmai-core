@@ -739,11 +739,13 @@ theorem refresh_flags_spec {T S I R E W : Type}
           unfold lookupParent at hlookup
           rw [hget]
           simp only [bind_tc_ok]
-          rw [hlookup]
-          simp only [bind_tc_ok]
           -- Generated binds a (finished, pending) pair before constructing Flags.
           -- Reduce the point-write equation after the same Option case split.
-          cases found <;>
+          cases hparent : info.parent_index <;>
+            simp only [hparent] at hlookup ⊢ <;>
+            rw [hlookup] <;>
+            simp only [bind_tc_ok] <;>
+            cases found <;>
             simp only [flagsFromInfo] at hput <;>
             simpa [hput, hnext, bind_tc_ok] using hc
     · have hge : len.val ≤ index.val := by simpa using hmore

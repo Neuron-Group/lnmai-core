@@ -254,7 +254,7 @@ theorem body_step_equiv (note : Lifecycle.HoldNote) (f : Frame)
       holdTailEvent, is_miss_or_too_fast_equiv, bind_tc_ok, holdPressedTransition,
       holdKeepPressed, holdReleaseTransition, holdReleasedStillOff, holdReleasedRecovered,
       holdHeadReleaseTransition] <;>
-    split_ifs <;> simp_all
+    split_ifs <;> simp_all <;> omega
 
 def holdStep (note : Lifecycle.HoldNote) (f : Frame) :
     Result (Lifecycle.HoldNote × Option JudgeEvent) :=

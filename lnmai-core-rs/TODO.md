@@ -250,11 +250,23 @@ callback contracts are obligations, not completed proofs of their callers.
 
 ## Batched composition checkpoint (2026-10-17)
 
-`LifecycleJudgments` and `SchedulerFrameSlide` are newly written proof sources,
-not yet accepted by Lean. The former composes extracted exact judgments with
-Tap/SlideHead/Touch steps and finite traces; the latter composes extracted Slide
-traversal and parent kernels with the frame phase. They retain explicit atomic,
-representation, capacity and runtime facade obligations. This checkpoint does
-not claim whole-program equivalence. Finish the next composition batch before
-its combined verification; defer tests and `validate_all.sh` until code
-equivalence is closed.
+The composition batch passed combined-source Lean elaboration: 76 current
+modules, 93 principal reports, 2744 transitively audited theorems and 185
+matching source/artifact hashes. Evidence is preserved in
+`/tmp/lnmai-composition-proof-accepted-v6.json` with its `.sources.json`,
+`.evidence.json` and `.lean` snapshots. This is not an independent-module build.
+
+The nine composition modules contribute 67 principal reports. They connect
+exact judgment kernels to Tap/SlideHead/Touch/Hold/Slide lifecycles, Slide
+traversal and parent operations, score folding, frame finalization, and finite
+frame histories. `TapScheduleModel` adds 11 reports for the original queue
+recursion and sufficient fuel; `QueueMaintenanceModel` adds 15 for the
+original Hold/Touch queue normalization and replacement behavior.
+
+The frame theorem still assumes the complete Tap, Hold, Touch and TouchHold
+passes. Atomic operations, unbounded numeric/container representations,
+allocation bounds, actual runtime facades and initialization remain open. The
+new Tap/Hold/queue Rust kernels have passed an isolated library-only check and
+real extraction; their extracted traversal proofs and frame integration are
+the next batch. Defer tests and `validate_all.sh` until code equivalence is
+closed, including the already registered three requested charts.

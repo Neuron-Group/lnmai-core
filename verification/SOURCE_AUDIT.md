@@ -52,6 +52,33 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
+The 2026-10-17 composition batch passed combined-source elaboration with 76
+current source modules, 93 principal axiom reports and a transitive audit of
+2744 theorems. Only `propext`, `Classical.choice` and `Quot.sound` occur.
+Acceptance checked 185 source/artifact hashes against the installed real
+judgment extraction. The immutable snapshots are
+`/tmp/lnmai-composition-proof-accepted-v6.json`, `.sources.json`,
+`.evidence.json` and `.lean`. No tests or completed independent-module audit
+are claimed by this result.
+
+The 67 composition reports cover exact lifecycle judgments, Slide traversal
+and parent composition, score/finalization, initialization source equations
+and finite frame histories. Eleven `TapScheduleModel` reports and fifteen
+`QueueMaintenanceModel` reports concern the original Lean recursion, fuel
+sufficiency and queue replacement. They do not yet prove the newly extracted
+Tap/Hold/queue loops. `SchedulerFrameJudgments` still has four complete-pass
+premises (Tap, Hold, Touch, TouchHold); its Slide result is composed from
+traversal, parent, lifecycle and judgment proofs. Concrete facades, primitive
+field/representation laws and capacity remain explicit obligations.
+
+The next runtime batch is prepared in `/tmp/lnmai-scheduler-batch-workspace`:
+three shared kernels for Tap traversal, ordinary Hold traversal and queue
+maintenance. Formatting, `cargo check --workspace --lib --locked` and real
+Charon/Aeneas extraction passed in the corresponding
+`/tmp/lnmai-scheduler-batch-{format,library-check,extraction}-1.log` files.
+The extraction is `/tmp/lnmai-scheduler-batch-extraction/`; installation and
+proof compilation against that Generated module are separate next steps.
+
 `NaturalParser`, `TimingAggregate` and `SlideSchedule` passed combined-source
 elaboration and all 57 principal axiom checks. Every report uses only standard
 logical axioms; diagnostics and matching source hashes are recorded in
