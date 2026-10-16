@@ -180,6 +180,7 @@ theorem queue_slot_refines (i : Implementation) (ctx : Context) (laws : Agrees i
   · unfold referenceSlot processTouchQueue
     simp only [decodeAcc, headWork, headContext, TouchScheduleProof.interpret,
       TouchScheduleModel.Work.output] at hhead
+    simp only [decodeAcc]
     rw [← hhead]
     have h := congrArg (fun result : TouchAutomaticModel.Outcome =>
       (result.1, result.2.1, i.rep.cursor head.cursor, result.2.2.1, result.2.2.2)) hout

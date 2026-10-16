@@ -104,7 +104,7 @@ structure GroupAtoms (call : touch_hold_schedule.HeadGroups Ops G Id Grade D)
     (capacity : Nat) : Prop where
   length : ∀ gs, ∃ len, call.head_length ops gs = ok len ∧
     (rep.groups gs).length = len.val
-  matches : ∀ gs index pre group rest id,
+  «matches» : ∀ gs index pre group rest id,
     TouchHoldGroupsProof.At (rep.groups gs) index pre group rest →
     call.head_matches ops gs index id = ok (group.groupId == rep.id id)
   majority : ∀ gs index pre group rest,
@@ -148,7 +148,7 @@ theorem head_atoms (call : touch_hold_schedule.HeadGroups Ops G Id Grade D)
     (ops : Ops) (rep : Representation Q N F C G E Event T D Area Zone Id Grade)
     (capacity : Nat) (atoms : GroupAtoms call ops rep capacity) :
     TouchHoldGroupsProof.HeadAtoms call ops (headRep rep) capacity := by
-  exact { length := atoms.length, matches := atoms.matches, majority := atoms.majority
+  exact { length := atoms.length, «matches» := atoms.matches, majority := atoms.majority
            result := atoms.result, increment := atoms.increment, set_size := atoms.set_size
            set_result := atoms.set_result, append := atoms.append }
 
@@ -164,6 +164,7 @@ theorem register_capacity (call : touch_hold_schedule.HeadGroups Ops G Id Grade 
   obtain ⟨found, _, hfirst⟩ := spec_imp_exists
     (TouchHoldGroupsProof.find_head_spec call ops (headRep rep) capacity
       (head_atoms call ops rep capacity atoms) gs id)
+  simp only [headRep] at hfirst
   cases found with
   | none =>
       have href : registerTouchGroupResult (rep.groups gs) (rep.id id) (rep.id size)
@@ -353,9 +354,9 @@ theorem group_agrees_installed
   have h := group_agrees_of_atoms base headCall ops rep groupCapacity atoms room
   exact { shared_result := h.shared_result, register_group := h.register_group }
 
+include integerLaw decode_encode in
 /-- The single-note and group-list equivalence fields are conclusions of this
 theorem, not assumptions. Point laws survive both trait installations. -/
-include integerLaw decode_encode in
 theorem agrees_of_judgments_groups
     (base : touch_schedule.TouchSchedule Ops Q N F C G E Event T D Area Zone Id Grade M)
     (headCall : touch_hold_schedule.HeadGroups Ops G Id Grade D)
@@ -379,10 +380,10 @@ theorem agrees_of_judgments_groups
   exact lifecycle_agrees_of_judgments inst integerOps decode integerLaw encode decode_encode
     (installGroups base headCall) ops rep pack ctx ready
 
+include integerLaw decode_encode in
 /-- Real Generated process, composed with exact judgment, lifecycle, group
 search/registration, and queue maintenance. No body/step/group/pass equation
 is required of the caller. The result uses the ORIGINAL head-fuel recursion. -/
-include integerLaw decode_encode in
 theorem process_equiv
     (base : touch_schedule.TouchSchedule Ops Q N F C G E Event T D Area Zone Id Grade M)
     (headCall : touch_hold_schedule.HeadGroups Ops G Id Grade D)
@@ -409,9 +410,9 @@ theorem process_equiv
     (install inst integerOps decode encode base headCall rep pack ctx)
     cursorCall replaceCall ops rep ctx cap hp hg hl fuel initial hqfit hefit
 
+include integerLaw decode_encode in
 /-- The unchanged runtime wrapper supplies remaining + 1. Its conversion and
 addition are still explicit facade obligations, not consequences of queue Fits. -/
-include integerLaw decode_encode in
 theorem head_process_equiv
     (base : touch_schedule.TouchSchedule Ops Q N F C G E Event T D Area Zone Id Grade M)
     (headCall : touch_hold_schedule.HeadGroups Ops G Id Grade D)

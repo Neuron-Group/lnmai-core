@@ -1,5 +1,6 @@
 import Verification.JudgmentAdapter
 import Verification.HoldLifecycle
+import Verification.Convert
 
 /-!
 Compose the extracted exact-integer judgments with the Hold/TouchHold lifecycle.

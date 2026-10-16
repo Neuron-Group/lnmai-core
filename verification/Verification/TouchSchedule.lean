@@ -297,8 +297,8 @@ def buttonChoice (ctx : Context) (cursor : Scheduler.ClickCursor)
     (area : SensorArea) (allow : Bool) : Bool × Scheduler.ClickCursor :=
   if allow && ctx.buttonRingForTouch then
     match area.toOuterButtonZone? with
-    | none => (false, cursor)
     | some zone => tryUseButtonClickAt ctx.input cursor zone
+    | none => (false, cursor)
   else (false, cursor)
 
 def chooseButton (allow : Bool) (cursor : C) (area : Area) : Result (C × Bool) := do
@@ -568,15 +568,17 @@ theorem unused_input_spec (cursor : C) (area : Area) :
   obtain ⟨zone, hz, hzRep⟩ := points.outer_button area
   have href := SchedulerClickProof.touch_input_equiv ctx.input (rep.cursor cursor)
     (rep.area area) ctx.buttonRingForTouch
+  have hreturn (r : Result Bool) : (do let b ← r; ok b) = r := by
+    cases r <;> rfl
   cases zone with
   | none =>
       simpa [unusedInput, hz, points.button_ring_for_touch, points.sensor_available,
         SchedulerClickProof.touchInputRuntime, ← hzRep, sensorAvailable,
-        scheduler.touch_input_available, bind_tc_ok] using href
+        scheduler.touch_input_available, bind_tc_ok, hreturn] using href
   | some zone =>
       simpa [unusedInput, hz, points.button_available, points.button_ring_for_touch,
         points.sensor_available, SchedulerClickProof.touchInputRuntime, ← hzRep,
-        buttonAvailable, sensorAvailable, scheduler.touch_input_available, bind_tc_ok] using href
+        buttonAvailable, sensorAvailable, scheduler.touch_input_available, bind_tc_ok, hreturn] using href
 
 def interpretFlow (rep : Representation Q N F C G E Event T D Area Zone Id Grade)
     (result : ControlFlow
@@ -638,7 +640,13 @@ theorem body_reassociated (fuel : Usize)
     chooseButton, attemptButton, attemptSensor, readShared, finish, recordEvent,
     registerVote, replaceThenNormalize, normalizeQueue, unusedInput,
     bind_assoc_eq, bind_tc_ok, bind_eq_iff, Prod.forall, uncurry_apply_pair]
-  all_goals (intros; rfl)
+  all_goals
+    repeat' first
+      | rfl
+      | (intro)
+      | simp (config := { failIfUnchanged := true }) only
+          [bind_assoc_eq, bind_tc_ok, bind_eq_iff, Prod.forall, uncurry_apply_pair]
+      | split
 
 include points groups in
 theorem finish_spec (m : M)
@@ -705,21 +713,21 @@ theorem finish_spec (m : M)
       cases hmore : unused ctx (rep.note before) (rep.cursor p.cursor) <;>
       simp only [finish, hb, hafter, bind_tc_ok, hnewly, he, hq, hf,
         points.ended, hend, hu, hmore, hless, bind_tc_ok, nextRaw,
-        Bool.false_and, Bool.true_and, Bool.false_eq_true, Bool.true_eq, ↓reduceIte]
+        Bool.false_and, Bool.true_and, Bool.false_eq_true, Bool.true_eq, ↓reduceIte] <;> rfl
   refine ⟨_, hrun, ?_, ?_⟩
   · cases hcontinue : (ended (rep.note p.after) &&
         unused ctx (rep.note before) (rep.cursor p.cursor)) <;>
       simp only [hcontinue, Bool.false_eq_true, Bool.true_eq, ↓reduceIte,
-        interpretFlow, hlessRep.1, hnext, hout]
+        interpretFlow, hlessRep.1, hnext, hout] <;> rfl
   · cases hcontinue : (ended (rep.note p.after) &&
         unused ctx (rep.note before) (rep.cursor p.cursor)) <;>
       simpa only [hcontinue, Bool.false_eq_true, Bool.true_eq, ↓reduceIte,
         FlowFits, nextRaw] using hqFit
 
+include points groups life in
 /-- Each continuation preserves the result of the ORIGINAL reference
 recursion and strictly decreases the Usize fuel. Fits is also carried through
 both normalization loops and the full replacement loop, including every exit. -/
-include points groups life in
 theorem body_spec (fuel : Usize)
     (w : RawWork (Q := Q) (F := F) (C := C) (G := G) (E := E))
     (hqfit : Fits cap.queue (rep.queue w.queue))
@@ -737,7 +745,7 @@ theorem body_spec (fuel : Usize)
     enter_spec call cursorCall replaceCall ops rep ctx cap points w.queue hqfit
   let base : RawWork (Q := Q) (F := F) (C := C) (G := G) (E := E) := { w with queue := queue }
   have hbase : interpret rep base = normalize (interpret rep w) := by
-    simp only [interpret, base, normalize, hqRep]
+    simp only [interpret, base, TouchScheduleModel.normalize, hqRep]
   have hout : (interpret rep (restore
       (queue, w.frontiers, w.cursor, w.groups, w.events_rev))).output =
       (normalize (interpret rep w)).output := congrArg Work.output hbase
@@ -746,7 +754,7 @@ theorem body_spec (fuel : Usize)
     apply exists_imp_spec
     refine ⟨.done (queue, w.frontiers, w.cursor, w.groups, w.events_rev), ?_, hqFit, ?_⟩
     · rw [body_reassociated call cursorCall replaceCall ops, he]
-      simp only [bind_tc_ok, ↓reduceIte]
+      simp only [bind_tc_ok, ↓reduceIte] <;> rfl
     · exact hout.trans (resume_zero ctx (interpret rep w)).symm
   · have hpositive : 0 < fuel.val := by scalar_tac
     have hsucc : fuel.val = (fuel.val - 1) + 1 := by omega
@@ -759,7 +767,7 @@ theorem body_spec (fuel : Usize)
         apply exists_imp_spec
         refine ⟨.done (queue, w.frontiers, w.cursor, w.groups, w.events_rev), ?_, hqFit, ?_⟩
         · rw [body_reassociated call cursorCall replaceCall ops, he]
-          simp only [bind_tc_ok, hzero, ↓reduceIte, hp]
+          simp only [bind_tc_ok, uncurry_apply_pair, hzero, ↓reduceIte, hp]
         · exact hout.trans (resume_empty ctx fuel.val (interpret rep w) hempty).symm
     | some before =>
         have hpeek : (normalize (interpret rep w)).queue.peek = some (rep.note before) := by
@@ -769,6 +777,7 @@ theorem body_spec (fuel : Usize)
         rw [← hsucc, ← hbase] at href
         obtain ⟨p, button, sensor, hprepare, hid, harea, hc, hclicked, hdiff, hj⟩ :=
           prepare_spec call cursorCall replaceCall ops rep ctx cap points groups life base before
+        dsimp only [interpret] at href
         rw [← hc] at href
         try dsimp only at href
         rw [← hj] at href
@@ -790,7 +799,8 @@ theorem body_spec (fuel : Usize)
         apply exists_imp_spec
         refine ⟨result, ?_, ?_⟩
         · rw [body_reassociated call cursorCall replaceCall ops, he]
-          simpa only [bind_tc_ok, hzero, ↓reduceIte, hp, hprepare, base] using hfinish
+          simpa only [bind_tc_ok, uncurry_apply_pair, hzero, ↓reduceIte, hp,
+            hprepare, base] using hfinish
         · cases result with
           | cont state =>
               rcases state with ⟨nextFuel, nextWork⟩
@@ -814,7 +824,7 @@ theorem body_spec (fuel : Usize)
                 have heq := ControlFlow.done.inj hresult
                 refine ⟨hresultFit, ?_⟩
                 rw [heq, href]
-                simp only [hstop, ↓reduceIte, next]
+                simp [hstop, next]
 
 include points groups life in
 theorem process_loop_spec (fuel : Usize)
@@ -840,10 +850,10 @@ theorem process_loop_spec (fuel : Usize)
     | done result => exact ⟨hpost.1, hpost.2.trans hinv⟩
   · exact ⟨hqfit, rfl⟩
 
+include points groups life in
 /-- Real Generated process; resume is definitionally the original private
 Scheduler.processTouchQueueHeadFuel. No atomic/body/pass equivalence premise
 is introduced in lifting body_spec through loop and output reconstruction. -/
-include points groups life in
 theorem process_equiv (fuel : Usize)
     (initial : RawWork (Q := Q) (F := F) (C := C) (G := G) (E := E))
     (hqfit : Fits cap.queue (rep.queue initial.queue))
@@ -859,10 +869,10 @@ theorem process_equiv (fuel : Usize)
   refine ⟨⟨queue, frontiers, cursor, gs, es⟩, ?_, hpost⟩
   simp only [touch_schedule.process, hrun, bind_tc_ok] <;> rfl
 
+include points groups life in
 /-- The unchanged runtime head wrapper supplies remaining + 1. The equation
 for its Usize argument is explicit: native conversion/addition and allocation
 success have not been inferred from this generic kernel theorem. -/
-include points groups life in
 theorem head_process_equiv (fuel : Usize)
     (initial : RawWork (Q := Q) (F := F) (C := C) (G := G) (E := E))
     (hfuel : fuel.val = remaining (rep.queue initial.queue) + 1)

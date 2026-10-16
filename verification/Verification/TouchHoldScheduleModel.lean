@@ -235,7 +235,12 @@ theorem resume_step (ctx : Context) (w : Work) (area : SensorArea) (note : HoldN
     simp only [hg, hz, hbg] at hb hs hj hr ⊢
     simp only [hb, hs, hj, hr]
     cases event <;> cases hk : keepHoldActive after <;>
-      simp [retained, hk, hg, hz, hbg, Option.toList, List.append_assoc]
+      (simp [hk, hg, hz, hbg] at hr
+       simp [retained, hk, hg, hz, hbg, hr, Option.toList, List.append_assoc]
+       all_goals
+         cases hstate : after.state <;>
+           simp only [hstate] at hr ⊢ <;>
+           simp only [hr, and_self])
 
 theorem resume_singleton (ctx : Context) (w : Work) (area : SensorArea)
     (note : HoldNote) : resume ctx [(area, note)] w = step ctx w area note := by

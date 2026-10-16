@@ -63,8 +63,7 @@ theorem completeNote_view (text : String) (start : OuterSlot) (endArea : SensorA
     exceptView noteView (completeNote text start endArea parsed just) =
       (do let parsedShape ← exceptView toLnmShape parsed
           let isJustRight ← just ()
-          pure ({ rawText := text, startSlot := start, endArea,
-            shape := parsedShape, isJustRight } : SlideNoteSemantics)) := by
+          pure ({ rawText := text, startSlot := start, endArea, shape := parsedShape, isJustRight } : SlideNoteSemantics)) := by
   cases parsed <;> cases hjust : just () <;>
     simp [completeNote, exceptView, noteView, hjust, Bind.bind, Except.bind, pure, Except.pure]
 
@@ -521,6 +520,7 @@ theorem referenceStep_slide (isClassic : Bool) (measureDurSec : Rat → Duration
       acceptSlide state token (lowerSlideToken state.1 token isClassic) := by
   rcases state with ⟨noteIndex, taps, holds, touches, touchHolds, slides, debug, semantics⟩
   simp only [referenceStep, hkind, acceptSlide]
+  rfl
 
 def lowerSlideStep (base : SlideParserProof.Frontend) (encode : List Char → String)
     (chars : Slice Char) (isClassic : Bool) (state : ForwardState)
@@ -542,8 +542,8 @@ theorem lowerSlideStep_equiv (base : SlideParserProof.Frontend)
   rw [referenceStep_slide isClassic measureDurSec (stateView state) token hkind]
   unfold lowerSlideStep
   rw [lowerToken_equiv base encode chars isClassic state.nextIndex token points]
-  simp only [bind_tc_ok]
-  simpa only [appendSlide_view]
+  simp only [bind_tc_ok, appendSlide_view]
+  rfl
 
 theorem lowerSlideStep_rejected (base : SlideParserProof.Frontend)
     (encode : List Char → String) (chars : Slice Char)

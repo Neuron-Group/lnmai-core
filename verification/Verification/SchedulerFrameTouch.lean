@@ -27,7 +27,9 @@ def frameContext (input : FrameInput) (frame : SchedulerFrameProof.FrameWork) :
 def writeReference (frame : SchedulerFrameProof.FrameWork)
     (out : TouchSchedulePassProof.Outcome) : SchedulerFrameProof.FrameWork :=
   { frame with
-    state := { frame.state with touchQueueFrontiers := out.1, touchQueues := out.2.1,
+    state := { frame.state with
+      touchQueueFrontiers := out.1
+      touchQueues := out.2.1
       touchGroupStates := out.2.2.2.2 }
     events := { frame.events with touch := out.2.2.1 }
     cursor := out.2.2.2.1 }

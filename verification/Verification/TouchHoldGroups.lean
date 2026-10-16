@@ -588,16 +588,16 @@ theorem register_body_equiv {B Id Ops : Type}
         cases hm : group.memberNoteIndices.contains (rep.id note) with
         | false =>
             have hspace : group.memberNoteIndices.length + 1 ≤ cap.members := by
-              simpa [bodyAfter, hm] using hlocal.1
+              simpa only [bodyAfter, hm, Bool.false_eq_true, ↓reduceIte, List.length_cons] using hlocal.1
             obtain ⟨mid, hmid, hrep⟩ :=
               atoms.prepend_member groups index pre group rest note hat hspace
             refine ⟨mid, ?_, ?_⟩
             · simpa [hm] using hmid
-            · simpa [memberGroup, hm] using hrep
+            · simpa only [memberGroup, hm, Bool.false_eq_true, ↓reduceIte] using hrep
         | true =>
             refine ⟨groups, ?_, ?_⟩
             · simp [hm]
-            · simpa [memberGroup, hm] using hat.1
+            · simpa only [memberGroup, hm, ↓reduceIte] using hat.1
       obtain ⟨mid, hmid, hmidRep⟩ := hmiddle
       have hmidAt : At (rep.groups mid) index pre memberGroup rest := ⟨hmidRep, hat.2⟩
       have htrigger : call.body_has_trigger ops mid index note =
@@ -611,16 +611,16 @@ theorem register_body_equiv {B Id Ops : Type}
         cases ht : group.triggeredNoteIndices.contains (rep.id note) with
         | false =>
             have hspace : memberGroup.triggeredNoteIndices.length + 1 ≤ cap.triggers := by
-              simpa [memberGroup, bodyAfter, ht] using hlocal.2
+              simpa only [memberGroup, bodyAfter, ht, Bool.false_eq_true, ↓reduceIte, List.length_cons] using hlocal.2
             obtain ⟨out, hout, hrep⟩ :=
               atoms.prepend_trigger mid index pre memberGroup rest note hmidAt hspace
             refine ⟨out, ?_, ?_⟩
             · simpa [ht] using hout
-            · simpa [memberGroup, bodyAfter, ht] using hrep
+            · simpa only [memberGroup, bodyAfter, ht, Bool.false_eq_true, ↓reduceIte] using hrep
         | true =>
             refine ⟨mid, ?_, ?_⟩
             · simp [ht]
-            · simpa [memberGroup, bodyAfter, ht] using hmidRep
+            · simpa only [memberGroup, bodyAfter, ht, ↓reduceIte] using hmidRep
       obtain ⟨out, hout, hrep⟩ := hfinish
       apply exists_imp_spec
       refine ⟨out, ?_, ?_⟩

@@ -341,8 +341,7 @@ def finishNative (w : touch_hold_schedule.TouchHoldWork F Q C H E G B)
   let events ← match event with
     | none => ok w1.events
     | some event => call.append_event ops w1.events event
-  ok { w1 with queues := queues, groups := groups, body_groups := bodyGroups,
-    active := active, events := events }
+  ok { w1 with queues := queues, groups := groups, body_groups := bodyGroups, active := active, events := events }
 
 def itemNative (w : touch_hold_schedule.TouchHoldWork F Q C H E G B)
     (area : A) (before : N) : Result (touch_hold_schedule.TouchHoldWork F Q C H E G B) := do
@@ -371,8 +370,8 @@ theorem body_eq_item (holds : S) (len index : Usize)
         let (area, before) ← call.get ops holds index
         let next ← itemNative call heads bodies ops w area before
         let nextIndex ← index + 1#usize
-        ok (.cont (next, nextIndex))
-      else ok (.done w)) := by
+        ok (ControlFlow.cont (next, nextIndex))
+      else ok (ControlFlow.done w)) := by
   simp only [touch_hold_schedule.process_loop.body, itemNative, voteNative,
     pressureNative, sharedNative, admissionNative, clicksNative, clicksAfterOuter,
     finishNative, headWriteNative, bodyExitNative, enteredNative, awaitNative,
@@ -405,8 +404,8 @@ private theorem head_after_eq (groups : List GroupState) (before after : HoldNot
             else registerTouchGroupResult groups id before.touchGroupSize grade after.headDiff
         | _, _ => groups
       else groups := by
-  cases hs : after.state <;> cases before.touchGroupId <;>
-    simp only [headGroupsAfter, headGrade, hs]
+  cases hs : after.state <;> cases hg : before.touchGroupId <;>
+    simp only [headGroupsAfter, headGrade, hs, hg]
 
 section Fragments
 variable (call : touch_hold_schedule.TouchHoldSchedule Ops S A N F Q C H E Event D Z Id Grade)
@@ -573,7 +572,7 @@ theorem body_exit_native_spec (bodyAtoms : BodyAtoms bodies ops (bodyRep rep) ca
   cases hk : keepHoldActive (rep.note after) with
   | true =>
       refine ⟨groups, by simp [bodyExitNative, hk], ?_⟩
-      cases (rep.note before).touchHoldGroupId <;> simp [bodyGroupsAfter, hk]
+      cases hg : (rep.note before).touchHoldGroupId <;> simp [bodyGroupsAfter, hk, hg]
   | false =>
       cases bodyId with
       | none =>
