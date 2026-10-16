@@ -40,7 +40,7 @@ theorem timing_end_with_fuel_loop_spec (chars : Slice Char)
         simpa [hmore, hget, hnext, hclose, decodeResult] using hout
       · by_cases hzero : fuel = 0#usize
         · have hf : fuel.val = 0 := by simp [hzero]
-          have hout : (Except.error Issue.unterminatedTiming : Except Issue Nat) =
+          have hout : (Except.error SlideChainReference.Issue.unterminatedTiming : Except Issue Nat) =
               SlideChainModel.timingEndFuel initialFuel.val chars.val initialCursor.val := by
             simpa [SlideChainModel.timingEndFuel, hf, hlookup, hclose] using hinv
           simpa [hmore, hget, hnext, hclose, hzero, decodeResult, decodeError] using hout
@@ -55,7 +55,7 @@ theorem timing_end_with_fuel_loop_spec (chars : Slice Char)
           have hdec : remaining.val < fuel.val := by omega
           simpa [hmore, hget, hnext, hclose, hzero, hsub] using And.intro hkeep hdec
     · have ho : chars.val.length ≤ cursor.val := by simpa using hmore
-      have hout : (Except.error Issue.unterminatedTiming : Except Issue Nat) =
+      have hout : (Except.error SlideChainReference.Issue.unterminatedTiming : Except Issue Nat) =
           SlideChainModel.timingEndFuel initialFuel.val chars.val initialCursor.val := by
         simpa only [SlideChainModel.timingEndFuel_oob fuel.val chars.val cursor.val ho] using hinv
       simpa [hmore, decodeResult, decodeError] using hout

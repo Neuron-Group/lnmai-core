@@ -20,7 +20,8 @@ use crate::natural::Natural;
 use crate::runtime_score::{fold_events_into_score, RuntimeScoreState};
 use crate::storage::{ButtonVec, SensorVec};
 use crate::time::{time_point_add_duration, time_point_sub_duration, Duration, TimePoint};
-use crate::types::{GroupState, JudgeEvent, JudgeEventKind, JudgeGrade, JudgePhase, RuntimePos};
+use crate::types::{GroupState, JudgeEvent, JudgeGrade};
+use lnmai_core_verify::frame_commands;
 use lnmai_core_verify::hold_schedule::{self as hold_schedule_kernel, HoldWork};
 use lnmai_core_verify::queue_maintenance as queue_maintenance_kernel;
 use lnmai_core_verify::scheduler::{
@@ -2340,51 +2341,35 @@ pub fn process_slide_notes_core(
     (work.slides, work.events, work.audio, work.render)
 }
 
-fn event_to_audio_commands(evt: &JudgeEvent, time_point: TimePoint) -> Vec<AudioCommand> {
-    let hold_head = evt.kind == JudgeEventKind::Hold && evt.phase == JudgePhase::Head;
-    if hold_head
-        && (matches!(evt.position, RuntimePos::Sensor(_)) || evt.grade.is_miss_or_too_fast())
-    {
-        return Vec::new();
-    }
-    vec![AudioCommand::PlayJudgeSfx {
-        kind: if hold_head {
-            JudgeEventKind::Tap
-        } else {
-            evt.kind
-        },
-        grade: evt.grade,
-        is_break: evt.is_break,
-        at_time: time_point,
-        note_index: evt.note_index.clone(),
-    }]
-}
-
-fn event_to_render_commands(evt: &JudgeEvent, display_hold_head: bool) -> Vec<RenderCommand> {
-    if evt.kind == JudgeEventKind::Hold && evt.phase == JudgePhase::Head && !display_hold_head {
-        return Vec::new();
-    }
-    vec![RenderCommand::ShowJudgeResult {
-        kind: evt.kind,
-        grade: evt.grade,
-        is_break: evt.is_break,
-        diff: evt.diff.clone(),
-        note_index: evt.note_index.clone(),
-    }]
-}
-
 fn events_to_audio_commands(events: &[JudgeEvent], time_point: TimePoint) -> Vec<AudioCommand> {
-    events
-        .iter()
-        .flat_map(|e| event_to_audio_commands(e, time_point.clone()))
-        .collect()
+    frame_commands::collect_indexed(events.len(), |index| {
+        let evt = &events[index];
+        let kind = frame_commands::event_audio_kind(evt.kind, evt.phase, evt.grade, evt.position)?;
+        Some(AudioCommand::PlayJudgeSfx {
+            kind,
+            grade: evt.grade,
+            is_break: evt.is_break,
+            at_time: time_point.clone(),
+            note_index: evt.note_index.clone(),
+        })
+    })
 }
 
 fn events_to_render_commands(events: &[JudgeEvent], display_hold_head: bool) -> Vec<RenderCommand> {
-    events
-        .iter()
-        .flat_map(|evt| event_to_render_commands(evt, display_hold_head))
-        .collect()
+    frame_commands::collect_indexed(events.len(), |index| {
+        let evt = &events[index];
+        if frame_commands::event_render_visible(evt.kind, evt.phase, display_hold_head) {
+            Some(RenderCommand::ShowJudgeResult {
+                kind: evt.kind,
+                grade: evt.grade,
+                is_break: evt.is_break,
+                diff: evt.diff.clone(),
+                note_index: evt.note_index.clone(),
+            })
+        } else {
+            None
+        }
+    })
 }
 
 /// Accumulator passed through the extracted five-pass driver. Shared frontiers,
@@ -2556,23 +2541,25 @@ pub fn step_frame(
         &st.score,
         &all_events,
     );
-    let mut body_audio = Vec::new();
-    for (area, note) in &next_state.active_touch_holds {
-        let head_accepted = match note.state {
-            HoldSubState::HeadJudged(grade) => !grade.is_miss_or_too_fast(),
-            HoldSubState::BodyHeld | HoldSubState::BodyReleased => true,
-            _ => false,
-        };
-        let grouped_pressed = note.touch_hold_group_id.clone().is_some_and(|id| {
-            touch_hold_body_group_majority_pressed(&next_state.touch_hold_group_states, id)
-        });
-        if head_accepted && (input.get_sensor_held(*area) || grouped_pressed) {
-            body_audio.push(AudioCommand::PlayTouchHoldBody {
-                note_index: note.params.note_index.clone(),
-                at_time: new_time.clone(),
+    let body_audio =
+        frame_commands::collect_indexed(next_state.active_touch_holds.len(), |index| {
+            let (area, note) = &next_state.active_touch_holds[index];
+            let grouped_pressed = note.touch_hold_group_id.clone().is_some_and(|id| {
+                touch_hold_body_group_majority_pressed(&next_state.touch_hold_group_states, id)
             });
-        }
-    }
+            if frame_commands::touch_hold_body_active(
+                note.state,
+                input.get_sensor_held(*area),
+                grouped_pressed,
+            ) {
+                Some(AudioCommand::PlayTouchHoldBody {
+                    note_index: note.params.note_index.clone(),
+                    at_time: new_time.clone(),
+                })
+            } else {
+                None
+            }
+        });
     let (audio_commands, render_commands) = scheduler_kernel::combine_commands(
         frame.slide_audio,
         body_audio,

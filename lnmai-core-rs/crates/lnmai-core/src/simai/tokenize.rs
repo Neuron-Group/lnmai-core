@@ -15,6 +15,7 @@ use crate::simai::timing::{
 use crate::time::{self, TimePoint};
 
 use lnmai_core_verify::slide_chain::{self, ChainError};
+use lnmai_core_verify::slide_parser_text as text_kernel;
 pub use lnmai_core_verify::tokenize::{is_slide_mark_char, is_touch_area_char};
 
 fn syntax_error(raw_text: &str, message: &str) -> ParseError {
@@ -147,9 +148,10 @@ pub fn strip_prefix_directives(token: &str) -> String {
 
 /// `sanitizeSlideToken`.
 pub fn sanitize_slide_token(token: &str) -> String {
-    strip_prefix_directives(token)
-        .chars()
-        .filter(|c| !matches!(c, 'b' | 'x' | 'f' | '!' | '?' | '$'))
+    let stripped = strip_prefix_directives(token);
+    let chars: Vec<char> = stripped.chars().collect();
+    text_kernel::sanitize_slide_chars(&chars)
+        .into_iter()
         .collect()
 }
 

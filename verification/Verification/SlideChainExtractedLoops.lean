@@ -99,7 +99,7 @@ theorem parse_plans_body_step_spec (chars : Slice Char) (head : Char)
                       · simp [slide_chain.parse_plans_with_fuel_loop.body, hmore, hzero,
                           hsub, hget, hadd, is_chain_digit_equiv, hdigit,
                           TokenizeProof.is_slide_mark_char_equiv, hmark, hshape,
-                          hnextMore, hnextGet, hopen, hnextAdd, htiming]
+                          hnextIn, hnextGet, hopen, hnextAdd, htiming]
                       · simp [StepPost, SlideChainModel.stepAt, SlideChainModel.timingAt, hlookup, hdigit, hmark,
                           hshapeAt, decodeResult, decodePair, hnextLookup, hopen,
                           htimingAt, Bind.bind, Except.bind]
@@ -112,7 +112,7 @@ theorem parse_plans_body_step_spec (chars : Slice Char) (head : Char)
                       · simp [slide_chain.parse_plans_with_fuel_loop.body, hmore, hzero,
                           hsub, hget, hadd, is_chain_digit_equiv, hdigit,
                           TokenizeProof.is_slide_mark_char_equiv, hmark, hshape,
-                          hnextMore, hnextGet, hopen, hnextAdd, htiming, hpush, plan]
+                          hnextIn, hnextGet, hopen, hnextAdd, htiming, hpush, plan]
                       · refine ⟨plan, ?_, rfl, hp, hremaining⟩
                         simp [SlideChainModel.stepAt, SlideChainModel.timingAt, hlookup, hdigit, hmark, hshapeAt,
                           decodeResult, decodePair, hnextLookup, hopen, htimingAt,
@@ -125,7 +125,7 @@ theorem parse_plans_body_step_spec (chars : Slice Char) (head : Char)
                   · simp [slide_chain.parse_plans_with_fuel_loop.body, hmore, hzero,
                       hsub, hget, hadd, is_chain_digit_equiv, hdigit,
                       TokenizeProof.is_slide_mark_char_equiv, hmark, hshape,
-                      hnextMore, hnextGet, hopen, hpush, plan]
+                      hnextIn, hnextGet, hopen, hpush, plan]
                   · refine ⟨plan, ?_, rfl, hp, hremaining⟩
                     simp [SlideChainModel.stepAt, SlideChainModel.timingAt, hlookup, hdigit, hmark, hshapeAt,
                       decodeResult, decodePair, hnextLookup, hopen, decodePlan, plan,
@@ -140,7 +140,7 @@ theorem parse_plans_body_step_spec (chars : Slice Char) (head : Char)
                 · simp [slide_chain.parse_plans_with_fuel_loop.body, hmore, hzero,
                     hsub, hget, hadd, is_chain_digit_equiv, hdigit,
                     TokenizeProof.is_slide_mark_char_equiv, hmark, hshape,
-                    hnextMore, hpush, plan]
+                    Nat.not_lt.mpr hnextOut, hpush, plan]
                 · refine ⟨plan, ?_, rfl, hp, hremaining⟩
                   simp [SlideChainModel.stepAt, SlideChainModel.timingAt, hlookup, hdigit, hmark, hshapeAt,
                     decodeResult, decodePair, hnextLookup, decodePlan, plan,
@@ -173,7 +173,7 @@ theorem parse_plans_with_fuel_loop_spec (chars : Slice Char)
     · have hi : cursor.val < chars.val.length := by simpa using hmore
       by_cases hzero : fuel = 0#usize
       · have hz : fuel.val = 0 := by simp [hzero]
-        have hout : (Except.error Issue.invalidSyntax : Except Issue (List SlideChainModel.Plan)) =
+        have hout : (Except.error SlideChainReference.Issue.invalidSyntax : Except Issue (List SlideChainModel.Plan)) =
             SlideChainModel.scanFuel chars.val initialFuel.val initialHead initialCursor.val
               (decodePlans initialPlans) := by
           simpa only [hz, SlideChainModel.scanFuel_zero_nonempty chars.val head cursor.val
@@ -189,6 +189,8 @@ theorem parse_plans_with_fuel_loop_spec (chars : Slice Char)
             cases result with
             | Ok result => exact False.elim hpost
             | Err error =>
+                change SlideChainModel.stepAt chars.val head cursor.val =
+                  .error (decodeError error) at hpost
                 have hf : fuel.val = (fuel.val - 1) + 1 := by omega
                 have hscan : SlideChainModel.scanFuel chars.val fuel.val head cursor.val
                     (decodePlans plans) = .error (decodeError error) := by

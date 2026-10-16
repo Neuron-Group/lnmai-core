@@ -77,7 +77,7 @@ represented elements. It requires a pure element comparator that returns the
 correct represented equality. Unequal vector lengths compare false.
 `StorageEquality` applies this result to both storage wrappers, preserving all
 backing entries even when their length differs from the physical zone count.
-These new proofs are pending compilation; `SOURCE_AUDIT.md` records results.
+`SOURCE_AUDIT.md` records the build and audit results for each snapshot.
 
 ## Judgments
 
@@ -120,18 +120,39 @@ timing/plan loops, renderer and segment encoder. They do not assume a
 whole-parser result. Successful segment encoding requires the explicit
 single-call encoding law and `chars.length < Usize.max` for the synthetic
 head character; character capacity does not discharge UTF-8 byte allocation.
-These 36 new theorems remain pending compilation.
+`SlideChainWrapper` relates the outer optional-chain/error behavior to the
+original private tokenizer wrapper. `SlideChainFrontend` composes the actual
+sanitizer and chain kernels with that reference. Prefix stripping still uses
+its original Lean interpretation; UTF-8/string collection remains a point law.
+The runtime now delegates character filtering to the extracted sanitizer.
+`MaidataScanFuel`, `MaidataScan` and `MaidataScanGroups*` cover source fuel
+sufficiency, body endpoints/appending, line collection, group counts, emission
+and annotation. Actual single-slot field/string encoding and resources remain
+explicit. Build/audit status is recorded in `SOURCE_AUDIT.md`.
 
-`SchedulerFrameAllTraversals` composes the five phase implementations without
-a whole-phase correctness premise. Its field, integer, encoding, capacity and
-initialization contracts remain obligations for the concrete runtime. The
-TouchHold rebuild work separately proves the original group update model and
-the indexed reversal invariant. `TouchHoldRebuildReverseExtracted` connects
-that invariant to the actual extracted body, loop and wrapper under length
-and two-slot swap laws. This does not establish the concrete Vec facade or
-the remaining rebuild operations. The current independent-module axiom audit
-accepted the five-phase composition and reverse proofs with their explicit
-contracts; parser drafts and the remaining rebuild operations are separate.
+`SchedulerFrameAllTraversals` composes all five phase implementations without
+a whole-phase correctness premise. `TouchHoldRebuildUpsert` and
+`TouchHoldRebuildTraversal` derive find/upsert/source traversal from individual
+read/write/compare/length operations, composing the already proved indexed
+reversal. `SchedulerFrameInitialization` combines the actual parent refresh
+and conditional group rebuilding in runtime order, with explicit time addition,
+field projection, record construction and prefix-capacity boundaries.
+`SchedulerParentFields` discharges the parent dictionary in a decoded Slice/Vec
+interpretation; it does not extract the concrete Rust records or BigUint IDs.
+
+`FrameCommandsReference` factors the original audio/render/body command
+functions. `FrameCommandCollection` and `FrameCommands` relate the actual
+extracted selectors/collector to those functions, preserving source order and
+suppressing silent/hidden commands. `FrameCommandFinalization` composes these
+with the score/event folds. `FrameCommandState` derives the finalizer's five
+source-field equalities from the phase invariants. `SchedulerFramePipeline`
+combines initialization, all five phases and this feedback finalization, with
+explicit representable output buffers. Its finite-trace premises require
+capacity only at reached states. No whole command-generator or complete
+initializer equation is a premise of that composition. Runtime fields and
+payloads are still interpreted; passing these theorems does not discharge
+native caller, bigint, allocation or ABI obligations. See `SOURCE_AUDIT.md`
+for current compilation and transitive-axiom acceptance.
 
 `Verification.Audit` traverses theorem dependencies and rejects every axiom
 except `propext`, `Classical.choice` and `Quot.sound`. The extraction pipeline

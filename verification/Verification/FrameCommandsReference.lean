@@ -54,14 +54,16 @@ def bodyCommand (time : TimePoint) (input : FrameInput)
 theorem audio_command_original (time : TimePoint) (event : JudgeEvent) :
     (audioCommand time event).toList = eventToAudioCommands event time := by
   simp only [audioCommand, audioKind, eventToAudioCommands]
-  split <;> simp_all only [Option.map_none, Option.toList_none]
-  split <;> simp_all only [Option.map_none, Option.toList_none]
-  split <;> simp_all
+  split_ifs <;> rfl
 
 theorem render_command_original (display : Bool) (event : JudgeEvent) :
     (renderCommand display event).toList = eventToRenderCommands display event := by
   simp only [renderCommand, renderVisible, eventToRenderCommands]
-  cases h : (event.kind == .Hold && event.phase == .head && !display) <;> simp [h]
+  by_cases h : (event.kind == .Hold && event.phase == .head && !display) = true
+  · simp only [h, Bool.not_true, Bool.false_eq_true, if_false, if_true, Option.toList_none]
+  · have hf : (event.kind == .Hold && event.phase == .head && !display) = false :=
+      Bool.eq_false_iff.mpr h
+    simp only [hf, Bool.not_false, Bool.false_eq_true, if_false, if_true, Option.toList_some]
 
 theorem body_command_original (time : TimePoint) (input : FrameInput)
     (groups : List TouchHoldBodyGroupState) (holds : List (SensorArea × HoldNote)) :
@@ -70,9 +72,10 @@ theorem body_command_original (time : TimePoint) (input : FrameInput)
   induction holds with
   | nil => rfl
   | cons entry rest ih =>
-      simp only [List.filterMap_cons, touchHoldBodyAudioCmds, List.foldr_cons,
-        bodyCommand, bodyActive] at *
-      split <;> simp_all
+      rw [List.filterMap_cons, ih]
+      rcases entry with ⟨area, note⟩
+      simp only [bodyCommand, bodyActive, touchHoldBodyAudioCmds, List.foldr_cons]
+      split_ifs <;> first | rfl | contradiction
 
 theorem filter_map_to_list {A B : Type} (f : A → Option B) (values : List A) :
     values.filterMap f = values.flatMap (fun value => (f value).toList) := by
@@ -86,7 +89,8 @@ theorem audio_commands_original (time : TimePoint) (events : List JudgeEvent) :
   induction events with
   | nil => rfl
   | cons event rest ih =>
-      simp only [List.flatMap_cons, audio_command_original, eventsToAudioCommands, ih]
+      rw [List.flatMap_cons, ih, audio_command_original]
+      rfl
 
 theorem render_commands_original (display : Bool) (events : List JudgeEvent) :
     events.filterMap (renderCommand display) = eventsToRenderCommands display events := by
@@ -94,6 +98,7 @@ theorem render_commands_original (display : Bool) (events : List JudgeEvent) :
   induction events with
   | nil => rfl
   | cons event rest ih =>
-      simp only [List.flatMap_cons, render_command_original, eventsToRenderCommands, ih]
+      rw [List.flatMap_cons, ih, render_command_original]
+      rfl
 
 end Verification.FrameCommandsReference

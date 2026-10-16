@@ -52,66 +52,66 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
-The next checkpoint also preserves the pending `FrameCommandsReference`
-source factoring. Its first compilation failed in the optional-command and
-list-composition proof bodies. It is not accepted and is not registered as
-accepted frame-command coverage. The proposed Rust feedback/collector kernel
-and its isolated extraction remain outside the repository until their batch
-is ready for integration. No tests were run for this checkpoint.
+The frame-feedback batch installs `frame_commands.rs` and changes the runtime
+scheduler to use its event-audio selector, render selector, TouchHold-body
+selector and ordered collector. The tokenizer now calls the existing extracted
+`slide_parser_text::sanitize_slide_chars` after prefix stripping. Formatting
+and library-only Cargo checking passed; no execution tests were run.
 
-Checkpoint `f304971` contains the next parser/rebuild batch. All 40 kernel
-source hashes match the real extraction in
-`/tmp/lnmai-parser-rebuild-batch-extraction-3/`; the installed Generated SHA256
-is `d037f357eb395803e657d1ca4b445cc73908e6910c59bb5c37af0de3493ab1bf`
-and LLBC SHA256 is
+The canonical extraction is `/tmp/lnmai-frame-feedback-extraction-1/`. All 41
+kernel source hashes match its manifest. Generated SHA256 is
+`e8c53aafbb6f8654e74de5bd8be10006cabebfb41b80350269748a6e54155d63`;
+LLBC SHA256 is
+`2fdf21fce4b9a03bb193c33f06f76c6c35f1a6e1d0512eff8fa0ace65604320c`.
+Comparison with the previous canonical extraction preserves all 754 existing
+declaration blocks and adds six frame-feedback blocks; only source-location
+comments and trailing layout are ignored in this comparison. Generated was
+installed from actual Charon/Aeneas output, not edited by hand.
+
+`FrameCommandsReference` compiled against the previous extraction.
+`FrameCommandCollection`, `FrameCommands` and `FrameCommandFinalization`
+passed the isolated real-extraction bundle check in
+`/tmp/lnmai-frame-commands-batch/bundle-check-2.json`. That check is an
+elaboration result, not an independent transitive axiom audit. The installed
+`FrameCommandState` adds the original score/settings/time field connection.
+A current separate-module rebuild is in progress in
+`/tmp/lnmai-frame-feedback-proof-batch-1.log`; no acceptance is yet recorded
+for these roots against the new canonical extraction.
+
+The batch also installs repaired Slide-chain reads/timing/plans/render/encoding
+proofs, a wrapper/sanitizer composition, Maidata line/body and consecutive-group
+scans, and frame-initialization proofs. `SchedulerParentFields` supplies decoded
+Slice/Vec read/write/clone dictionaries; `SchedulerFramePipeline` composes
+initialization, the five derived phases and extracted feedback. Their current
+compilation results must be recorded before accepting them. The decoded
+field dictionaries are not extractions of the Rust record and bigint facades.
+
+Previous independent audits remain evidence for their recorded snapshots:
+
+- `/tmp/lnmai-priority-independent-audit-3.accepted.json`: 112 recursive local
+  modules, 5074 transitive theorems, all 40 previous kernel and 40 runtime
+  source hashes checked. Roots cover all five scheduling phases, TouchHold
+  queue/judgment composition, extracted reverse/swap and normalization frontend.
+- `/tmp/lnmai-timing-number-independent-audit-1.accepted.json`: 12 local
+  modules, 146 theorems for original signed timing parsing and the actual
+  extracted whole/fraction loops under decimal/character point laws.
+
+Both admit only `propext`, `Classical.choice` and `Quot.sound`, with no
+reachable external-formatting axiom. Their imports overlap, so their counts
+must not be added as unique coverage. The previous canonical extraction had
+40 kernel files, Generated SHA256
+`d037f357eb395803e657d1ca4b445cc73908e6910c59bb5c37af0de3493ab1bf`
+and LLBC SHA256
 `6751f3cdccc3f32e4c87e650f02da956778ee84a3bab69785ed92cc97dd49125`.
-Formatting and library-only Cargo checking passed for this extraction. The
-current model contains six external formatting declarations; the axiom audit
-must establish that no accepted theorem depends on them.
+Those historical audits do not by themselves accept the new runtime wiring.
 
-The sequential rebuilds in `/tmp/lnmai-current-extraction-batch-22.log` and
-`/tmp/lnmai-current-extraction-batch-23.log` compiled the lifecycle/judgment
-dependencies and the complete five-phase `SchedulerFrameAllTraversals`
-composition against this extraction. `NormalizationFrontend`,
-`TouchHoldRebuildModel`, `TouchHoldRebuildReverse` and the actual extracted
-reverse/slice-swap proofs also compiled. The independent-module audit below covers these compiled roots. The subsequent
-batch25 compiled `TimingNumberReference`, `TimingNumber` and
-`SlideChainReference`. `SlideChainModel`, `MaidataScanModel` and
-`TouchHoldRebuildUpsert` failed with explicit proof diagnostics; their
-dependent extracted/parser/traversal modules were skipped. Those failures
-remain pending repair, not accepted results. Concrete runtime contracts
-still remain open. No full equivalence or test acceptance is claimed.
-
-The subsequent independent-module audit accepted the current five-phase
-composition, TouchHold queue/judgment composition, extracted reverse/swap and
-normalization frontend, including their recursive imports: 112 local modules
-and 5074 theorems. Every transitive axiom is `propext`, `Classical.choice` or
-`Quot.sound`; none reaches the six external formatting declarations. The
-audit verified source/artifact hashes before and after compilation, as well
-as all 40 kernel and 40 runtime source hashes and the real extraction files.
-Evidence is `/tmp/lnmai-priority-independent-audit-3.accepted.json`, its
-`.evidence.json`, `.lean` and `.log` files. The first audit attempt had a
-driver syntax error and was not accepted. This newer acceptance supersedes
-historical evidence only for these imports and their recorded hashes.
-Runtime representation, initialization, capacity and other explicit theorem
-premises remain open; the counts are not a measure of whole-program coverage.
-
-The timing-number parser subsequently passed its own independent-module
-audit: 12 local modules and 146 theorems, with only the same three standard
-logical axioms. It checks original signed parsing and the actual extracted
-whole/fraction loops under decimal primitive and character-representation
-laws. Evidence is `/tmp/lnmai-timing-number-independent-audit-1.accepted.json`
-and its adjacent evidence, audit and log files. Concrete BigUint/Rat and
-UTF-8 conversion remain open; this count overlaps the preceding audit's
-imports and must not be added to its count as unique coverage.
-
-Checkpoint `e2d2aba` preserves the frame/rebuild work and pending parser
-repairs. The next installed batch adds six `SlideChainExtracted*` modules,
-with 36 draft theorems for actual reads, timing, scan, rendering, encoding and
-composition. They are registered in the audit and deferred validation script
-but have not yet passed Lean compilation. Their only new runtime point law
-is single-call character-vector encoding; UTF-8, allocation, error encoding
-and outer-wrapper obligations remain separate.
+Before this batch, batch26 separately compiled `SlideChainModel`,
+`SlideChainExtractedReads`, `TouchHoldRebuildUpsert` and
+`TouchHoldRebuildTraversal`; batch27 also compiled `SlideChainExtractedTiming`.
+The current tree includes fixes for the explicit batch27 diagnostics in the
+remaining parser/initializer roots. Passing compilation must still be followed
+by an independent axiom audit. Runtime representations, capacity, allocation,
+UTF-8 and numeric primitive contracts remain open.
 
 The 2026-10-17 composition batch passed combined-source elaboration with 76
 current source modules, 93 principal axiom reports and a transitive audit of

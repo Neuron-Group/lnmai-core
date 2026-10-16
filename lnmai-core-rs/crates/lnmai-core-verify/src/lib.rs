@@ -8,6 +8,7 @@
 pub mod areas;
 pub mod constants;
 pub mod convert;
+pub mod frame_commands;
 pub mod grade_counts;
 pub mod judge;
 pub mod judgment_adapter;

@@ -17,7 +17,7 @@ namespace Verification.MaidataScanModel
 open LnmaiCore LnmaiCore.Simai
 
 open private sameEventKey isExpandedSlideGroupChild majdataTimingNoteCount
-  majdataNoHeadSlideCount tagTouchEachGroup takeSameEventRest
+  majdataNoHeadSlideCount tagTouchEachGroup tagTouchEachGroup.loop takeSameEventRest
   annotateTouchEachGroupsFromFuel annotateTouchEachGroupsFrom
   startsWithAmp parseKeyValueLine collectChartBody parseMaidataLinesFuel
   parseMaidataLines from LnmaiCore.Simai.Source.Maidata
@@ -162,10 +162,18 @@ def timingPoint (token : RawNoteToken) : Bool :=
 def noHeadPoint (token : RawNoteToken) : Bool :=
   timingPoint token && token.kind == .slide && token.isSlideNoHead
 
+/-- Reduce the derived BEq by constructor computation, independently of simp
+attributes on the generated RawNoteKind comparison. -/
+theorem rawKind_beq_slide (kind : RawNoteKind) :
+    (kind == .slide) = (match kind with | .slide => true | _ => false) := by
+  cases kind <;> rfl
+
 theorem timingPoint_eq (token : RawNoteToken) :
     timingPoint token = !isExpandedSlideGroupChild token := by
   cases hk : token.kind <;>
-    simp [timingPoint, childIndex, isExpandedSlideGroupChild, hk]
+    cases hindex : token.sourceGroupIndex <;>
+      simp only [timingPoint, childIndex, isExpandedSlideGroupChild,
+        rawKind_beq_slide, hk, hindex] <;> rfl
 
 def timingCount (tokens : List RawNoteToken) : Nat := tokens.countP timingPoint
 def noHeadCount (tokens : List RawNoteToken) : Nat := tokens.countP noHeadPoint
@@ -223,10 +231,22 @@ def tagGroup (groupId : Nat) (tokens : List RawNoteToken) : List RawNoteToken :=
         else token :: loop index rest
   loop 0 tokens
 
+/-- The two local recursive declarations have different names. Relate their
+per-token branches explicitly, with arbitrary counters and initial tag index. -/
+theorem tagGroup_loop_eq_source (groupId timingNoteCount : Nat)
+    (touchIsEach : Bool) (index : Nat) (tokens : List RawNoteToken) :
+    tagGroup.loop groupId timingNoteCount touchIsEach index tokens =
+      tagTouchEachGroup.loop groupId timingNoteCount touchIsEach index tokens := by
+  induction tokens generalizing index with
+  | nil => rfl
+  | cons token rest ih =>
+      cases hk : token.kind <;>
+        simp only [tagGroup.loop, tagTouchEachGroup.loop, hk, ih] <;> rfl
+
 theorem tagGroup_eq_source (groupId : Nat) (tokens : List RawNoteToken) :
     tagGroup groupId tokens = tagTouchEachGroup groupId tokens := by
   unfold tagGroup tagTouchEachGroup
-  simp only [timingCount_eq, noHeadCount_eq]
+  simp only [timingCount_eq, noHeadCount_eq, tagGroup_loop_eq_source]
 
 /-- Same source fuel semantics, with concrete split/count/write definitions. -/
 def groupFuel (fuel groupId : Nat) (tokens : List RawNoteToken) : List RawNoteToken :=
@@ -334,12 +354,27 @@ theorem linesFuel_eq_source (fuel : Nat) (lines : List String)
                   · simpa using ih rest (fields ++ [(key, value)]) charts
                   · rw [collectChartBody_factor]
                     simp only [List.reverse_cons, List.reverse_nil, List.nil_append,
-                      List.singleton_append, appendBody_eq_intercalate]
-                    simpa using ih (splitPrefix keepBody rest).2 fields
-                      (charts ++ [{
-                        levelIndex := ((key.drop 7).toString.toNat?).getD 0
+                      List.singleton_append]
+                    let block : MaidataChartBlock :=
+                      { levelIndex := ((key.drop 7).toString.toNat?).getD 0
+                        rawBody := appendBody value (splitPrefix keepBody rest).1 }
+                    let sourceBlock : MaidataChartBlock :=
+                      { levelIndex := ((key.drop 7).toString.toNat?).getD 0
                         rawBody := String.intercalate "\n"
-                          (value :: (splitPrefix keepBody rest).1) }])
+                          (value :: (splitPrefix keepBody rest).1) }
+                    change linesFuel fuel (splitPrefix keepBody rest).2 fields
+                        (charts ++ [block]) =
+                      parseMaidataLinesFuel fuel (splitPrefix keepBody rest).2
+                        fields.reverse (sourceBlock :: charts.reverse)
+                    have hblock : block = sourceBlock := by
+                      simp only [block, sourceBlock, appendBody_eq_intercalate]
+                    have hacc : (charts ++ [block]).reverse =
+                        sourceBlock :: charts.reverse := by
+                      simp only [List.reverse_append, List.reverse_cons,
+                        List.reverse_nil, List.nil_append, List.singleton_append, hblock]
+                    exact (ih (splitPrefix keepBody rest).2 fields (charts ++ [block])).trans
+                      (congrArg (fun acc => parseMaidataLinesFuel fuel
+                        (splitPrefix keepBody rest).2 fields.reverse acc) hacc)
 
 theorem parse_public_factor (content : String) :
     Except.ok (linesFuel ((content.splitOn "\n").length + 1)

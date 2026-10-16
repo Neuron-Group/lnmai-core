@@ -59,13 +59,13 @@ theorem render_plan_loop_spec (chars : Slice Char) (stop : Usize)
         refine ⟨⟨by omega, ?_, hmove.symm.trans hinv⟩, by omega⟩
         simp only [hp, List.length_append, List.length_singleton]
         omega
-      simpa [slide_chain.render_plan_loop.body, hmore, hget, hpush, hnext] using hcontinue
+      simpa [slide_chain.render_plan_loop.body, hmore, hlt, hget, hpush, hnext] using hcontinue
     · have hge : stop.val ≤ cursor.val := by simpa using hmore
       have heq : cursor.val = stop.val := by omega
       have hout : text.val = initialText.val ++
           SlideChainModel.sourceRange chars.val initialCursor.val stop.val := by
         simpa only [heq, SlideChainModel.sourceRange_self, List.append_nil] using hinv
-      simpa [slide_chain.render_plan_loop.body, hmore] using hout
+      simpa [slide_chain.render_plan_loop.body, hmore, Nat.not_lt.mpr hge] using hout
   · exact ⟨hbegin, hcapacity, rfl⟩
 
 /-- Bounds and one extra character of capacity suffice for the actual renderer.

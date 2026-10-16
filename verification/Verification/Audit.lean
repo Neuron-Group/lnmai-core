@@ -111,6 +111,13 @@ import Verification.TouchHoldRebuildModel
 import Verification.TouchHoldRebuildReverse
 import Verification.TouchHoldRebuildReverseExtracted
 import Verification.TouchHoldRebuildTraversal
+import Verification.FrameCommandState
+import Verification.SchedulerFrameInitialization
+import Verification.SchedulerParentFields
+import Verification.SchedulerFramePipeline
+import Verification.SlideChainFrontend
+import Verification.MaidataScan
+import Verification.MaidataScanGroups
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -121,6 +128,38 @@ run_cmd do
   let env ← getEnv
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
   let required : Array Name := #[
+    ``Verification.SchedulerParentFieldsProof.parent_points,
+    ``Verification.SchedulerParentFieldsProof.refresh_equiv,
+    ``Verification.SchedulerParentFieldsProof.initialize_with_fields_equiv,
+    ``Verification.SchedulerFramePipelineProof.run_equiv,
+    ``Verification.SchedulerFramePipelineProof.trace_equiv,
+    ``Verification.FrameCommandsReference.audio_commands_original,
+    ``Verification.FrameCommandsReference.render_commands_original,
+    ``Verification.FrameCommandsReference.body_command_original,
+    ``Verification.FrameCommandCollection.collect_indexed_spec,
+    ``Verification.FrameCommandCollection.collect_indexed_equiv,
+    ``Verification.FrameCommandsProof.audio_kind_equiv,
+    ``Verification.FrameCommandsProof.render_visible_equiv,
+    ``Verification.FrameCommandsProof.body_active_equiv,
+    ``Verification.FrameCommandsProof.audio_commands_equiv,
+    ``Verification.FrameCommandsProof.render_commands_equiv,
+    ``Verification.FrameCommandsProof.body_commands_equiv,
+    ``Verification.FrameCommandFinalizationProof.finish_equiv,
+    ``Verification.FrameCommandStateProof.finish_from_initial_equiv,
+    ``Verification.FrameCommandStateProof.reference_finish_equiv,
+    ``Verification.SchedulerFrameInitializationProof.refresh_parents_equiv,
+    ``Verification.SchedulerFrameInitializationProof.prepare_body_groups_equiv,
+    ``Verification.SchedulerFrameInitializationProof.initialize_equiv,
+    ``Verification.SchedulerFrameInitializationProof.process_initialized_equiv,
+    ``Verification.SlideChainFrontend.parseTokenSource_reference,
+    ``Verification.MaidataScanFuel.parse_public_complete,
+    ``Verification.MaidataScanProof.chart_body_end_spec,
+    ``Verification.MaidataScanProof.collect_lines_source_equiv,
+    ``Verification.MaidataScanProof.parse_source_equiv,
+    ``Verification.MaidataScanGroupsProof.plan_touch_group_spec,
+    ``Verification.MaidataScanGroupsProof.emit_touch_group_spec,
+    ``Verification.MaidataScanGroupsProof.annotate_touch_each_source_equiv,
+    ``Verification.MaidataScanGroupsProof.annotate_touch_each_equiv,
     ``Verification.StringSplit.splitOn_singleton,
     ``Verification.TimingNumberModel.wholeScan_original_split,
     ``Verification.TimingNumberModel.parse_value_eq_original,

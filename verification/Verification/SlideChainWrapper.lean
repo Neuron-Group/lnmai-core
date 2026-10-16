@@ -135,8 +135,11 @@ theorem wrapperChars_reference (raw : String) (chars : List Char) :
 theorem originalWrapper_factor (token : String) :
     originalWrapper token =
       referenceChars (sanitizeSlideToken token) (sanitizeSlideToken token).toList := by
-  unfold originalWrapper parseContinuousSlideSegments? referenceChars
-  cases hs : (sanitizeSlideToken token).toList <;> rfl
+  unfold originalWrapper parseContinuousSlideSegments?
+  dsimp only
+  -- Keep the concrete sanitizer opaque while comparing the two wrapper matches.
+  generalize sanitizeSlideToken token = sanitized
+  cases hs : sanitized.toList <;> rfl
 
 /-- Source composition at token entry. Runtime preprocessing remains a separate
 representation obligation; using the original sanitizer here does not prove it. -/
@@ -211,6 +214,7 @@ theorem originalWrapper_cons_none_iff (token : String) (start : Char) (rest : Li
           ∃ segments, SlideChainModel.parseSegments rest start = .ok segments ∧ segments.length ≤ 1) := by
   rw [← parseToken_reference]
   unfold parseToken
+  dsimp only
   rw [hchars, resultView_ok_iff, wrapperChars_cons_none_iff]
 
 /-- Threshold and unchanged segment list at the original private entry point. -/
@@ -222,6 +226,7 @@ theorem originalWrapper_cons_some_iff (token : String) (start : Char) (rest : Li
         SlideChainModel.parseSegments rest start = .ok segments ∧ 1 < segments.length := by
   rw [← parseToken_reference]
   unfold parseToken
+  dsimp only
   rw [hchars, resultView_ok_iff, wrapperChars_cons_some_iff]
 
 /-- Complete token-level error characterization. In particular there is no
@@ -235,6 +240,7 @@ theorem originalWrapper_cons_error_iff (token : String) (start : Char) (rest : L
           decodeIssue (sanitizeSlideToken token) issue = error := by
   rw [← parseToken_reference]
   unfold parseToken
+  dsimp only
   rw [hchars, resultView_error_iff]
   simp only [wrapperChars_cons_error_iff]
   constructor

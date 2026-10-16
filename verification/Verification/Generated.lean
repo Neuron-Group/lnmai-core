@@ -1475,6 +1475,207 @@ def convert.convert_grade
   | types.JudgeStyle.Gachi => convert.convert_gachi grade
   | types.JudgeStyle.Gori => convert.convert_gori grade
 
+/-- [lnmai_core_verify::types::JudgePhase]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 303:0-307:1
+    Visibility: public -/
+@[discriminant isize]
+inductive types.JudgePhase where
+| Head : types.JudgePhase
+| Tail : types.JudgePhase
+
+/-- [lnmai_core_verify::types::JudgeEventKind]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 264:0-271:1
+    Visibility: public -/
+@[discriminant isize]
+inductive types.JudgeEventKind where
+| Tap : types.JudgeEventKind
+| Hold : types.JudgeEventKind
+| Slide : types.JudgeEventKind
+| Touch : types.JudgeEventKind
+| Break : types.JudgeEventKind
+
+/-- [lnmai_core_verify::types::RuntimePos]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 229:0-232:1
+    Visibility: public -/
+@[discriminant isize]
+inductive types.RuntimePos where
+| Button : areas.ButtonZone → types.RuntimePos
+| Sensor : areas.SensorArea → types.RuntimePos
+
+/-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_miss_or_too_fast]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 31:4-33:5
+    Visibility: public -/
+def types.JudgeGrade.is_miss_or_too_fast
+  (self : types.JudgeGrade) : Result Bool := do
+  match self with
+  | types.JudgeGrade.Miss => ok true
+  | types.JudgeGrade.LateGood => ok false
+  | types.JudgeGrade.LateGreat3rd => ok false
+  | types.JudgeGrade.LateGreat2nd => ok false
+  | types.JudgeGrade.LateGreat => ok false
+  | types.JudgeGrade.LatePerfect3rd => ok false
+  | types.JudgeGrade.LatePerfect2nd => ok false
+  | types.JudgeGrade.Perfect => ok false
+  | types.JudgeGrade.FastPerfect2nd => ok false
+  | types.JudgeGrade.FastPerfect3rd => ok false
+  | types.JudgeGrade.FastGreat => ok false
+  | types.JudgeGrade.FastGreat2nd => ok false
+  | types.JudgeGrade.FastGreat3rd => ok false
+  | types.JudgeGrade.FastGood => ok false
+  | types.JudgeGrade.TooFast => ok true
+
+/-- [lnmai_core_verify::frame_commands::event_audio_kind]:
+    Source: 'crates/lnmai-core-verify/src/frame_commands.rs', lines 12:0-26:1
+    Visibility: public -/
+def frame_commands.event_audio_kind
+  (kind : types.JudgeEventKind) (phase : types.JudgePhase)
+  (grade : types.JudgeGrade) (position : types.RuntimePos) :
+  Result (Option types.JudgeEventKind)
+  := do
+  let b ←
+    match kind with
+    | types.JudgeEventKind.Tap => ok false
+    | types.JudgeEventKind.Hold => ok true
+    | types.JudgeEventKind.Slide => ok false
+    | types.JudgeEventKind.Touch => ok false
+    | types.JudgeEventKind.Break => ok false
+  let hold_head ←
+    if b
+    then
+      match phase with
+      | types.JudgePhase.Head => ok true
+      | types.JudgePhase.Tail => ok false
+    else ok false
+  if hold_head
+  then
+    let b1 ←
+      match position with
+      | types.RuntimePos.Button _ => ok false
+      | types.RuntimePos.Sensor _ => ok true
+    if b1
+    then ok none
+    else
+      let b2 ← types.JudgeGrade.is_miss_or_too_fast grade
+      if b2
+      then ok none
+      else ok (some types.JudgeEventKind.Tap)
+  else ok (some kind)
+
+/-- [lnmai_core_verify::frame_commands::event_render_visible]:
+    Source: 'crates/lnmai-core-verify/src/frame_commands.rs', lines 28:0-36:1
+    Visibility: public -/
+def frame_commands.event_render_visible
+  (kind : types.JudgeEventKind) (phase : types.JudgePhase)
+  (display_hold_head : Bool) :
+  Result Bool
+  := do
+  let b ←
+    match kind with
+    | types.JudgeEventKind.Tap => ok false
+    | types.JudgeEventKind.Hold => ok true
+    | types.JudgeEventKind.Slide => ok false
+    | types.JudgeEventKind.Touch => ok false
+    | types.JudgeEventKind.Break => ok false
+  let b1 ←
+    if b
+    then
+      do
+      let b2 ←
+        match phase with
+        | types.JudgePhase.Head => ok true
+        | types.JudgePhase.Tail => ok false
+      if b2
+      then ok (¬ display_hold_head)
+      else ok false
+    else ok false
+  ok (¬ b1)
+
+/-- [lnmai_core_verify::lifecycle::HoldSubState]
+    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 135:0-143:1
+    Visibility: public -/
+@[discriminant isize]
+inductive lifecycle.HoldSubState where
+| HeadWaiting : lifecycle.HoldSubState
+| HeadJudgeable : lifecycle.HoldSubState
+| HeadJudged : types.JudgeGrade → lifecycle.HoldSubState
+| BodyHeld : lifecycle.HoldSubState
+| BodyReleased : lifecycle.HoldSubState
+| Ended : types.JudgeGrade → lifecycle.HoldSubState
+
+/-- [lnmai_core_verify::frame_commands::touch_hold_body_active]:
+    Source: 'crates/lnmai-core-verify/src/frame_commands.rs', lines 39:0-50:1
+    Visibility: public -/
+def frame_commands.touch_hold_body_active
+  (state : lifecycle.HoldSubState) (local_pressed : Bool)
+  (grouped_pressed : Bool) :
+  Result Bool
+  := do
+  let head_accepted ←
+    match state with
+    | lifecycle.HoldSubState.HeadWaiting => ok false
+    | lifecycle.HoldSubState.HeadJudgeable => ok false
+    | lifecycle.HoldSubState.HeadJudged grade =>
+      do
+      let b ← types.JudgeGrade.is_miss_or_too_fast grade
+      ok (¬ b)
+    | lifecycle.HoldSubState.BodyHeld => ok true
+    | lifecycle.HoldSubState.BodyReleased => ok true
+    | lifecycle.HoldSubState.Ended _ => ok false
+  if head_accepted
+  then if local_pressed
+       then ok true
+       else ok grouped_pressed
+  else ok false
+
+/-- [lnmai_core_verify::frame_commands::collect_indexed]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/frame_commands.rs', lines 60:4-65:5
+    Visibility: public -/
+@[rust_loop_body]
+def frame_commands.collect_indexed_loop.body
+  {T : Type} {F : Type} (coreopsfunctionFnFTupleUsizeOptionInst :
+  core.ops.function.Fn F Std.Usize (Option T)) (len : Std.Usize)
+  (command_at : F) (commands : alloc.vec.Vec T) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  if index < len
+  then
+    let o ← coreopsfunctionFnFTupleUsizeOptionInst.call command_at index
+    let commands1 ←
+      match o with
+      | none => ok commands
+      | some command => alloc.vec.Vec.push commands command
+    let index1 ← index + 1#usize
+    ok (cont (commands1, index1))
+  else ok (done commands)
+
+/-- [lnmai_core_verify::frame_commands::collect_indexed]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/frame_commands.rs', lines 60:4-65:5
+    Visibility: public -/
+@[rust_loop]
+def frame_commands.collect_indexed_loop
+  {T : Type} {F : Type} (coreopsfunctionFnFTupleUsizeOptionInst :
+  core.ops.function.Fn F Std.Usize (Option T)) (len : Std.Usize)
+  (command_at : F) (commands : alloc.vec.Vec T) (index : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (commands1, index1) => frame_commands.collect_indexed_loop.body
+      coreopsfunctionFnFTupleUsizeOptionInst len command_at commands1 index1)
+    (commands, index)
+
+/-- [lnmai_core_verify::frame_commands::collect_indexed]:
+    Source: 'crates/lnmai-core-verify/src/frame_commands.rs', lines 54:0-67:1
+    Visibility: public -/
+@[reducible]
+def frame_commands.collect_indexed
+  {T : Type} {F : Type} (coreopsfunctionFnFTupleUsizeOptionInst :
+  core.ops.function.Fn F Std.Usize (Option T)) (len : Std.Usize)
+  (command_at : F) :
+  Result (alloc.vec.Vec T)
+  := do
+  frame_commands.collect_indexed_loop coreopsfunctionFnFTupleUsizeOptionInst
+    len command_at (alloc.vec.Vec.new T) 0#usize
+
 /-- [lnmai_core_verify::grade_counts::NUM_GRADES]
     Source: 'crates/lnmai-core-verify/src/grade_counts.rs', lines 6:0-6:33
     Visibility: public -/
@@ -2335,28 +2536,6 @@ def types.JudgeGrade.dist_from_perfect
   | types.JudgeGrade.FastGreat3rd => ok 5#u32
   | types.JudgeGrade.FastGood => ok 6#u32
   | types.JudgeGrade.TooFast => ok 7#u32
-
-/-- [lnmai_core_verify::types::{lnmai_core_verify::types::JudgeGrade}::is_miss_or_too_fast]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 31:4-33:5
-    Visibility: public -/
-def types.JudgeGrade.is_miss_or_too_fast
-  (self : types.JudgeGrade) : Result Bool := do
-  match self with
-  | types.JudgeGrade.Miss => ok true
-  | types.JudgeGrade.LateGood => ok false
-  | types.JudgeGrade.LateGreat3rd => ok false
-  | types.JudgeGrade.LateGreat2nd => ok false
-  | types.JudgeGrade.LateGreat => ok false
-  | types.JudgeGrade.LatePerfect3rd => ok false
-  | types.JudgeGrade.LatePerfect2nd => ok false
-  | types.JudgeGrade.Perfect => ok false
-  | types.JudgeGrade.FastPerfect2nd => ok false
-  | types.JudgeGrade.FastPerfect3rd => ok false
-  | types.JudgeGrade.FastGreat => ok false
-  | types.JudgeGrade.FastGreat2nd => ok false
-  | types.JudgeGrade.FastGreat3rd => ok false
-  | types.JudgeGrade.FastGood => ok false
-  | types.JudgeGrade.TooFast => ok true
 
 /-- [lnmai_core_verify::judge::judge_hold_classic_end]:
     Source: 'crates/lnmai-core-verify/src/judge.rs', lines 400:0-437:1
@@ -3309,18 +3488,6 @@ def lifecycle.finish_touch_judgment
   | some grade =>
     let jg ← convert.convert_grade style grade
     ok (lifecycle.TouchState.Ended, some jg)
-
-/-- [lnmai_core_verify::lifecycle::HoldSubState]
-    Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 135:0-143:1
-    Visibility: public -/
-@[discriminant isize]
-inductive lifecycle.HoldSubState where
-| HeadWaiting : lifecycle.HoldSubState
-| HeadJudgeable : lifecycle.HoldSubState
-| HeadJudged : types.JudgeGrade → lifecycle.HoldSubState
-| BodyHeld : lifecycle.HoldSubState
-| BodyReleased : lifecycle.HoldSubState
-| Ended : types.JudgeGrade → lifecycle.HoldSubState
 
 /-- [lnmai_core_verify::lifecycle::{impl core::fmt::Debug for lnmai_core_verify::lifecycle::HoldSubState}::fmt]:
     Source: 'crates/lnmai-core-verify/src/lifecycle.rs', lines 134:9-134:14
@@ -15807,14 +15974,6 @@ def types.ComboState.Insts.CoreDefaultDefault : core.default.Default
   default := types.ComboState.Insts.CoreDefaultDefault.default
 }
 
-/-- [lnmai_core_verify::types::RuntimePos]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 229:0-232:1
-    Visibility: public -/
-@[discriminant isize]
-inductive types.RuntimePos where
-| Button : areas.ButtonZone → types.RuntimePos
-| Sensor : areas.SensorArea → types.RuntimePos
-
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::RuntimePos}::fmt]:
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 228:9-228:14
     Visibility: public -/
@@ -15965,17 +16124,6 @@ def types.RuntimePos.sensor_area
   match self with
   | types.RuntimePos.Button _ => ok none
   | types.RuntimePos.Sensor area => ok (some area)
-
-/-- [lnmai_core_verify::types::JudgeEventKind]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 264:0-271:1
-    Visibility: public -/
-@[discriminant isize]
-inductive types.JudgeEventKind where
-| Tap : types.JudgeEventKind
-| Hold : types.JudgeEventKind
-| Slide : types.JudgeEventKind
-| Touch : types.JudgeEventKind
-| Break : types.JudgeEventKind
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgeEventKind}::fmt]:
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 263:9-263:14
@@ -16355,14 +16503,6 @@ def types.GroupState.Insts.CoreDefaultDefault : core.default.Default
   types.GroupState := {
   default := types.GroupState.Insts.CoreDefaultDefault.default
 }
-
-/-- [lnmai_core_verify::types::JudgePhase]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 303:0-307:1
-    Visibility: public -/
-@[discriminant isize]
-inductive types.JudgePhase where
-| Head : types.JudgePhase
-| Tail : types.JudgePhase
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::JudgePhase}::fmt]:
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 302:9-302:14

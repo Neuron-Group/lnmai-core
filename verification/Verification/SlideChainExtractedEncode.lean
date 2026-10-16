@@ -112,7 +112,7 @@ theorem encode_plans_loop_spec {Text Encode : Type}
         refine ⟨⟨by omega, ?_, hkeep⟩, by omega⟩
         simp only [happend, List.length_append, List.length_singleton]
         omega
-      simpa [slide_chain.encode_plans_loop.body, hmore, hget, hrender,
+      simpa [slide_chain.encode_plans_loop.body, hmore, hlt, hget, hrender,
         hcall, hpush, hnext, segment] using hcontinue
     · have hge : plans.val.length ≤ index.val := by simpa using hmore
       have hout : decodeSegments viewText segments =
@@ -120,7 +120,7 @@ theorem encode_plans_loop_spec {Text Encode : Type}
             (plans.val.drop initialIndex.val).map
               (fun plan => SlideChainModel.renderSegment chars.val (decodePlan plan)) := by
         simpa only [List.drop_eq_nil_of_le hge, List.map_nil, List.append_nil] using hinv
-      simpa [slide_chain.encode_plans_loop.body, hmore] using hout
+      simpa [slide_chain.encode_plans_loop.body, hmore, Nat.not_lt.mpr hge] using hout
   · exact ⟨hindex, hcapacity, rfl⟩
 
 theorem encode_plans_spec {Text Encode : Type}
