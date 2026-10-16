@@ -4,13 +4,13 @@ import Verification.SlideChainWrapper
 
 /-!
 Source-level entry composition using the actual extracted filtering and chain
-kernels. This is a proof-script draft for the main worker to elaborate.
+kernels.
 
 The prefix operation is the ORIGINAL Lean stripPrefixDirectives, concretely.
 No equivalence of the native Rust prefix routine is assumed or proved here.
-The runtime tokenize.rs sanitizer still uses a native iterator: installing
-this source composition alone does not certify that iterator or wire it to
-the shared sanitize_slide_chars kernel.
+The runtime tokenizer calls shared prefix and filtering kernels. This module
+uses the source prefix operation; the additional extracted prefix proof must
+be composed separately to cover that runtime preprocessing.
 
 Only String/UTF-8 collection and a single Vec<char>-to-Text encoding call have
 representation premises. They include successful allocation and byte-capacity
@@ -244,8 +244,8 @@ theorem parseSanitized_reference {Text Encode : Type}
 encode/decode; generated chain core; complete source wrapper.
 
 The source prefix operation is NOT an opaque frontend callback. Using it here
-states the proved scope without assuming that native Rust prefix processing,
-its trim policy, or the currently native tokenizer filter has been verified. -/
+states this module's scope without assuming that Rust prefix processing or its
+trim policy has been verified by the filter/chain composition alone. -/
 def parseTokenSource {Text Encode : Type}
     (call : core.ops.function.Fn Encode (alloc.vec.Vec Char) Text)
     (collectChars : String → Result (Slice Char))

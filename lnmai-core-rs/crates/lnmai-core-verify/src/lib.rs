@@ -15,6 +15,7 @@ pub mod judgment_adapter;
 pub mod lifecycle;
 pub mod maidata_scan;
 pub mod natural_parser;
+pub mod prefix_directives;
 pub mod queue_maintenance;
 pub mod scheduler;
 pub mod score;
@@ -40,6 +41,8 @@ pub mod timing_parser;
 pub mod tokenize;
 pub mod touch_schedule;
 pub mod types;
+pub mod vec_erase;
+pub mod vec_prepend;
 
 pub mod hold_schedule;
 

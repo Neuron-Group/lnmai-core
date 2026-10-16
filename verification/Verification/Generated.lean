@@ -5945,6 +5945,296 @@ def normalization.normalize_track
       normalization.normalize_track_loop TrackWriteInst len queue ops 0#usize
   else ok queue
 
+/-- [lnmai_core_verify::prefix_directives::PrefixRange]
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 13:0-16:1
+    Visibility: public -/
+structure prefix_directives.PrefixRange where
+  «begin» : Std.Usize
+  «end» : Std.Usize
+
+/-- [lnmai_core_verify::prefix_directives::{impl core::fmt::Debug for lnmai_core_verify::prefix_directives::PrefixRange}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:9-12:14
+    Visibility: public -/
+def prefix_directives.PrefixRange.Insts.CoreFmtDebug.fmt
+  (self : prefix_directives.PrefixRange) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugUsize self.«begin»
+  let dyn1 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) self.«end»
+  core.fmt.Formatter.debug_struct_field2_finish f (toStr "PrefixRange") (toStr
+    "begin") dyn (toStr "end") dyn1
+
+/-- Trait implementation: [lnmai_core_verify::prefix_directives::{impl core::fmt::Debug for lnmai_core_verify::prefix_directives::PrefixRange}]
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:9-12:14 -/
+@[reducible]
+def prefix_directives.PrefixRange.Insts.CoreFmtDebug : core.fmt.Debug
+  prefix_directives.PrefixRange := {
+  fmt := prefix_directives.PrefixRange.Insts.CoreFmtDebug.fmt
+}
+
+/-- [lnmai_core_verify::prefix_directives::{impl core::clone::Clone for lnmai_core_verify::prefix_directives::PrefixRange}::clone]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:16-12:21
+    Visibility: public -/
+def prefix_directives.PrefixRange.Insts.CoreCloneClone.clone
+  (self : prefix_directives.PrefixRange) :
+  Result prefix_directives.PrefixRange
+  := do
+  ok self
+
+/-- Trait implementation: [lnmai_core_verify::prefix_directives::{impl core::clone::Clone for lnmai_core_verify::prefix_directives::PrefixRange}]
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:16-12:21 -/
+@[reducible]
+def prefix_directives.PrefixRange.Insts.CoreCloneClone : core.clone.Clone
+  prefix_directives.PrefixRange := {
+  clone := prefix_directives.PrefixRange.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [lnmai_core_verify::prefix_directives::{impl core::marker::Copy for lnmai_core_verify::prefix_directives::PrefixRange}]
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:23-12:27 -/
+@[reducible]
+def prefix_directives.PrefixRange.Insts.CoreMarkerCopy : core.marker.Copy
+  prefix_directives.PrefixRange := {
+  cloneInst := prefix_directives.PrefixRange.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [lnmai_core_verify::prefix_directives::{impl core::marker::StructuralPartialEq for lnmai_core_verify::prefix_directives::PrefixRange}]
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:29-12:38 -/
+@[reducible]
+def prefix_directives.PrefixRange.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq prefix_directives.PrefixRange := {
+}
+
+/-- [lnmai_core_verify::prefix_directives::{impl core::cmp::PartialEq<lnmai_core_verify::prefix_directives::PrefixRange> for lnmai_core_verify::prefix_directives::PrefixRange}::eq]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:29-12:38
+    Visibility: public -/
+def prefix_directives.PrefixRange.Insts.CoreCmpPartialEqPrefixRange.eq
+  (self : prefix_directives.PrefixRange)
+  (other : prefix_directives.PrefixRange) :
+  Result Bool
+  := do
+  if self.«begin» = other.«begin»
+  then ok (self.«end» = other.«end»)
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::prefix_directives::{impl core::cmp::PartialEq<lnmai_core_verify::prefix_directives::PrefixRange> for lnmai_core_verify::prefix_directives::PrefixRange}]
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:29-12:38 -/
+@[reducible]
+def prefix_directives.PrefixRange.Insts.CoreCmpPartialEqPrefixRange :
+  core.cmp.PartialEq prefix_directives.PrefixRange
+  prefix_directives.PrefixRange := {
+  eq := prefix_directives.PrefixRange.Insts.CoreCmpPartialEqPrefixRange.eq
+}
+
+/-- [lnmai_core_verify::prefix_directives::{impl core::cmp::Eq for lnmai_core_verify::prefix_directives::PrefixRange}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:40-12:42
+    Visibility: public -/
+def prefix_directives.PrefixRange.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : prefix_directives.PrefixRange) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::prefix_directives::{impl core::cmp::Eq for lnmai_core_verify::prefix_directives::PrefixRange}]
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 12:40-12:42 -/
+@[reducible]
+def prefix_directives.PrefixRange.Insts.CoreCmpEq : core.cmp.Eq
+  prefix_directives.PrefixRange := {
+  partialEqInst :=
+    prefix_directives.PrefixRange.Insts.CoreCmpPartialEqPrefixRange
+  assert_fields_are_eq :=
+    prefix_directives.PrefixRange.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [lnmai_core_verify::prefix_directives::is_prefix_whitespace]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 20:0-22:1
+    Visibility: public -/
+def prefix_directives.is_prefix_whitespace (c : Char) : Result Bool := do
+  if c = ' '
+  then ok true
+  else if c = '	'
+       then ok true
+       else if c = ''
+            then ok true
+            else ok (c = '
+')
+
+/-- [lnmai_core_verify::prefix_directives::directive_closer]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 25:0-35:1
+    Visibility: public -/
+def prefix_directives.directive_closer (c : Char) : Result (Option Char) := do
+  if c = '{'
+  then ok (some '}')
+  else
+    if c = '('
+    then ok (some ')')
+    else if c = '<'
+         then ok (some '>')
+         else ok none
+
+/-- [lnmai_core_verify::prefix_directives::trim_range]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 38:4-43:5 -/
+@[rust_loop_body]
+def prefix_directives.trim_range_loop0.body
+  (chars : Slice Char) (end1 : Std.Usize) (begin1 : Std.Usize) :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  if begin1 < end1
+  then
+    let c ← Slice.index_usize chars begin1
+    let b ← prefix_directives.is_prefix_whitespace c
+    if b
+    then let begin2 ← begin1 + 1#usize
+         ok (cont begin2)
+    else ok (done begin1)
+  else ok (done begin1)
+
+/-- [lnmai_core_verify::prefix_directives::trim_range]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 38:4-43:5 -/
+@[rust_loop]
+def prefix_directives.trim_range_loop0
+  (chars : Slice Char) (begin1 : Std.Usize) (end1 : Std.Usize) :
+  Result Std.Usize
+  := do
+  loop
+    (fun begin2 => prefix_directives.trim_range_loop0.body chars end1 begin2)
+    begin1
+
+/-- [lnmai_core_verify::prefix_directives::trim_range]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 44:4-50:5 -/
+@[rust_loop_body]
+def prefix_directives.trim_range_loop1.body
+  (chars : Slice Char) (begin1 : Std.Usize) (end1 : Std.Usize) :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  if begin1 < end1
+  then
+    let previous ← end1 - 1#usize
+    let c ← Slice.index_usize chars previous
+    let b ← prefix_directives.is_prefix_whitespace c
+    if b
+    then ok (cont previous)
+    else ok (done end1)
+  else ok (done end1)
+
+/-- [lnmai_core_verify::prefix_directives::trim_range]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 44:4-50:5 -/
+@[rust_loop]
+def prefix_directives.trim_range_loop1
+  (chars : Slice Char) (begin1 : Std.Usize) (end1 : Std.Usize) :
+  Result Std.Usize
+  := do
+  loop
+    (fun end2 => prefix_directives.trim_range_loop1.body chars begin1 end2)
+    end1
+
+/-- [lnmai_core_verify::prefix_directives::trim_range]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 37:0-52:1 -/
+def prefix_directives.trim_range
+  (chars : Slice Char) (begin1 : Std.Usize) (end1 : Std.Usize) :
+  Result prefix_directives.PrefixRange
+  := do
+  let begin2 ← prefix_directives.trim_range_loop0 chars begin1 end1
+  let end2 ← prefix_directives.trim_range_loop1 chars begin2 end1
+  ok { «begin» := begin2, «end» := end2 }
+
+/-- [lnmai_core_verify::prefix_directives::after_first_closer]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 57:4-65:1 -/
+@[rust_loop_body]
+def prefix_directives.after_first_closer_loop.body
+  (chars : Slice Char) (end1 : Std.Usize) (closer : Char) (cursor : Std.Usize)
+  :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  if cursor < end1
+  then
+    let c ← Slice.index_usize chars cursor
+    let cursor1 ← cursor + 1#usize
+    if c = closer
+    then ok (done cursor1)
+    else ok (cont cursor1)
+  else ok (done end1)
+
+/-- [lnmai_core_verify::prefix_directives::after_first_closer]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 57:4-65:1 -/
+@[rust_loop]
+def prefix_directives.after_first_closer_loop
+  (chars : Slice Char) (cursor : Std.Usize) (end1 : Std.Usize) (closer : Char)
+  :
+  Result Std.Usize
+  := do
+  loop
+    (fun cursor1 => prefix_directives.after_first_closer_loop.body chars end1
+      closer cursor1)
+    cursor
+
+/-- [lnmai_core_verify::prefix_directives::after_first_closer]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 56:0-65:1 -/
+@[reducible]
+def prefix_directives.after_first_closer
+  (chars : Slice Char) (cursor : Std.Usize) (end1 : Std.Usize) (closer : Char)
+  :
+  Result Std.Usize
+  := do
+  prefix_directives.after_first_closer_loop chars cursor end1 closer
+
+/-- [lnmai_core_verify::prefix_directives::strip_prefix_range]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 69:0-81:1
+    Visibility: public -/
+def prefix_directives.strip_prefix_range
+  (chars : Slice Char) : Result prefix_directives.PrefixRange := do
+  let i := Slice.len chars
+  let trimmed ← prefix_directives.trim_range chars 0#usize i
+  if trimmed.«begin» = trimmed.«end»
+  then ok trimmed
+  else
+    let c ← Slice.index_usize chars trimmed.«begin»
+    let o ← prefix_directives.directive_closer c
+    match o with
+    | none => ok trimmed
+    | some closer =>
+      let begin1 ←
+        prefix_directives.after_first_closer chars trimmed.«begin»
+          trimmed.«end» closer
+      prefix_directives.trim_range chars begin1 trimmed.«end»
+
+/-- [lnmai_core_verify::prefix_directives::strip_prefix_chars]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 89:4-92:5
+    Visibility: public -/
+@[rust_loop_body]
+def prefix_directives.strip_prefix_chars_loop.body
+  (chars : Slice Char) (i : Std.Usize) (result : alloc.vec.Vec Char)
+  (cursor : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Char) × Std.Usize) (alloc.vec.Vec Char))
+  := do
+  if cursor < i
+  then
+    let c ← Slice.index_usize chars cursor
+    let result1 ← alloc.vec.Vec.push result c
+    let cursor1 ← cursor + 1#usize
+    ok (cont (result1, cursor1))
+  else ok (done result)
+
+/-- [lnmai_core_verify::prefix_directives::strip_prefix_chars]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 89:4-92:5
+    Visibility: public -/
+@[rust_loop]
+def prefix_directives.strip_prefix_chars_loop
+  (chars : Slice Char) (i : Std.Usize) (result : alloc.vec.Vec Char)
+  (cursor : Std.Usize) :
+  Result (alloc.vec.Vec Char)
+  := do
+  loop
+    (fun (result1, cursor1) => prefix_directives.strip_prefix_chars_loop.body
+      chars i result1 cursor1)
+    (result, cursor)
+
+/-- [lnmai_core_verify::prefix_directives::strip_prefix_chars]:
+    Source: 'crates/lnmai-core-verify/src/prefix_directives.rs', lines 85:0-94:1
+    Visibility: public -/
+def prefix_directives.strip_prefix_chars
+  (chars : Slice Char) : Result (alloc.vec.Vec Char) := do
+  let selected ← prefix_directives.strip_prefix_range chars
+  prefix_directives.strip_prefix_chars_loop chars selected.«end»
+    (alloc.vec.Vec.new Char) selected.«begin»
+
 /-- Trait declaration: [lnmai_core_verify::queue_maintenance::QueueCursor]
     Source: 'crates/lnmai-core-verify/src/queue_maintenance.rs', lines 10:0-14:1
     Visibility: public -/
@@ -16978,5 +17268,90 @@ def types.ScoreState.Insts.CoreDefaultDefault : core.default.Default
   types.ScoreState := {
   default := types.ScoreState.Insts.CoreDefaultDefault.default
 }
+
+/-- [lnmai_core_verify::vec_erase::erase]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop_body]
+def vec_erase.erase_loop.body
+  {T : Type} (last : Std.Usize) (values : alloc.vec.Vec T) (index : Std.Usize)
+  :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  if index < last
+  then
+    let next ← index + 1#usize
+    let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut values)
+    let s1 ← core.slice.Slice.swap s index next
+    let values1 := deref_mut_back s1
+    ok (cont (values1, next))
+  else ok (done values)
+
+/-- [lnmai_core_verify::vec_erase::erase]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop]
+def vec_erase.erase_loop
+  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) (last : Std.Usize)
+  :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (values1, index1) => vec_erase.erase_loop.body last values1 index1)
+    (values, index)
+
+/-- [lnmai_core_verify::vec_erase::erase]:
+    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 6:0-16:1
+    Visibility: public -/
+def vec_erase.erase
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (values : alloc.vec.Vec T) (index : Std.Usize) (filler : T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let len := alloc.vec.Vec.len values
+  massert (index < len)
+  let last ← len - 1#usize
+  let values1 ← vec_erase.erase_loop values index last
+  alloc.vec.Vec.resize corecloneCloneInst values1 last filler
+
+/-- [lnmai_core_verify::vec_prepend::prepend]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop_body]
+def vec_prepend.prepend_loop.body
+  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  if index > 0#usize
+  then
+    let previous ← index - 1#usize
+    let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut values)
+    let s1 ← core.slice.Slice.swap s index previous
+    let values1 := deref_mut_back s1
+    ok (cont (values1, previous))
+  else ok (done values)
+
+/-- [lnmai_core_verify::vec_prepend::prepend]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop]
+def vec_prepend.prepend_loop
+  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (values1, index1) => vec_prepend.prepend_loop.body values1 index1)
+    (values, index)
+
+/-- [lnmai_core_verify::vec_prepend::prepend]:
+    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 7:0-15:1
+    Visibility: public -/
+def vec_prepend.prepend
+  {T : Type} (values : alloc.vec.Vec T) (head : T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let index := alloc.vec.Vec.len values
+  let values1 ← alloc.vec.Vec.push values head
+  vec_prepend.prepend_loop values1 index
 
 end lnmai_core_verify

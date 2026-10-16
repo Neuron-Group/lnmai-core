@@ -64,10 +64,12 @@ for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra 
   Storage StorageLoops StorageAccum StoragePublic StorageEquality Symmetry AreasPublic TypesPublic \
   Defaults Shape ShapeSolver ShapeAdapters Tokenize SlideParser SlideParserComposition SlideParserFrontend SlideParserText SlideParserSequence TimingParser SlideHistory SlideAreaLoops SlideArea SlideAreaTrace \
   NaturalParser StringSplit TimingNumberModel TimingNumberReference TimingNumber TimingAggregate \
+  PrefixDirectivesModel PrefixAsciiTrim PrefixDirectivesReference \
   SlideChainReference SlideChainModel MaidataScanModel TouchHoldRebuildModel TouchHoldRebuildReverse \
   SlideChainExtractedReads SlideChainExtractedTiming SlideChainExtractedLoops \
   SlideChainExtractedRender SlideChainExtractedEncode SlideChainExtracted \
-  SlideChainWrapper SlideChainFrontend MaidataScanFuel MaidataScan MaidataScanGroupsModel MaidataScanGroupsPlan MaidataScanGroups TouchHoldRebuildReverseExtracted TouchHoldRebuildUpsert TouchHoldRebuildTraversal \
+  SlideChainWrapper SlideChainFrontend MaidataScanFuel MaidataScan MaidataLineFields MaidataScanGroupsModel MaidataScanGroupsPlan MaidataScanGroups TouchHoldRebuildReverseExtracted TouchHoldRebuildUpsert TouchHoldRebuildTraversal \
+  VecPrependModel VecPrependExtracted VecEraseModel VecEraseExtracted TouchHoldRebuildCapacity \
   TapLifecycle TouchLifecycle HoldLifecycle SlideLifecycle \
   LifecycleJudgments HoldJudgments SlideJudgments SlideQueueMetrics SchedulerClicks \
   SchedulerFrame SchedulerParents SlideSchedule SlideScheduleParents \
@@ -77,7 +79,7 @@ for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra 
   SlideAreaEquality SlideQueueModel SlideQueue SlideQueueTraversal SlideQueueTrace \
   StorageSensorRefinement NormalizationModel NormalizationPoints Normalization NormalizationFrontend TouchAutomaticModel TouchAutomatic TouchAutomaticJudgments TouchAutomaticQueue TouchAutomaticGroups TouchScheduleModel TouchSchedule TouchScheduleJudgments TouchSchedulePass TouchSchedulePassJudgments SchedulerFrameTouch TouchHoldScheduleModel TouchHoldGroups TouchHoldSchedule TouchHoldScheduleJudgments TouchHoldScheduleTraversal TouchHoldScheduleQueueJudgments SchedulerFrameTouchJudgments SchedulerFrameTouchTraversals \
   SchedulerFrameTouchHold SchedulerFrameAllTraversals SchedulerFrameInitialization \
-  FrameCommandsReference FrameCommandCollection FrameCommands FrameCommandFinalization FrameCommandState SchedulerParentFields SchedulerFramePipeline SlideQueueReferenceTrace Audit; do
+  FrameCommandsReference FrameCommandCollection FrameCommands FrameCommandFinalization FrameCommandState SchedulerParentFields SchedulerInitializationCapacity SchedulerFramePipeline SlideQueueReferenceTrace Audit; do
   run "proof-$module" "$repo/verification" lake build "Verification.$module"
 done
 run equivalence-proofs-and-axiom-audit "$repo/verification" lake build

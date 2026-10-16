@@ -118,6 +118,11 @@ import Verification.SchedulerFramePipeline
 import Verification.SlideChainFrontend
 import Verification.MaidataScan
 import Verification.MaidataScanGroups
+import Verification.MaidataLineFields
+import Verification.PrefixDirectivesReference
+import Verification.VecPrependExtracted
+import Verification.VecEraseExtracted
+import Verification.SchedulerInitializationCapacity
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -128,6 +133,34 @@ run_cmd do
   let env ← getEnv
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
   let required : Array Name := #[
+    ``Verification.VecPrependExtractedProof.prepend_body_step,
+    ``Verification.VecPrependExtractedProof.prepend_loop_spec,
+    ``Verification.VecPrependExtractedProof.prepend_spec,
+    ``Verification.VecPrependExtractedProof.prepend_equiv,
+    ``Verification.VecPrependExtractedProof.prepend_model_equiv,
+    ``Verification.VecEraseExtractedProof.erase_body_step,
+    ``Verification.VecEraseExtractedProof.erase_loop_spec,
+    ``Verification.VecEraseExtractedProof.erase_spec,
+    ``Verification.VecEraseExtractedProof.erase_equiv,
+    ``Verification.VecEraseExtractedProof.erase_ordered_spec,
+    ``Verification.VecEraseExtractedProof.erase_parameters_independent,
+    ``Verification.VecEraseExtractedProof.erase_invalid,
+    ``Verification.TouchHoldRebuildCapacityProof.walk_empty_fits,
+    ``Verification.TouchHoldRebuildCapacityProof.prefix_fits_of_length,
+    ``Verification.TouchHoldRebuildCapacityProof.prefix_fits_native,
+    ``Verification.SchedulerInitializationCapacityProof.native_rebuild_fits,
+    ``Verification.SchedulerInitializationCapacityProof.prepare_body_groups_native_equiv,
+    ``Verification.SchedulerInitializationCapacityProof.initialize_with_native_capacity_equiv,
+    ``Verification.PrefixDirectivesModel.afterFirst_splitTail,
+    ``Verification.PrefixDirectivesModel.stripChars_sublist,
+    ``Verification.PrefixAsciiTrim.trim_toList,
+    ``Verification.PrefixDirectivesReference.stripPrefixDirectives_toList,
+    ``Verification.PrefixDirectivesReference.sanitizeSlideToken_toList,
+    ``Verification.MaidataLineFieldsProof.read_points,
+    ``Verification.MaidataLineFieldsProof.append_field_spec,
+    ``Verification.MaidataLineFieldsProof.append_chart_spec,
+    ``Verification.MaidataLineFieldsProof.write_points,
+    ``Verification.MaidataLineFieldsProof.parse_with_fields_equiv,
     ``Verification.SchedulerParentFieldsProof.parent_points,
     ``Verification.SchedulerParentFieldsProof.refresh_equiv,
     ``Verification.SchedulerParentFieldsProof.initialize_with_fields_equiv,

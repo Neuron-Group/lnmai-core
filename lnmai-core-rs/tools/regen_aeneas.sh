@@ -45,13 +45,9 @@ echo '[2/3] aeneas: generating the Lean model'
 generated="$out/LnmaiCoreVerify.lean"
 destination="$repo/verification/Verification/Generated.lean"
 test -f "$generated"
-# Normalize only trailing layout emitted by Aeneas, identically for writes
-# and freshness checks. The generated program is otherwise left untouched.
-python3 - "$generated" <<'PY'
-import pathlib, sys
-p = pathlib.Path(sys.argv[1])
-p.write_text('\n'.join(line.rstrip() for line in p.read_text().splitlines()) + '\n')
-PY
+# Preserve literal CR/LF and other Unicode characters. Text-mode newline
+# conversion would silently change the extracted whitespace predicate.
+python3 "$repo/verification/tools/normalize_generated.py" "$generated"
 if [[ "$mode" == check ]]; then
   echo '[3/3] checking generated model freshness'
   if ! cmp -s "$generated" "$destination"; then

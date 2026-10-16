@@ -30,8 +30,10 @@ def finishFromInitial (state : GameState) (newTime : TimePoint)
   let eventRender ← collectSlice buffers.events (renderRun state.displayHoldHeadJudgeResult)
   let (audio, render) ← scheduler.combine_commands appendCall appendCall
     frame.slideAudio body eventAudio frame.slideRender eventRender () ()
-  ok ({ frame.state with prevButton := input.buttonHeld, prevSensor := input.sensorHeld,
-    score := score }, events, audio, render)
+  ok ({ frame.state with
+      prevButton := input.buttonHeld
+      prevSensor := input.sensorHeld
+      score := score }, events, audio, render)
 
 theorem finish_from_initial_eq_finish (state : GameState) (newTime : TimePoint)
     (input : FrameInput) (frame : FrameWork) (buffers : Buffers frame)

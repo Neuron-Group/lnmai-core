@@ -13,18 +13,27 @@ open SchedulerFrameStateProof (FrameOutput)
 /-!
 Compose the proved initialization kernels, all five derived scheduling passes,
 and the extracted feedback selectors/collector. No complete initializer, phase,
-or finalizer equation is assumed. The final buffers are constructed from their
-lists with explicit capacity bounds rather than a command-generation premise.
+or finalizer equation is assumed. The feedback collector input buffers are
+constructed from their lists with explicit length bounds. Native capacity and
+allocation refinement for final command concatenation and trace storage remains
+a separate obligation.
 
-This is an interpretation of the runtime facade, not its extraction. FrameWork
+This is a decoded interpretation of the runtime facade, not its extraction. FrameWork
 fields and payloads are already decoded Lean values. Concrete Rust record,
 UTF-8, bigint, allocator, and caller correspondence remain separate obligations,
 as do the point contracts on the five pass implementations and initialization.
 -/
 
+/-- Usize bounds for the two feedback collector inputs. Final command and trace
+storage capacities and native allocation success remain separate obligations. -/
 def CommandFits (frame : FrameWork) : Prop :=
   (reportedEvents frame).length ≤ Usize.max ∧
     frame.state.activeTouchHolds.length ≤ Usize.max
+
+/-- Decide the branch guard using its two natural-number comparisons. -/
+instance commandFitsDecidable (frame : FrameWork) : Decidable (CommandFits frame) := by
+  unfold CommandFits
+  infer_instance
 
 def commandBuffers (frame : FrameWork) (fits : CommandFits frame) : Buffers frame :=
   { events := ⟨reportedEvents frame, fits.1⟩
@@ -79,8 +88,11 @@ def trace (p : ParentKernel) (b : BodyKernel)
       let (finalState, outputs) ← trace p b addTime fields base callback out.1 rest
       ok (finalState, out :: outputs)
 
-/-- Require capacities only at states reached by this finite input history.
-There is no assumption that every unbounded mathematical state fits a Vec. -/
+/-- The field/time equations, conditional rebuild bound and CommandFits premise
+are required along the reference states of this finite history. Each input also
+requires the imported five-pass Contracts, whose field, point and capacity laws
+retain their universal quantification over frames and operation arguments.
+Concrete witnesses for those contracts remain separate obligations. -/
 def TracePremises (p : ParentKernel) (b : BodyKernel)
     (addTime : TimePoint → Duration → Result TimePoint)
     (fields : GameState → FrameInput → FrameFields p b)
@@ -143,9 +155,11 @@ theorem run_equiv (p : ParentKernel) (b : BodyKernel)
   exact finish_checked_equiv inst integerOps decode encode integerLaw decode_encode
     state input fits
 
-/-- Original stepFrame at every frame, with the actual extracted initialization,
-phase and feedback kernels in the interpreted implementation. All resource and
-point premises are retained for the states actually reached by the history. -/
+/-- Original stepFrame at every frame, using extracted initialization, phase and
+feedback kernels inside the decoded interpretation. Explicit per-state premises
+follow this history; imported pass contracts and ParentPoints/BodyPoints retain
+their original universal scope. Native record/scalar/container refinement and
+the runtime frame-loop correspondence remain separate obligations. -/
 theorem trace_equiv (p : ParentKernel) (b : BodyKernel)
     (parents : ParentPoints p) (body : BodyPoints b)
     (addTime : TimePoint → Duration → Result TimePoint)

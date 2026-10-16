@@ -34,6 +34,7 @@ use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork
 use lnmai_core_verify::tap_schedule::{self as tap_schedule_kernel, TapWork};
 use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
 use lnmai_core_verify::touch_schedule::{self as touch_schedule_kernel, TouchWork};
+use lnmai_core_verify::{vec_erase as vec_erase_kernel, vec_prepend as vec_prepend_kernel};
 
 /// The public pooled note representation from `Scheduler.ActiveNote`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -831,14 +832,6 @@ fn register_touch_group_result(
     out
 }
 
-// Lean List.erase removes only the first match. JSON-restored lists can
-// contain duplicates even when chart construction normally avoids them.
-fn erase_first<T: PartialEq>(values: &mut Vec<T>, value: &T) {
-    if let Some(index) = values.iter().position(|item| item == value) {
-        values.remove(index);
-    }
-}
-
 /// Shared point adapter for scheduler and ChartLoader reconstruction.
 /// The borrowed source avoids cloning holds or narrowing arbitrary-precision IDs.
 pub(crate) struct TouchHoldRebuildAtoms;
@@ -917,7 +910,7 @@ impl<'a>
         group: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups[group].member_note_indices.insert(0, note.clone());
+        vec_prepend_kernel::prepend(&mut groups[group].member_note_indices, note.clone());
         groups
     }
 
@@ -927,7 +920,7 @@ impl<'a>
         group: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups[group].triggered_note_indices.insert(0, note.clone());
+        vec_prepend_kernel::prepend(&mut groups[group].triggered_note_indices, note.clone());
         groups
     }
 
@@ -937,7 +930,11 @@ impl<'a>
         group: usize,
         index: usize,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups[group].triggered_note_indices.remove(index);
+        vec_erase_kernel::erase(
+            &mut groups[group].triggered_note_indices,
+            index,
+            Natural::default(),
+        );
         groups
     }
 
@@ -1316,7 +1313,13 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> bool {
-        groups[index].member_note_indices.contains(note)
+        touch_hold_rebuild_kernel::find_member::<&[(SensorArea, HoldNote)], _, _, _>(
+            groups,
+            index,
+            note,
+            &TouchHoldRebuildAtoms,
+        )
+        .is_some()
     }
 
     fn body_has_trigger(
@@ -1325,7 +1328,13 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> bool {
-        groups[index].triggered_note_indices.contains(note)
+        touch_hold_rebuild_kernel::find_trigger::<&[(SensorArea, HoldNote)], _, _, _>(
+            groups,
+            index,
+            note,
+            &TouchHoldRebuildAtoms,
+        )
+        .is_some()
     }
 
     fn body_prepend_member(
@@ -1334,7 +1343,7 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups[index].member_note_indices.insert(0, note.clone());
+        vec_prepend_kernel::prepend(&mut groups[index].member_note_indices, note.clone());
         groups
     }
 
@@ -1344,7 +1353,7 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups[index].triggered_note_indices.insert(0, note.clone());
+        vec_prepend_kernel::prepend(&mut groups[index].triggered_note_indices, note.clone());
         groups
     }
 
@@ -1354,7 +1363,20 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        erase_first(&mut groups[index].member_note_indices, note);
+        // Keep later duplicate IDs, matching Lean List.erase.
+        if let Some(member) = touch_hold_rebuild_kernel::find_member::<
+            &[(SensorArea, HoldNote)],
+            _,
+            _,
+            _,
+        >(&groups, index, note, &TouchHoldRebuildAtoms)
+        {
+            vec_erase_kernel::erase(
+                &mut groups[index].member_note_indices,
+                member,
+                Natural::default(),
+            );
+        }
         groups
     }
 
@@ -1364,7 +1386,19 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        erase_first(&mut groups[index].triggered_note_indices, note);
+        if let Some(trigger) = touch_hold_rebuild_kernel::find_trigger::<
+            &[(SensorArea, HoldNote)],
+            _,
+            _,
+            _,
+        >(&groups, index, note, &TouchHoldRebuildAtoms)
+        {
+            vec_erase_kernel::erase(
+                &mut groups[index].triggered_note_indices,
+                trigger,
+                Natural::default(),
+            );
+        }
         groups
     }
 
@@ -1377,7 +1411,7 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         mut groups: Vec<TouchHoldBodyGroupState>,
         index: usize,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups.remove(index);
+        vec_erase_kernel::erase(&mut groups, index, TouchHoldBodyGroupState::default());
         groups
     }
 

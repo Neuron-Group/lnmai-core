@@ -14,6 +14,7 @@ use crate::simai::timing::{
 };
 use crate::time::{self, TimePoint};
 
+use lnmai_core_verify::prefix_directives as prefix_kernel;
 use lnmai_core_verify::slide_chain::{self, ChainError};
 use lnmai_core_verify::slide_parser_text as text_kernel;
 pub use lnmai_core_verify::tokenize::{is_slide_mark_char, is_touch_area_char};
@@ -121,36 +122,17 @@ pub fn strip_comments(s: &str) -> String {
 
 /// `stripPrefixDirectives`.
 pub fn strip_prefix_directives(token: &str) -> String {
-    let t = trim(token);
-    if t.is_empty() {
-        t
-    } else if t.starts_with('{') {
-        // Lean's splitOn always has a first piece. Without a closing marker,
-        // its remaining list is empty, so the entire directive is removed.
-        match t.split_once('}') {
-            Some((_, rest)) => trim(rest),
-            None => String::new(),
-        }
-    } else if t.starts_with('(') {
-        match t.split_once(')') {
-            Some((_, rest)) => trim(rest),
-            None => String::new(),
-        }
-    } else if t.starts_with('<') {
-        match t.split_once('>') {
-            Some((_, rest)) => trim(rest),
-            None => String::new(),
-        }
-    } else {
-        t
-    }
+    let chars: Vec<char> = token.chars().collect();
+    prefix_kernel::strip_prefix_chars(&chars)
+        .into_iter()
+        .collect()
 }
 
 /// `sanitizeSlideToken`.
 pub fn sanitize_slide_token(token: &str) -> String {
-    let stripped = strip_prefix_directives(token);
-    let chars: Vec<char> = stripped.chars().collect();
-    text_kernel::sanitize_slide_chars(&chars)
+    let chars: Vec<char> = token.chars().collect();
+    let stripped = prefix_kernel::strip_prefix_chars(&chars);
+    text_kernel::sanitize_slide_chars(&stripped)
         .into_iter()
         .collect()
 }
