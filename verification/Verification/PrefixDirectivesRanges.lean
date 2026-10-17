@@ -142,7 +142,7 @@ theorem back_nonwhitespace_stop (chars : List Char) {begin cursor : Nat}
   simp only [rangeChars_unsnoc chars hmore hcursor, trimEndChars,
     List.reverse_append, List.reverse_singleton, List.singleton_append,
     List.dropWhile_cons, hwhite, Bool.false_eq_true, ↓reduceIte,
-    List.reverse_cons, List.reverse_reverse]
+    List.reverse_cons, List.reverse_reverse, List.reverse_nil, List.nil_append]
 
 /-- Forward-trim loop invariant, with original endpoints kept explicit. -/
 structure FrontInv (chars : List Char) (begin finish cursor : Nat) : Prop where

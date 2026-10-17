@@ -86,7 +86,7 @@ theorem prepend_body_step (original : List α) (head : α)
         ok (.cont ((alloc.vec.Vec.deref_mut values).2 swappedSlice, previous) :
           ControlFlow (alloc.vec.Vec α × Usize) (alloc.vec.Vec α))) =
       ok (.cont (next, previous))
-    simp only [hswap, bind_tc_ok]
+    simp only [hswap, bind_tc_ok, next]
   · rw [hpreviousNat]
     exact invariant_step_of_points hinv hmoreNat hnextPoints
 

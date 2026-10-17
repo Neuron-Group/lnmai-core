@@ -2,11 +2,14 @@
 
 This is the working record for the Rust rewrite, not a whole-program proof.
 The reference is the current `LnmaiCore/` tree on `rust`, including the
-`main` merge at `9b6bffe`. The uncommitted rewrite is part of the audit target.
+`main` merge at `9b6bffe`. The working tree is part of the audit target.
 
 ## Work order and evidence
 
 The requested order is implementation/source equivalence first, tests second.
+The latest user instruction authorizes testing the three requested songs as
+soon as the current proof batch and its axiom audit finish, before continuing
+the remaining equivalence obligations. The full suite remains deferred.
 No unit, differential, real-chart or ABI tests have been run in the current
 equivalence pass. Library-only Rust typechecking, extraction and Lean theorem
 compilation are permitted in this pass. The interrupted Koishi diagnostic is
@@ -16,6 +19,9 @@ including `011996 Usagi Flap` (levels 2–5), `011951 サイエンス` (levels 2
 and `蛙石` (levels 5–6). The same registration feeds frontend and complete
 playthrough comparisons. All ten also appear in Lean's AP/no-missing-note
 acceptance checkpoints. This is source registration only, not a test result.
+Dedicated `requested_corpus_*` differential entries enforce the exact ten
+difficulties and reuse the full-corpus frontend/playthrough comparisons.
+They have not run yet.
 
 The current priority is parser, complete note lifecycles, scheduler and
 judgments. Count/combo-display work is deferred behind those paths.
@@ -122,8 +128,16 @@ checkpoint extraction. FrameCommandState failed on record-update syntax; the
 source correction passed the following diagnostic batch. That batch was not an independent
 axiom-audit acceptance and does not certify the newer runtime wiring.
 
-A new separate-module build against stage5 is in progress in
-`/tmp/lnmai-fields-proof-batch-5.log`. The preceding stage4 diagnostic compiled
+A separate-module build against stage5 finished in
+`/tmp/lnmai-fields-proof-batch-5.log`: 120 compilation attempts, 113 passed and
+seven failed modules, with eight additional dependent skips. The failures were
+TouchHoldBodyReads, VecPrependModel, SchedulerFramePipeline,
+PrefixDirectivesReference, PrefixDirectivesRanges, MaidataScanGroupsPlan and
+SlideChainExtractedEncode. All seven now have source repairs; acceptance of
+those repairs is pending the consolidated
+`/tmp/lnmai-adapter-proof-batch-6.log` build and independent axiom audit.
+The actual GeneratedTouchHoldBodyAdapter extension has compiled in batch6.
+No test suite has been run. The preceding stage4 diagnostic compiled
 Generated, PrefixDirectivesModel and MaidataScan, but found errors in
 PrefixAsciiTrim, PrefixDirectivesRanges and MaidataScanGroupsModel. It was
 stopped at a module boundary before installing stage5. Those diagnostics and
@@ -522,7 +536,8 @@ the active implementation is `crates/lnmai-core/src/simai/`.
   above. The next composition connects this traversal to the Slide frame phase;
   other passes, initialization/finalization and actual facade contracts remain.
 
-Do not start deferred acceptance until the implementation-equivalence checklist
-is complete. Do not report whole-program formal equivalence while the open
+Apart from the explicitly authorized three-song checkpoint, do not start
+deferred acceptance until the implementation-equivalence checklist is complete.
+Do not report whole-program formal equivalence while the open
 representation, parser, lifecycle, scheduler, seek, JSON or ABI obligations
 remain.

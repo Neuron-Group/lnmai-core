@@ -30,8 +30,9 @@ theorem tailText_toList (s : String) (closer : Char) :
 private theorem split_singleton_nonempty (s : String) (closer : Char) :
     s.splitOn (String.ofList [closer]) ≠ [] := by
   rw [StringSplit.splitOn_singleton]
-  simpa only [List.map_eq_nil_iff] using
-    List.splitOnP_ne_nil (fun c => c == closer) s.toList
+  intro hnil
+  exact List.splitOnP_ne_nil (fun c => c == closer) s.toList
+    (List.map_eq_nil_iff.mp hnil)
 
 /-- The fallback branch is retained, then eliminated by the real splitOn theorem. -/
 def sourceAfter (s : String) (closer : Char) : String :=
@@ -63,7 +64,18 @@ def sourceBody (t : String) : String :=
 
 theorem original_factor (token : String) :
     LnmaiCore.Simai.stripPrefixDirectives token =
-      sourceBody (LnmaiCore.Simai.trim token) := rfl
+      sourceBody (LnmaiCore.Simai.trim token) := by
+  have hbrace : String.ofList ['}'] = "}" := String.ofList_toList (s := "}")
+  have hparen : String.ofList [')'] = ")" := String.ofList_toList (s := ")")
+  have hangle : String.ofList ['>'] = ">" := String.ofList_toList (s := ">")
+  unfold LnmaiCore.Simai.stripPrefixDirectives
+  dsimp only
+  generalize LnmaiCore.Simai.trim token = t
+  simp only [sourceBody, sourceAfter, hbrace, hparen, hangle]
+  -- Reduce both catch-all and explicit-nil matchers on constructors.
+  cases hbraceSplit : t.splitOn "}" <;>
+    cases hparenSplit : t.splitOn ")" <;>
+    cases hangleSplit : t.splitOn ">" <;> rfl
 
 private theorem startsWith_singleton_cons (t : String) (c d : Char) (rest : List Char)
     (hchars : t.toList = c :: rest) :

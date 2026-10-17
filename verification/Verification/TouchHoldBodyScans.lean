@@ -93,8 +93,12 @@ theorem find_id_loop_key_spec {Id : Type} (eq : core.cmp.PartialEq Id Id)
     simp only [read, slice_index_at values index pre item rest hat,
       bind_tc_ok, core.cmp.impls.PartialEqShared.eq, heq]
   have hloop := scan_spec key values.val target len read hlen hread
-  simpa only [touch_hold_body.find_id_loop, touch_hold_body.find_id_loop.body,
-    scanBody, read, bind_assoc_eq] using hloop
+  have hbody :
+      (fun index => touch_hold_body.find_id_loop.body eq values note len index) =
+        scanBody read len := by
+    funext index
+    simp only [touch_hold_body.find_id_loop.body, scanBody, read, bind_assoc_eq]
+  simpa only [touch_hold_body.find_id_loop, hbody] using hloop
 
 theorem find_group_key_spec {Id : Type} (eq : core.cmp.PartialEq Id Id)
     (groups : Slice (Group Id)) (id : Id) (key : Id → Nat) (target : Nat)

@@ -137,7 +137,9 @@ theorem checked_conversion_agrees (cursor : Nat) :
       simp only [converted] at h
       change UScalar.max .Usize < cursor
       change ¬ cursor < 2 ^ UScalarTy.Usize.numBits at h
-      unfold UScalar.max
+      have hmax : UScalar.max .Usize + 1 = 2 ^ UScalarTy.Usize.numBits := by
+        simpa only [UScalar.max_USize_eq, UScalarTy.Usize_numBits_eq] using
+          Usize.max_succ_eq_pow
       omega
   | some index =>
       simp only [converted] at h

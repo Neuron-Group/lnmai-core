@@ -594,25 +594,10 @@ fn check_step(
     *state = next;
 }
 
-fn real_corpus() -> Vec<(String, String, u32)> {
+fn read_corpus(names: &[&str]) -> Vec<(String, String, u32)> {
     let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tools/assets");
     let mut cases = Vec::new();
-    for name in [
-        "24_Sun Dance",
-        "230_CYCLES",
-        "462_7thSense",
-        "589_Panopticon",
-        "834_PANDORA PARADOXXX",
-        "11264_幽霊東京",
-        "11358_インドア系ならトラックメイカー",
-        "11475_SUPER AMBULANCE",
-        "100230_[宴]CYCLES",
-        "100524_[協]Hand in Hand",
-        "小石DISCO",
-        "011996 Usagi Flap",
-        "011951 サイエンス",
-        "蛙石",
-    ] {
+    for name in names {
         let content = std::fs::read_to_string(assets.join(name).join("maidata.txt")).unwrap();
         let levels: Vec<u32> = content
             .lines()
@@ -630,6 +615,26 @@ fn real_corpus() -> Vec<(String, String, u32)> {
             cases.push((format!("{name}/{level}"), content.clone(), level));
         }
     }
+    cases
+}
+
+fn real_corpus() -> Vec<(String, String, u32)> {
+    let cases = read_corpus(&[
+        "24_Sun Dance",
+        "230_CYCLES",
+        "462_7thSense",
+        "589_Panopticon",
+        "834_PANDORA PARADOXXX",
+        "11264_幽霊東京",
+        "11358_インドア系ならトラックメイカー",
+        "11475_SUPER AMBULANCE",
+        "100230_[宴]CYCLES",
+        "100524_[協]Hand in Hand",
+        "小石DISCO",
+        "011996 Usagi Flap",
+        "011951 サイエンス",
+        "蛙石",
+    ]);
     assert_eq!(
         cases.len(),
         48,
@@ -638,13 +643,44 @@ fn real_corpus() -> Vec<(String, String, u32)> {
     cases
 }
 
+fn requested_corpus() -> Vec<(String, String, u32)> {
+    let cases = read_corpus(&["011996 Usagi Flap", "011951 サイエンス", "蛙石"]);
+    let mut actual: Vec<_> = cases.iter().map(|(name, _, _)| name.as_str()).collect();
+    actual.sort_unstable();
+    let mut expected = [
+        "011996 Usagi Flap/2",
+        "011996 Usagi Flap/3",
+        "011996 Usagi Flap/4",
+        "011996 Usagi Flap/5",
+        "011951 サイエンス/2",
+        "011951 サイエンス/3",
+        "011951 サイエンス/4",
+        "011951 サイエンス/5",
+        "蛙石/5",
+        "蛙石/6",
+    ];
+    expected.sort_unstable();
+    assert_eq!(actual, expected, "requested song difficulties changed");
+    cases
+}
+
 #[test]
 #[ignore = "requires Lean oracle binaries; run tools/run_differential.sh"]
 fn real_corpus_frontends_match_lean() {
+    check_corpus_frontends(real_corpus());
+}
+
+#[test]
+#[ignore = "requires Lean oracle binaries; run tools/run_differential.sh --release requested_corpus_"]
+fn requested_corpus_frontends_match_lean() {
+    check_corpus_frontends(requested_corpus());
+}
+
+fn check_corpus_frontends(cases: Vec<(String, String, u32)>) {
     use lnmai_core::ffi;
     let cli = lean_runtime_cli().expect("Lean oracle is required; run tools/run_differential.sh");
     let mut lean = LeanRuntime::spawn(&cli).unwrap();
-    for (name, content, level) in real_corpus() {
+    for (name, content, level) in cases {
         for classic in [false, true] {
             let rust = decode_response(ffi::parse_frontend_chart_mode_json(
                 &content, level, classic,
@@ -672,8 +708,17 @@ fn real_corpus_frontends_match_lean() {
 #[test]
 #[ignore = "requires Lean oracle binaries; run tools/run_differential.sh"]
 fn real_corpus_playthroughs_match_lean() {
+    check_corpus_playthroughs(real_corpus());
+}
+
+#[test]
+#[ignore = "requires Lean oracle binaries; run tools/run_differential.sh --release requested_corpus_"]
+fn requested_corpus_playthroughs_match_lean() {
+    check_corpus_playthroughs(requested_corpus());
+}
+
+fn check_corpus_playthroughs(cases: Vec<(String, String, u32)>) {
     let cli = lean_runtime_cli().expect("Lean oracle is required; run tools/run_differential.sh");
-    let cases = real_corpus();
     // Each shard owns an independent Lean process and game state. Parallelize
     // complete playthroughs without dropping any frame or checkpoint.
     let workers = std::thread::available_parallelism()

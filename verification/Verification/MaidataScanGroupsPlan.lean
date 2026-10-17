@@ -234,9 +234,13 @@ theorem plan_touch_group_spec {Ops : Type} (Read : maidata_scan.TouchRead Ops)
     (count_loop_spec Read ops tokens R stop start 0#usize 0#usize (by omega)
       (by omega) (by simp) (by simp))
   apply exists_imp_spec
-  refine ⟨{ range := { start, «end» := stop }, timing_note_count := counts.1,
-    no_head_slide_count := counts.2 }, ?_, ?_⟩
+  refine ⟨
+    { range := { start := start, «end» := stop }
+      timing_note_count := counts.1
+      no_head_slide_count := counts.2 }, ?_, ?_⟩
   · simp only [maidata_scan.plan_touch_group, hfind, bind_tc_ok, hcount]
+    cases counts
+    rfl
   · refine ⟨rfl, hstop, ?_, ?_⟩
     · simpa only [hstop, UScalar.ofNatCore_val_eq, Nat.zero_add] using ht
     · simpa only [hstop, UScalar.ofNatCore_val_eq, Nat.zero_add] using hn

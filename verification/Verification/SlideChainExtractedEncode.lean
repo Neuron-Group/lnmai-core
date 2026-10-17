@@ -109,6 +109,7 @@ theorem encode_plans_loop_spec {Text Encode : Type}
             (plans.val.drop initialIndex.val).map
               (fun plan => SlideChainModel.renderSegment chars.val (decodePlan plan)))
           (appended, next) ∧ plans.val.length - next.val < plans.val.length - index.val := by
+        dsimp only [EncodeInvariant]
         refine ⟨⟨by omega, ?_, hkeep⟩, by omega⟩
         simp only [happend, List.length_append, List.length_singleton]
         omega

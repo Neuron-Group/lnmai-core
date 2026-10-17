@@ -70,7 +70,8 @@ theorem after_first_closer_loop_spec (chars : Slice Char)
       have hinc : cursor.val + (1#usize).val ≤ Usize.max := by
         simpa using (show cursor.val + 1 ≤ Usize.max by omega)
       obtain ⟨next, hnext, hn⟩ := spec_imp_exists
-        (UScalar.add_spec (x := cursor) (y := 1#usize) hinc)
+        (UScalar.add_spec (x := cursor) (y := 1#usize)
+          (by simpa only [UScalar.max_USize_eq] using hinc))
       have hnv : next.val = cursor.val + 1 := by simpa using hn
       by_cases hhit : c = closer
       · have hhit' : chars.val[cursor.val]'hi = closer := hc.symm.trans hhit
@@ -148,7 +149,8 @@ theorem strip_prefix_chars_loop_spec (chars : Slice Char)
       have hinc : cursor.val + (1#usize).val ≤ Usize.max := by
         simpa using (show cursor.val + 1 ≤ Usize.max by omega)
       obtain ⟨next, hnext, hn⟩ := spec_imp_exists
-        (UScalar.add_spec (x := cursor) (y := 1#usize) hinc)
+        (UScalar.add_spec (x := cursor) (y := 1#usize)
+          (by simpa only [UScalar.max_USize_eq] using hinc))
       have hnv : next.val = cursor.val + 1 := by simpa using hn
       have hcontinue :
           CopyInv chars.val initialCursor.val finish.val next.val out'.val ∧
@@ -214,7 +216,8 @@ theorem trim_range_loop0_bounds_spec (chars : Slice Char)
           have hinc : cursor.val + (1#usize).val ≤ Usize.max := by
             simpa using (show cursor.val + 1 ≤ Usize.max by omega)
           obtain ⟨next, hnext, hn⟩ := spec_imp_exists
-            (UScalar.add_spec (x := cursor) (y := 1#usize) hinc)
+            (UScalar.add_spec (x := cursor) (y := 1#usize)
+              (by simpa only [UScalar.max_USize_eq] using hinc))
           have hnv : next.val = cursor.val + 1 := by simpa using hn
           have hcontinue :
               (initialCursor.val ≤ next.val ∧ next.val ≤ finish.val) ∧
@@ -398,7 +401,8 @@ theorem trim_range_loop0_spec (chars : Slice Char)
           have hinc : cursor.val + (1#usize).val ≤ Usize.max := by
             simpa using (show cursor.val + 1 ≤ Usize.max by omega)
           obtain ⟨next, hnext, hn⟩ := spec_imp_exists
-            (UScalar.add_spec (x := cursor) (y := 1#usize) hinc)
+            (UScalar.add_spec (x := cursor) (y := 1#usize)
+              (by simpa only [UScalar.max_USize_eq] using hinc))
           have hnv : next.val = cursor.val + 1 := by simpa using hn
           have hcontinue : FrontInv chars.val initialCursor.val finish.val next.val ∧
               finish.val - next.val < finish.val - cursor.val := by

@@ -134,7 +134,7 @@ theorem finish_reference {Text : Type} (raw : String) (viewText : Text → Strin
           (decodeSegments viewText segments).length ≤ 1 := by
         simp [UScalar.le_equiv, decodeSegments]
       simp only [finish, decodeResult, Except.map, SlideChainReference.resultView, id_eq]
-      rw [hlen]
+      simp only [hlen]
       by_cases hsmall : (decodeSegments viewText segments).length ≤ 1 <;>
         simp [selectChain, hsmall]
 

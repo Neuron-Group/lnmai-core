@@ -22,9 +22,29 @@ no machine-specific backend path is committed. The extraction tooling was
 checked with Aeneas `ac74e1b` and Charon `0.1.210` (pin
 `a535e914f74db4fd9e6be7048f4233270d8945c0`). The LLBC is target-sensitive.
 
-`Verification/Generated.lean` is generated from Rust; never edit it manually.
-After a kernel change, regenerate, rebuild all proofs and rerun differential
-and native validation. `--check` rejects both stale Lean and stale LLBC.
+`Verification/Generated.lean` and
+`Verification/GeneratedTouchHoldBodyAdapter.lean` are generated from Rust;
+never edit either manually. The adapter module imports the core module.
+`tools/partition_generated.py` preserves unchanged core declaration bytes,
+and `extraction-manifest.json` records how to reconstruct the complete
+normalized Aeneas output byte for byte in its original order. This preserves
+literal characters as well as declarations; partitioning is not proof acceptance.
+After a kernel change, regenerate and rebuild the affected proofs and their
+dependents. `--check` rejects stale Lean, partition metadata and LLBC.
+Complete the source-equivalence pass and axiom audit before running the
+deferred differential and native validation. The user authorized one earlier
+checkpoint: after the current proof batch and axiom audit pass, compare the
+three requested songs (all ten registered difficulties):
+
+```bash
+bash lnmai-core-rs/tools/run_differential.sh --release requested_corpus_ --test-threads=1
+```
+
+This runs frontend comparisons and complete classic/modern playthroughs with
+autoplay and without input. Every frame output, periodic complete states and
+the final state are compared. Missing assets, changed difficulty lists or a
+missing Lean oracle fail the check. The full 48-difficulty corpus remains
+available through the original test entries.
 
 ## Proof modules
 
