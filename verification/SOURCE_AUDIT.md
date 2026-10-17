@@ -58,41 +58,36 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
-The stage6 adapter batch now compiles its concrete modules one by one. In the
-current working tree `TouchHoldBodyReads`, `TouchHoldBodyTraits`,
-`TouchHoldBodyFields`, `TouchHoldBodyScans`, `TouchHoldBodyViewPoints`,
-`TouchHoldBodyUpdates`, `TouchHoldBodyErase`, `TouchHoldBodyRebuild`,
-`TouchHoldBodyAdapter`, `TouchHoldRebuildAdapter`, `TouchHoldScheduleAdapter`,
-`MaidataScanGroups`, `MaidataLineFields`, `MaidataHeaderReference`,
-`StorageLocalRefinement`, `TouchScheduleLocal`, `TouchSchedulePassLocal`,
-`SchedulerFrameContractsAt`, `SchedulerFramePipelineAt` and the
-prefix/prepend/erase kernels all build against the installed stage6 extraction,
-and `Verification.Audit` passes: 7978 theorems depend only on `propext`,
-`Classical.choice` and `Quot.sound`. A separate independent audit compiled the
-209-module closure of the twelve batch roots and re-derived the same 7978
-theorems with only those three axioms, after checking all 46 kernel and 40
-runtime source hashes and the two-module byte-exact partition of the stage6
-extraction. Evidence: `/tmp/lnmai-batch-independent-audit.accepted.json` and its
-adjacent evidence and log snapshots. Repairs were confined to proof
-scripts: `Vec.deref`-based bridging, `Group`/`prefix` name collisions, record
-update syntax, `SlotFits`/`Ready` parameterised by the representation instead
-of the whole implementation (so `install` is definitionally irrelevant),
-heartbeat limits for `SchedulerFramePipelineAt`, and a general five-call
-`process_frame` lemma. The three requested songs now pass: `011996 Usagi Flap` (2-5),
-`011951 サイエンス` (2-5) and `蛙石` (5-6) were compared against the rebuilt Lean
-oracle in both classic and modern modes. All ten difficulties matched in the
-frontend, inspection, semantic and normalized views (10/10), and all forty
-complete playthroughs (classic/modern x autoplay/no-input) matched frame by
-frame - 350,104 compared frames, `2 passed; 0 failed` in
-`/tmp/lnmai-requested-corpus-tests.log`. The whole differential suite now passes on the
-installed sources: 22/22 tests, 77 unit tests, 48/48 corpus frontends, and 232
-complete playthroughs (the 48-difficulty corpus plus the ten requested
-difficulties, each in classic and modern mode with and without autoplay) totalling
-2,010,664 compared frames, plus 16,404 accepted restored-state transitions and
-1,356 exercised decode errors. Log: `/tmp/lnmai-full-differential.log`.
-These are finite comparisons on the
-installed sources; they do not discharge the remaining representation,
-allocation, seek, JSON or ABI obligations.
+The installed collection is now stage9 (`/tmp/lnmai-shared-fields-extraction-9`,
+full SHA256 `de09958d6c01b1e5c931c05f3c9813672b636c7dcbccefec4889b3770d430227`),
+partitioned into four generated modules: the unchanged 1229-block
+`Generated.lean` (core SHA256 `61f040d6...`), 81 TouchHold adapter blocks with
+the real `SliceHoldSource`/`HoldFields` reads, 24 Maidata line-adapter blocks
+and 3 queue-remaining blocks. The main worktree sources hash-match the
+extraction: 48 kernel and 40 runtime files.
+
+On this installation the whole proof closure compiles, including
+`TouchHoldBodyAdapter`, `TouchHoldBodyMajority`, `TouchHoldRebuildAdapter`,
+`TouchHoldScheduleAdapter`, `SchedulerFramePipelineAt` and `Verification.Audit`.
+The Audit reports 7978 theorems depending only on `propext`,
+`Classical.choice` and `Quot.sound`; a separate independent-module audit over
+the 209-module closure of the twelve batch roots re-derived the same 7978
+theorems with only those axioms and verified every source hash and the
+four-module byte-exact partition. Evidence:
+`/tmp/lnmai-stage9-independent-audit.accepted.json`.
+
+The Rust runtime was rebuilt and the entire differential suite passes against
+the Lean oracle: `22 passed; 0 failed` in 6932 s, 77 unit tests, 58 corpus
+frontends (48-difficulty corpus plus the ten requested difficulties) and 232
+complete playthroughs totalling 2,010,664 frame-by-frame comparisons, plus
+16,404 accepted restored-state transitions. Log:
+`/tmp/lnmai-stage9-full-differential.log`.
+
+The Maidata line-adapter and queue-remaining bridge proofs that relate the new
+generated modules to the runtime facades are not yet written; the extracted
+modules themselves are covered by the extraction axiom check and by the finite
+comparisons above. Remaining formal boundaries (BigUint/Nat/Rat
+representations, end-to-end parser lowering, seek, JSON, ABI) are unchanged.
 
 The current source checkpoint installs the actual extracted Rust TouchHold
 body adapter used by Scheduler and ChartLoader, with proofs connecting its
