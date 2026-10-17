@@ -58,6 +58,22 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
+The stage6 adapter batch now compiles its concrete modules one by one. In the
+current working tree `TouchHoldBodyReads`, `TouchHoldBodyTraits`,
+`TouchHoldBodyFields`, `TouchHoldBodyScans`, `TouchHoldBodyViewPoints`,
+`TouchHoldBodyUpdates`, `TouchHoldBodyErase`, `TouchHoldBodyRebuild`,
+`TouchHoldBodyAdapter`, `TouchHoldRebuildAdapter`, `TouchHoldScheduleAdapter`,
+`MaidataScanGroups`, `MaidataLineFields`, `MaidataHeaderReference`,
+`StorageLocalRefinement`, `TouchScheduleLocal`, `TouchSchedulePassLocal`,
+`SchedulerFrameContractsAt` and the prefix/prepend/erase kernels all build
+against the installed stage6 extraction. Repairs were confined to proof
+scripts: `Vec.deref`-based bridging, `Group`/`prefix` name collisions, record
+update syntax, `SlotFits`/`Ready` parameterised by the representation instead
+of the whole implementation (so `install` is definitionally irrelevant),
+heartbeat limits for `SchedulerFramePipelineAt`, and a general five-call
+`process_frame` lemma. `Verification.Audit`, the independent transitive axiom
+audit and the three requested songs remain outstanding.
+
 The current source checkpoint installs the actual extracted Rust TouchHold
 body adapter used by Scheduler and ChartLoader, with proofs connecting its
 rebuild and scheduling dictionaries to record, first-match scan, update/erase

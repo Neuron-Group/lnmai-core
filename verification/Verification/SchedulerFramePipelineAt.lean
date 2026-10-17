@@ -4,6 +4,8 @@ import Verification.SchedulerFrameContractsAt
 open Aeneas Aeneas.Std Result lnmai_core_verify
 open LnmaiCore InputModel Lifecycle
 
+set_option maxHeartbeats 4000000
+
 namespace Verification.SchedulerFramePipelineAtProof
 open SchedulerFrameProof SchedulerFrameInitializationProof
 open SchedulerFramePipelineProof (CommandFits)
@@ -77,6 +79,20 @@ def TracePremisesAt (p : ParentKernel) (b : BodyKernel)
 
 include integerLaw decode_encode
 
+/- The generated five-call driver, discharged with opaque phase results so the
+instantiation at a large `frameCall` term stays cheap. -/
+omit inst integerOps decode integerLaw encode decode_encode tap hold slide touch touchHold in
+theorem process_frame_five {F S : Type}
+    (inst : core.ops.function.Fn F (scheduler.FramePhase × S) S) (state : S) (step : F)
+    (v1 v2 v3 v4 v5 : S)
+    (h1 : inst.call step (.Tap, state) = ok v1)
+    (h2 : inst.call step (.Hold, v1) = ok v2)
+    (h3 : inst.call step (.Slide, v2) = ok v3)
+    (h4 : inst.call step (.Touch, v3) = ok v4)
+    (h5 : inst.call step (.TouchHold, v4) = ok v5) :
+    scheduler.process_frame inst state step = ok v5 := by
+  simp only [scheduler.process_frame, h1, bind_tc_ok, h2, h3, h4, h5]
+
 /-- Unfold the actual generated five-call driver, using only the contracts at
 its five visited inputs. This does not invoke the old universal hstep theorem. -/
 theorem process_frame_equiv_at
@@ -129,8 +145,10 @@ theorem process_frame_equiv_at
     change next = processInOrder (referencePass input) initial at hnext
     rw [hnext] at hrun
     exact hrun
-  change scheduler.process_frame call initial (input, callback) = _
-  simp only [scheduler.process_frame, ht, bind_tc_ok, hh, hs, hu, hv]
+  exact process_frame_five call initial (input, callback)
+    (afterTap input initial) (afterHold input initial) (afterSlide input initial)
+    (afterTouch input initial) (processInOrder (referencePass input) initial)
+    ht hh hs hu hv
 
 /-- Existing initialization and finalization, with only the five visited-frame
 contracts in the middle. Integer, field, point and local size premises remain. -/
