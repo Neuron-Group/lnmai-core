@@ -41,19 +41,27 @@ theorem update_groups_length_mono (gs : List GroupState) (before : TouchNote)
   | none => exact Nat.le_refl _
   | some event =>
       unfold updateGroups
-      split
-      · exact Nat.le_refl _
-      · cases before.touchGroupId with
+      by_cases hcond : (!clicked || event.grade.isMissOrTooFast) = true
+      · simp only [hcond, ↓reduceIte, Nat.le_refl]
+      · have hfalse : (!clicked || event.grade.isMissOrTooFast) = false := by
+          cases h : (!clicked || event.grade.isMissOrTooFast) <;> simp_all
+        simp only [hfalse, Bool.false_eq_true, ↓reduceIte]
+        cases hid : before.touchGroupId with
         | none => exact Nat.le_refl _
-        | some id => exact register_length_mono gs id before.touchGroupSize event.grade diff
+        | some id =>
+            exact register_length_mono gs id before.touchGroupSize event.grade diff
 
 theorem resume_groups_growth (ctx : Context) (fuel : Nat) (w : Work) :
     w.groups.length ≤ (resume ctx fuel w).2.2.2.1.length := by
   induction fuel generalizing w with
-  | zero => simp only [resume_zero, normalize, Work.output, Nat.le_refl]
+  | zero =>
+      rw [resume_zero]
+      exact Nat.le_refl _
   | succ fuel ih =>
       cases hpeek : (normalize w).queue.peek with
-      | none => simp only [resume_empty ctx _ w hpeek, normalize, Work.output, Nat.le_refl]
+      | none =>
+          simp only [resume_empty ctx _ w hpeek, Work.output, TouchScheduleModel.normalize]
+          exact Nat.le_refl _
       | some note =>
           rw [resume_step ctx fuel w note hpeek]
           rcases hc : consume ctx note
@@ -65,7 +73,9 @@ theorem resume_groups_growth (ctx : Context) (fuel : Nat) (w : Work) :
           have hg := update_groups_length_mono (normalize w).groups note event
             (button || sensor) (difference ctx note button)
           split
-          · exact Nat.le_trans hg (ih _)
+          · exact Nat.le_trans hg
+              (ih (advance ctx (normalize w) note after event cursor (button || sensor)
+                (difference ctx note button)))
           · exact hg
 
 variable {Q N F C G E Event T D Area Zone Id Grade M Ops : Type}

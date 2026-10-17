@@ -130,7 +130,11 @@ theorem button_map_accum_refines_at {T S B U V C F : Type}
       (fun key value => model (toLnmButtonZone key) (input value)) need hclone hcall
       (by rw [hk]; exact hready))
   refine ⟨(⟨out⟩, finalState), by simp [storage.ButtonVec.map_accum, hkeys, hout], ?_⟩
-  rw [hk, button_mapAccumList_equiv, button_input_natural] at hv
+  have hbridge := button_mapAccumList_equiv LnmaiCore.ButtonZone.storageOrder (↑data.data)
+    (state initial) (fun zone value => model zone (input value))
+  have hnat := button_input_natural input model LnmaiCore.ButtonZone.storageOrder
+    (↑data.data) (state initial)
+  rw [hk, hbridge, hnat] at hv
   simpa only [StorageRefinementProof.decodeButtons, toLnmButtonVec,
     LnmaiCore.ButtonVec.mapAccum, ButtonVec.ofList] using
     congrArg (fun p : List C × V => (LnmaiCore.ButtonVec.mk p.1, p.2)) hv
@@ -241,7 +245,11 @@ theorem sensor_map_accum_refines_at {T S B U V C F : Type}
       (fun key value => model (toLnmSensorArea key) (input value)) need hclone hcall
       (by rw [hk]; exact hready))
   refine ⟨(⟨out⟩, finalState), by simp [storage.SensorVec.map_accum, hkeys, hout], ?_⟩
-  rw [hk, sensor_mapAccumList_equiv, sensor_input_natural] at hv
+  have hbridge := sensor_mapAccumList_equiv sensorAreaStorageOrder (↑data.data)
+    (state initial) (fun zone value => model zone (input value))
+  have hnat := sensor_input_natural input model sensorAreaStorageOrder (↑data.data)
+    (state initial)
+  rw [hk, hbridge, hnat] at hv
   simpa only [StorageSensorRefinementProof.decodeSensors, toLnmSensorVec,
     LnmaiCore.SensorVec.mapAccum, SensorVec.ofList] using
     congrArg (fun p : List C × V => (LnmaiCore.SensorVec.mk p.1, p.2)) hv
