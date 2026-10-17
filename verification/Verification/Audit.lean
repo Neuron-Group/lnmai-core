@@ -141,6 +141,7 @@ import Verification.TouchHoldRebuildAdapter
 import Verification.TouchHoldScheduleAdapter
 import Verification.SchedulerCounterLocal
 import Verification.SchedulerRemainingFields
+import Verification.QueueRemainingExtracted
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -177,6 +178,12 @@ run_cmd do
     ``Verification.SchedulerRemainingFieldsProof.facade_agrees,
     ``Verification.SchedulerRemainingFieldsProof.queueRemaining_spec,
     ``Verification.SchedulerRemainingFieldsProof.headFuel_spec,
+    ``Verification.QueueRemainingExtractedProof.vec_len_spec,
+    ``Verification.QueueRemainingExtractedProof.remaining_scalar_eq,
+    ``Verification.QueueRemainingExtractedProof.remaining_scalar_val,
+    ``Verification.QueueRemainingExtractedProof.head_fuel_scalar_eq,
+    ``Verification.QueueRemainingExtractedProof.head_fuel_scalar_spec,
+    ``Verification.QueueRemainingExtractedProof.head_fuel_scalar_none_spec,
     ``Verification.SchedulerRemainingFieldsProof.representedFields_fuel,
     ``Verification.SchedulerRemainingFieldsProof.empty_queue_fuel,
     ``Verification.TouchHoldBodyReadsProof.group_matches_view,
