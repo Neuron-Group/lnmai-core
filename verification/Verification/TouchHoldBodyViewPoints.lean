@@ -18,12 +18,21 @@ variable {Id : Type}
 theorem at_index {α : Type} {items pre rest : List α} {item : α}
     {index : Usize} (hat : At items index pre item rest) :
     ∃ h : index.val < items.length, items[index.val]'h = item := by
+  obtain ⟨hitems, hpre⟩ := hat
   have h : index.val < items.length := by
-    rw [hat.1, List.length_append, List.length_cons]
+    rw [hitems, List.length_append, List.length_cons, ← hpre]
     omega
-  refine ⟨h, ?_⟩
-  rw [hat.1, ← hat.2]
-  simp
+  exact ⟨h, List.getElem_of_append hitems hpre⟩
+
+theorem any_beq_swap {α : Type} (l : List α) (f : α → Nat) (target : Nat) :
+    (l.any (fun item => f item == target)) =
+      (l.any (fun item => target == f item)) := by
+  induction l with
+  | nil => rfl
+  | cons x xs ih =>
+      simp only [List.any_cons, ih]
+      cases h : (f x == target) <;> cases h' : (target == f x) <;>
+        simp_all [beq_iff_eq]
 
 theorem at_map_lift {α β : Type} (f : α → β) (items : List α)
     (index : Usize) (pre : List β) (item : β) (rest : List β)
@@ -59,8 +68,8 @@ theorem group_matches_point (eq : core.cmp.PartialEq Id Id) (decode : Id → Nat
     touch_hold_body.group_matches eq (alloc.vec.Vec.deref groups) index id =
       ok (group.groupId == decode id) := by
   obtain ⟨h, hview⟩ := group_at decode groups index pre group rest hat
-  rw [group_matches_view eq decode heq (alloc.vec.Vec.deref groups) index id h]
-  rw [hview]
+  simpa only [alloc.vec.Vec.deref, hview] using
+    group_matches_view eq decode heq (alloc.vec.Vec.deref groups) index id h
 
 theorem member_length_point (decode : Id → Nat) (groups : Groups Id) (index : Usize)
     (pre : List LnmaiCore.TouchHoldBodyGroupState) (group : LnmaiCore.TouchHoldBodyGroupState)
@@ -100,14 +109,15 @@ theorem member_matches_point (eq : core.cmp.PartialEq Id Id) (decode : Id → Na
       ok (item == decode note) := by
   obtain ⟨h, hview⟩ := group_at decode groups index pre group rest hat
   have hdecoded : (groups.val[index.val]).member_note_indices.val.map decode =
-      group.memberNoteIndices := congrArg LnmaiCore.TouchHoldBodyGroupState.memberNoteIndices hview
+      group.memberNoteIndices :=
+        congrArg LnmaiCore.TouchHoldBodyGroupState.memberNoteIndices hview
   have hslotMap : At ((groups.val[index.val]).member_note_indices.val.map decode)
       slot before item after := by rwa [hdecoded]
   obtain ⟨rawPre, raw, rawRest, hrawAt, _, hraw, _⟩ :=
     at_map_lift decode _ slot before item after hslotMap
   obtain ⟨hvalid, hread⟩ := at_index hrawAt
-  rw [member_matches_eq eq (alloc.vec.Vec.deref groups) index slot note h hvalid,
-    heq, hread, hraw]
+  simpa only [alloc.vec.Vec.deref, heq, hread, hraw] using
+    member_matches_eq eq (alloc.vec.Vec.deref groups) index slot note h hvalid
 
 theorem trigger_matches_point (eq : core.cmp.PartialEq Id Id) (decode : Id → Nat)
     (heq : ∀ left right, eq.eq left right = ok (decode left == decode right))
@@ -121,14 +131,15 @@ theorem trigger_matches_point (eq : core.cmp.PartialEq Id Id) (decode : Id → N
       ok (item == decode note) := by
   obtain ⟨h, hview⟩ := group_at decode groups index pre group rest hat
   have hdecoded : (groups.val[index.val]).triggered_note_indices.val.map decode =
-      group.triggeredNoteIndices := congrArg LnmaiCore.TouchHoldBodyGroupState.triggeredNoteIndices hview
+      group.triggeredNoteIndices :=
+        congrArg LnmaiCore.TouchHoldBodyGroupState.triggeredNoteIndices hview
   have hslotMap : At ((groups.val[index.val]).triggered_note_indices.val.map decode)
       slot before item after := by rwa [hdecoded]
   obtain ⟨rawPre, raw, rawRest, hrawAt, _, hraw, _⟩ :=
     at_map_lift decode _ slot before item after hslotMap
   obtain ⟨hvalid, hread⟩ := at_index hrawAt
-  rw [trigger_matches_eq eq (alloc.vec.Vec.deref groups) index slot note h hvalid,
-    heq, hread, hraw]
+  simpa only [alloc.vec.Vec.deref, heq, hread, hraw] using
+    trigger_matches_eq eq (alloc.vec.Vec.deref groups) index slot note h hvalid
 
 theorem members_empty_point (decode : Id → Nat) (groups : Groups Id) (index : Usize)
     (pre : List LnmaiCore.TouchHoldBodyGroupState) (group : LnmaiCore.TouchHoldBodyGroupState)
@@ -137,8 +148,8 @@ theorem members_empty_point (decode : Id → Nat) (groups : Groups Id) (index : 
     touch_hold_body.members_empty (alloc.vec.Vec.deref groups) index =
       ok group.memberNoteIndices.isEmpty := by
   obtain ⟨h, hview⟩ := group_at decode groups index pre group rest hat
-  rw [members_empty_eq (alloc.vec.Vec.deref groups) index h, ← hview]
-  simp only [viewGroup, List.isEmpty_map]
+  simpa only [alloc.vec.Vec.deref, viewGroup, List.isEmpty_map, ← hview] using
+    members_empty_eq (alloc.vec.Vec.deref groups) index h
 
 theorem has_member_point (eq : core.cmp.PartialEq Id Id) (decode : Id → Nat)
     (heq : ∀ left right, eq.eq left right = ok (decode left == decode right))
@@ -150,8 +161,10 @@ theorem has_member_point (eq : core.cmp.PartialEq Id Id) (decode : Id → Nat)
       ok (group.memberNoteIndices.contains (decode note)) := by
   obtain ⟨h, hview⟩ := group_at decode groups index pre group rest hat
   rw [TouchHoldBodyScansProof.has_member_key_eq eq (alloc.vec.Vec.deref groups)
-    index note decode (decode note) (fun value => heq value note) h, ← hview]
-  simp only [viewGroup, List.contains_map, Nat.beq_comm]
+    index note decode (decode note) (fun value => heq value note) h]
+  simp only [alloc.vec.Vec.deref, viewGroup, List.contains_map, ← hview]
+  refine congrArg ok ?_
+  exact any_beq_swap _ decode (decode note)
 
 theorem has_trigger_point (eq : core.cmp.PartialEq Id Id) (decode : Id → Nat)
     (heq : ∀ left right, eq.eq left right = ok (decode left == decode right))
@@ -163,7 +176,9 @@ theorem has_trigger_point (eq : core.cmp.PartialEq Id Id) (decode : Id → Nat)
       ok (group.triggeredNoteIndices.contains (decode note)) := by
   obtain ⟨h, hview⟩ := group_at decode groups index pre group rest hat
   rw [TouchHoldBodyScansProof.has_trigger_key_eq eq (alloc.vec.Vec.deref groups)
-    index note decode (decode note) (fun value => heq value note) h, ← hview]
-  simp only [viewGroup, List.contains_map, Nat.beq_comm]
+    index note decode (decode note) (fun value => heq value note) h]
+  simp only [alloc.vec.Vec.deref, viewGroup, List.contains_map, ← hview]
+  refine congrArg ok ?_
+  exact any_beq_swap _ decode (decode note)
 
 end Verification.TouchHoldBodyViewPointsProof
