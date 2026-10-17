@@ -44,6 +44,7 @@ theorem invariant_init (original : List α) (head : α) :
     Invariant original head original.length (original ++ [head]) := by
   refine ⟨Nat.le_refl _, by simp, ?_, ?_, ?_⟩
   · rw [List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]
+    rfl
   · intro position hposition
     exact List.getElem?_append_left hposition
   · intro position hlow hhigh

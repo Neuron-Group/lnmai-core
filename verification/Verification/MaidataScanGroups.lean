@@ -152,6 +152,7 @@ theorem emit_loop_spec {Ops GroupId Output : Type}
       emitResume tokens stop.val start.val (enc.groupId groupId) size.val touchEach
         index.val (enc.output output))
   · rintro ⟨output', cursor, index'⟩ ⟨hc, hi, hr', hg', hinv⟩
+    dsimp only at hc hi hr' hg' hinv ⊢
     apply spec_mono (emit_body_spec Read Write ops tokens enc ready idReady R W
       stop size groupId touchEach output' cursor index' hstop hc hi hsize hr' hg')
     intro out hout
@@ -161,7 +162,9 @@ theorem emit_loop_spec {Ops GroupId Output : Type}
     | cont state =>
         rcases state with ⟨output'', next, index''⟩
         rcases hout with ⟨hnext, hn, hi', hr'', hg'', heq⟩
-        exact ⟨⟨hn, hi', hr'', hg'', heq.trans hinv⟩, by omega⟩
+        refine ⟨⟨hn, hi', hr'', hg'', heq.trans hinv⟩, ?_⟩
+        change stop.val - next.val < stop.val - cursor.val
+        omega
   · exact ⟨hs, hindex, hr, hg, rfl⟩
 
 /-- Saturation is derived from the real scalar definition, not a point law. -/
@@ -288,6 +291,7 @@ theorem annotate_loop_spec {Ops GroupId Output : Type}
       groupResume tokens p.2.2.val (enc.groupId p.1) (enc.output p.2.1) =
         groupResume tokens start.val (enc.groupId groupId) (enc.output output))
   · rintro ⟨groupId', output', cursor⟩ ⟨hc, hr', hg', hinv⟩
+    dsimp only at hc hr' hg' hinv ⊢
     apply spec_mono (annotate_body_spec Read Write ops tokens enc ready idReady R W
       len groupId' output' cursor hlen hc hr' hg')
     intro out hout
@@ -296,7 +300,9 @@ theorem annotate_loop_spec {Ops GroupId Output : Type}
     | cont state =>
         rcases state with ⟨groupId'', output'', next⟩
         rcases hout with ⟨hprogress, hbound, hr'', hg'', heq⟩
-        exact ⟨⟨hbound, hr'', hg'', heq.trans hinv⟩, by omega⟩
+        refine ⟨⟨hbound, hr'', hg'', heq.trans hinv⟩, ?_⟩
+        change len.val - next.val < len.val - cursor.val
+        omega
   · exact ⟨hs, hr, hg, rfl⟩
 
 /-- Actual Generated wrapper, arbitrary initial Natural ID and output prefix. -/

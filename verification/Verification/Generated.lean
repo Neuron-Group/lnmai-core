@@ -14141,6 +14141,656 @@ def touch_automatic.process
   let len ← TouchAutomaticInst.length ops source
   touch_automatic.process_loop TouchAutomaticInst source work ops len 0#usize
 
+/-- [lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 13:0-17:1
+    Visibility: public -/
+structure touch_hold_body.TouchHoldBodyGroupState (Id : Type) where
+  group_id : Id
+  member_note_indices : alloc.vec.Vec Id
+  triggered_note_indices : alloc.vec.Vec Id
+
+/-- [lnmai_core_verify::touch_hold_body::{impl core::fmt::Debug for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::fmt]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:9-12:14
+    Visibility: public -/
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreFmtDebug.fmt
+  {Id : Type} (corefmtDebugInst : core.fmt.Debug Id)
+  (self : touch_hold_body.TouchHoldBodyGroupState Id) (f : core.fmt.Formatter)
+  :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ corefmtDebugInst self.group_id
+  let dyn1 :=
+    Dyn.mk _ (core.fmt.DebugVec corefmtDebugInst) self.member_note_indices
+  let dyn2 :=
+    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec corefmtDebugInst))
+      self.triggered_note_indices
+  core.fmt.Formatter.debug_struct_field3_finish f (toStr
+    "TouchHoldBodyGroupState") (toStr "group_id") dyn (toStr
+    "member_note_indices") dyn1 (toStr "triggered_note_indices") dyn2
+
+/-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::fmt::Debug for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:9-12:14 -/
+@[reducible]
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreFmtDebug {Id : Type}
+  (corefmtDebugInst : core.fmt.Debug Id) : core.fmt.Debug
+  (touch_hold_body.TouchHoldBodyGroupState Id) := {
+  fmt := touch_hold_body.TouchHoldBodyGroupState.Insts.CoreFmtDebug.fmt
+    corefmtDebugInst
+}
+
+/-- [lnmai_core_verify::touch_hold_body::{impl core::clone::Clone for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::clone]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:16-12:21
+    Visibility: public -/
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone.clone
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (self : touch_hold_body.TouchHoldBodyGroupState Id) :
+  Result (touch_hold_body.TouchHoldBodyGroupState Id)
+  := do
+  let t ← corecloneCloneInst.clone self.group_id
+  let v ←
+    alloc.vec.CloneVec.clone corecloneCloneInst self.member_note_indices
+  let v1 ←
+    alloc.vec.CloneVec.clone corecloneCloneInst self.triggered_note_indices
+  ok { group_id := t, member_note_indices := v, triggered_note_indices := v1 }
+
+/-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::clone::Clone for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:16-12:21 -/
+@[reducible]
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone {Id : Type}
+  (corecloneCloneInst : core.clone.Clone Id) : core.clone.Clone
+  (touch_hold_body.TouchHoldBodyGroupState Id) := {
+  clone := touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone.clone
+    corecloneCloneInst
+}
+
+/-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::marker::StructuralPartialEq for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:23-12:32 -/
+@[reducible]
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreMarkerStructuralPartialEq
+  (Id : Type) : core.marker.StructuralPartialEq
+  (touch_hold_body.TouchHoldBodyGroupState Id) := {
+}
+
+/-- [lnmai_core_verify::touch_hold_body::{impl core::cmp::PartialEq<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>> for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::eq]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:23-12:32
+    Visibility: public -/
+def
+  touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpPartialEqTouchHoldBodyGroupState.eq
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (self : touch_hold_body.TouchHoldBodyGroupState Id)
+  (other : touch_hold_body.TouchHoldBodyGroupState Id) :
+  Result Bool
+  := do
+  let b ← corecmpPartialEqInst.eq self.group_id other.group_id
+  if b
+  then
+    let b1 ←
+      alloc.vec.partial_eq.PartialEqVec.eq corecmpPartialEqInst
+        self.member_note_indices other.member_note_indices
+    if b1
+    then
+      alloc.vec.partial_eq.PartialEqVec.eq corecmpPartialEqInst
+        self.triggered_note_indices other.triggered_note_indices
+    else ok false
+  else ok false
+
+/-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::cmp::PartialEq<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>> for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:23-12:32 -/
+@[reducible]
+def
+  touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpPartialEqTouchHoldBodyGroupState
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id) :
+  core.cmp.PartialEq (touch_hold_body.TouchHoldBodyGroupState Id)
+  (touch_hold_body.TouchHoldBodyGroupState Id) := {
+  eq :=
+    touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpPartialEqTouchHoldBodyGroupState.eq
+    corecmpPartialEqInst
+}
+
+/-- [lnmai_core_verify::touch_hold_body::{impl core::cmp::Eq for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::assert_fields_are_eq]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:34-12:36
+    Visibility: public -/
+def
+  touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpEq.assert_fields_are_eq
+  {Id : Type} (corecmpEqInst : core.cmp.Eq Id)
+  (self : touch_hold_body.TouchHoldBodyGroupState Id) :
+  Result Unit
+  := do
+  ok ()
+
+/-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::cmp::Eq for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:34-12:36 -/
+@[reducible]
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpEq {Id : Type}
+  (corecmpEqInst : core.cmp.Eq Id) : core.cmp.Eq
+  (touch_hold_body.TouchHoldBodyGroupState Id) := {
+  partialEqInst :=
+    touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpPartialEqTouchHoldBodyGroupState
+    corecmpEqInst.partialEqInst
+  assert_fields_are_eq :=
+    touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpEq.assert_fields_are_eq
+    corecmpEqInst
+}
+
+/-- [lnmai_core_verify::touch_hold_body::{impl core::default::Default for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::default]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 20:4-26:5
+    Visibility: public -/
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault.default
+  {Id : Type} (coredefaultDefaultInst : core.default.Default Id) :
+  Result (touch_hold_body.TouchHoldBodyGroupState Id)
+  := do
+  let t ← coredefaultDefaultInst.default
+  ok
+    {
+      group_id := t,
+      member_note_indices := (alloc.vec.Vec.new Id),
+      triggered_note_indices := (alloc.vec.Vec.new Id)
+    }
+
+/-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::default::Default for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 19:0-27:1 -/
+@[reducible]
+def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault {Id :
+  Type} (coredefaultDefaultInst : core.default.Default Id) :
+  core.default.Default (touch_hold_body.TouchHoldBodyGroupState Id) := {
+  default :=
+    touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault.default
+    coredefaultDefaultInst
+}
+
+/-- [lnmai_core_verify::touch_hold_body::empty]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 29:0-31:1
+    Visibility: public -/
+def touch_hold_body.empty
+  (Id : Type) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  ok (alloc.vec.Vec.new (touch_hold_body.TouchHoldBodyGroupState Id))
+
+/-- [lnmai_core_verify::touch_hold_body::group_length]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 33:0-35:1
+    Visibility: public -/
+def touch_hold_body.group_length
+  {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id)) :
+  Result Std.Usize
+  := do
+  ok (Slice.len groups)
+
+/-- [lnmai_core_verify::touch_hold_body::group_matches]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 37:0-43:1
+    Visibility: public -/
+def touch_hold_body.group_matches
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (index : Std.Usize) (id : Id) :
+  Result Bool
+  := do
+  let thbgs ← Slice.index_usize groups index
+  core.cmp.impls.PartialEqShared.eq corecmpPartialEqInst thbgs.group_id id
+
+/-- [lnmai_core_verify::touch_hold_body::member_length]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 45:0-47:1
+    Visibility: public -/
+def touch_hold_body.member_length
+  {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) :
+  Result Std.Usize
+  := do
+  let thbgs ← Slice.index_usize groups group
+  ok (alloc.vec.Vec.len thbgs.member_note_indices)
+
+/-- [lnmai_core_verify::touch_hold_body::member_matches]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 49:0-56:1
+    Visibility: public -/
+def touch_hold_body.member_matches
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (index : Std.Usize) (note : Id) :
+  Result Bool
+  := do
+  let thbgs ← Slice.index_usize groups group
+  let t ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Id)
+      thbgs.member_note_indices index
+  core.cmp.impls.PartialEqShared.eq corecmpPartialEqInst t note
+
+/-- [lnmai_core_verify::touch_hold_body::trigger_length]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 58:0-60:1
+    Visibility: public -/
+def touch_hold_body.trigger_length
+  {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) :
+  Result Std.Usize
+  := do
+  let thbgs ← Slice.index_usize groups group
+  ok (alloc.vec.Vec.len thbgs.triggered_note_indices)
+
+/-- [lnmai_core_verify::touch_hold_body::trigger_matches]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 62:0-69:1
+    Visibility: public -/
+def touch_hold_body.trigger_matches
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (index : Std.Usize) (note : Id) :
+  Result Bool
+  := do
+  let thbgs ← Slice.index_usize groups group
+  let t ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Id)
+      thbgs.triggered_note_indices index
+  core.cmp.impls.PartialEqShared.eq corecmpPartialEqInst t note
+
+/-- [lnmai_core_verify::touch_hold_body::find_group]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 75:4-82:1
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_body.find_group_loop.body
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id)) (id : Id)
+  (len : Std.Usize) (index : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option Std.Usize))
+  := do
+  if index < len
+  then
+    let b ←
+      touch_hold_body.group_matches corecmpPartialEqInst groups index id
+    if b
+    then ok (done (some index))
+    else let index1 ← index + 1#usize
+         ok (cont index1)
+  else ok (done none)
+
+/-- [lnmai_core_verify::touch_hold_body::find_group]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 75:4-82:1
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_body.find_group_loop
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id)) (id : Id)
+  (len : Std.Usize) (index : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  loop
+    (fun index1 => touch_hold_body.find_group_loop.body corecmpPartialEqInst
+      groups id len index1)
+    index
+
+/-- [lnmai_core_verify::touch_hold_body::find_group]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 72:0-82:1
+    Visibility: public -/
+def touch_hold_body.find_group
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id)) (id : Id) :
+  Result (Option Std.Usize)
+  := do
+  let len ← touch_hold_body.group_length groups
+  touch_hold_body.find_group_loop corecmpPartialEqInst groups id len 0#usize
+
+/-- [lnmai_core_verify::touch_hold_body::find_id]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 89:4-96:1
+    Visibility: public -/
+@[rust_loop_body]
+def touch_hold_body.find_id_loop.body
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (values : Slice Id) (note : Id) (len : Std.Usize) (index : Std.Usize) :
+  Result (ControlFlow Std.Usize (Option Std.Usize))
+  := do
+  if index < len
+  then
+    let t ← Slice.index_usize values index
+    let b ← core.cmp.impls.PartialEqShared.eq corecmpPartialEqInst t note
+    if b
+    then ok (done (some index))
+    else let index1 ← index + 1#usize
+         ok (cont index1)
+  else ok (done none)
+
+/-- [lnmai_core_verify::touch_hold_body::find_id]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 89:4-96:1
+    Visibility: public -/
+@[rust_loop]
+def touch_hold_body.find_id_loop
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (values : Slice Id) (note : Id) (len : Std.Usize) (index : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  loop
+    (fun index1 => touch_hold_body.find_id_loop.body corecmpPartialEqInst
+      values note len index1)
+    index
+
+/-- [lnmai_core_verify::touch_hold_body::find_id]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 86:0-96:1
+    Visibility: public -/
+def touch_hold_body.find_id
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (values : Slice Id) (note : Id) :
+  Result (Option Std.Usize)
+  := do
+  let len := Slice.len values
+  touch_hold_body.find_id_loop corecmpPartialEqInst values note len 0#usize
+
+/-- [lnmai_core_verify::touch_hold_body::find_member]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 98:0-104:1
+    Visibility: public -/
+def touch_hold_body.find_member
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result (Option Std.Usize)
+  := do
+  let thbgs ← Slice.index_usize groups group
+  let s := alloc.vec.Vec.deref thbgs.member_note_indices
+  touch_hold_body.find_id corecmpPartialEqInst s note
+
+/-- [lnmai_core_verify::touch_hold_body::find_trigger]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 106:0-112:1
+    Visibility: public -/
+def touch_hold_body.find_trigger
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result (Option Std.Usize)
+  := do
+  let thbgs ← Slice.index_usize groups group
+  let s := alloc.vec.Vec.deref thbgs.triggered_note_indices
+  touch_hold_body.find_id corecmpPartialEqInst s note
+
+/-- [lnmai_core_verify::touch_hold_body::has_member]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 114:0-120:1
+    Visibility: public -/
+def touch_hold_body.has_member
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result Bool
+  := do
+  let o ← touch_hold_body.find_member corecmpPartialEqInst groups group note
+  ok (core.option.Option.is_some o)
+
+/-- [lnmai_core_verify::touch_hold_body::has_trigger]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 122:0-128:1
+    Visibility: public -/
+def touch_hold_body.has_trigger
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result Bool
+  := do
+  let o ← touch_hold_body.find_trigger corecmpPartialEqInst groups group note
+  ok (core.option.Option.is_some o)
+
+/-- [lnmai_core_verify::touch_hold_body::members_empty]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 130:0-132:1
+    Visibility: public -/
+def touch_hold_body.members_empty
+  {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) :
+  Result Bool
+  := do
+  let thbgs ← Slice.index_usize groups group
+  let i := alloc.vec.Vec.len thbgs.member_note_indices
+  ok (i = 0#usize)
+
+/-- [lnmai_core_verify::vec_prepend::prepend]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop_body]
+def vec_prepend.prepend_loop.body
+  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  if index > 0#usize
+  then
+    let previous ← index - 1#usize
+    let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut values)
+    let s1 ← core.slice.Slice.swap s index previous
+    let values1 := deref_mut_back s1
+    ok (cont (values1, previous))
+  else ok (done values)
+
+/-- [lnmai_core_verify::vec_prepend::prepend]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop]
+def vec_prepend.prepend_loop
+  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (values1, index1) => vec_prepend.prepend_loop.body values1 index1)
+    (values, index)
+
+/-- [lnmai_core_verify::vec_prepend::prepend]:
+    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 7:0-15:1
+    Visibility: public -/
+def vec_prepend.prepend
+  {T : Type} (values : alloc.vec.Vec T) (head : T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let index := alloc.vec.Vec.len values
+  let values1 ← alloc.vec.Vec.push values head
+  vec_prepend.prepend_loop values1 index
+
+/-- [lnmai_core_verify::touch_hold_body::prepend_member]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 135:0-142:1
+    Visibility: public -/
+def touch_hold_body.prepend_member
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let (thbgs, index_mut_back) ←
+    alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
+      (touch_hold_body.TouchHoldBodyGroupState Id)) groups group
+  let t ← corecloneCloneInst.clone note
+  let v ← vec_prepend.prepend thbgs.member_note_indices t
+  ok (index_mut_back { thbgs with member_note_indices := v })
+
+/-- [lnmai_core_verify::touch_hold_body::prepend_trigger]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 144:0-151:1
+    Visibility: public -/
+def touch_hold_body.prepend_trigger
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let (thbgs, index_mut_back) ←
+    alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
+      (touch_hold_body.TouchHoldBodyGroupState Id)) groups group
+  let t ← corecloneCloneInst.clone note
+  let v ← vec_prepend.prepend thbgs.triggered_note_indices t
+  ok (index_mut_back { thbgs with triggered_note_indices := v })
+
+/-- [lnmai_core_verify::vec_erase::erase]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop_body]
+def vec_erase.erase_loop.body
+  {T : Type} (last : Std.Usize) (values : alloc.vec.Vec T) (index : Std.Usize)
+  :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  if index < last
+  then
+    let next ← index + 1#usize
+    let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut values)
+    let s1 ← core.slice.Slice.swap s index next
+    let values1 := deref_mut_back s1
+    ok (cont (values1, next))
+  else ok (done values)
+
+/-- [lnmai_core_verify::vec_erase::erase]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 10:4-14:5
+    Visibility: public -/
+@[rust_loop]
+def vec_erase.erase_loop
+  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) (last : Std.Usize)
+  :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (values1, index1) => vec_erase.erase_loop.body last values1 index1)
+    (values, index)
+
+/-- [lnmai_core_verify::vec_erase::erase]:
+    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 6:0-16:1
+    Visibility: public -/
+def vec_erase.erase
+  {T : Type} (corecloneCloneInst : core.clone.Clone T)
+  (values : alloc.vec.Vec T) (index : Std.Usize) (filler : T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let len := alloc.vec.Vec.len values
+  massert (index < len)
+  let last ← len - 1#usize
+  let values1 ← vec_erase.erase_loop values index last
+  alloc.vec.Vec.resize corecloneCloneInst values1 last filler
+
+/-- [lnmai_core_verify::touch_hold_body::remove_member]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 155:0-162:1
+    Visibility: public -/
+def touch_hold_body.remove_member
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (coredefaultDefaultInst : core.default.Default Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (index : Std.Usize) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let (thbgs, index_mut_back) ←
+    alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
+      (touch_hold_body.TouchHoldBodyGroupState Id)) groups group
+  let t ← coredefaultDefaultInst.default
+  let v ←
+    vec_erase.erase corecloneCloneInst thbgs.member_note_indices index t
+  ok (index_mut_back { thbgs with member_note_indices := v })
+
+/-- [lnmai_core_verify::touch_hold_body::remove_trigger]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 164:0-175:1
+    Visibility: public -/
+def touch_hold_body.remove_trigger
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (coredefaultDefaultInst : core.default.Default Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (index : Std.Usize) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let (thbgs, index_mut_back) ←
+    alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
+      (touch_hold_body.TouchHoldBodyGroupState Id)) groups group
+  let t ← coredefaultDefaultInst.default
+  let v ←
+    vec_erase.erase corecloneCloneInst thbgs.triggered_note_indices index t
+  ok (index_mut_back { thbgs with triggered_note_indices := v })
+
+/-- [lnmai_core_verify::touch_hold_body::erase_member]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 178:0-187:1
+    Visibility: public -/
+def touch_hold_body.erase_member
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (corecloneCloneInst : core.clone.Clone Id) (coredefaultDefaultInst :
+  core.default.Default Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let s := alloc.vec.Vec.deref groups
+  let o ← touch_hold_body.find_member corecmpPartialEqInst s group note
+  match o with
+  | none => ok groups
+  | some index =>
+    touch_hold_body.remove_member corecloneCloneInst coredefaultDefaultInst
+      groups group index
+
+/-- [lnmai_core_verify::touch_hold_body::erase_trigger]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 189:0-198:1
+    Visibility: public -/
+def touch_hold_body.erase_trigger
+  {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
+  (corecloneCloneInst : core.clone.Clone Id) (coredefaultDefaultInst :
+  core.default.Default Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (group : Std.Usize) (note : Id) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let s := alloc.vec.Vec.deref groups
+  let o ← touch_hold_body.find_trigger corecmpPartialEqInst s group note
+  match o with
+  | none => ok groups
+  | some index =>
+    touch_hold_body.remove_trigger corecloneCloneInst coredefaultDefaultInst
+      groups group index
+
+/-- [lnmai_core_verify::touch_hold_body::append_empty]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 201:0-211:1
+    Visibility: public -/
+def touch_hold_body.append_empty
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (id : Id) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let t ← corecloneCloneInst.clone id
+  alloc.vec.Vec.push groups
+    ({
+       group_id := t,
+       member_note_indices := (alloc.vec.Vec.new Id),
+       triggered_note_indices := (alloc.vec.Vec.new Id)
+     } : touch_hold_body.TouchHoldBodyGroupState Id)
+
+/-- [lnmai_core_verify::touch_hold_body::append]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 215:0-231:1
+    Visibility: public -/
+def touch_hold_body.append
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (id : Id) (note : Id) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let group_id ← corecloneCloneInst.clone id
+  let member_note_indices := alloc.vec.Vec.with_capacity Id 1#usize
+  let t ← corecloneCloneInst.clone note
+  let member_note_indices1 ← alloc.vec.Vec.push member_note_indices t
+  let triggered_note_indices := alloc.vec.Vec.with_capacity Id 1#usize
+  let triggered_note_indices1 ← alloc.vec.Vec.push triggered_note_indices t
+  alloc.vec.Vec.push groups
+    ({
+       group_id,
+       member_note_indices := member_note_indices1,
+       triggered_note_indices := triggered_note_indices1
+     } : touch_hold_body.TouchHoldBodyGroupState Id)
+
+/-- [lnmai_core_verify::touch_hold_body::remove_group]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 235:0-241:1
+    Visibility: public -/
+def touch_hold_body.remove_group
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
+  (coredefaultDefaultInst : core.default.Default Id)
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (index : Std.Usize) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let thbgs ←
+    touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault.default
+      coredefaultDefaultInst
+  vec_erase.erase (touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone
+    corecloneCloneInst) groups index thbgs
+
+/-- [lnmai_core_verify::touch_hold_body::swap_groups]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 243:0-250:1
+    Visibility: public -/
+def touch_hold_body.swap_groups
+  {Id : Type}
+  (groups : alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  (left : Std.Usize) (right : Std.Usize) :
+  Result (alloc.vec.Vec (touch_hold_body.TouchHoldBodyGroupState Id))
+  := do
+  let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut groups)
+  let s1 ← core.slice.Slice.swap s left right
+  ok (deref_mut_back s1)
+
 /-- Trait declaration: [lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild]
     Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 18:0-37:1
     Visibility: public -/
@@ -17268,90 +17918,5 @@ def types.ScoreState.Insts.CoreDefaultDefault : core.default.Default
   types.ScoreState := {
   default := types.ScoreState.Insts.CoreDefaultDefault.default
 }
-
-/-- [lnmai_core_verify::vec_erase::erase]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 10:4-14:5
-    Visibility: public -/
-@[rust_loop_body]
-def vec_erase.erase_loop.body
-  {T : Type} (last : Std.Usize) (values : alloc.vec.Vec T) (index : Std.Usize)
-  :
-  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
-  := do
-  if index < last
-  then
-    let next ← index + 1#usize
-    let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut values)
-    let s1 ← core.slice.Slice.swap s index next
-    let values1 := deref_mut_back s1
-    ok (cont (values1, next))
-  else ok (done values)
-
-/-- [lnmai_core_verify::vec_erase::erase]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 10:4-14:5
-    Visibility: public -/
-@[rust_loop]
-def vec_erase.erase_loop
-  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) (last : Std.Usize)
-  :
-  Result (alloc.vec.Vec T)
-  := do
-  loop
-    (fun (values1, index1) => vec_erase.erase_loop.body last values1 index1)
-    (values, index)
-
-/-- [lnmai_core_verify::vec_erase::erase]:
-    Source: 'crates/lnmai-core-verify/src/vec_erase.rs', lines 6:0-16:1
-    Visibility: public -/
-def vec_erase.erase
-  {T : Type} (corecloneCloneInst : core.clone.Clone T)
-  (values : alloc.vec.Vec T) (index : Std.Usize) (filler : T) :
-  Result (alloc.vec.Vec T)
-  := do
-  let len := alloc.vec.Vec.len values
-  massert (index < len)
-  let last ← len - 1#usize
-  let values1 ← vec_erase.erase_loop values index last
-  alloc.vec.Vec.resize corecloneCloneInst values1 last filler
-
-/-- [lnmai_core_verify::vec_prepend::prepend]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 10:4-14:5
-    Visibility: public -/
-@[rust_loop_body]
-def vec_prepend.prepend_loop.body
-  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
-  := do
-  if index > 0#usize
-  then
-    let previous ← index - 1#usize
-    let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut values)
-    let s1 ← core.slice.Slice.swap s index previous
-    let values1 := deref_mut_back s1
-    ok (cont (values1, previous))
-  else ok (done values)
-
-/-- [lnmai_core_verify::vec_prepend::prepend]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 10:4-14:5
-    Visibility: public -/
-@[rust_loop]
-def vec_prepend.prepend_loop
-  {T : Type} (values : alloc.vec.Vec T) (index : Std.Usize) :
-  Result (alloc.vec.Vec T)
-  := do
-  loop
-    (fun (values1, index1) => vec_prepend.prepend_loop.body values1 index1)
-    (values, index)
-
-/-- [lnmai_core_verify::vec_prepend::prepend]:
-    Source: 'crates/lnmai-core-verify/src/vec_prepend.rs', lines 7:0-15:1
-    Visibility: public -/
-def vec_prepend.prepend
-  {T : Type} (values : alloc.vec.Vec T) (head : T) :
-  Result (alloc.vec.Vec T)
-  := do
-  let index := alloc.vec.Vec.len values
-  let values1 ← alloc.vec.Vec.push values head
-  vec_prepend.prepend_loop values1 index
 
 end lnmai_core_verify

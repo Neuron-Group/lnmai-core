@@ -120,9 +120,14 @@ import Verification.MaidataScan
 import Verification.MaidataScanGroups
 import Verification.MaidataLineFields
 import Verification.PrefixDirectivesReference
+import Verification.PrefixDirectivesExtracted
+import Verification.SlideChainPrefixFrontend
+import Verification.MaidataHeaderReference
 import Verification.VecPrependExtracted
 import Verification.VecEraseExtracted
 import Verification.SchedulerInitializationCapacity
+import Verification.TouchHoldBodyReads
+import Verification.TouchHoldBodyTraits
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -133,6 +138,14 @@ run_cmd do
   let env ← getEnv
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
   let required : Array Name := #[
+    ``Verification.TouchHoldBodyReadsProof.group_matches_view,
+    ``Verification.TouchHoldBodyReadsProof.member_matches_eq,
+    ``Verification.TouchHoldBodyReadsProof.trigger_matches_eq,
+    ``Verification.TouchHoldBodyReadsProof.members_empty_eq,
+    ``Verification.TouchHoldBodyReadsProof.native_capacity,
+    ``Verification.TouchHoldBodyTraitsProof.default_view,
+    ``Verification.TouchHoldBodyTraitsProof.clone_eq,
+    ``Verification.TouchHoldBodyTraitsProof.groups_clone_eq,
     ``Verification.VecPrependExtractedProof.prepend_body_step,
     ``Verification.VecPrependExtractedProof.prepend_loop_spec,
     ``Verification.VecPrependExtractedProof.prepend_spec,
@@ -156,6 +169,15 @@ run_cmd do
     ``Verification.PrefixAsciiTrim.trim_toList,
     ``Verification.PrefixDirectivesReference.stripPrefixDirectives_toList,
     ``Verification.PrefixDirectivesReference.sanitizeSlideToken_toList,
+    ``Verification.PrefixDirectivesExtracted.is_prefix_whitespace_eq,
+    ``Verification.PrefixDirectivesExtracted.strip_prefix_chars_spec,
+    ``Verification.PrefixDirectivesExtracted.strip_prefix_chars_equiv,
+    ``Verification.SlideChainPrefixFrontend.sanitize_chars_spec,
+    ``Verification.SlideChainPrefixFrontend.sanitize_token_reference,
+    ``Verification.SlideChainPrefixFrontend.parse_token_reference,
+    ``Verification.MaidataHeaderReference.value_toList,
+    ``Verification.MaidataHeaderReference.value_sublist,
+    ``Verification.MaidataHeaderReference.value_bytes_le,
     ``Verification.MaidataLineFieldsProof.read_points,
     ``Verification.MaidataLineFieldsProof.append_field_spec,
     ``Verification.MaidataLineFieldsProof.append_chart_spec,

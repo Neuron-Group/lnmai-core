@@ -199,6 +199,7 @@ theorem count_loop_spec {Ops : Type} (Read : maidata_scan.TouchRead Ops)
       p.2.2.val + noHeadCount (rangeTokens tokens stop.val p.1.val) =
         headless.val + noHeadCount (rangeTokens tokens stop.val start.val))
   · rintro ⟨cursor, timing', headless'⟩ ⟨hc, hn, ht', hiT, hiH⟩
+    dsimp only at hc hn ht' hiT hiH ⊢
     apply spec_mono (count_body_spec Read ops tokens R stop cursor timing' headless' hstop hc hn ht')
     intro out hout
     cases out with
@@ -208,7 +209,9 @@ theorem count_loop_spec {Ops : Type} (Read : maidata_scan.TouchRead Ops)
     | cont state =>
         rcases state with ⟨next, timing'', headless''⟩
         rcases hout with ⟨hnext, hbound, hn', ht'', hvT, hvH⟩
-        exact ⟨⟨hbound, hn', ht'', hvT.trans hiT, hvH.trans hiH⟩, by omega⟩
+        refine ⟨⟨hbound, hn', ht'', hvT.trans hiT, hvH.trans hiH⟩, ?_⟩
+        change stop.val - next.val < stop.val - cursor.val
+        omega
   · exact ⟨hs, hnh, ht, rfl, rfl⟩
 
 /-- This predicate is a derived postcondition, never an input contract. -/

@@ -124,7 +124,7 @@ theorem read_info_agrees (slide : SlideFields) :
     final_part := slide.fields.isGroupPartEnd
     ended := isEnded slide.fields.state }
   refine ⟨info, ?_, ?_⟩
-  · simp only [readInfo, hrun, bind_tc_ok]
+  · simp only [readInfo, hrun, bind_tc_ok, info]
   · refine {
       note_index := rfl
       parent_index := ?_
@@ -152,7 +152,7 @@ def clearQueues (queues : alloc.vec.Vec (alloc.vec.Vec SlideArea)) :
 theorem clear_queues_view (queues : alloc.vec.Vec (alloc.vec.Vec SlideArea)) :
     interpretQueues id (clearQueues queues).val =
       (interpretQueues id queues.val).map (fun _ => []) := by
-  simp [clearQueues, interpretQueues, List.map_map]
+  simp [clearQueues, interpretQueues, List.map_map, Function.comp_def]
 
 theorem clear_queues_length (queues : alloc.vec.Vec (alloc.vec.Vec SlideArea)) :
     (clearQueues queues).val.length = queues.val.length := by

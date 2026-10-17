@@ -32,9 +32,9 @@ use lnmai_core_verify::slide_parents::{
 };
 use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork};
 use lnmai_core_verify::tap_schedule::{self as tap_schedule_kernel, TapWork};
+use lnmai_core_verify::touch_hold_body as touch_hold_body_kernel;
 use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
 use lnmai_core_verify::touch_schedule::{self as touch_schedule_kernel, TouchWork};
-use lnmai_core_verify::{vec_erase as vec_erase_kernel, vec_prepend as vec_prepend_kernel};
 
 /// The public pooled note representation from `Scheduler.ActiveNote`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -860,11 +860,11 @@ impl<'a>
     }
 
     fn empty(&self) -> Vec<TouchHoldBodyGroupState> {
-        Vec::new()
+        touch_hold_body_kernel::empty()
     }
 
     fn group_length(&self, groups: &Vec<TouchHoldBodyGroupState>) -> usize {
-        groups.len()
+        touch_hold_body_kernel::group_length(groups)
     }
 
     fn group_matches(
@@ -873,11 +873,11 @@ impl<'a>
         index: usize,
         id: &Natural,
     ) -> bool {
-        &groups[index].group_id == id
+        touch_hold_body_kernel::group_matches(groups, index, id)
     }
 
     fn member_length(&self, groups: &Vec<TouchHoldBodyGroupState>, group: usize) -> usize {
-        groups[group].member_note_indices.len()
+        touch_hold_body_kernel::member_length(groups, group)
     }
 
     fn member_matches(
@@ -887,11 +887,11 @@ impl<'a>
         index: usize,
         note: &Natural,
     ) -> bool {
-        &groups[group].member_note_indices[index] == note
+        touch_hold_body_kernel::member_matches(groups, group, index, note)
     }
 
     fn trigger_length(&self, groups: &Vec<TouchHoldBodyGroupState>, group: usize) -> usize {
-        groups[group].triggered_note_indices.len()
+        touch_hold_body_kernel::trigger_length(groups, group)
     }
 
     fn trigger_matches(
@@ -901,64 +901,51 @@ impl<'a>
         index: usize,
         note: &Natural,
     ) -> bool {
-        &groups[group].triggered_note_indices[index] == note
+        touch_hold_body_kernel::trigger_matches(groups, group, index, note)
     }
 
     fn prepend_member(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         group: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        vec_prepend_kernel::prepend(&mut groups[group].member_note_indices, note.clone());
-        groups
+        touch_hold_body_kernel::prepend_member(groups, group, note)
     }
 
     fn prepend_trigger(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         group: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        vec_prepend_kernel::prepend(&mut groups[group].triggered_note_indices, note.clone());
-        groups
+        touch_hold_body_kernel::prepend_trigger(groups, group, note)
     }
 
     fn remove_trigger(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         group: usize,
         index: usize,
     ) -> Vec<TouchHoldBodyGroupState> {
-        vec_erase_kernel::erase(
-            &mut groups[group].triggered_note_indices,
-            index,
-            Natural::default(),
-        );
-        groups
+        touch_hold_body_kernel::remove_trigger(groups, group, index)
     }
 
     fn append_empty(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         id: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups.push(TouchHoldBodyGroupState {
-            group_id: id.clone(),
-            member_note_indices: Vec::new(),
-            triggered_note_indices: Vec::new(),
-        });
-        groups
+        touch_hold_body_kernel::append_empty(groups, id)
     }
 
     fn swap_groups(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         left: usize,
         right: usize,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups.swap(left, right);
-        groups
+        touch_hold_body_kernel::swap_groups(groups, left, right)
     }
 }
 
@@ -972,10 +959,10 @@ fn touch_hold_body_group_majority_pressed(
     groups: &[TouchHoldBodyGroupState],
     group_id: Natural,
 ) -> bool {
-    match groups.iter().find(|g| g.group_id == group_id) {
-        Some(group) => has_strict_majority(
-            group.triggered_note_indices.len().into(),
-            group.member_note_indices.len().into(),
+    match touch_hold_body_kernel::find_group(groups, &group_id) {
+        Some(index) => has_strict_majority(
+            touch_hold_body_kernel::trigger_length(groups, index).into(),
+            touch_hold_body_kernel::member_length(groups, index).into(),
         ),
         None => false,
     }
@@ -1288,7 +1275,7 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
     for TouchHoldScheduleFrame<'_>
 {
     fn body_length(&self, groups: &Vec<TouchHoldBodyGroupState>) -> usize {
-        groups.len()
+        touch_hold_body_kernel::group_length(groups)
     }
 
     fn body_matches(
@@ -1297,13 +1284,13 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         id: &Natural,
     ) -> bool {
-        groups[index].group_id == *id
+        touch_hold_body_kernel::group_matches(groups, index, id)
     }
 
     fn body_majority(&self, groups: &Vec<TouchHoldBodyGroupState>, index: usize) -> bool {
         has_strict_majority(
-            groups[index].triggered_note_indices.len().into(),
-            groups[index].member_note_indices.len().into(),
+            touch_hold_body_kernel::trigger_length(groups, index).into(),
+            touch_hold_body_kernel::member_length(groups, index).into(),
         )
     }
 
@@ -1313,13 +1300,7 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> bool {
-        touch_hold_rebuild_kernel::find_member::<&[(SensorArea, HoldNote)], _, _, _>(
-            groups,
-            index,
-            note,
-            &TouchHoldRebuildAtoms,
-        )
-        .is_some()
+        touch_hold_body_kernel::has_member(groups, index, note)
     }
 
     fn body_has_trigger(
@@ -1328,105 +1309,64 @@ impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natura
         index: usize,
         note: &Natural,
     ) -> bool {
-        touch_hold_rebuild_kernel::find_trigger::<&[(SensorArea, HoldNote)], _, _, _>(
-            groups,
-            index,
-            note,
-            &TouchHoldRebuildAtoms,
-        )
-        .is_some()
+        touch_hold_body_kernel::has_trigger(groups, index, note)
     }
 
     fn body_prepend_member(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        vec_prepend_kernel::prepend(&mut groups[index].member_note_indices, note.clone());
-        groups
+        touch_hold_body_kernel::prepend_member(groups, index, note)
     }
 
     fn body_prepend_trigger(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        vec_prepend_kernel::prepend(&mut groups[index].triggered_note_indices, note.clone());
-        groups
+        touch_hold_body_kernel::prepend_trigger(groups, index, note)
     }
 
     fn body_erase_member(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        // Keep later duplicate IDs, matching Lean List.erase.
-        if let Some(member) = touch_hold_rebuild_kernel::find_member::<
-            &[(SensorArea, HoldNote)],
-            _,
-            _,
-            _,
-        >(&groups, index, note, &TouchHoldRebuildAtoms)
-        {
-            vec_erase_kernel::erase(
-                &mut groups[index].member_note_indices,
-                member,
-                Natural::default(),
-            );
-        }
-        groups
+        touch_hold_body_kernel::erase_member(groups, index, note)
     }
 
     fn body_erase_trigger(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         index: usize,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        if let Some(trigger) = touch_hold_rebuild_kernel::find_trigger::<
-            &[(SensorArea, HoldNote)],
-            _,
-            _,
-            _,
-        >(&groups, index, note, &TouchHoldRebuildAtoms)
-        {
-            vec_erase_kernel::erase(
-                &mut groups[index].triggered_note_indices,
-                trigger,
-                Natural::default(),
-            );
-        }
-        groups
+        touch_hold_body_kernel::erase_trigger(groups, index, note)
     }
 
     fn body_members_empty(&self, groups: &Vec<TouchHoldBodyGroupState>, index: usize) -> bool {
-        groups[index].member_note_indices.is_empty()
+        touch_hold_body_kernel::members_empty(groups, index)
     }
 
     fn body_remove(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         index: usize,
     ) -> Vec<TouchHoldBodyGroupState> {
-        vec_erase_kernel::erase(&mut groups, index, TouchHoldBodyGroupState::default());
-        groups
+        touch_hold_body_kernel::remove_group(groups, index)
     }
 
     fn body_append(
         &self,
-        mut groups: Vec<TouchHoldBodyGroupState>,
+        groups: Vec<TouchHoldBodyGroupState>,
         id: &Natural,
         note: &Natural,
     ) -> Vec<TouchHoldBodyGroupState> {
-        groups.push(TouchHoldBodyGroupState {
-            group_id: id.clone(),
-            member_note_indices: vec![note.clone()],
-            triggered_note_indices: vec![note.clone()],
-        });
-        groups
+        touch_hold_body_kernel::append(groups, id, note)
     }
 }
 

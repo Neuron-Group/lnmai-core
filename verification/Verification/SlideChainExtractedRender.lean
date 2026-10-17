@@ -56,8 +56,9 @@ theorem render_plan_loop_spec (chars : Slice Char) (stop : Usize)
       have hcontinue : RenderInvariant chars.val stop.val
           (initialText.val ++ SlideChainModel.sourceRange chars.val initialCursor.val stop.val)
           (appended, next) ∧ stop.val - next.val < stop.val - cursor.val := by
+        dsimp only [RenderInvariant]
         refine ⟨⟨by omega, ?_, hmove.symm.trans hinv⟩, by omega⟩
-        simp only [hp, List.length_append, List.length_singleton]
+        simp only [hp, hnv, List.length_append, List.length_singleton]
         omega
       simpa [slide_chain.render_plan_loop.body, hmore, hlt, hget, hpush, hnext] using hcontinue
     · have hge : stop.val ≤ cursor.val := by simpa using hmore

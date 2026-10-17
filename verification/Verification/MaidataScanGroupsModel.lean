@@ -39,10 +39,10 @@ theorem range_counts_step (tokens : List RawNoteToken) (stop cursor : Nat)
     (hmore : cursor < stop) (hstop : stop ≤ tokens.length) :
     timingCount (rangeTokens tokens stop cursor) =
         timingCount (rangeTokens tokens stop (cursor + 1)) +
-          (if timingPoint tokens[cursor]'(by omega) then 1 else 0) ∧
+          (if timingPoint (tokens[cursor]'(by omega)) then 1 else 0) ∧
     noHeadCount (rangeTokens tokens stop cursor) =
         noHeadCount (rangeTokens tokens stop (cursor + 1)) +
-          (if noHeadPoint tokens[cursor]'(by omega) then 1 else 0) := by
+          (if noHeadPoint (tokens[cursor]'(by omega)) then 1 else 0) := by
   rw [rangeTokens_step tokens stop cursor hmore hstop]
   exact counts_cons _ _
 
@@ -79,7 +79,7 @@ theorem eventEnd_boundary (tokens : List RawNoteToken) (cursor : Nat)
     | [] => True
     | token :: _ => sameAs tokens[cursor] token = false := by
   rw [eventEnd_remainder]
-  exact splitPrefix_boundary _ _
+  exact splitPrefix_boundary (sameAs tokens[cursor]) (tokens.drop (cursor + 1))
 
 def groupComplete (groupId : Nat) (tokens : List RawNoteToken) : List RawNoteToken :=
   groupFuel tokens.length groupId tokens
@@ -172,9 +172,9 @@ theorem emitResume_step (tokens : List RawNoteToken) (stop cursor groupId size :
     (touchEach : Bool) (index : Nat) (output : List RawNoteToken)
     (hmore : cursor < stop) (hstop : stop ≤ tokens.length) :
     emitResume tokens stop cursor groupId size touchEach index output =
-      if shouldTag size touchEach tokens[cursor]'(by omega) then
+      if shouldTag size touchEach (tokens[cursor]'(by omega)) then
         emitResume tokens stop (cursor + 1) groupId size touchEach (index + 1)
-          (output ++ [tagged groupId index size tokens[cursor]'(by omega)])
+          (output ++ [tagged groupId index size (tokens[cursor]'(by omega))])
       else emitResume tokens stop (cursor + 1) groupId size touchEach index
           (output ++ [tokens[cursor]'(by omega)]) := by
   rw [emitResume, rangeTokens_step tokens stop cursor hmore hstop, emitTokens_cons]

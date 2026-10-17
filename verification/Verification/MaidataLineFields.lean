@@ -1,4 +1,5 @@
 import Verification.MaidataScan
+import Verification.MaidataHeaderReference
 
 /-!
 UNELABORATED source factoring of runtime simai/maidata.rs::MaidataLineOps.
@@ -122,12 +123,10 @@ structure ReadStringLaws (E : ValueEncoding Text View Level)
   header : ∀ view, S.header view ⦃ out =>
     out.map (decodeHeader E) = parseKeyValueLine (E.view view) ⦄
 
-/-- String mutation laws are byte-bounded single operations. valueBytes is the
-one-line trim/suffix size fact needed to initialize a body's byte budget. -/
+/-- String mutation laws are byte-bounded single operations. The initial
+header byte bound is derived separately from the original parser. -/
 structure WriteStringLaws (E : ValueEncoding Text View Level)
     (S : StringOps Text View Level) (byteLimit : Nat) : Prop where
-  valueBytes : ∀ line key value,
-    parseKeyValueLine line = some (key, value) → value.utf8ByteSize ≤ line.utf8ByteSize
   level : ∀ view, (E.view view).startsWith "&inote_" = true →
     S.level view ⦃ out => E.level out = ((E.view view).drop 7).toString.toNat?.getD 0 ⦄
   newline : ∀ text, (E.text text).utf8ByteSize + 1 ≤ byteLimit →
@@ -269,7 +268,7 @@ theorem write_points (E : ValueEncoding Text View Level)
     refine ⟨out, hpush, hdecode, ?_⟩
     constructor <;> omega
   · intro cursor fields charts header hi _hr hparse hchart
-    have hvalue := W.valueBytes (decodeLines E ops)[cursor.val]
+    have hvalue := MaidataHeaderReference.value_bytes_le (decodeLines E ops)[cursor.val]
       (decodeHeader E header).1 (decodeHeader E header).2 hparse
     have hremaining := byteBudget_at (decodeLines E ops) cursor.val hi
     have hroom : (E.text header.2).utf8ByteSize +

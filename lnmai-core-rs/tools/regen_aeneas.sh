@@ -48,6 +48,7 @@ test -f "$generated"
 # Preserve literal CR/LF and other Unicode characters. Text-mode newline
 # conversion would silently change the extracted whitespace predicate.
 python3 "$repo/verification/tools/normalize_generated.py" "$generated"
+python3 "$repo/verification/tools/check_generated_axioms.py" "$generated"
 if [[ "$mode" == check ]]; then
   echo '[3/3] checking generated model freshness'
   if ! cmp -s "$generated" "$destination"; then

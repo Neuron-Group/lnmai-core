@@ -46,7 +46,7 @@ theorem bodyResume_step (lines : List String) (stop cursor : Nat)
     (body : MaidataChartBlock) (hmore : cursor < stop) (hstop : stop ≤ lines.length) :
     bodyResume lines stop cursor body =
       bodyResume lines stop (cursor + 1)
-        (appendRawLine body lines[cursor]'(by omega)) := by
+        (appendRawLine body (lines[cursor]'(by omega))) := by
   have hi : cursor < lines.length := by omega
   have hsub : stop - cursor = (stop - (cursor + 1)) + 1 := by omega
   simp only [bodyResume, List.drop_eq_getElem_cons hi, hsub, List.take_succ_cons,
@@ -306,7 +306,7 @@ structure WritePoints {Header Fields Charts Body Ops : Type}
       (hline : line.val < stop.val) (hstop : stop.val ≤ lines.length),
     bodyReady stop.val line.val body →
     Write.append_body_line ops body line ⦃ out =>
-      enc.body out = appendRawLine (enc.body body) lines[line.val]'(by omega) ∧
+      enc.body out = appendRawLine (enc.body body) (lines[line.val]'(by omega)) ∧
         bodyReady stop.val (line.val + 1) out ⦄
   chart : ∀ (cursor stop : Usize) (fields : Fields) (charts : Charts) (body : Body),
     cursor.val < stop.val → stop.val ≤ lines.length →
@@ -368,6 +368,7 @@ theorem body_lines_loop_spec {Header Fields Charts Body Ops : Type}
       bodyResume lines stop.val p.2.val (enc.body p.1) =
         bodyResume lines stop.val start.val (enc.body initial))
   · rintro ⟨body, line⟩ ⟨hline, hready, hinv⟩
+    dsimp only at hline hready hinv ⊢
     apply spec_mono (body_lines_body_spec Write ops lines enc ready bodyReady W
       stop line body hline hstop hready)
     intro out hout
@@ -378,7 +379,9 @@ theorem body_lines_loop_spec {Header Fields Charts Body Ops : Type}
     | cont state =>
         rcases state with ⟨value, next⟩
         rcases hout with ⟨hnext, hbound, hready', hval⟩
-        exact ⟨⟨hbound, hready', hval.trans hinv⟩, by omega⟩
+        refine ⟨⟨hbound, hready', hval.trans hinv⟩, ?_⟩
+        change stop.val - next.val < stop.val - line.val
+        omega
   · exact ⟨hstart, hr, rfl⟩
 
 /-- The actual outer body. The plan and the inner range-loop are proved above;
@@ -488,6 +491,7 @@ theorem collect_lines_loop_spec {Header Fields Charts Body Ops : Type}
       resume lines p.2.2.val (enc.fields p.1) (enc.charts p.2.1) =
         resume lines start.val (enc.fields fields) (enc.charts charts))
   · rintro ⟨fields', charts', cursor⟩ ⟨hcursor, hready, hinv⟩
+    dsimp only at hcursor hready hinv ⊢
     apply spec_mono (collect_lines_body_spec Read Write ops lines enc ready bodyReady R W
       len cursor fields' charts' hlen hcursor hready)
     intro out hout
@@ -498,7 +502,9 @@ theorem collect_lines_loop_spec {Header Fields Charts Body Ops : Type}
     | cont state =>
         rcases state with ⟨fields'', charts'', next⟩
         rcases hout with ⟨hprogress, hbound, hready', hvalue⟩
-        exact ⟨⟨hbound, hready', hvalue.trans hinv⟩, by omega⟩
+        refine ⟨⟨hbound, hready', hvalue.trans hinv⟩, ?_⟩
+        change len.val - next.val < len.val - cursor.val
+        omega
   · exact ⟨hstart, hr, rfl⟩
 
 theorem collect_lines_spec {Header Fields Charts Body Ops : Type}

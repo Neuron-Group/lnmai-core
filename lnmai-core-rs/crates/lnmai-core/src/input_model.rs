@@ -12,12 +12,8 @@ use crate::time::{time_point_sub_duration, Duration, TimePoint};
 use crate::types::{GroupState, JudgeDisplayOption, JudgeStyle};
 
 /// `TouchHoldBodyGroupState` (from `LnmaiCore.Types`).
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct TouchHoldBodyGroupState {
-    pub group_id: Natural,
-    pub member_note_indices: Vec<Natural>,
-    pub triggered_note_indices: Vec<Natural>,
-}
+pub type TouchHoldBodyGroupState =
+    lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Natural>;
 
 fn button_vec_bool_default() -> ButtonVec<bool> {
     ButtonVec::replicate(BUTTON_ZONE_COUNT as usize, false)

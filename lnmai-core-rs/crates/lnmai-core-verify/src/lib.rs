@@ -48,5 +48,6 @@ pub mod hold_schedule;
 
 pub mod normalization;
 pub mod touch_automatic;
+pub mod touch_hold_body;
 pub mod touch_hold_rebuild;
 pub mod touch_hold_schedule;
