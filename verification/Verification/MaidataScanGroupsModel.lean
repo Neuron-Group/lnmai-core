@@ -78,8 +78,15 @@ theorem eventEnd_boundary (tokens : List RawNoteToken) (cursor : Nat)
     match tokens.drop (eventEnd tokens cursor hi) with
     | [] => True
     | token :: _ => sameAs tokens[cursor] token = false := by
-  rw [eventEnd_remainder]
-  exact splitPrefix_boundary (sameAs tokens[cursor]) (tokens.drop (cursor + 1))
+  cases htail : tokens.drop (eventEnd tokens cursor hi) with
+  | nil => trivial
+  | cons token tail =>
+      have hboundary :=
+        splitPrefix_boundary (sameAs tokens[cursor]) (tokens.drop (cursor + 1))
+      have hsplit :
+          (splitPrefix (sameAs tokens[cursor]) (tokens.drop (cursor + 1))).2 =
+            token :: tail := (eventEnd_remainder tokens cursor hi).symm.trans htail
+      simpa only [hsplit] using hboundary
 
 def groupComplete (groupId : Nat) (tokens : List RawNoteToken) : List RawNoteToken :=
   groupFuel tokens.length groupId tokens

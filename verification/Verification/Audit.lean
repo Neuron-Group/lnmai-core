@@ -128,6 +128,13 @@ import Verification.VecEraseExtracted
 import Verification.SchedulerInitializationCapacity
 import Verification.TouchHoldBodyReads
 import Verification.TouchHoldBodyTraits
+import Verification.TouchHoldBodyFields
+import Verification.TouchHoldBodyScans
+import Verification.TouchHoldBodyViewPoints
+import Verification.TouchHoldBodyUpdates
+import Verification.TouchHoldBodyErase
+import Verification.TouchHoldBodyRebuild
+import Verification.SchedulerFramePipelineAt
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -146,6 +153,51 @@ run_cmd do
     ``Verification.TouchHoldBodyTraitsProof.default_view,
     ``Verification.TouchHoldBodyTraitsProof.clone_eq,
     ``Verification.TouchHoldBodyTraitsProof.groups_clone_eq,
+    ``Verification.TouchHoldBodyFieldsProof.prepend_member_eq,
+    ``Verification.TouchHoldBodyFieldsProof.prepend_trigger_eq,
+    ``Verification.TouchHoldBodyFieldsProof.remove_member_eq,
+    ``Verification.TouchHoldBodyFieldsProof.remove_trigger_eq,
+    ``Verification.TouchHoldBodyFieldsProof.append_empty_eq,
+    ``Verification.TouchHoldBodyFieldsProof.append_eq,
+    ``Verification.TouchHoldBodyFieldsProof.remove_group_eq,
+    ``Verification.TouchHoldBodyFieldsProof.swap_groups_eq,
+    ``Verification.TouchHoldBodyScansProof.find_group_key_spec,
+    ``Verification.TouchHoldBodyScansProof.find_id_key_spec,
+    ``Verification.TouchHoldBodyScansProof.find_member_key_spec,
+    ``Verification.TouchHoldBodyScansProof.find_trigger_key_spec,
+    ``Verification.TouchHoldBodyScansProof.has_member_key_eq,
+    ``Verification.TouchHoldBodyScansProof.has_trigger_key_eq,
+    ``Verification.TouchHoldBodyViewPointsProof.group_at,
+    ``Verification.TouchHoldBodyViewPointsProof.group_matches_point,
+    ``Verification.TouchHoldBodyViewPointsProof.member_matches_point,
+    ``Verification.TouchHoldBodyViewPointsProof.trigger_matches_point,
+    ``Verification.TouchHoldBodyViewPointsProof.members_empty_point,
+    ``Verification.TouchHoldBodyViewPointsProof.has_member_point,
+    ``Verification.TouchHoldBodyViewPointsProof.has_trigger_point,
+    ``Verification.TouchHoldBodyUpdatesProof.prepend_member_point,
+    ``Verification.TouchHoldBodyUpdatesProof.prepend_trigger_point,
+    ``Verification.TouchHoldBodyUpdatesProof.remove_member_point,
+    ``Verification.TouchHoldBodyUpdatesProof.remove_trigger_point,
+    ``Verification.TouchHoldBodyUpdatesProof.append_empty_point,
+    ``Verification.TouchHoldBodyUpdatesProof.append_point,
+    ``Verification.TouchHoldBodyUpdatesProof.remove_group_point,
+    ``Verification.TouchHoldBodyEraseProof.first_some_eraseIdx_map,
+    ``Verification.TouchHoldBodyEraseProof.erase_member_point,
+    ``Verification.TouchHoldBodyEraseProof.erase_trigger_point,
+    ``Verification.TouchHoldBodyEraseProof.erase_member_of_not_mem,
+    ``Verification.TouchHoldBodyEraseProof.erase_trigger_of_not_mem,
+    ``Verification.TouchHoldBodyRebuildProof.scan_atoms,
+    ``Verification.TouchHoldBodyRebuildProof.update_atoms,
+    ``Verification.TouchHoldBodyRebuildProof.reverse_atoms,
+    ``Verification.TouchHoldBodyRebuildProof.rebuild_equiv,
+    ``Verification.StorageLocalRefinementProof.button_map_accum_refines_at,
+    ``Verification.StorageLocalRefinementProof.sensor_map_accum_refines_at,
+    ``Verification.TapSchedulePassLocalProof.process_equiv,
+    ``Verification.TouchScheduleLocalProof.groups_within_installed,
+    ``Verification.TouchSchedulePassLocalProof.process_judgments_equiv,
+    ``Verification.SchedulerFramePipelineAtProof.process_frame_equiv_at,
+    ``Verification.SchedulerFramePipelineAtProof.run_equiv_at,
+    ``Verification.SchedulerFramePipelineAtProof.trace_equiv_at,
     ``Verification.VecPrependExtractedProof.prepend_body_step,
     ``Verification.VecPrependExtractedProof.prepend_loop_spec,
     ``Verification.VecPrependExtractedProof.prepend_spec,

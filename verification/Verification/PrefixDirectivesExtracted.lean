@@ -311,7 +311,7 @@ theorem strip_prefix_range_bounds_spec (chars : Slice Char) :
             hordered hfinish)
         obtain ⟨selected, hselected, _, hsordered, hsupper⟩ := spec_imp_exists
           (trim_range_bounds_spec chars after trimmed.«end» haupper hfinish)
-        refine ⟨selected, ?_, hsordered, hsupper.trans hfinish⟩
+        refine ⟨selected, ?_, hsordered, Nat.le_trans hsupper hfinish⟩
         simp [prefix_directives.strip_prefix_range, htrim, hempty, hget,
           directive_closer_eq, hcloser, hafter, hselected]
 
@@ -383,7 +383,7 @@ theorem trim_range_loop0_spec (chars : Slice Char)
       have hwhite := is_prefix_whitespace_eq c
       cases hw : isPrefixWhitespace c with
       | false =>
-          have hw' : isPrefixWhitespace chars.val[cursor.val]'hi = false := by
+          have hw' : isPrefixWhitespace (chars.val[cursor.val]'hi) = false := by
             simpa only [hc] using hw
           have hpost : initialCursor.val ≤ cursor.val ∧ cursor.val ≤ finish.val ∧
               rangeChars chars.val cursor.val finish.val =
@@ -392,7 +392,7 @@ theorem trim_range_loop0_spec (chars : Slice Char)
           simpa [prefix_directives.trim_range_loop0.body, hmore, hlt,
             hget, hwhite, hw] using hpost
       | true =>
-          have hw' : isPrefixWhitespace chars.val[cursor.val]'hi = true := by
+          have hw' : isPrefixWhitespace (chars.val[cursor.val]'hi) = true := by
             simpa only [hc] using hw
           have hcap := chars.property
           have hinc : cursor.val + (1#usize).val ≤ Usize.max := by
@@ -443,7 +443,7 @@ theorem trim_range_loop1_spec (chars : Slice Char)
       have hwhite := is_prefix_whitespace_eq c
       cases hw : isPrefixWhitespace c with
       | false =>
-          have hw' : isPrefixWhitespace chars.val[cursor.val - 1]'hi' = false := by
+          have hw' : isPrefixWhitespace (chars.val[cursor.val - 1]'hi') = false := by
             simpa only [hc, hpv] using hw
           have hpost : begin.val ≤ cursor.val ∧ cursor.val ≤ finish.val ∧
               rangeChars chars.val begin.val cursor.val =
@@ -452,7 +452,7 @@ theorem trim_range_loop1_spec (chars : Slice Char)
           simpa [prefix_directives.trim_range_loop1.body, hmore, hlt,
             hprevious, hget, hwhite, hw] using hpost
       | true =>
-          have hw' : isPrefixWhitespace chars.val[cursor.val - 1]'hi' = true := by
+          have hw' : isPrefixWhitespace (chars.val[cursor.val - 1]'hi') = true := by
             simpa only [hc, hpv] using hw
           have hcontinue : BackInv chars.val begin.val finish.val previous.val ∧
               previous.val - begin.val < cursor.val - begin.val := by
@@ -520,7 +520,7 @@ theorem strip_prefix_range_spec (chars : Slice Char) :
       (Slice.index_usize_spec chars trimmed.«begin» hi)
     cases hcloser : directiveCloser c with
     | none =>
-        have hnone : directiveCloser chars.val[trimmed.«begin».val]'hi = none := by
+        have hnone : directiveCloser (chars.val[trimmed.«begin».val]'hi) = none := by
           simpa only [hc] using hcloser
         have hsource := stripTrimmed_range_none chars.val hmore hfinish hnone
         refine ⟨trimmed, ?_, hordered, hfinish, ?_⟩
@@ -531,14 +531,14 @@ theorem strip_prefix_range_spec (chars : Slice Char) :
           rw [← htrimmed']
           exact hsource.symm
     | some closer =>
-        have hsome : directiveCloser chars.val[trimmed.«begin».val]'hi = some closer := by
+        have hsome : directiveCloser (chars.val[trimmed.«begin».val]'hi) = some closer := by
           simpa only [hc] using hcloser
         obtain ⟨after, hafter, halower, haupper, hresidual, _⟩ := spec_imp_exists
           (after_first_closer_spec chars trimmed.«begin» trimmed.«end» closer
             hordered hfinish)
         obtain ⟨selected, hselected, _, hsordered, hsupper, hsval⟩ := spec_imp_exists
           (trim_range_spec chars after trimmed.«end» haupper hfinish)
-        refine ⟨selected, ?_, hsordered, hsupper.trans hfinish, ?_⟩
+        refine ⟨selected, ?_, hsordered, Nat.le_trans hsupper hfinish, ?_⟩
         · simp [prefix_directives.strip_prefix_range, htrim, hempty, hget,
             directive_closer_eq, hcloser, hafter, hselected]
         · calc

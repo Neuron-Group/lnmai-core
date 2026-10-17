@@ -70,7 +70,10 @@ for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra 
   SlideChainExtractedRender SlideChainExtractedEncode SlideChainExtracted \
   SlideChainWrapper SlideChainFrontend SlideChainPrefixFrontend MaidataScanFuel MaidataScan MaidataLineFields MaidataScanGroupsModel MaidataScanGroupsPlan MaidataScanGroups TouchHoldRebuildReverseExtracted TouchHoldRebuildUpsert TouchHoldRebuildTraversal \
   VecPrependModel VecPrependExtracted VecEraseModel VecEraseExtracted TouchHoldRebuildCapacity \
-  TouchHoldBodyReads TouchHoldBodyTraits \
+  TouchHoldBodyReads TouchHoldBodyTraits TouchHoldBodyFields TouchHoldBodyScans \
+  TouchHoldBodyViewPoints TouchHoldBodyUpdates TouchHoldBodyErase TouchHoldBodyRebuild \
+  StorageLocalRefinement TapSchedulePassLocal TouchScheduleLocal TouchSchedulePassLocal \
+  SchedulerFrameFieldsAt SchedulerFrameContractsAt SchedulerFramePipelineAt \
   TapLifecycle TouchLifecycle HoldLifecycle SlideLifecycle \
   LifecycleJudgments HoldJudgments SlideJudgments SlideQueueMetrics SchedulerClicks \
   SchedulerFrame SchedulerParents SlideSchedule SlideScheduleParents \

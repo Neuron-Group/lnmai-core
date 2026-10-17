@@ -18,17 +18,17 @@ private theorem skipPrefix_bool (s : Slice) (p : Char → Bool) :
         if p (s.startPos.get h) then some (s.startPos.next h) else none
       else none := by
   by_cases h : s.startPos ≠ s.endPos
-  · simp only [h, ↓reduceDIte]
+  · rw [dif_pos h]
     by_cases hp : p (s.startPos.get h) = true
-    · simp only [hp, ↓reduceIte]
+    · rw [if_pos hp]
       exact Slice.skipPrefix?_bool_eq_some_iff.mpr ⟨h, rfl, hp⟩
-    · simp only [hp, ↓reduceIte]
+    · rw [if_neg hp]
       cases hm : s.skipPrefix? p with
       | none => rfl
       | some q =>
           obtain ⟨hq, _, hchar⟩ := Slice.skipPrefix?_bool_eq_some_iff.mp hm
           exact False.elim (hp hchar)
-  · simp only [h, ↓reduceDIte]
+  · rw [dif_neg h]
     cases hm : s.skipPrefix? p with
     | none => rfl
     | some q =>
@@ -42,17 +42,17 @@ private theorem skipSuffix_bool (s : Slice) (p : Char → Bool) :
           some (s.endPos.prev h) else none
       else none := by
   by_cases h : s.endPos ≠ s.startPos
-  · simp only [h, ↓reduceDIte]
+  · rw [dif_pos h]
     by_cases hp : p ((s.endPos.prev h).get (by simp)) = true
-    · simp only [hp, ↓reduceIte]
+    · rw [if_pos hp]
       exact Slice.skipSuffix?_bool_eq_some_iff.mpr ⟨h, rfl, hp⟩
-    · simp only [hp, ↓reduceIte]
+    · rw [if_neg hp]
       cases hm : s.skipSuffix? p with
       | none => rfl
       | some q =>
           obtain ⟨hq, _, hchar⟩ := Slice.skipSuffix?_bool_eq_some_iff.mp hm
           exact False.elim (hp hchar)
-  · simp only [h, ↓reduceDIte]
+  · rw [dif_neg h]
     cases hm : s.skipSuffix? p with
     | none => rfl
     | some q =>
@@ -65,7 +65,8 @@ private theorem skipWhile_step {s : Slice} (pos : s.Pos) (p : Char → Bool) :
         if p (pos.get h) then (pos.next h).skipWhile p else pos
       else pos := by
   by_cases h : pos ≠ s.endPos
-  · have hn : (s.sliceFrom pos).startPos ≠ (s.sliceFrom pos).endPos := by
+  · rw [dif_pos h]
+    have hn : (s.sliceFrom pos).startPos ≠ (s.sliceFrom pos).endPos := by
       intro he
       apply h
       simpa only [Slice.Pos.ofSliceFrom_startPos, Slice.Pos.ofSliceFrom_endPos]
@@ -75,21 +76,21 @@ private theorem skipWhile_step {s : Slice} (pos : s.Pos) (p : Char → Bool) :
     have hm : Slice.Pattern.ForwardPattern.skipPrefix? p (s.sliceFrom pos) =
         if p (pos.get h) then some ((s.sliceFrom pos).startPos.next hn) else none := by
       change (s.sliceFrom pos).skipPrefix? p = _
-      simp only [skipPrefix_bool, hn, ↓reduceDIte, hg]
+      rw [skipPrefix_bool, dif_pos hn, hg]
     rw [Slice.Pos.skipWhile, hm]
     by_cases hp : p (pos.get h) = true
-    · simp only [hp, h, ↓reduceIte, ↓reduceDIte, Slice.Pos.ofSliceFrom_next,
-        Slice.Pos.ofSliceFrom_startPos, Slice.Pos.lt_next]
-    · simp only [hp, h, ↓reduceIte, ↓reduceDIte]
-  · have he : pos = s.endPos := by simpa using h
+    · simp only [if_pos hp, Slice.Pos.ofSliceFrom_next,
+        Slice.Pos.ofSliceFrom_startPos, Slice.Pos.lt_next, ↓reduceIte]
+    · simp only [if_neg hp]
+  · rw [dif_neg h]
+    have he : pos = s.endPos := by simpa using h
     have hn : (s.sliceFrom pos).startPos = (s.sliceFrom pos).endPos := by
       apply Slice.Pos.ofSliceFrom_inj.mp
       simpa only [Slice.Pos.ofSliceFrom_startPos, Slice.Pos.ofSliceFrom_endPos] using he
     have hm : Slice.Pattern.ForwardPattern.skipPrefix? p (s.sliceFrom pos) = none := by
       change (s.sliceFrom pos).skipPrefix? p = none
-      simp [skipPrefix_bool, hn]
+      rw [skipPrefix_bool, dif_neg (fun hne => hne hn)]
     rw [Slice.Pos.skipWhile, hm]
-    simp only [h, ↓reduceDIte]
 
 private theorem revSkipWhile_step {s : Slice} (pos : s.Pos) (p : Char → Bool) :
     pos.revSkipWhile p =
@@ -98,7 +99,8 @@ private theorem revSkipWhile_step {s : Slice} (pos : s.Pos) (p : Char → Bool) 
           (pos.prev h).revSkipWhile p else pos
       else pos := by
   by_cases h : pos ≠ s.startPos
-  · have hn : (s.sliceTo pos).endPos ≠ (s.sliceTo pos).startPos := by
+  · rw [dif_pos h]
+    have hn : (s.sliceTo pos).endPos ≠ (s.sliceTo pos).startPos := by
       intro he
       apply h
       simpa only [Slice.Pos.ofSliceTo_endPos, Slice.Pos.ofSliceTo_startPos]
@@ -111,21 +113,21 @@ private theorem revSkipWhile_step {s : Slice} (pos : s.Pos) (p : Char → Bool) 
         if p ((pos.prev h).get (by simp)) then
           some ((s.sliceTo pos).endPos.prev hn) else none := by
       change (s.sliceTo pos).skipSuffix? p = _
-      simp only [skipSuffix_bool, hn, ↓reduceDIte, hg]
+      rw [skipSuffix_bool, dif_pos hn, hg]
     rw [Slice.Pos.revSkipWhile, hm]
     by_cases hp : p ((pos.prev h).get (by simp)) = true
-    · simp only [hp, h, ↓reduceIte, ↓reduceDIte, Slice.Pos.ofSliceTo_prev,
-        Slice.Pos.ofSliceTo_endPos, Slice.Pos.prev_lt]
-    · simp only [hp, h, ↓reduceIte, ↓reduceDIte]
-  · have he : pos = s.startPos := by simpa using h
+    · simp only [if_pos hp, Slice.Pos.ofSliceTo_prev,
+        Slice.Pos.ofSliceTo_endPos, Slice.Pos.prev_lt, ↓reduceIte]
+    · simp only [if_neg hp]
+  · rw [dif_neg h]
+    have he : pos = s.startPos := by simpa using h
     have hn : (s.sliceTo pos).endPos = (s.sliceTo pos).startPos := by
       apply Slice.Pos.ofSliceTo_inj.mp
       simpa only [Slice.Pos.ofSliceTo_endPos, Slice.Pos.ofSliceTo_startPos] using he
     have hm : Slice.Pattern.BackwardPattern.skipSuffix? p (s.sliceTo pos) = none := by
       change (s.sliceTo pos).skipSuffix? p = none
-      simp [skipSuffix_bool, hn]
+      rw [skipSuffix_bool, dif_neg (fun hne => hne hn)]
     rw [Slice.Pos.revSkipWhile, hm]
-    simp only [h, ↓reduceDIte]
 
 private theorem suffix_cons {s : Slice} (pos : s.Pos) (h : pos ≠ s.endPos) :
     (s.sliceFrom pos).copy.toList =
@@ -144,15 +146,16 @@ theorem copy_skipWhile {s : Slice} (pos : s.Pos) (p : Char → Bool) :
       (s.sliceFrom pos).copy.toList.dropWhile p := by
   rw [skipWhile_step]
   by_cases h : pos ≠ s.endPos
-  · simp only [h, ↓reduceDIte]
+  · rw [dif_pos h]
     rw [suffix_cons pos h, List.dropWhile_cons]
     by_cases hp : p (pos.get h) = true
-    · simp only [hp, ↓reduceIte]
+    · rw [if_pos hp]
       exact copy_skipWhile (pos.next h) p
-    · simp only [hp, ↓reduceIte]
+    · rw [if_neg hp]
       exact suffix_cons pos h
-  · have he : pos = s.endPos := by simpa using h
-    simp [h, he]
+  · rw [dif_neg h]
+    have he : pos = s.endPos := by simpa using h
+    simp [he]
 termination_by (s.sliceFrom pos).copy.toList.length
 decreasing_by
   rw [suffix_cons pos h]
@@ -163,17 +166,18 @@ theorem copy_revSkipWhile {s : Slice} (pos : s.Pos) (p : Char → Bool) :
       ((s.sliceTo pos).copy.toList.reverse.dropWhile p).reverse := by
   rw [revSkipWhile_step]
   by_cases h : pos ≠ s.startPos
-  · simp only [h, ↓reduceDIte]
+  · rw [dif_pos h]
     rw [prefix_snoc pos h]
     simp only [List.reverse_append, List.reverse_singleton, List.singleton_append,
       List.dropWhile_cons]
     by_cases hp : p ((pos.prev h).get (by simp)) = true
-    · simp only [hp, ↓reduceIte]
+    · rw [if_pos hp]
       exact copy_revSkipWhile (pos.prev h) p
-    · simp only [hp, ↓reduceIte, List.reverse_cons, List.reverse_reverse]
+    · simp only [if_neg hp, List.reverse_cons, List.reverse_reverse]
       exact prefix_snoc pos h
-  · have he : pos = s.startPos := by simpa using h
-    simp [h, he]
+  · rw [dif_neg h]
+    have he : pos = s.startPos := by simpa using h
+    simp [he]
 termination_by (s.sliceTo pos).copy.toList.length
 decreasing_by
   rw [prefix_snoc pos h]
@@ -195,5 +199,6 @@ theorem trim_toList (s : String) :
   change ((s.toSlice.dropWhile Char.isWhitespace).dropEndWhile
     Char.isWhitespace).copy.toList = trimChars s.toList
   rw [copy_dropEndWhile, copy_dropWhile, String.copy_toSlice]
+  rfl
 
 end Verification.PrefixAsciiTrim

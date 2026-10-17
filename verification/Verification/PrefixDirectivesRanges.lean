@@ -111,7 +111,7 @@ theorem trimChars_eq_trimEndChars (chars : List Char) :
 
 theorem front_whitespace_step (chars : List Char) {cursor finish : Nat}
     (hmore : cursor < finish) (hfinish : finish ≤ chars.length)
-    (hwhite : isPrefixWhitespace chars[cursor]'(by omega) = true) :
+    (hwhite : isPrefixWhitespace (chars[cursor]'(by omega)) = true) :
     (rangeChars chars cursor finish).dropWhile isPrefixWhitespace =
       (rangeChars chars (cursor + 1) finish).dropWhile isPrefixWhitespace := by
   rw [rangeChars_cons chars hmore hfinish, List.dropWhile_cons]
@@ -119,7 +119,7 @@ theorem front_whitespace_step (chars : List Char) {cursor finish : Nat}
 
 theorem front_nonwhitespace_stop (chars : List Char) {cursor finish : Nat}
     (hmore : cursor < finish) (hfinish : finish ≤ chars.length)
-    (hwhite : isPrefixWhitespace chars[cursor]'(by omega) = false) :
+    (hwhite : isPrefixWhitespace (chars[cursor]'(by omega)) = false) :
     (rangeChars chars cursor finish).dropWhile isPrefixWhitespace =
       rangeChars chars cursor finish := by
   simp only [rangeChars_cons chars hmore hfinish, List.dropWhile_cons, hwhite,
@@ -127,7 +127,7 @@ theorem front_nonwhitespace_stop (chars : List Char) {cursor finish : Nat}
 
 theorem back_whitespace_step (chars : List Char) {begin cursor : Nat}
     (hmore : begin < cursor) (hcursor : cursor ≤ chars.length)
-    (hwhite : isPrefixWhitespace chars[cursor - 1]'(by omega) = true) :
+    (hwhite : isPrefixWhitespace (chars[cursor - 1]'(by omega)) = true) :
     trimEndChars (rangeChars chars begin cursor) =
       trimEndChars (rangeChars chars begin (cursor - 1)) := by
   unfold trimEndChars
@@ -137,7 +137,7 @@ theorem back_whitespace_step (chars : List Char) {begin cursor : Nat}
 
 theorem back_nonwhitespace_stop (chars : List Char) {begin cursor : Nat}
     (hmore : begin < cursor) (hcursor : cursor ≤ chars.length)
-    (hwhite : isPrefixWhitespace chars[cursor - 1]'(by omega) = false) :
+    (hwhite : isPrefixWhitespace (chars[cursor - 1]'(by omega)) = false) :
     trimEndChars (rangeChars chars begin cursor) = rangeChars chars begin cursor := by
   simp only [rangeChars_unsnoc chars hmore hcursor, trimEndChars,
     List.reverse_append, List.reverse_singleton, List.singleton_append,
@@ -160,9 +160,9 @@ theorem front_init (chars : List Char) {begin finish : Nat}
 theorem front_step {chars : List Char} {begin finish cursor : Nat}
     (inv : FrontInv chars begin finish cursor) (hmore : cursor < finish)
     (hwhite : isPrefixWhitespace
-      chars[cursor]'(Nat.lt_of_lt_of_le hmore inv.finish_le) = true) :
+      (chars[cursor]'(Nat.lt_of_lt_of_le hmore inv.finish_le)) = true) :
     FrontInv chars begin finish (cursor + 1) := by
-  refine ⟨inv.lower.trans (by omega), by omega, inv.finish_le, ?_⟩
+  refine ⟨Nat.le_trans inv.lower (by omega), by omega, inv.finish_le, ?_⟩
   exact (front_whitespace_step chars hmore inv.finish_le hwhite).symm.trans inv.preserved
 
 theorem front_done_empty {chars : List Char} {begin finish cursor : Nat}
@@ -177,7 +177,7 @@ theorem front_done_empty {chars : List Char} {begin finish cursor : Nat}
 theorem front_done_nonwhitespace {chars : List Char} {begin finish cursor : Nat}
     (inv : FrontInv chars begin finish cursor) (hmore : cursor < finish)
     (hwhite : isPrefixWhitespace
-      chars[cursor]'(Nat.lt_of_lt_of_le hmore inv.finish_le) = false) :
+      (chars[cursor]'(Nat.lt_of_lt_of_le hmore inv.finish_le)) = false) :
     rangeChars chars cursor finish =
       (rangeChars chars begin finish).dropWhile isPrefixWhitespace := by
   exact (front_nonwhitespace_stop chars hmore inv.finish_le hwhite).symm.trans inv.preserved
@@ -199,10 +199,11 @@ theorem back_init (chars : List Char) {begin finish : Nat}
 theorem back_step {chars : List Char} {begin finish cursor : Nat}
     (inv : BackInv chars begin finish cursor) (hmore : begin < cursor)
     (hwhite : isPrefixWhitespace
-      chars[cursor - 1]'(Nat.lt_of_lt_of_le (by omega) (inv.upper.trans inv.finish_le)) = true) :
+      (chars[cursor - 1]'(Nat.lt_of_lt_of_le (by omega)
+        (Nat.le_trans inv.upper inv.finish_le))) = true) :
     BackInv chars begin finish (cursor - 1) := by
-  refine ⟨by omega, (Nat.sub_le _ _).trans inv.upper, inv.finish_le, ?_⟩
-  exact (back_whitespace_step chars hmore (inv.upper.trans inv.finish_le) hwhite).symm.trans
+  refine ⟨by omega, Nat.le_trans (Nat.sub_le _ _) inv.upper, inv.finish_le, ?_⟩
+  exact (back_whitespace_step chars hmore (Nat.le_trans inv.upper inv.finish_le) hwhite).symm.trans
     inv.preserved
 
 theorem back_done_empty {chars : List Char} {begin finish cursor : Nat}
@@ -216,9 +217,10 @@ theorem back_done_empty {chars : List Char} {begin finish cursor : Nat}
 theorem back_done_nonwhitespace {chars : List Char} {begin finish cursor : Nat}
     (inv : BackInv chars begin finish cursor) (hmore : begin < cursor)
     (hwhite : isPrefixWhitespace
-      chars[cursor - 1]'(Nat.lt_of_lt_of_le (by omega) (inv.upper.trans inv.finish_le)) = false) :
+      (chars[cursor - 1]'(Nat.lt_of_lt_of_le (by omega)
+        (Nat.le_trans inv.upper inv.finish_le))) = false) :
     rangeChars chars begin cursor = trimEndChars (rangeChars chars begin finish) := by
-  exact (back_nonwhitespace_stop chars hmore (inv.upper.trans inv.finish_le) hwhite).symm.trans
+  exact (back_nonwhitespace_stop chars hmore (Nat.le_trans inv.upper inv.finish_le) hwhite).symm.trans
     inv.preserved
 
 theorem closer_miss_step (chars : List Char) (closer : Char) {cursor finish : Nat}
@@ -252,13 +254,14 @@ theorem closer_init (chars : List Char) (closer : Char) {begin finish : Nat}
     (hbegin : begin ≤ finish) (hfinish : finish ≤ chars.length) :
     CloserInv chars closer begin finish begin := by
   refine ⟨Nat.le_refl _, hbegin, hfinish, ?_, rfl⟩
-  simp only [rangeChars_self, List.not_mem_nil]
+  rw [rangeChars_self]
+  exact List.not_mem_nil
 
 theorem closer_step {chars : List Char} {closer : Char} {begin finish cursor : Nat}
     (inv : CloserInv chars closer begin finish cursor) (hmore : cursor < finish)
     (hmiss : chars[cursor]'(Nat.lt_of_lt_of_le hmore inv.finish_le) ≠ closer) :
     CloserInv chars closer begin finish (cursor + 1) := by
-  refine ⟨inv.lower.trans (by omega), by omega, inv.finish_le, ?_, ?_⟩
+  refine ⟨Nat.le_trans inv.lower (by omega), by omega, inv.finish_le, ?_, ?_⟩
   · rw [rangeChars_snoc chars inv.lower (Nat.lt_of_lt_of_le hmore inv.finish_le)]
     intro hmem
     rcases List.mem_append.mp hmem with hleft | hright
@@ -299,9 +302,10 @@ theorem copy_step {chars : List Char} {begin finish cursor : Nat} {out : List Ch
     (inv : CopyInv chars begin finish cursor out) (hmore : cursor < finish) :
     CopyInv chars begin finish (cursor + 1)
       (out ++ [chars[cursor]'(Nat.lt_of_lt_of_le hmore inv.finish_le)]) := by
-  refine ⟨inv.lower.trans (by omega), by omega, inv.finish_le, ?_⟩
-  rw [inv.copied]
-  exact (rangeChars_snoc chars inv.lower (Nat.lt_of_lt_of_le hmore inv.finish_le)).symm
+  refine ⟨Nat.le_trans inv.lower (by omega), by omega, inv.finish_le, ?_⟩
+  have hindex : cursor < chars.length := Nat.lt_of_lt_of_le hmore inv.finish_le
+  exact (congrArg (fun xs : List Char => xs ++ [chars[cursor]'hindex]) inv.copied).trans
+    (rangeChars_snoc chars inv.lower hindex).symm
 
 theorem copy_done {chars : List Char} {begin finish cursor : Nat} {out : List Char}
     (inv : CopyInv chars begin finish cursor out) (hdone : ¬ cursor < finish) :
@@ -314,7 +318,7 @@ theorem copy_length {chars : List Char} {begin finish cursor : Nat} {out : List 
     (inv : CopyInv chars begin finish cursor out) :
     out.length = cursor - begin := by
   rw [inv.copied]
-  exact rangeChars_length chars inv.lower (inv.upper.trans inv.finish_le)
+  exact rangeChars_length chars inv.lower (Nat.le_trans inv.upper inv.finish_le)
 
 theorem copy_order {chars : List Char} {begin finish cursor : Nat} {out : List Char}
     (inv : CopyInv chars begin finish cursor out) : out.Sublist chars := by
@@ -346,13 +350,13 @@ theorem backward_point_bounds {begin cursor limit : Nat}
 /-- The prefix dispatch branch is a single point observation after trimming. -/
 theorem stripTrimmed_range_none (chars : List Char) {begin finish : Nat}
     (hmore : begin < finish) (hfinish : finish ≤ chars.length)
-    (hnone : directiveCloser chars[begin]'(by omega) = none) :
+    (hnone : directiveCloser (chars[begin]'(by omega)) = none) :
     stripTrimmed (rangeChars chars begin finish) = rangeChars chars begin finish := by
   simp only [rangeChars_cons chars hmore hfinish, stripTrimmed, hnone]
 
 theorem stripTrimmed_range_some (chars : List Char) {begin finish : Nat} (closer : Char)
     (hmore : begin < finish) (hfinish : finish ≤ chars.length)
-    (hsome : directiveCloser chars[begin]'(by omega) = some closer) :
+    (hsome : directiveCloser (chars[begin]'(by omega)) = some closer) :
     stripTrimmed (rangeChars chars begin finish) =
       trimChars (afterFirst closer (rangeChars chars begin finish)) := by
   simp only [rangeChars_cons chars hmore hfinish, stripTrimmed, hsome]

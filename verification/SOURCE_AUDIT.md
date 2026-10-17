@@ -52,6 +52,16 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
+The next source checkpoint adds actual TouchHold mutation, first-match scan,
+decoded update/erase and rebuild-composition proofs, plus reachable-state
+frame contracts and local Tap/Touch traversal contracts. These new modules are
+pending separate compilation and the current-extraction axiom audit. The
+rebuild dictionary is currently a Lean composition of extracted operations,
+not extracted Rust trait wiring. Primitive Natural operations, reachable
+numeric bounds and the other runtime boundaries listed below remain open.
+The checkpoint also preserves the prefix/Maidata diagnostic repairs. No tests
+were run, and committing these sources is not proof acceptance.
+
 Checkpoint `5753781` preserves the prefix/prepend/erase kernels and literal-safe
 extraction before the current batch. TouchHold now shares its actual generic
 record and field operations with the extracted kernel: indexed reads, first-match
