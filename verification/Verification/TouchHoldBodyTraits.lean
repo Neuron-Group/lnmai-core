@@ -28,7 +28,7 @@ theorem default_view (defaultInst : core.default.Default Id) (decode : Id → Na
       defaultInst ⦃ out => viewGroup decode out =
         (default : LnmaiCore.TouchHoldBodyGroupState) ⦄ := by
   rw [default_eq defaultInst value hdefault]
-  simp [viewGroup, alloc.vec.Vec.new, hzero]
+  simp [viewGroup, alloc.vec.Vec.new, hzero] <;> rfl
 
 theorem vec_clone_eq (cloneInst : core.clone.Clone Id) (values : alloc.vec.Vec Id)
     (hclone : ∀ value ∈ values.val, cloneInst.clone value = ok value) :
@@ -36,7 +36,7 @@ theorem vec_clone_eq (cloneInst : core.clone.Clone Id) (values : alloc.vec.Vec I
   obtain ⟨out, hrun, hout⟩ := spec_imp_exists (Slice.clone_spec hclone)
   simpa only [alloc.vec.CloneVec.clone, ← hout] using hrun
 
-theorem clone_eq (cloneInst : core.clone.Clone Id) (group : Group Id)
+theorem clone_eq (cloneInst : core.clone.Clone Id) (group : TouchHoldBodyReadsProof.Group Id)
     (hid : cloneInst.clone group.group_id = ok group.group_id)
     (hmembers : ∀ value ∈ group.member_note_indices.val, cloneInst.clone value = ok value)
     (htriggers : ∀ value ∈ group.triggered_note_indices.val, cloneInst.clone value = ok value) :
