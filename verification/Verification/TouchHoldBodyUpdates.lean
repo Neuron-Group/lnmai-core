@@ -23,7 +23,8 @@ theorem map_eraseIdx (f : α → β) (items : List α) (index : Nat) :
 theorem view_set (decode : Id → Nat) (groups : Groups Id) (index : Usize)
     (pre : List LnmaiCore.TouchHoldBodyGroupState) (group : LnmaiCore.TouchHoldBodyGroupState)
     (rest : List LnmaiCore.TouchHoldBodyGroupState)
-    (hat : At (viewGroups decode groups) index pre group rest) (next : Group Id) :
+    (hat : At (viewGroups decode groups) index pre group rest)
+    (next : TouchHoldBodyReadsProof.Group Id) :
     viewGroups decode (groups.set index next) = pre ++ viewGroup decode next :: rest := by
   change (groups.val.set index.val next).map (viewGroup decode) = _
   rw [List.map_set]
@@ -52,9 +53,9 @@ theorem prepend_member_point (cloneInst : core.clone.Clone Id) (decode : Id → 
     cloneInst groups index note h hrawRoom hclone, ?_⟩
   rw [view_set decode groups index pre group rest hat]
   have hnext : viewGroup decode
-      { (groups.val[index.val]) with member_note_indices :=
-        TouchHoldBodyFieldsProof.prependVec (groups.val[index.val]).member_note_indices
-          note hrawRoom } =
+      ({ (groups.val[index.val]) with member_note_indices :=
+        (TouchHoldBodyFieldsProof.prependVec (groups.val[index.val]).member_note_indices
+          note hrawRoom) }) =
       { group with memberNoteIndices := decode note :: group.memberNoteIndices } := by
     rw [← hview]
     rfl
@@ -81,9 +82,9 @@ theorem prepend_trigger_point (cloneInst : core.clone.Clone Id) (decode : Id →
     cloneInst groups index note h hrawRoom hclone, ?_⟩
   rw [view_set decode groups index pre group rest hat]
   have hnext : viewGroup decode
-      { (groups.val[index.val]) with triggered_note_indices :=
-        TouchHoldBodyFieldsProof.prependVec (groups.val[index.val]).triggered_note_indices
-          note hrawRoom } =
+      ({ (groups.val[index.val]) with triggered_note_indices :=
+        (TouchHoldBodyFieldsProof.prependVec (groups.val[index.val]).triggered_note_indices
+          note hrawRoom) }) =
       { group with triggeredNoteIndices := decode note :: group.triggeredNoteIndices } := by
     rw [← hview]
     rfl
@@ -107,9 +108,9 @@ theorem remove_member_point (cloneInst : core.clone.Clone Id)
     cloneInst defaultInst groups index slot filler h hrawSlot hdefault, ?_⟩
   rw [view_set decode groups index pre group rest hat]
   have hnext : viewGroup decode
-      { (groups.val[index.val]) with member_note_indices :=
-        TouchHoldBodyFieldsProof.eraseVec (groups.val[index.val]).member_note_indices
-          slot hrawSlot } =
+      ({ (groups.val[index.val]) with member_note_indices :=
+        (TouchHoldBodyFieldsProof.eraseVec (groups.val[index.val]).member_note_indices
+          slot hrawSlot) }) =
       { group with memberNoteIndices := group.memberNoteIndices.eraseIdx slot.val } := by
     rw [← hview]
     simp only [viewGroup, TouchHoldBodyFieldsProof.eraseVec_val, map_eraseIdx]
@@ -133,9 +134,9 @@ theorem remove_trigger_point (cloneInst : core.clone.Clone Id)
     cloneInst defaultInst groups index slot filler h hrawSlot hdefault, ?_⟩
   rw [view_set decode groups index pre group rest hat]
   have hnext : viewGroup decode
-      { (groups.val[index.val]) with triggered_note_indices :=
-        TouchHoldBodyFieldsProof.eraseVec (groups.val[index.val]).triggered_note_indices
-          slot hrawSlot } =
+      ({ (groups.val[index.val]) with triggered_note_indices :=
+        (TouchHoldBodyFieldsProof.eraseVec (groups.val[index.val]).triggered_note_indices
+          slot hrawSlot) }) =
       { group with triggeredNoteIndices := group.triggeredNoteIndices.eraseIdx slot.val } := by
     rw [← hview]
     simp only [viewGroup, TouchHoldBodyFieldsProof.eraseVec_val, map_eraseIdx]

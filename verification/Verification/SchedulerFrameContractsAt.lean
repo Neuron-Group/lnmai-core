@@ -43,7 +43,7 @@ structure TapAt (input : FrameInput) (frame : W) : Prop where
     (TapSchedulePassProof.zoneContext
       (SchedulerFrameTapProof.frameContext input (repr frame))
       (Areas.toLnmButtonZone zone)) tap.capacity
-  prefix : TapSchedulePassLocalProof.Ready tap.rep
+  readyPrefix : TapSchedulePassLocalProof.Ready tap.rep
     (SchedulerFrameTapProof.frameContext input (repr frame)) tap.capacity
     (tap.adapters.frontiers frame) (tap.adapters.queues frame) (tap.adapters.cursor frame)
 
@@ -94,7 +94,7 @@ structure TouchAt (input : FrameInput) (frame : W) : Prop where
   groupPoints : ∀ area, TouchScheduleJudgmentsProof.GroupAtoms
     (touch.headCall frame area) ((touch.base frame).headOps area)
     (touch.base frame).rep touch.groupCapacity
-  prefix : TouchSchedulePassLocalProof.Ready (touch.base frame)
+  readyPrefix : TouchSchedulePassLocalProof.Ready (touch.base frame)
     (SchedulerFrameTouchProof.frameContext input (repr frame)) touch.groupCapacity
     (touch.adapters.frontiers frame) (touch.adapters.queues frame)
     (touch.adapters.cursor frame) (touch.adapters.groups frame)
@@ -115,7 +115,7 @@ theorem tap_phase_refines_at (input : FrameInput) (frame : W)
     (TapSchedulePassJudgmentsProof.installFrameStep inst integerOps decode encode
       tap.schedule tap.rep tap.pack repr input)
     tap.adapters tap.rep repr input tap.capacity frame laws.fields
-    laws.clone laws.remaining_count laws.reverse atoms laws.prefix
+    laws.clone laws.remaining_count laws.reverse atoms laws.readyPrefix
 
 theorem hold_phase_refines_at (input : FrameInput) (frame : W)
     (laws : HoldAt inst integerOps encode hold repr input frame) :
@@ -180,6 +180,6 @@ theorem touch_phase_refines_at (input : FrameInput) (frame : W)
       (touch.base frame) (SchedulerFrameTouchProof.frameContext input (repr frame))
       (touch.pack frame) (touch.headCall frame) touch.groupCapacity
       (touch.adapters.frontiers frame) (touch.adapters.queues frame)
-      (touch.adapters.cursor frame) (touch.adapters.groups frame) laws.prefix)
+      (touch.adapters.cursor frame) (touch.adapters.groups frame) laws.readyPrefix)
 
 end Verification.SchedulerFrameContractsAtProof

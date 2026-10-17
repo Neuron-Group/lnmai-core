@@ -107,9 +107,9 @@ def writeCall (S : StringOps Text View Level) :
       let level ← S.level (S.borrow header.1)
       ok { level_index := level, raw_body := header.2 }
     append_body_line := fun ops body index => do
-      let prefix ← S.pushNewline body.raw_body
+      let nl ← S.pushNewline body.raw_body
       let line ← Slice.index_usize ops.lines index
-      let raw ← S.pushStr prefix (S.borrow line)
+      let raw ← S.pushStr nl (S.borrow line)
       ok { body with raw_body := raw }
     append_chart := fun _ charts body => alloc.vec.Vec.push charts body }
 
@@ -119,7 +119,7 @@ structure ReadStringLaws (E : ValueEncoding Text View Level)
   borrow : ∀ text, E.view (S.borrow text) = E.text text
   trim : ∀ view, E.view (S.trim view) = LnmaiCore.Simai.trim (E.view view)
   empty : ∀ view, S.isEmpty view = decide (E.view view = "")
-  prefix : ∀ view prefix, S.startsWith view prefix = (E.view view).startsWith prefix
+  startsWithView : ∀ view text, S.startsWith view text = (E.view view).startsWith text
   header : ∀ view, S.header view ⦃ out =>
     out.map (decodeHeader E) = parseKeyValueLine (E.view view) ⦄
 
@@ -160,7 +160,7 @@ theorem read_points (E : ValueEncoding Text View Level)
     simp only [readCall, hget, bind_tc_ok, L.empty, L.trim, L.borrow, hraw]
   · intro index hi
     obtain ⟨raw, hget, hraw⟩ := line_at E ops index hi
-    simp only [readCall, hget, bind_tc_ok, L.prefix, L.trim, L.borrow, hraw,
+    simp only [readCall, hget, bind_tc_ok, L.startsWithView, L.trim, L.borrow, hraw,
       startsWithAmp]
   · intro index hi
     obtain ⟨raw, hget, hraw⟩ := line_at E ops index hi
@@ -170,7 +170,7 @@ theorem read_points (E : ValueEncoding Text View Level)
     · simpa only [readCall, hget, bind_tc_ok] using hheader
     · simpa only [L.borrow, hraw] using hdecode
   · intro header
-    simp only [readCall, L.prefix, L.borrow, decodeHeader]
+    simp only [readCall, L.startsWithView, L.borrow, decodeHeader]
 
 /-- A reusable concrete push lemma. It preserves existing order and duplicates. -/
 theorem push_decode {α β : Type} (decode : α → β) (values : alloc.vec.Vec α)
@@ -178,9 +178,12 @@ theorem push_decode {α β : Type} (decode : α → β) (values : alloc.vec.Vec 
     alloc.vec.Vec.push values value ⦃ out =>
       out.val.length = values.val.length + 1 ∧
       out.val.map decode = values.val.map decode ++ [decode value] ⦄ := by
-  apply spec_mono (alloc.vec.Vec.push_spec values value hroom)
-  intro out hvalues
-  simp only [hvalues, List.length_append, List.length_cons, List.length_nil,
+  obtain ⟨out, hpush, hvalues⟩ :=
+    spec_imp_exists (alloc.vec.Vec.push_spec values value hroom)
+  apply exists_imp_spec
+  refine ⟨out, hpush, ?_⟩
+  rw [hvalues]
+  simp [List.length_append, List.length_cons, List.length_nil,
     List.map_append, List.map_cons, List.map_nil]
 
 /-- Minimal write subset: no String law is needed for the actual field Vec push. -/
@@ -294,19 +297,19 @@ theorem write_points (E : ValueEncoding Text View Level)
       ((decodeLines E ops)[line.val].utf8ByteSize + 1 +
         byteBudget ((decodeLines E ops).drop (line.val + 1))) ≤ byteLimit at hr
     have hnroom : (E.text body.raw_body).utf8ByteSize + 1 ≤ byteLimit := by omega
-    obtain ⟨prefix, hnewline, hprefix⟩ := spec_imp_exists (W.newline body.raw_body hnroom)
-    have hpbytes : (E.text prefix).utf8ByteSize =
+    obtain ⟨nl, hnewline, hprefix⟩ := spec_imp_exists (W.newline body.raw_body hnroom)
+    have hpbytes : (E.text nl).utf8ByteSize =
         (E.text body.raw_body).utf8ByteSize + 1 := by
       simpa only [String.utf8ByteSize_append, newline_bytes] using
         congrArg String.utf8ByteSize hprefix
     have hview : E.view (S.borrow raw) = (decodeLines E ops)[line.val] :=
       (R.borrow raw).trans hraw
-    have haroom : (E.text prefix).utf8ByteSize +
+    have haroom : (E.text nl).utf8ByteSize +
         (E.view (S.borrow raw)).utf8ByteSize ≤ byteLimit := by
       rw [hpbytes, hview]
       omega
     obtain ⟨value, happend, hvalue⟩ := spec_imp_exists
-      (W.append prefix (S.borrow raw) haroom)
+      (W.append nl (S.borrow raw) haroom)
     have htext : E.text value =
         E.text body.raw_body ++ "\n" ++ (decodeLines E ops)[line.val] := by
       simpa only [hprefix, hview] using hvalue

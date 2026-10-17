@@ -63,7 +63,7 @@ theorem strict_majority_lengths_eq (triggeredLen memberLen : Usize) :
 
 /-- Two real in-bounds field reads followed by the extracted arithmetic.
 No record representation or field-length equation is assumed. -/
-theorem body_majority_eq (groups : Slice (Group Id)) (index : Usize)
+theorem body_majority_eq (groups : Slice (TouchHoldBodyReadsProof.Group Id)) (index : Usize)
     (hindex : index.val < groups.val.length) :
     touch_hold_body_adapter.body_majority groups index =
       ok (hasStrictMajority
@@ -99,7 +99,7 @@ theorem majority_point (decode : Id → Nat) (groups : Groups Id) (index : Usize
 /-- The real scan selects the first matching group, even if that group's
 majority is false and a later duplicate would have returned true. -/
 theorem body_pressed_key_eq (eq : core.cmp.PartialEq Id Id)
-    (groups : Slice (Group Id)) (id : Id) (key : Id → Nat) (target : Nat)
+    (groups : Slice (TouchHoldBodyReadsProof.Group Id)) (id : Id) (key : Id → Nat) (target : Nat)
     (heq : ∀ value, eq.eq value id = ok (key value == target)) :
     touch_hold_body_adapter.body_pressed eq groups id =
       ok (match groups.val.find? (fun group => key group.group_id == target) with
@@ -111,13 +111,13 @@ theorem body_pressed_key_eq (eq : core.cmp.PartialEq Id Id)
     (TouchHoldBodyScansProof.find_group_key_spec eq groups id key target heq)
   cases found with
   | none =>
-      have href := find_none (fun group : Group Id => key group.group_id)
+      have href := find_none (fun group : TouchHoldBodyReadsProof.Group Id => key group.group_id)
         groups.val target hfirst
       simp only [touch_hold_body_adapter.body_pressed, hfind, bind_tc_ok, href]
   | some index =>
       obtain ⟨pre, group, rest, hat, hprefix, hmatch⟩ := hfirst
       obtain ⟨hindex, hgroup⟩ := TouchHoldBodyViewPointsProof.at_index hat
-      have href := find_at (fun group : Group Id => key group.group_id)
+      have href := find_at (fun group : TouchHoldBodyReadsProof.Group Id => key group.group_id)
         groups.val target index pre group rest hat hprefix hmatch
       simp only [touch_hold_body_adapter.body_pressed, hfind, bind_tc_ok,
         body_majority_eq groups index hindex, hgroup, href]
