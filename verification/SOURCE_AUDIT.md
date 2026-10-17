@@ -65,14 +65,28 @@ current working tree `TouchHoldBodyReads`, `TouchHoldBodyTraits`,
 `TouchHoldBodyAdapter`, `TouchHoldRebuildAdapter`, `TouchHoldScheduleAdapter`,
 `MaidataScanGroups`, `MaidataLineFields`, `MaidataHeaderReference`,
 `StorageLocalRefinement`, `TouchScheduleLocal`, `TouchSchedulePassLocal`,
-`SchedulerFrameContractsAt` and the prefix/prepend/erase kernels all build
-against the installed stage6 extraction. Repairs were confined to proof
+`SchedulerFrameContractsAt`, `SchedulerFramePipelineAt` and the
+prefix/prepend/erase kernels all build against the installed stage6 extraction,
+and `Verification.Audit` passes: 7978 theorems depend only on `propext`,
+`Classical.choice` and `Quot.sound`. A separate independent audit compiled the
+209-module closure of the twelve batch roots and re-derived the same 7978
+theorems with only those three axioms, after checking all 46 kernel and 40
+runtime source hashes and the two-module byte-exact partition of the stage6
+extraction. Evidence: `/tmp/lnmai-batch-independent-audit.accepted.json` and its
+adjacent evidence and log snapshots. Repairs were confined to proof
 scripts: `Vec.deref`-based bridging, `Group`/`prefix` name collisions, record
 update syntax, `SlotFits`/`Ready` parameterised by the representation instead
 of the whole implementation (so `install` is definitionally irrelevant),
 heartbeat limits for `SchedulerFramePipelineAt`, and a general five-call
-`process_frame` lemma. `Verification.Audit`, the independent transitive axiom
-audit and the three requested songs remain outstanding.
+`process_frame` lemma. The three requested songs now pass: `011996 Usagi Flap` (2-5),
+`011951 サイエンス` (2-5) and `蛙石` (5-6) were compared against the rebuilt Lean
+oracle in both classic and modern modes. All ten difficulties matched in the
+frontend, inspection, semantic and normalized views (10/10), and all forty
+complete playthroughs (classic/modern x autoplay/no-input) matched frame by
+frame - 350,104 compared frames, `2 passed; 0 failed` in
+`/tmp/lnmai-requested-corpus-tests.log`. These are finite comparisons on the
+installed sources; they do not discharge the remaining representation,
+allocation, seek, JSON or ABI obligations.
 
 The current source checkpoint installs the actual extracted Rust TouchHold
 body adapter used by Scheduler and ChartLoader, with proofs connecting its
