@@ -49,6 +49,8 @@ test -f "$generated"
 # conversion would silently change the extracted whitespace predicate.
 python3 "$repo/verification/tools/normalize_generated.py" "$generated"
 python3 "$repo/verification/tools/check_generated_axioms.py" "$generated"
+# Optional Source-routed modules come only from this full extraction. The
+# partitioner rejects leftover extension files from another stage.
 if [[ "$mode" == check ]]; then
   echo '[3/3] checking generated model freshness'
   python3 "$repo/verification/tools/partition_generated.py" \
@@ -61,8 +63,9 @@ if a != b:
 PY
 else
   echo '[3/3] installing extracted artifacts'
-  cp "$llbc" "$here/lnmai_core_verify.llbc"
   python3 "$repo/verification/tools/partition_generated.py" \
     "$generated" "$destination"
+  # Publish LLBC only after every partition and the full-order manifest verify.
+  cp "$llbc" "$here/lnmai_core_verify.llbc"
 fi
 echo 'Aeneas artifacts match the Rust source.'

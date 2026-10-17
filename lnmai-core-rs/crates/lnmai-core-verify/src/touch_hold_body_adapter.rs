@@ -1,8 +1,9 @@
 //! Shared concrete TouchHold body storage adapters.
 //!
 //! Both trait implementations call the same generic record/Vec kernels used by
-//! the runtime. Reconstruction leaves only four immutable Hold source reads in
-//! the caller. Scheduling forwards the existing head/lifecycle operations once,
+//! the runtime. SliceHoldSource supplies ordered source access and Id cloning;
+//! the runtime supplies three borrowed note fields. Scheduling forwards the
+//! existing head/lifecycle operations once,
 //! without changing the pass's decisions, evaluation order or accumulated work.
 
 use crate::hold_schedule::HoldPhase;
@@ -19,6 +20,56 @@ pub trait HoldSource<S, Id> {
     fn hold_group_id(&self, holds: &S, index: usize) -> Option<Id>;
     fn hold_note_index(&self, holds: &S, index: usize) -> Id;
     fn hold_triggered(&self, holds: &S, index: usize) -> bool;
+}
+
+/// Three borrowed fields from one note. These methods perform no slice access,
+/// source filtering, cloning, group lookup, or mutation. The body group ID is
+/// intentionally distinct from the head-sharing touch_group_id field.
+pub trait HoldFields<Note, Id> {
+    fn body_group_id<'note>(&self, note: &'note Note) -> &'note Option<Id>;
+    fn note_index<'note>(&self, note: &'note Note) -> &'note Id;
+    fn body_triggered(&self, note: &Note) -> bool;
+}
+
+/// Full ordered-slice source reads, shared by both reconstruction callers.
+/// Only the three literal note-field projections stay in the runtime facade.
+pub struct SliceHoldSource<Fields> {
+    pub fields: Fields,
+}
+
+/// Clone one optional ID through a direct borrowed input.
+/// None clones nothing; Some clones only the contained ID once.
+fn clone_optional_id<Id: Clone>(value: &Option<Id>) -> Option<Id> {
+    match value {
+        None => None,
+        Some(id) => Some(Id::clone(id)),
+    }
+}
+
+impl<'source, Area, Note, Id, Fields> HoldSource<&'source [(Area, Note)], Id>
+    for SliceHoldSource<Fields>
+where
+    Id: Clone,
+    Fields: HoldFields<Note, Id>,
+{
+    fn hold_length(&self, holds: &&'source [(Area, Note)]) -> usize {
+        holds.len()
+    }
+
+    fn hold_group_id(&self, holds: &&'source [(Area, Note)], index: usize) -> Option<Id> {
+        let note = &holds[index].1;
+        clone_optional_id(self.fields.body_group_id(note))
+    }
+
+    fn hold_note_index(&self, holds: &&'source [(Area, Note)], index: usize) -> Id {
+        let note = &holds[index].1;
+        Id::clone(self.fields.note_index(note))
+    }
+
+    fn hold_triggered(&self, holds: &&'source [(Area, Note)], index: usize) -> bool {
+        let note = &holds[index].1;
+        self.fields.body_triggered(note)
+    }
 }
 
 /// The same wrapper supplies concrete body storage for rebuild and scheduling.

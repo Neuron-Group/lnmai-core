@@ -14,7 +14,7 @@ use crate::simai::timing::{parse_rat_def, trim};
 use crate::simai::tokenize::{parse_segments, strip_comments};
 use crate::simai::typecheck::typecheck_slides;
 use crate::time::{self, TimePoint};
-use lnmai_core_verify::maidata_scan;
+use lnmai_core_verify::{maidata_line_adapter, maidata_scan};
 
 // Compatibility names exported by `LnmaiCore.Simai.Maidata`.
 pub use self::{
@@ -167,10 +167,6 @@ fn trimmed_line(s: &str) -> &str {
     s.trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\r'))
 }
 
-fn starts_with_amp(s: &str) -> bool {
-    trimmed_line(s).starts_with('&')
-}
-
 fn parse_key_value_line(line: &str) -> Option<(String, String)> {
     let key = match line.find('=') {
         Some(i) => trim(&line[..i]),
@@ -183,70 +179,48 @@ fn parse_key_value_line(line: &str) -> Option<(String, String)> {
     Some((key, value))
 }
 
-struct MaidataLineOps<'a> {
-    lines: &'a [String],
-}
+struct MaidataTextOps;
 
-impl maidata_scan::LineRead<(String, String)> for MaidataLineOps<'_> {
-    fn is_blank(&self, index: usize) -> bool {
-        trimmed_line(&self.lines[index]).is_empty()
+impl maidata_line_adapter::LinePrimitives<String> for MaidataTextOps {
+    type View = str;
+    type Level = Natural;
+
+    fn borrow<'a>(&self, text: &'a String) -> &'a str {
+        text.as_str()
     }
 
-    fn starts_with_amp(&self, index: usize) -> bool {
-        starts_with_amp(&self.lines[index])
+    fn trim<'a>(&self, view: &'a str) -> &'a str {
+        trimmed_line(view)
     }
 
-    fn header(&self, index: usize) -> Option<(String, String)> {
-        parse_key_value_line(&self.lines[index])
+    fn is_empty(&self, view: &str) -> bool {
+        view.is_empty()
     }
 
-    fn is_chart_header(&self, header: &(String, String)) -> bool {
-        header.0.starts_with("&inote_")
-    }
-}
-
-impl
-    maidata_scan::LineWrite<
-        (String, String),
-        Vec<(String, String)>,
-        Vec<MaidataChartBlock>,
-        MaidataChartBlock,
-    > for MaidataLineOps<'_>
-{
-    fn append_field(
-        &self,
-        mut fields: Vec<(String, String)>,
-        header: (String, String),
-    ) -> Vec<(String, String)> {
-        fields.push(header);
-        fields
+    fn starts_with_amp(&self, view: &str) -> bool {
+        view.starts_with('&')
     }
 
-    fn begin_chart(&self, header: (String, String)) -> MaidataChartBlock {
-        let (key, value) = header;
-        let level_index = key
-            .strip_prefix("&inote_")
+    fn starts_with_inote(&self, view: &str) -> bool {
+        view.starts_with("&inote_")
+    }
+
+    fn header(&self, view: &str) -> Option<(String, String)> {
+        parse_key_value_line(view)
+    }
+
+    fn level(&self, view: &str) -> Natural {
+        view.strip_prefix("&inote_")
             .and_then(Natural::from_lean_str)
-            .unwrap_or_default();
-        MaidataChartBlock {
-            level_index,
-            raw_body: value,
-        }
+            .unwrap_or_default()
     }
 
-    fn append_body_line(&self, mut body: MaidataChartBlock, index: usize) -> MaidataChartBlock {
-        body.raw_body.push('\n');
-        body.raw_body.push_str(&self.lines[index]);
-        body
+    fn push_newline(&self, text: &mut String) {
+        text.push('\n');
     }
 
-    fn append_chart(
-        &self,
-        mut charts: Vec<MaidataChartBlock>,
-        body: MaidataChartBlock,
-    ) -> Vec<MaidataChartBlock> {
-        charts.push(body);
-        charts
+    fn push_str(&self, text: &mut String, view: &str) {
+        text.push_str(view);
     }
 }
 
@@ -255,8 +229,15 @@ fn parse_maidata_lines(
     fields: Vec<(String, String)>,
     charts: Vec<MaidataChartBlock>,
 ) -> MaidataFile {
-    let (fields, charts) =
-        maidata_scan::collect_lines(lines.len(), fields, charts, MaidataLineOps { lines });
+    let (fields, charts) = maidata_scan::collect_lines(
+        lines.len(),
+        fields,
+        charts,
+        maidata_line_adapter::MaidataLineOps {
+            lines,
+            primitives: MaidataTextOps,
+        },
+    );
     MaidataFile {
         metadata: MaidataMetadata { fields },
         charts,

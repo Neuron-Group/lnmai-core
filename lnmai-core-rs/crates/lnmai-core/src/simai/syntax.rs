@@ -186,11 +186,8 @@ pub struct MaidataMetadata {
     pub fields: Vec<(String, String)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct MaidataChartBlock {
-    pub level_index: Natural,
-    pub raw_body: String,
-}
+pub type MaidataChartBlock =
+    lnmai_core_verify::maidata_line_adapter::MaidataChartBlock<String, Natural>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MaidataFile {

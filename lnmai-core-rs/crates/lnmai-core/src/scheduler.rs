@@ -24,6 +24,7 @@ use crate::types::{GroupState, JudgeEvent, JudgeGrade};
 use lnmai_core_verify::frame_commands;
 use lnmai_core_verify::hold_schedule::{self as hold_schedule_kernel, HoldWork};
 use lnmai_core_verify::queue_maintenance as queue_maintenance_kernel;
+use lnmai_core_verify::queue_remaining as queue_remaining_kernel;
 use lnmai_core_verify::scheduler::{
     self as scheduler_kernel, FrameEvents, FramePhase, TouchGroupAction, TouchGroupProbe,
 };
@@ -33,7 +34,7 @@ use lnmai_core_verify::slide_parents::{
 use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork};
 use lnmai_core_verify::tap_schedule::{self as tap_schedule_kernel, TapWork};
 use lnmai_core_verify::touch_hold_body_adapter::{
-    self as touch_hold_body_adapter_kernel, TouchHoldBodyAdapter,
+    self as touch_hold_body_adapter_kernel, SliceHoldSource, TouchHoldBodyAdapter,
 };
 use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
 use lnmai_core_verify::touch_schedule::{self as touch_schedule_kernel, TouchWork};
@@ -612,10 +613,9 @@ fn process_tap_queue(
 ) {
     // Every continuation advances one slot. The reference's extra fuel
     // can only observe an empty queue, so no machine-sized +1 is needed.
-    let fuel = queue
-        .notes
-        .len()
-        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX));
+    let len = queue_remaining_kernel::vec_len(&queue.notes);
+    let converted = queue.current_index.to_usize();
+    let fuel = queue_remaining_kernel::remaining_scalar(len, converted);
     process_tap_queue_fuel(
         fuel,
         zone,
@@ -731,16 +731,15 @@ impl queue_maintenance_kernel::QueueReplace<ZoneQueue<HoldNote>, HoldNote>
 
 fn normalize_hold_queue_cursor(queue: &ZoneQueue<HoldNote>) -> ZoneQueue<HoldNote> {
     // Fuel sufficiency against Lean's remaining + 1 is still to be proved.
-    let remaining = queue
-        .notes
-        .len()
-        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX));
+    let len = queue_remaining_kernel::vec_len(&queue.notes);
+    let converted = queue.current_index.to_usize();
+    let remaining = queue_remaining_kernel::remaining_scalar(len, converted);
     queue_maintenance_kernel::normalize_cursor_fuel(remaining, queue.clone(), HoldQueueMaintenance)
 }
 
 fn replace_hold_queue_note(queue: &ZoneQueue<HoldNote>, note: &HoldNote) -> ZoneQueue<HoldNote> {
     queue_maintenance_kernel::replace_all(
-        queue.notes.len(),
+        queue_remaining_kernel::vec_len(&queue.notes),
         queue.clone(),
         note,
         HoldQueueMaintenance,
@@ -834,27 +833,21 @@ fn register_touch_group_result(
     out
 }
 
-/// Source-only reads shared by scheduler and ChartLoader reconstruction.
-/// Concrete body storage is supplied by the verification crate's shared wrapper.
+/// Literal note fields shared by scheduler and ChartLoader reconstruction.
+/// Slice access and Id cloning live in the verification crate's SliceHoldSource.
 pub(crate) struct TouchHoldRebuildAtoms;
 
-impl<'a> touch_hold_body_adapter_kernel::HoldSource<&'a [(SensorArea, HoldNote)], Natural>
-    for TouchHoldRebuildAtoms
-{
-    fn hold_length(&self, holds: &&'a [(SensorArea, HoldNote)]) -> usize {
-        holds.len()
+impl touch_hold_body_adapter_kernel::HoldFields<HoldNote, Natural> for TouchHoldRebuildAtoms {
+    fn body_group_id<'note>(&self, note: &'note HoldNote) -> &'note Option<Natural> {
+        &note.touch_hold_group_id
     }
 
-    fn hold_group_id(&self, holds: &&'a [(SensorArea, HoldNote)], index: usize) -> Option<Natural> {
-        holds[index].1.touch_hold_group_id.clone()
+    fn note_index<'note>(&self, note: &'note HoldNote) -> &'note Natural {
+        &note.params.note_index
     }
 
-    fn hold_note_index(&self, holds: &&'a [(SensorArea, HoldNote)], index: usize) -> Natural {
-        holds[index].1.params.note_index.clone()
-    }
-
-    fn hold_triggered(&self, holds: &&'a [(SensorArea, HoldNote)], index: usize) -> bool {
-        holds[index].1.touch_hold_group_triggered
+    fn body_triggered(&self, note: &HoldNote) -> bool {
+        note.touch_hold_group_triggered
     }
 }
 
@@ -864,7 +857,9 @@ fn touch_hold_body_group_states_from_holds(
     touch_hold_rebuild_kernel::rebuild(
         &holds,
         TouchHoldBodyAdapter {
-            ops: TouchHoldRebuildAtoms,
+            ops: SliceHoldSource {
+                fields: TouchHoldRebuildAtoms,
+            },
         },
     )
 }
@@ -1486,10 +1481,9 @@ impl queue_maintenance_kernel::QueueReplace<ZoneQueue<TouchNote>, TouchNote>
 
 fn normalize_touch_queue_cursor(queue: &ZoneQueue<TouchNote>) -> ZoneQueue<TouchNote> {
     // Fuel sufficiency against Lean's remaining + 1 is still to be proved.
-    let remaining = queue
-        .notes
-        .len()
-        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX));
+    let len = queue_remaining_kernel::vec_len(&queue.notes);
+    let converted = queue.current_index.to_usize();
+    let remaining = queue_remaining_kernel::remaining_scalar(len, converted);
     queue_maintenance_kernel::normalize_cursor_fuel(remaining, queue.clone(), TouchQueueMaintenance)
 }
 
@@ -1528,14 +1522,13 @@ impl
     }
 
     fn queue_remaining(&self, queue: &ZoneQueue<TouchNote>) -> usize {
-        queue
-            .notes
-            .len()
-            .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX))
+        let len = queue_remaining_kernel::vec_len(&queue.notes);
+        let converted = queue.current_index.to_usize();
+        queue_remaining_kernel::remaining_scalar(len, converted)
     }
 
     fn queue_len(&self, queue: &ZoneQueue<TouchNote>) -> usize {
-        queue.notes.len()
+        queue_remaining_kernel::vec_len(&queue.notes)
     }
 
     fn timing(&self, note: &TouchNote) -> TimePoint {
@@ -1733,11 +1726,9 @@ fn process_touch_queue_head(
     Vec<GroupState>,
     Vec<JudgeEvent>,
 ) {
-    let fuel = queue
-        .notes
-        .len()
-        .saturating_sub(queue.current_index.to_usize().unwrap_or(usize::MAX))
-        + 1;
+    let len = queue_remaining_kernel::vec_len(&queue.notes);
+    let converted = queue.current_index.to_usize();
+    let fuel = queue_remaining_kernel::head_fuel_scalar(len, converted);
     process_touch_queue_head_fuel(
         fuel,
         area,

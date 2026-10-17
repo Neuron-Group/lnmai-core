@@ -18,7 +18,7 @@ noncomputable section
 namespace lnmai_core_verify
 
 /-- Trait declaration: [lnmai_core_verify::touch_hold_body_adapter::HoldSource]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 17:0-22:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 18:0-23:1
     Visibility: public -/
 structure touch_hold_body_adapter.HoldSource (Self : Type) (S : Type) (Id :
   Type) where
@@ -27,14 +27,121 @@ structure touch_hold_body_adapter.HoldSource (Self : Type) (S : Type) (Id :
   hold_note_index : Self → S → Std.Usize → Result Id
   hold_triggered : Self → S → Std.Usize → Result Bool
 
+/-- Trait declaration: [lnmai_core_verify::touch_hold_body_adapter::HoldFields]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 28:0-32:1
+    Visibility: public -/
+structure touch_hold_body_adapter.HoldFields (Self : Type) (Note : Type) (Id :
+  Type) where
+  body_group_id : Self → Note → Result (Option Id)
+  note_index : Self → Note → Result Id
+  body_triggered : Self → Note → Result Bool
+
+/-- [lnmai_core_verify::touch_hold_body_adapter::SliceHoldSource]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 36:0-38:1
+    Visibility: public -/
+structure touch_hold_body_adapter.SliceHoldSource (Fields : Type) where
+  fields : Fields
+
+/-- [lnmai_core_verify::touch_hold_body_adapter::clone_optional_id]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 42:0-47:1 -/
+def touch_hold_body_adapter.clone_optional_id
+  {Id : Type} (corecloneCloneInst : core.clone.Clone Id) (value : Option Id) :
+  Result (Option Id)
+  := do
+  match value with
+  | none => ok none
+  | some id => let t ← corecloneCloneInst.clone id
+               ok (some t)
+
+/-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_body_adapter::HoldSource<&'source [(Area, Note)], Id> for lnmai_core_verify::touch_hold_body_adapter::SliceHoldSource<Fields>}::hold_triggered]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 69:4-72:5
+    Visibility: public -/
+def
+  touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_triggered
+  {Area : Type} {Note : Type} {Id : Type} {Fields : Type} (corecloneCloneInst :
+  core.clone.Clone Id) (HoldFieldsInst : touch_hold_body_adapter.HoldFields
+  Fields Note Id) (self : touch_hold_body_adapter.SliceHoldSource Fields)
+  (holds : Slice (Area × Note)) (index : Std.Usize) :
+  Result Bool
+  := do
+  let (_, note) ← Slice.index_usize holds index
+  HoldFieldsInst.body_triggered self.fields note
+
+/-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_body_adapter::HoldSource<&'source [(Area, Note)], Id> for lnmai_core_verify::touch_hold_body_adapter::SliceHoldSource<Fields>}::hold_note_index]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 64:4-67:5
+    Visibility: public -/
+def
+  touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_note_index
+  {Area : Type} {Note : Type} {Id : Type} {Fields : Type} (corecloneCloneInst :
+  core.clone.Clone Id) (HoldFieldsInst : touch_hold_body_adapter.HoldFields
+  Fields Note Id) (self : touch_hold_body_adapter.SliceHoldSource Fields)
+  (holds : Slice (Area × Note)) (index : Std.Usize) :
+  Result Id
+  := do
+  let (_, note) ← Slice.index_usize holds index
+  let t ← HoldFieldsInst.note_index self.fields note
+  corecloneCloneInst.clone t
+
+/-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_body_adapter::HoldSource<&'source [(Area, Note)], Id> for lnmai_core_verify::touch_hold_body_adapter::SliceHoldSource<Fields>}::hold_group_id]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 59:4-62:5
+    Visibility: public -/
+def
+  touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_group_id
+  {Area : Type} {Note : Type} {Id : Type} {Fields : Type} (corecloneCloneInst :
+  core.clone.Clone Id) (HoldFieldsInst : touch_hold_body_adapter.HoldFields
+  Fields Note Id) (self : touch_hold_body_adapter.SliceHoldSource Fields)
+  (holds : Slice (Area × Note)) (index : Std.Usize) :
+  Result (Option Id)
+  := do
+  let (_, note) ← Slice.index_usize holds index
+  let o ← HoldFieldsInst.body_group_id self.fields note
+  touch_hold_body_adapter.clone_optional_id corecloneCloneInst o
+
+/-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_body_adapter::HoldSource<&'source [(Area, Note)], Id> for lnmai_core_verify::touch_hold_body_adapter::SliceHoldSource<Fields>}::hold_length]:
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 55:4-57:5
+    Visibility: public -/
+def
+  touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_length
+  {Area : Type} {Note : Type} {Id : Type} {Fields : Type} (corecloneCloneInst :
+  core.clone.Clone Id) (HoldFieldsInst : touch_hold_body_adapter.HoldFields
+  Fields Note Id) (self : touch_hold_body_adapter.SliceHoldSource Fields)
+  (holds : Slice (Area × Note)) :
+  Result Std.Usize
+  := do
+  ok (Slice.len holds)
+
+/-- Trait implementation: [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_body_adapter::HoldSource<&'source [(Area, Note)], Id> for lnmai_core_verify::touch_hold_body_adapter::SliceHoldSource<Fields>}]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 49:0-73:1 -/
+@[reducible]
+def
+  touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId
+  (Area : Type) {Note : Type} {Id : Type} {Fields : Type} (corecloneCloneInst :
+  core.clone.Clone Id) (HoldFieldsInst : touch_hold_body_adapter.HoldFields
+  Fields Note Id) : touch_hold_body_adapter.HoldSource
+  (touch_hold_body_adapter.SliceHoldSource Fields) (Slice (Area × Note)) Id
+  := {
+  hold_length :=
+    touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_length
+    corecloneCloneInst HoldFieldsInst
+  hold_group_id :=
+    touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_group_id
+    corecloneCloneInst HoldFieldsInst
+  hold_note_index :=
+    touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_note_index
+    corecloneCloneInst HoldFieldsInst
+  hold_triggered :=
+    touch_hold_body_adapter.SliceHoldSource.Insts.Lnmai_core_verifyTouch_hold_body_adapterHoldSourceSharedSourceSlicePairId.hold_triggered
+    corecloneCloneInst HoldFieldsInst
+}
+
 /-- [lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 27:0-29:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 78:0-80:1
     Visibility: public -/
 structure touch_hold_body_adapter.TouchHoldBodyAdapter (Ops : Type) where
   ops : Ops
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::strict_majority_lengths]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 35:0-37:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 86:0-88:1
     Visibility: public -/
 def touch_hold_body_adapter.strict_majority_lengths
   (triggered_len : Std.Usize) (member_len : Std.Usize) : Result Bool := do
@@ -44,7 +151,7 @@ def touch_hold_body_adapter.strict_majority_lengths
   else ok false
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::body_majority]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 40:0-44:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 91:0-95:1
     Visibility: public -/
 def touch_hold_body_adapter.body_majority
   {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
@@ -56,7 +163,7 @@ def touch_hold_body_adapter.body_majority
   touch_hold_body_adapter.strict_majority_lengths triggered_len member_len
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::body_pressed]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 48:0-53:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 99:0-104:1
     Visibility: public -/
 def touch_hold_body_adapter.body_pressed
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -69,7 +176,7 @@ def touch_hold_body_adapter.body_pressed
   | some index => touch_hold_body_adapter.body_majority groups index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::swap_groups]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 157:4-164:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 208:4-215:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.swap_groups
@@ -85,7 +192,7 @@ def
   touch_hold_body.swap_groups groups left right
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::append_empty]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 149:4-155:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 200:4-206:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.append_empty
@@ -101,7 +208,7 @@ def
   touch_hold_body.append_empty corecloneCloneInst groups id
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::remove_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 140:4-147:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 191:4-198:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.remove_trigger
@@ -118,7 +225,7 @@ def
     groups group index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::prepend_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 131:4-138:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 182:4-189:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.prepend_trigger
@@ -134,7 +241,7 @@ def
   touch_hold_body.prepend_trigger corecloneCloneInst groups group note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::prepend_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 122:4-129:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 173:4-180:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.prepend_member
@@ -150,7 +257,7 @@ def
   touch_hold_body.prepend_member corecloneCloneInst groups group note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::trigger_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 112:4-120:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 163:4-171:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.trigger_matches
@@ -167,7 +274,7 @@ def
   touch_hold_body.trigger_matches corecmpPartialEqInst s group index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::trigger_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 108:4-110:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 159:4-161:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.trigger_length
@@ -184,7 +291,7 @@ def
   touch_hold_body.trigger_length s group
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::member_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 98:4-106:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 149:4-157:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.member_matches
@@ -201,7 +308,7 @@ def
   touch_hold_body.member_matches corecmpPartialEqInst s group index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::member_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 94:4-96:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 145:4-147:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.member_length
@@ -218,7 +325,7 @@ def
   touch_hold_body.member_length s group
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::group_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 85:4-92:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 136:4-143:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.group_matches
@@ -235,7 +342,7 @@ def
   touch_hold_body.group_matches corecmpPartialEqInst s index id
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::group_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 81:4-83:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 132:4-134:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.group_length
@@ -251,7 +358,7 @@ def
   touch_hold_body.group_length s
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::empty]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 77:4-79:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 128:4-130:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.empty
@@ -265,7 +372,7 @@ def
   touch_hold_body.empty Id
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::hold_triggered]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 73:4-75:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 124:4-126:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.hold_triggered
@@ -280,7 +387,7 @@ def
   HoldSourceInst.hold_triggered self.ops holds index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::hold_note_index]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 69:4-71:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 120:4-122:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.hold_note_index
@@ -295,7 +402,7 @@ def
   HoldSourceInst.hold_note_index self.ops holds index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::hold_group_id]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 65:4-67:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 116:4-118:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.hold_group_id
@@ -310,7 +417,7 @@ def
   HoldSourceInst.hold_group_id self.ops holds index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::hold_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 61:4-63:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 112:4-114:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId.hold_length
@@ -324,7 +431,7 @@ def
   HoldSourceInst.hold_length self.ops holds
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_rebuild::TouchHoldRebuild<S, alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 55:0-165:1 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 106:0-216:1 -/
 @[reducible]
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_rebuildTouchHoldRebuildSVecTouchHoldBodyGroupStateId
@@ -402,7 +509,7 @@ def
 }
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_append]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 254:4-261:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 305:4-312:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_append
@@ -417,7 +524,7 @@ def
   touch_hold_body.append corecloneCloneInst groups id note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_remove]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 246:4-252:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 297:4-303:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_remove
@@ -433,7 +540,7 @@ def
     index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_members_empty]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 242:4-244:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 293:4-295:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_members_empty
@@ -449,7 +556,7 @@ def
   touch_hold_body.members_empty s index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_erase_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 233:4-240:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 284:4-291:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_erase_trigger
@@ -465,7 +572,7 @@ def
     coredefaultDefaultInst groups index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_erase_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 224:4-231:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 275:4-282:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_erase_member
@@ -481,7 +588,7 @@ def
     coredefaultDefaultInst groups index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_prepend_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 215:4-222:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 266:4-273:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_prepend_trigger
@@ -496,7 +603,7 @@ def
   touch_hold_body.prepend_trigger corecloneCloneInst groups index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_prepend_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 206:4-213:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 257:4-264:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_prepend_member
@@ -511,7 +618,7 @@ def
   touch_hold_body.prepend_member corecloneCloneInst groups index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_has_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 197:4-204:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 248:4-255:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_has_trigger
@@ -527,7 +634,7 @@ def
   touch_hold_body.has_trigger corecmpPartialEqInst s index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_has_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 188:4-195:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 239:4-246:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_has_member
@@ -543,7 +650,7 @@ def
   touch_hold_body.has_member corecmpPartialEqInst s index note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_majority]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 184:4-186:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 235:4-237:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_majority
@@ -559,7 +666,7 @@ def
   touch_hold_body_adapter.body_majority s index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 175:4-182:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 226:4-233:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_matches
@@ -575,7 +682,7 @@ def
   touch_hold_body.group_matches corecmpPartialEqInst s index id
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 171:4-173:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 222:4-224:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId.body_length
@@ -590,7 +697,7 @@ def
   touch_hold_body.group_length s
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::BodyGroups<alloc::vec::Vec<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>>, Id> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 167:0-262:1 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 218:0-313:1 -/
 @[reducible]
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleBodyGroupsVecTouchHoldBodyGroupStateId
@@ -638,7 +745,7 @@ def
 }
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_append]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 299:4-301:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 350:4-352:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_append
@@ -652,7 +759,7 @@ def
     diff
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_set_result]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 295:4-297:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 346:4-348:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_set_result
@@ -666,7 +773,7 @@ def
     diff
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_set_size]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 291:4-293:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 342:4-344:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_set_size
@@ -679,7 +786,7 @@ def
   touch_hold_scheduleHeadGroupsInst.head_set_size self.ops groups index size
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_increment]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 287:4-289:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 338:4-340:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_increment
@@ -692,7 +799,7 @@ def
   touch_hold_scheduleHeadGroupsInst.head_increment self.ops groups index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_result]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 283:4-285:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 334:4-336:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_result
@@ -705,7 +812,7 @@ def
   touch_hold_scheduleHeadGroupsInst.head_result self.ops groups index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_majority]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 279:4-281:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 330:4-332:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_majority
@@ -718,7 +825,7 @@ def
   touch_hold_scheduleHeadGroupsInst.head_majority self.ops groups index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 275:4-277:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 326:4-328:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_matches
@@ -731,7 +838,7 @@ def
   touch_hold_scheduleHeadGroupsInst.head_matches self.ops groups index id
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 271:4-273:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 322:4-324:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups.head_length
@@ -744,7 +851,7 @@ def
   touch_hold_scheduleHeadGroupsInst.head_length self.ops groups
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::HeadGroups<G, Id, Grade, D> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 267:0-302:1 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 318:0-353:1 -/
 @[reducible]
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleHeadGroups
@@ -779,7 +886,7 @@ def
 }
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::append_event]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 424:4-426:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 475:4-477:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.append_event
@@ -794,7 +901,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.append_event self.ops events event
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::append_active]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 420:4-422:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 471:4-473:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.append_active
@@ -810,7 +917,7 @@ def
     note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::update_queue]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 416:4-418:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 467:4-469:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.update_queue
@@ -826,7 +933,7 @@ def
     note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::advance_frontier]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 412:4-414:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 463:4-465:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.advance_frontier
@@ -842,7 +949,7 @@ def
     area
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::step]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 401:4-410:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 452:4-461:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.step
@@ -858,7 +965,7 @@ def
     pressed shared
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::use_sensor]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 397:4-399:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 448:4-450:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.use_sensor
@@ -873,7 +980,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.use_sensor self.ops cursor area
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::use_button]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 393:4-395:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 444:4-446:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.use_button
@@ -888,7 +995,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.use_button self.ops cursor zone
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::sensor_available]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 389:4-391:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 440:4-442:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.sensor_available
@@ -904,7 +1011,7 @@ def
     area
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::button_available]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 385:4-387:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 436:4-438:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.button_available
@@ -920,7 +1027,7 @@ def
     zone
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::outer_button]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 381:4-383:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 432:4-434:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.outer_button
@@ -934,7 +1041,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.outer_button self.ops area
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::button_ring]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 377:4-379:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 428:4-430:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.button_ring
@@ -948,7 +1055,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.button_ring self.ops
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::eligible]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 373:4-375:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 424:4-426:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.eligible
@@ -962,7 +1069,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.eligible self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::unlocked]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 369:4-371:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 420:4-422:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.unlocked
@@ -978,7 +1085,7 @@ def
     note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::within_head_window]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 365:4-367:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 416:4-418:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.within_head_window
@@ -992,7 +1099,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.within_head_window self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::grade_rejected]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 361:4-363:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 412:4-414:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.grade_rejected
@@ -1006,7 +1113,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.grade_rejected self.ops grade
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_diff]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 357:4-359:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 408:4-410:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.head_diff
@@ -1020,7 +1127,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.head_diff self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_grade]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 353:4-355:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 404:4-406:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.head_grade
@@ -1034,7 +1141,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.head_grade self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::phase]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 349:4-351:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 400:4-402:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.phase
@@ -1048,7 +1155,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.phase self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::group_size]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 345:4-347:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 396:4-398:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.group_size
@@ -1062,7 +1169,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.group_size self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::note_index]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 341:4-343:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 392:4-394:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.note_index
@@ -1076,7 +1183,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.note_index self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::head_group_id]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 337:4-339:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 388:4-390:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.head_group_id
@@ -1090,7 +1197,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.head_group_id self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_group_id]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 333:4-335:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 384:4-386:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.body_group_id
@@ -1104,7 +1211,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.body_group_id self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::body_check_active]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 329:4-331:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 380:4-382:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.body_check_active
@@ -1118,7 +1225,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.body_check_active self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::local_pressed]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 325:4-327:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 376:4-378:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.local_pressed
@@ -1132,7 +1239,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.local_pressed self.ops area
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::button_diff]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 321:4-323:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 372:4-374:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.button_diff
@@ -1146,7 +1253,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.button_diff self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::sensor_diff]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 317:4-319:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 368:4-370:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.sensor_diff
@@ -1160,7 +1267,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.sensor_diff self.ops note
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::get]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 313:4-315:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 364:4-366:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.get
@@ -1175,7 +1282,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.get self.ops holds index
 
 /-- [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}::length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 309:4-311:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 360:4-362:5
     Visibility: public -/
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule.length
@@ -1189,7 +1296,7 @@ def
   touch_hold_scheduleTouchHoldScheduleInst.length self.ops holds
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body_adapter::{impl lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule<S, A, N, F, Q, C, H, E, Event, D, Z, Id, Grade> for lnmai_core_verify::touch_hold_body_adapter::TouchHoldBodyAdapter<Ops>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 304:0-427:1 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body_adapter.rs', lines 355:0-478:1 -/
 @[reducible]
 def
   touch_hold_body_adapter.TouchHoldBodyAdapter.Insts.Lnmai_core_verifyTouch_hold_scheduleTouchHoldSchedule
