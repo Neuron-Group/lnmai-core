@@ -102,8 +102,10 @@ theorem emit_body_spec {Ops GroupId Output : Type}
           (W.appendUnchanged output cursor hi hr)
         apply exists_imp_spec
         refine ⟨.cont (output', next, index), ?_, hnext, ?_, ?_, ?_, hreadyId, ?_⟩
-        · simp [maidata_scan.emit_touch_group_loop.body, hmore, R.kind cursor hi,
-            tag_decision, htag, hwrite, hadd]
+        · cases hk : tokens[cursor.val].kind <;>
+            simp_all [maidata_scan.emit_touch_group_loop.body, hmore, R.kind cursor hi,
+              touchKind, shouldTag, hk, htag, hwrite, hadd, Bool.false_eq_true]
+          all_goals split <;> simp_all <;> omega
         · omega
         · omega
         · simpa only [hnext] using hr'
@@ -114,8 +116,9 @@ theorem emit_body_spec {Ops GroupId Output : Type}
         obtain ⟨index', haddIndex, hindex'⟩ := increment_index index stop (by omega)
         apply exists_imp_spec
         refine ⟨.cont (output', next, index'), ?_, hnext, ?_, ?_, ?_, hreadyId, ?_⟩
-        · simp [maidata_scan.emit_touch_group_loop.body, hmore, R.kind cursor hi,
-            tag_decision, htag, hwrite, haddIndex, hadd]
+        · cases hk : tokens[cursor.val].kind <;>
+            simp_all [maidata_scan.emit_touch_group_loop.body, hmore, R.kind cursor hi,
+              touchKind, shouldTag, hk, htag, hwrite, haddIndex, hadd]
         · omega
         · omega
         · simpa only [hnext] using hr'

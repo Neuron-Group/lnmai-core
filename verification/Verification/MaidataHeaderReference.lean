@@ -36,7 +36,9 @@ theorem value_toList (line key value : String)
     (hparse : parseKeyValueLine line = some (key, value)) :
     value.toList = trimChars (afterFirst '=' line.toList) := by
   cases hsplit : line.splitOn "=" with
-  | nil => simp only [parseKeyValueLine, hsplit] at hparse
+  | nil =>
+      simp only [parseKeyValueLine, hsplit] at hparse
+      exact absurd hparse (by simp)
   | cons first rest =>
       have hpair :
           (trim first, trim (String.intercalate "=" rest)) = (key, value) := by

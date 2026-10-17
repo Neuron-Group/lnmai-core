@@ -14,31 +14,37 @@ open private processTouchQueueHead processTouchQueue processTouchNotes
 each visited sensor prefix. The executable Implementation and sensor loop are
 unchanged. No whole-slot, whole-head or whole-pass equation is a premise. -/
 
-def headReference (i : Implementation) (ctx : Context) (area : areas.SensorArea)
-    (queue : i.Q) (acc : Accumulator) : TouchScheduleModel.Outcome :=
+def headReference {Q N F C G E Event T D Area Zone Id Grade : Type}
+    (rep : TouchScheduleProof.Representation Q N F C G E Event T D Area Zone Id Grade)
+    (ctx : Context) (area : areas.SensorArea) (queue : Q) (acc : Accumulator) :
+    TouchScheduleModel.Outcome :=
   TouchScheduleModel.resume (headContext ctx (Areas.toLnmSensorArea area))
-    (TouchScheduleModel.remaining (i.rep.queue queue) + 1)
-    ⟨i.rep.queue queue, acc.1, acc.2.1, acc.2.2.1, acc.2.2.2⟩
+    (TouchScheduleModel.remaining (rep.queue queue) + 1)
+    ⟨rep.queue queue, acc.1, acc.2.1, acc.2.2.1, acc.2.2.2⟩
 
-def AutomaticFits (i : Implementation) (ctx : Context) (area : areas.SensorArea)
-    (head : TouchScheduleModel.Outcome) : Prop :=
-  TouchAutomaticProof.Fits i.automaticCapacity
+def AutomaticFits (automaticCapacity : TouchAutomaticProof.Capacity)
+    (ctx : Context) (area : areas.SensorArea) (head : TouchScheduleModel.Outcome) : Prop :=
+  TouchAutomaticProof.Fits automaticCapacity
     (TouchAutomaticModel.resume
       (automaticContext ctx (Areas.toLnmSensorArea area) head.2.2.2.1)
       head.1 0 head.1.notes ⟨[], head.2.1, head.2.2.2.2⟩)
 
-structure SlotFits (i : Implementation) (ctx : Context) (groupCapacity : Nat)
-    (area : areas.SensorArea) (queue : i.Q) (acc : Accumulator) : Prop where
-  fuel : TouchScheduleModel.remaining (i.rep.queue queue) + 1 ≤ Usize.max
-  queue : QueueMaintenanceProof.Fits i.headCapacity.queue (i.rep.queue queue)
-  events : (headReference i ctx area queue acc).2.2.2.2.length ≤ i.headCapacity.events
-  groups : (headReference i ctx area queue acc).2.2.2.1.length ≤ groupCapacity
-  automatic : AutomaticFits i ctx area (headReference i ctx area queue acc)
+structure SlotFits {Q N F C G E Event T D Area Zone Id Grade : Type}
+    (rep : TouchScheduleProof.Representation Q N F C G E Event T D Area Zone Id Grade)
+    (headCapacity : TouchScheduleProof.Capacity)
+    (automaticCapacity : TouchAutomaticProof.Capacity)
+    (ctx : Context) (groupCapacity : Nat)
+    (area : areas.SensorArea) (queue : Q) (acc : Accumulator) : Prop where
+  fuel : TouchScheduleModel.remaining (rep.queue queue) + 1 ≤ Usize.max
+  queueFits : QueueMaintenanceProof.Fits headCapacity.queue (rep.queue queue)
+  events : (headReference rep ctx area queue acc).2.2.2.2.length ≤ headCapacity.events
+  groups : (headReference rep ctx area queue acc).2.2.2.1.length ≤ groupCapacity
+  automatic : AutomaticFits automaticCapacity ctx area (headReference rep ctx area queue acc)
 
 def Ready (i : Implementation) (ctx : Context) (groupCapacity : Nat)
     (frontiers : i.F) (queues : storage.SensorVec i.Q) (cursor : i.C) (groups : i.G) : Prop :=
   StorageLocalRefinementProof.SensorVecReady i.rep.queue (referenceSlot ctx)
-    (SlotFits i ctx groupCapacity) queues
+    (SlotFits i.rep i.headCapacity i.automaticCapacity ctx groupCapacity) queues
     (i.rep.frontiers frontiers, i.rep.cursor cursor, i.rep.groups groups, [])
 
 structure AgreesWithin (i : Implementation) (ctx : Context) (groupCapacity : Nat) : Prop where
@@ -69,7 +75,8 @@ structure AgreesWithin (i : Implementation) (ctx : Context) (groupCapacity : Nat
 theorem queue_slot_refines (i : Implementation) (ctx : Context) (groupCapacity : Nat)
     (laws : AgreesWithin i ctx groupCapacity) (area : areas.SensorArea) (queue : i.Q)
     (acc : i.F × i.C × i.G × i.E)
-    (bounds : SlotFits i ctx groupCapacity area queue (decodeAcc i acc)) :
+    (bounds : SlotFits i.rep i.headCapacity i.automaticCapacity ctx groupCapacity area queue
+      (decodeAcc i acc)) :
     ∃ out, queueSlot i (area, queue, acc) = ok out ∧
       (i.rep.queue out.1, decodeAcc i out.2) =
         referenceSlot ctx (Areas.toLnmSensorArea area) (i.rep.queue queue) (decodeAcc i acc) := by
@@ -78,17 +85,18 @@ theorem queue_slot_refines (i : Implementation) (ctx : Context) (groupCapacity :
     (TouchScheduleLocalProof.head_process_equiv (i.head area) i.headCursor i.headReplace
       (i.headOps area) i.rep (headContext ctx (Areas.toLnmSensorArea area)) i.headCapacity
       (laws.headPoints area) (laws.headGroups area) (laws.headLifecycle area)
-      fuel (headWork i queue acc) hfuelVal bounds.queue
+      fuel (headWork i queue acc) hfuelVal bounds.queueFits
       (by simpa only [hfuelVal, headWork, TouchScheduleProof.interpret, decodeAcc,
         headReference] using bounds.events)
       (by simpa only [hfuelVal, headWork, TouchScheduleProof.interpret, decodeAcc,
         headReference] using bounds.groups))
   have hheadRef : (TouchScheduleProof.interpret i.rep head).output =
-      headReference i ctx area queue (decodeAcc i acc) := by
+      headReference i.rep ctx area queue (decodeAcc i acc) := by
     simpa only [headReference, TouchScheduleModel.resume, TouchScheduleModel.remaining,
       QueueMaintenanceModel.remaining, processTouchQueueHead, headContext, decodeAcc,
       headWork, TouchScheduleProof.interpret] using hhead
-  have hauto : AutomaticFits i ctx area (TouchScheduleProof.interpret i.rep head).output := by
+  have hauto : AutomaticFits i.automaticCapacity ctx area
+      (TouchScheduleProof.interpret i.rep head).output := by
     rw [hheadRef]
     exact bounds.automatic
   obtain ⟨out, houtRun, hout⟩ := spec_imp_exists
@@ -124,7 +132,8 @@ theorem process_equiv (i : Implementation) (ctx : Context) (groupCapacity : Nat)
         (i.rep.cursor cursor) (i.rep.groups groups) := by
   obtain ⟨mapped, hmap, hmapRep⟩ := StorageLocalRefinementProof.sensor_map_accum_refines_at
     i.clone (slotCall i) queues (frontiers, cursor, groups, i.emptyEvents) ()
-    i.rep.queue (decodeAcc i) i.rep.queue (referenceSlot ctx) (SlotFits i ctx groupCapacity) laws.clone (by
+    i.rep.queue (decodeAcc i) i.rep.queue (referenceSlot ctx)
+    (SlotFits i.rep i.headCapacity i.automaticCapacity ctx groupCapacity) laws.clone (by
       intro area queue acc hfit
       exact queue_slot_refines i ctx groupCapacity laws area queue acc hfit)
     (by simpa only [Ready, decodeAcc, laws.emptyEvents] using ready)
