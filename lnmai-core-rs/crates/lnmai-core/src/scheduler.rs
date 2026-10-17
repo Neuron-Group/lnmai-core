@@ -32,7 +32,9 @@ use lnmai_core_verify::slide_parents::{
 };
 use lnmai_core_verify::slide_schedule::{self as slide_schedule_kernel, SlideWork};
 use lnmai_core_verify::tap_schedule::{self as tap_schedule_kernel, TapWork};
-use lnmai_core_verify::touch_hold_body as touch_hold_body_kernel;
+use lnmai_core_verify::touch_hold_body_adapter::{
+    self as touch_hold_body_adapter_kernel, TouchHoldBodyAdapter,
+};
 use lnmai_core_verify::touch_hold_rebuild as touch_hold_rebuild_kernel;
 use lnmai_core_verify::touch_schedule::{self as touch_schedule_kernel, TouchWork};
 
@@ -832,16 +834,12 @@ fn register_touch_group_result(
     out
 }
 
-/// Shared point adapter for scheduler and ChartLoader reconstruction.
-/// The borrowed source avoids cloning holds or narrowing arbitrary-precision IDs.
+/// Source-only reads shared by scheduler and ChartLoader reconstruction.
+/// Concrete body storage is supplied by the verification crate's shared wrapper.
 pub(crate) struct TouchHoldRebuildAtoms;
 
-impl<'a>
-    touch_hold_rebuild_kernel::TouchHoldRebuild<
-        &'a [(SensorArea, HoldNote)],
-        Vec<TouchHoldBodyGroupState>,
-        Natural,
-    > for TouchHoldRebuildAtoms
+impl<'a> touch_hold_body_adapter_kernel::HoldSource<&'a [(SensorArea, HoldNote)], Natural>
+    for TouchHoldRebuildAtoms
 {
     fn hold_length(&self, holds: &&'a [(SensorArea, HoldNote)]) -> usize {
         holds.len()
@@ -858,114 +856,24 @@ impl<'a>
     fn hold_triggered(&self, holds: &&'a [(SensorArea, HoldNote)], index: usize) -> bool {
         holds[index].1.touch_hold_group_triggered
     }
-
-    fn empty(&self) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::empty()
-    }
-
-    fn group_length(&self, groups: &Vec<TouchHoldBodyGroupState>) -> usize {
-        touch_hold_body_kernel::group_length(groups)
-    }
-
-    fn group_matches(
-        &self,
-        groups: &Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        id: &Natural,
-    ) -> bool {
-        touch_hold_body_kernel::group_matches(groups, index, id)
-    }
-
-    fn member_length(&self, groups: &Vec<TouchHoldBodyGroupState>, group: usize) -> usize {
-        touch_hold_body_kernel::member_length(groups, group)
-    }
-
-    fn member_matches(
-        &self,
-        groups: &Vec<TouchHoldBodyGroupState>,
-        group: usize,
-        index: usize,
-        note: &Natural,
-    ) -> bool {
-        touch_hold_body_kernel::member_matches(groups, group, index, note)
-    }
-
-    fn trigger_length(&self, groups: &Vec<TouchHoldBodyGroupState>, group: usize) -> usize {
-        touch_hold_body_kernel::trigger_length(groups, group)
-    }
-
-    fn trigger_matches(
-        &self,
-        groups: &Vec<TouchHoldBodyGroupState>,
-        group: usize,
-        index: usize,
-        note: &Natural,
-    ) -> bool {
-        touch_hold_body_kernel::trigger_matches(groups, group, index, note)
-    }
-
-    fn prepend_member(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        group: usize,
-        note: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::prepend_member(groups, group, note)
-    }
-
-    fn prepend_trigger(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        group: usize,
-        note: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::prepend_trigger(groups, group, note)
-    }
-
-    fn remove_trigger(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        group: usize,
-        index: usize,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::remove_trigger(groups, group, index)
-    }
-
-    fn append_empty(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        id: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::append_empty(groups, id)
-    }
-
-    fn swap_groups(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        left: usize,
-        right: usize,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::swap_groups(groups, left, right)
-    }
 }
 
 fn touch_hold_body_group_states_from_holds(
     holds: &[(SensorArea, HoldNote)],
 ) -> Vec<TouchHoldBodyGroupState> {
-    touch_hold_rebuild_kernel::rebuild(&holds, TouchHoldRebuildAtoms)
+    touch_hold_rebuild_kernel::rebuild(
+        &holds,
+        TouchHoldBodyAdapter {
+            ops: TouchHoldRebuildAtoms,
+        },
+    )
 }
 
 fn touch_hold_body_group_majority_pressed(
     groups: &[TouchHoldBodyGroupState],
     group_id: Natural,
 ) -> bool {
-    match touch_hold_body_kernel::find_group(groups, &group_id) {
-        Some(index) => has_strict_majority(
-            touch_hold_body_kernel::trigger_length(groups, index).into(),
-            touch_hold_body_kernel::member_length(groups, index).into(),
-        ),
-        None => false,
-    }
+    touch_hold_body_adapter_kernel::body_pressed(groups, &group_id)
 }
 
 fn touch_hold_body_check_active(note: &HoldNote, current_time: TimePoint) -> bool {
@@ -1271,105 +1179,6 @@ impl touch_hold_schedule_kernel::HeadGroups<Vec<GroupState>, Natural, JudgeGrade
     }
 }
 
-impl touch_hold_schedule_kernel::BodyGroups<Vec<TouchHoldBodyGroupState>, Natural>
-    for TouchHoldScheduleFrame<'_>
-{
-    fn body_length(&self, groups: &Vec<TouchHoldBodyGroupState>) -> usize {
-        touch_hold_body_kernel::group_length(groups)
-    }
-
-    fn body_matches(
-        &self,
-        groups: &Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        id: &Natural,
-    ) -> bool {
-        touch_hold_body_kernel::group_matches(groups, index, id)
-    }
-
-    fn body_majority(&self, groups: &Vec<TouchHoldBodyGroupState>, index: usize) -> bool {
-        has_strict_majority(
-            touch_hold_body_kernel::trigger_length(groups, index).into(),
-            touch_hold_body_kernel::member_length(groups, index).into(),
-        )
-    }
-
-    fn body_has_member(
-        &self,
-        groups: &Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        note: &Natural,
-    ) -> bool {
-        touch_hold_body_kernel::has_member(groups, index, note)
-    }
-
-    fn body_has_trigger(
-        &self,
-        groups: &Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        note: &Natural,
-    ) -> bool {
-        touch_hold_body_kernel::has_trigger(groups, index, note)
-    }
-
-    fn body_prepend_member(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        note: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::prepend_member(groups, index, note)
-    }
-
-    fn body_prepend_trigger(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        note: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::prepend_trigger(groups, index, note)
-    }
-
-    fn body_erase_member(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        note: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::erase_member(groups, index, note)
-    }
-
-    fn body_erase_trigger(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        index: usize,
-        note: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::erase_trigger(groups, index, note)
-    }
-
-    fn body_members_empty(&self, groups: &Vec<TouchHoldBodyGroupState>, index: usize) -> bool {
-        touch_hold_body_kernel::members_empty(groups, index)
-    }
-
-    fn body_remove(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        index: usize,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::remove_group(groups, index)
-    }
-
-    fn body_append(
-        &self,
-        groups: Vec<TouchHoldBodyGroupState>,
-        id: &Natural,
-        note: &Natural,
-    ) -> Vec<TouchHoldBodyGroupState> {
-        touch_hold_body_kernel::append(groups, id, note)
-    }
-}
-
 impl<'notes>
     touch_hold_schedule_kernel::TouchHoldSchedule<
         &'notes [(SensorArea, HoldNote)],
@@ -1593,13 +1402,15 @@ fn process_touch_hold_notes(
             groups: touch_group_states.to_vec(),
             body_groups: touch_hold_body_groups.to_vec(),
         },
-        TouchHoldScheduleFrame {
-            input,
-            current_time,
-            delta,
-            style,
-            touch_panel_offset,
-            button_ring_for_touch,
+        TouchHoldBodyAdapter {
+            ops: TouchHoldScheduleFrame {
+                input,
+                current_time,
+                delta,
+                style,
+                touch_panel_offset,
+                button_ring_for_touch,
+            },
         },
     );
     (

@@ -123,10 +123,14 @@ structure RemainingAtoms {Q N F C E Event D Area Ops : Type}
   button_available : ∀ c, call.button_available ops c = ok (buttonAvailable ctx (rep.cursor c))
   sensor_available : ∀ c a,
     call.sensor_available ops c a = ok (sensorAvailable ctx (rep.cursor c) (rep.area a))
-  use_button : ∀ c, ∃ out, call.use_button ops c = ok out ∧
-    rep.cursor out = useButton ctx (rep.cursor c)
-  use_sensor : ∀ c a, ∃ out, call.use_sensor ops c a = ok out ∧
-    rep.cursor out = useSensor (rep.cursor c) (rep.area a)
+  /-- Only an available click is spent. Natural arithmetic/field allocation
+  is required at the selected update, never for an unavailable counter. -/
+  use_button : ∀ c, buttonAvailable ctx (rep.cursor c) = true →
+    ∃ out, call.use_button ops c = ok out ∧
+      rep.cursor out = useButton ctx (rep.cursor c)
+  use_sensor : ∀ c a, sensorAvailable ctx (rep.cursor c) (rep.area a) = true →
+    ∃ out, call.use_sensor ops c a = ok out ∧
+      rep.cursor out = useSensor (rep.cursor c) (rep.area a)
   ended : ∀ n, call.ended ops n = ok (TapScheduleModel.ended (rep.note n))
   prepend_event : ∀ events event, (rep.events events).length + 1 ≤ capacity →
     ∃ out, call.prepend_event ops events event = ok out ∧

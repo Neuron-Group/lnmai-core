@@ -149,9 +149,9 @@ theorem copy_skipWhile {s : Slice} (pos : s.Pos) (p : Char → Bool) :
   · rw [dif_pos h]
     rw [suffix_cons pos h, List.dropWhile_cons]
     by_cases hp : p (pos.get h) = true
-    · rw [if_pos hp]
+    · simp only [if_pos hp]
       exact copy_skipWhile (pos.next h) p
-    · rw [if_neg hp]
+    · simp only [if_neg hp]
       exact suffix_cons pos h
   · rw [dif_neg h]
     have he : pos = s.endPos := by simpa using h
@@ -171,7 +171,7 @@ theorem copy_revSkipWhile {s : Slice} (pos : s.Pos) (p : Char → Bool) :
     simp only [List.reverse_append, List.reverse_singleton, List.singleton_append,
       List.dropWhile_cons]
     by_cases hp : p ((pos.prev h).get (by simp)) = true
-    · rw [if_pos hp]
+    · simp only [if_pos hp]
       exact copy_revSkipWhile (pos.prev h) p
     · simp only [if_neg hp, List.reverse_cons, List.reverse_reverse]
       exact prefix_snoc pos h

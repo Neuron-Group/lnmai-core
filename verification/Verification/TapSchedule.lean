@@ -69,10 +69,14 @@ structure AtomicAgrees (call : Call (Q := Q) (N := N) (F := F) (C := C)
   button_available : ∀ c, call.button_available ops c = ok (buttonAvailable ctx (rep.cursor c))
   sensor_available : ∀ c a,
     call.sensor_available ops c a = ok (sensorAvailable ctx (rep.cursor c) (rep.area a))
-  use_button : ∀ c, ∃ out, call.use_button ops c = ok out ∧
-    rep.cursor out = useButton ctx (rep.cursor c)
-  use_sensor : ∀ c a, ∃ out, call.use_sensor ops c a = ok out ∧
-    rep.cursor out = useSensor (rep.cursor c) (rep.area a)
+  /-- Only an available click is spent. Natural arithmetic/field allocation
+  is required at the selected update, never for an unavailable counter. -/
+  use_button : ∀ c, buttonAvailable ctx (rep.cursor c) = true →
+    ∃ out, call.use_button ops c = ok out ∧
+      rep.cursor out = useButton ctx (rep.cursor c)
+  use_sensor : ∀ c a, sensorAvailable ctx (rep.cursor c) (rep.area a) = true →
+    ∃ out, call.use_sensor ops c a = ok out ∧
+      rep.cursor out = useSensor (rep.cursor c) (rep.area a)
   step : ∀ n d clicked, ∃ after event, call.step ops n d clicked = ok (after, event) ∧
     (rep.note after, event.map rep.event) =
       tapFamilyStep (rep.note n) ctx.currentTime (rep.duration d) clicked ctx.style
@@ -115,24 +119,54 @@ theorem consume_clicks_spec (allow : Bool) (cursor : C) (area : Area) :
       (button, sensor, rep.cursor next) =
         consumeButtonThenFallbackSensor ctx.input (rep.cursor cursor) allow
           ctx.zone (rep.area area) := by
-  obtain ⟨cb, hcb, hcbRep⟩ := atoms.use_button cursor
-  obtain ⟨cs, hcs, hcsRep⟩ := atoms.use_sensor cursor area
   have href := SchedulerClickProof.consume_click_equiv ctx.input (rep.cursor cursor)
     allow ctx.zone (rep.area area)
-  cases allow <;>
-    cases hb : buttonAvailable ctx (rep.cursor cursor) <;>
-    cases hs : sensorAvailable ctx (rep.cursor cursor) (rep.area area)
-  all_goals
-    have hb' := hb
-    have hs' := hs
-    dsimp only [buttonAvailable] at hb'
-    dsimp only [sensorAvailable] at hs'
-    simp only [
-      SchedulerClickProof.consumeClickRuntime, hb', hs', scheduler.consume_click,
-      Bool.false_eq_true, Bool.true_eq, ↓reduceIte, bind_tc_ok, Result.ok.injEq] at href
-    simp [consumeClicks, atoms.button_available, atoms.sensor_available, hb, hs,
-      scheduler.consume_click, hcb, hcs, hcbRep, hcsRep, ← href,
-      useButton, useSensor]
+  cases allow with
+  | false =>
+      simp only [SchedulerClickProof.consumeClickRuntime, scheduler.consume_click,
+        Bool.false_eq_true, ↓reduceIte, bind_tc_ok, Result.ok.injEq] at href
+      refine ⟨false, false, cursor, ?_, ?_⟩
+      · simp [consumeClicks, atoms.button_available, atoms.sensor_available,
+          scheduler.consume_click]
+      · simpa using href
+  | true =>
+      cases hb : buttonAvailable ctx (rep.cursor cursor) with
+      | true =>
+          obtain ⟨cb, hcb, hcbRep⟩ := atoms.use_button cursor hb
+          have hb' := hb
+          dsimp only [buttonAvailable] at hb'
+          simp only [SchedulerClickProof.consumeClickRuntime, hb', scheduler.consume_click,
+            Bool.false_eq_true, Bool.true_eq, ↓reduceIte, bind_tc_ok,
+            Result.ok.injEq] at href
+          refine ⟨true, false, cb, ?_, ?_⟩
+          · simp [consumeClicks, atoms.button_available, atoms.sensor_available,
+              hb, scheduler.consume_click, hcb]
+          · simpa only [hcbRep, useButton] using href
+      | false =>
+          have hb' := hb
+          dsimp only [buttonAvailable] at hb'
+          cases hs : sensorAvailable ctx (rep.cursor cursor) (rep.area area) with
+          | false =>
+              have hs' := hs
+              dsimp only [sensorAvailable] at hs'
+              simp only [SchedulerClickProof.consumeClickRuntime, hb', hs',
+                scheduler.consume_click, Bool.false_eq_true, Bool.true_eq,
+                ↓reduceIte, bind_tc_ok, Result.ok.injEq] at href
+              refine ⟨false, false, cursor, ?_, ?_⟩
+              · simp [consumeClicks, atoms.button_available, atoms.sensor_available,
+                  hb, hs, scheduler.consume_click]
+              · simpa using href
+          | true =>
+              obtain ⟨cs, hcs, hcsRep⟩ := atoms.use_sensor cursor area hs
+              have hs' := hs
+              dsimp only [sensorAvailable] at hs'
+              simp only [SchedulerClickProof.consumeClickRuntime, hb', hs',
+                scheduler.consume_click, Bool.false_eq_true, Bool.true_eq,
+                ↓reduceIte, bind_tc_ok, Result.ok.injEq] at href
+              refine ⟨false, true, cs, ?_, ?_⟩
+              · simp [consumeClicks, atoms.button_available, atoms.sensor_available,
+                  hb, hs, scheduler.consume_click, hcs]
+              · simpa only [hcsRep, useSensor] using href
 
 /-- Names the straight-line prefix of the actual body, ending after lifecycle. -/
 def prepare (w : RawWork (Q := Q) (F := F) (C := C) (E := E)) (note : N) :

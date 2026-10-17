@@ -43,7 +43,7 @@ PY
 echo '[2/3] aeneas: generating the Lean model'
 "$aeneas_bin" -backend lean -dest "$out" "$llbc"
 generated="$out/LnmaiCoreVerify.lean"
-destination="$repo/verification/Verification/Generated.lean"
+destination="$repo/verification/Verification"
 test -f "$generated"
 # Preserve literal CR/LF and other Unicode characters. Text-mode newline
 # conversion would silently change the extracted whitespace predicate.
@@ -51,11 +51,8 @@ python3 "$repo/verification/tools/normalize_generated.py" "$generated"
 python3 "$repo/verification/tools/check_generated_axioms.py" "$generated"
 if [[ "$mode" == check ]]; then
   echo '[3/3] checking generated model freshness'
-  if ! cmp -s "$generated" "$destination"; then
-    echo 'Generated.lean is stale; regenerate it and recheck the proofs.' >&2
-    diff -u "$destination" "$generated" || true
-    exit 1
-  fi
+  python3 "$repo/verification/tools/partition_generated.py" \
+    "$generated" "$destination" --check
   python3 - "$here/lnmai_core_verify.llbc" "$llbc" <<'PY'
 import json, sys
 a, b = (json.load(open(p)) for p in sys.argv[1:])
@@ -65,6 +62,7 @@ PY
 else
   echo '[3/3] installing extracted artifacts'
   cp "$llbc" "$here/lnmai_core_verify.llbc"
-  cp "$generated" "$destination"
+  python3 "$repo/verification/tools/partition_generated.py" \
+    "$generated" "$destination"
 fi
 echo 'Aeneas artifacts match the Rust source.'

@@ -129,10 +129,14 @@ structure PointAgrees
     ok (buttonAvailable ctx (rep.cursor c) (rep.zone z))
   sensor_available : ∀ c a, call.sensor_available ops c a =
     ok (sensorAvailable ctx (rep.cursor c) (rep.area a))
-  use_button : ∀ c z, ∃ out, call.use_button ops c z = ok out ∧
-    rep.cursor out = useButton (rep.cursor c) (rep.zone z)
-  use_sensor : ∀ c a, ∃ out, call.use_sensor ops c a = ok out ∧
-    rep.cursor out = useSensor (rep.cursor c) (rep.area a)
+  /-- The real attempt branch supplies availability before a counter write.
+  These laws make no fixed-width bound on Natural(BigUint) counter values. -/
+  use_button : ∀ c z, buttonAvailable ctx (rep.cursor c) (rep.zone z) = true →
+    ∃ out, call.use_button ops c z = ok out ∧
+      rep.cursor out = useButton (rep.cursor c) (rep.zone z)
+  use_sensor : ∀ c a, sensorAvailable ctx (rep.cursor c) (rep.area a) = true →
+    ∃ out, call.use_sensor ops c a = ok out ∧
+      rep.cursor out = useSensor (rep.cursor c) (rep.area a)
   ended : ∀ n, call.ended ops n = ok (ended (rep.note n))
   event_grade : ∀ e, ∃ g, call.event_grade ops e = ok g ∧ rep.grade g = (rep.event e).grade
   is_miss_or_too_fast : ∀ g, call.is_miss_or_too_fast ops g = ok (rep.grade g).isMissOrTooFast
@@ -271,12 +275,12 @@ include points in
 theorem attempt_button_spec (cursor : C) (zone : Zone) :
     ∃ next clicked, attemptButton call ops cursor zone = ok (next, clicked) ∧
       (clicked, rep.cursor next) = tryUseButtonClickAt ctx.input (rep.cursor cursor) (rep.zone zone) := by
-  obtain ⟨next, hn, hnRep⟩ := points.use_button cursor zone
   cases ha : buttonAvailable ctx (rep.cursor cursor) (rep.zone zone)
   · refine ⟨cursor, false, ?_, ?_⟩
     · simp [attemptButton, points.button_available, ha]
     · simp [try_button_reference, ha]
-  · refine ⟨next, true, ?_, ?_⟩
+  · obtain ⟨next, hn, hnRep⟩ := points.use_button cursor zone ha
+    refine ⟨next, true, ?_, ?_⟩
     · simp [attemptButton, points.button_available, ha, hn]
     · simp [try_button_reference, ha, hnRep]
 
@@ -284,12 +288,12 @@ include points in
 theorem attempt_sensor_spec (cursor : C) (area : Area) :
     ∃ next clicked, attemptSensor call ops cursor area = ok (next, clicked) ∧
       (clicked, rep.cursor next) = tryUseSensorClickAt ctx.input (rep.cursor cursor) (rep.area area) := by
-  obtain ⟨next, hn, hnRep⟩ := points.use_sensor cursor area
   cases ha : sensorAvailable ctx (rep.cursor cursor) (rep.area area)
   · refine ⟨cursor, false, ?_, ?_⟩
     · simp [attemptSensor, points.sensor_available, ha]
     · simp [try_sensor_reference, ha]
-  · refine ⟨next, true, ?_, ?_⟩
+  · obtain ⟨next, hn, hnRep⟩ := points.use_sensor cursor area ha
+    refine ⟨next, true, ?_, ?_⟩
     · simp [attemptSensor, points.sensor_available, ha, hn]
     · simp [try_sensor_reference, ha, hnRep]
 

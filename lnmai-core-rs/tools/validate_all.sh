@@ -58,7 +58,7 @@ run extraction-freshness "$repo" bash lnmai-core-rs/tools/regen_aeneas.sh --chec
 if [[ -n "${AENEAS_HOME:-}" ]]; then
   run aeneas-backend "$repo" bash verification/tools/wire_aeneas.sh
 fi
-for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra Hold HoldModern \
+for module in Generated GeneratedTouchHoldBodyAdapter VecEquality Areas Bridge Types Convert Judge TypesExtra Hold HoldModern \
   Rotations Time Constants Score ScoreExtra Adapters AdapterJudgments JudgmentAdapter AdapterScore \
   IntegerAdapters AccuracyAdapters RuntimeScore RuntimeScoreJudgments GradeCounts RuntimeCounts \
   Storage StorageLoops StorageAccum StoragePublic StorageEquality Symmetry AreasPublic TypesPublic \
@@ -72,6 +72,8 @@ for module in Generated VecEquality Areas Bridge Types Convert Judge TypesExtra 
   VecPrependModel VecPrependExtracted VecEraseModel VecEraseExtracted TouchHoldRebuildCapacity \
   TouchHoldBodyReads TouchHoldBodyTraits TouchHoldBodyFields TouchHoldBodyScans \
   TouchHoldBodyViewPoints TouchHoldBodyUpdates TouchHoldBodyErase TouchHoldBodyRebuild \
+  TouchHoldBodyMajority TouchHoldBodyAdapter TouchHoldRebuildAdapter TouchHoldScheduleAdapter \
+  SchedulerCounterLocal SchedulerRemainingFields \
   StorageLocalRefinement TapSchedulePassLocal TouchScheduleLocal TouchSchedulePassLocal \
   SchedulerFrameFieldsAt SchedulerFrameContractsAt SchedulerFramePipelineAt \
   TapLifecycle TouchLifecycle HoldLifecycle SlideLifecycle \

@@ -179,5 +179,7 @@ theorem trace_equiv (p : ParentKernel) (b : BodyKernel)
           tap hold slide touch touchHold p b parents body addTime (fields state input)
           base (callback input) state input hfields htime hgroups laws fits,
         bind_tc_ok, ih _ hrest, SchedulerFrameStateProof.referenceTrace]
+      cases SchedulerFrameStateProof.referenceTrace (Scheduler.stepFrame state input).1 rest
+      rfl
 
 end Verification.SchedulerFramePipelineProof

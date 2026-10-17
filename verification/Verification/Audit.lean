@@ -135,6 +135,12 @@ import Verification.TouchHoldBodyUpdates
 import Verification.TouchHoldBodyErase
 import Verification.TouchHoldBodyRebuild
 import Verification.SchedulerFramePipelineAt
+import Verification.TouchHoldBodyMajority
+import Verification.TouchHoldBodyAdapter
+import Verification.TouchHoldRebuildAdapter
+import Verification.TouchHoldScheduleAdapter
+import Verification.SchedulerCounterLocal
+import Verification.SchedulerRemainingFields
 import Lean.Util.CollectAxioms
 
 /- Check transitive theorem dependencies, not merely imports. Aeneas contains
@@ -145,6 +151,34 @@ run_cmd do
   let env ← getEnv
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
   let required : Array Name := #[
+    ``Verification.TouchHoldBodyMajorityProof.strict_majority_lengths_eq,
+    ``Verification.TouchHoldBodyMajorityProof.majority_point,
+    ``Verification.TouchHoldBodyMajorityProof.body_pressed_view,
+    ``Verification.TouchHoldBodyAdapterProof.body_atoms,
+    ``Verification.TouchHoldBodyAdapterProof.body_pressed_equiv,
+    ``Verification.TouchHoldBodyAdapterProof.register_body_equiv,
+    ``Verification.TouchHoldBodyAdapterProof.unregister_body_equiv,
+    ``Verification.TouchHoldBodyAdapterProof.exit_body_equiv,
+    ``Verification.TouchHoldRebuildAdapterProof.dictionary_eq,
+    ``Verification.TouchHoldRebuildAdapterProof.source_atoms,
+    ``Verification.TouchHoldRebuildAdapterProof.prefix_fits,
+    ``Verification.TouchHoldRebuildAdapterProof.rebuild_equiv,
+    ``Verification.TouchHoldScheduleAdapterProof.head_atoms,
+    ``Verification.TouchHoldScheduleAdapterProof.schedule_atoms,
+    ``Verification.TouchHoldScheduleAdapterProof.body_atoms_for,
+    ``Verification.TouchHoldScheduleAdapterProof.process_spec,
+    ``Verification.TouchHoldScheduleAdapterProof.process_equiv,
+    ``Verification.SchedulerCounterLocalProof.successor_le_supply,
+    ``Verification.SchedulerCounterLocalProof.unavailable_at_bound,
+    ``Verification.SchedulerRemainingFieldsProof.remainingScalar_val,
+    ``Verification.SchedulerRemainingFieldsProof.headFuelScalar_spec,
+    ``Verification.SchedulerRemainingFieldsProof.headFuelScalar_max_zero_no_result,
+    ``Verification.SchedulerRemainingFieldsProof.headroom_iff,
+    ``Verification.SchedulerRemainingFieldsProof.facade_agrees,
+    ``Verification.SchedulerRemainingFieldsProof.queueRemaining_spec,
+    ``Verification.SchedulerRemainingFieldsProof.headFuel_spec,
+    ``Verification.SchedulerRemainingFieldsProof.representedFields_fuel,
+    ``Verification.SchedulerRemainingFieldsProof.empty_queue_fuel,
     ``Verification.TouchHoldBodyReadsProof.group_matches_view,
     ``Verification.TouchHoldBodyReadsProof.member_matches_eq,
     ``Verification.TouchHoldBodyReadsProof.trigger_matches_eq,

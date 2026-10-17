@@ -52,15 +52,22 @@ passing finite comparison discharges the remaining formal obligations.
 
 ## Most recent non-test checks
 
-The next source checkpoint adds actual TouchHold mutation, first-match scan,
-decoded update/erase and rebuild-composition proofs, plus reachable-state
-frame contracts and local Tap/Touch traversal contracts. These new modules are
-pending separate compilation and the current-extraction axiom audit. The
-rebuild dictionary is currently a Lean composition of extracted operations,
-not extracted Rust trait wiring. Primitive Natural operations, reachable
-numeric bounds and the other runtime boundaries listed below remain open.
-The checkpoint also preserves the prefix/Maidata diagnostic repairs. No tests
-were run, and committing these sources is not proof acceptance.
+The current source checkpoint installs the actual extracted Rust TouchHold
+body adapter used by Scheduler and ChartLoader, with proofs connecting its
+rebuild and scheduling dictionaries to record, first-match scan, update/erase
+and strict-majority operations. The new proof modules are pending separate
+compilation and the current-extraction axiom audit. Rebuild retains four
+immutable source-read laws and primitive identifier laws; scheduling retains
+head, lifecycle, queue and local size contracts. These are not whole-runtime
+equivalence theorems.
+
+The same batch narrows Tap/Touch counter-update laws to available-click
+branches and adds concrete finite-Vec remaining/fuel witnesses. Runtime click
+counters are Natural(BigUint), not usize. The actual fixed-width Touch-head
+fuel condition is remaining + 1 <= Usize.max at the visited queue; its native
+field/conversion wiring remains open. Prefix/Maidata diagnostic repairs and
+the two frame-trace tuple-destructuring repairs are included. No tests were
+run, and committing these sources is not proof acceptance.
 
 Checkpoint `5753781` preserves the prefix/prepend/erase kernels and literal-safe
 extraction before the current batch. TouchHold now shares its actual generic
@@ -73,10 +80,23 @@ after the explicit Default/empty correction passed in
 `/tmp/lnmai-touch-hold-fields-library-check-5.log`. No execution tests were run.
 
 The installed canonical extraction is
-`/tmp/lnmai-touch-hold-fields-extraction-5/`. All 45 current kernel source hashes
-and the exact source file set match its manifest. Generated SHA256 is
+`/tmp/lnmai-touch-hold-adapter-extraction-6/`. All current kernel/runtime source
+hashes match its manifests. The normalized full Aeneas SHA256 is
+`6256a77c459e9d1b0974f172065a6bb01d9cd0f4276e06777e25f632c707af2c`.
+`partition_generated.py` installs its 73 new adapter blocks separately in
+`GeneratedTouchHoldBodyAdapter.lean`; the 1229 unchanged core blocks retain
+the exact previous `Generated.lean` bytes. `extraction-manifest.json` records
+every block once and reconstructs the full extraction byte for byte, including
+literal CR characters and original order. This avoids invalidating all core
+proof artifacts on an additive extraction. The partition and regeneration
+integration were independently reviewed in
+`/tmp/lnmai-stage6-partition-static-review-gq9x9xj4/delivery-1/REVIEW.md`;
+the review and byte reconstruction are provenance checks, not proof acceptance.
+
+The unchanged core comes from `/tmp/lnmai-touch-hold-fields-extraction-5/`.
+Its Generated SHA256 is
 `61f040d6f4e25a3d202a3737085eef0fd13533994296e7570d6066ed7188c634`;
-LLBC SHA256 is
+the historical stage5 LLBC SHA256 is
 `b7828eddad6aba4e2d21042a1a99e504039811cb4e4240b0cff903f8cabae619`.
 All 1188 previous declaration bodies are unchanged and 40 TouchHold declaration
 blocks were added. The byte-preserving comparison is recorded in its
