@@ -84,7 +84,13 @@ oracle in both classic and modern modes. All ten difficulties matched in the
 frontend, inspection, semantic and normalized views (10/10), and all forty
 complete playthroughs (classic/modern x autoplay/no-input) matched frame by
 frame - 350,104 compared frames, `2 passed; 0 failed` in
-`/tmp/lnmai-requested-corpus-tests.log`. These are finite comparisons on the
+`/tmp/lnmai-requested-corpus-tests.log`. The whole differential suite now passes on the
+installed sources: 22/22 tests, 77 unit tests, 48/48 corpus frontends, and 232
+complete playthroughs (the 48-difficulty corpus plus the ten requested
+difficulties, each in classic and modern mode with and without autoplay) totalling
+2,010,664 compared frames, plus 16,404 accepted restored-state transitions and
+1,356 exercised decode errors. Log: `/tmp/lnmai-full-differential.log`.
+These are finite comparisons on the
 installed sources; they do not discharge the remaining representation,
 allocation, seek, JSON or ABI obligations.
 
