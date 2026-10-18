@@ -77,13 +77,12 @@ impl Duration {
         Self::from_micros(self.micros.abs())
     }
     pub fn scale_nat(&self, factor: impl Into<crate::natural::Natural>) -> Self {
-        Self::from_micros(self.micros.to_bigint() * BigInt::from(factor.into()))
+        let factor = Integer::from(factor.into());
+        Self::from_micros(&self.micros * &factor)
     }
     pub fn div_nat(&self, divisor: impl Into<crate::natural::Natural>) -> Self {
-        Self::from_micros(
-            self.micros
-                .div_euclid(&Integer::from(BigInt::from(divisor.into()))),
-        )
+        let divisor = Integer::from(divisor.into());
+        Self::from_micros(self.micros.div_euclid(&divisor))
     }
 }
 
@@ -119,24 +118,23 @@ pub fn time_point_sub_duration(point: TimePoint, duration: Duration) -> TimePoin
 }
 
 use crate::integer::Integer;
+use crate::natural::Natural;
 use crate::rat::Rat;
-use num_bigint::BigInt;
-use num_traits::{Signed, Zero};
 
 pub const MICROS_PER_MILLI: i128 = 1000;
 pub const MICROS_PER_SECOND: i128 = 1_000_000;
 pub const MICROS_PER_MINUTE: i128 = 60 * MICROS_PER_SECOND;
 
-pub fn millis_to_micros(millis: impl Into<BigInt>) -> BigInt {
+pub fn millis_to_micros(millis: impl Into<Integer>) -> Integer {
     millis.into() * MICROS_PER_MILLI
 }
 
 /// `Time.roundDivAwayFromZero`: add/subtract half the positive denominator,
 /// then use Euclidean division. This preserves the Lean formula even for
 /// negative inputs where it differs from ordinary half-away rounding.
-fn round_div_away_from_zero(num: &BigInt, den: &BigInt) -> BigInt {
+fn round_div_away_from_zero(num: &Integer, den: &Integer) -> Integer {
     if den.is_zero() {
-        return BigInt::zero();
+        return Integer::small(0);
     }
     let den_pos = den.abs();
     let num_adj = if num.is_negative() {
@@ -144,8 +142,8 @@ fn round_div_away_from_zero(num: &BigInt, den: &BigInt) -> BigInt {
     } else {
         num + &den_pos / 2u8
     };
-    let quotient = &num_adj / &den_pos;
-    if (&num_adj % &den_pos).is_negative() {
+    let quotient = num_adj.div_trunc(&den_pos);
+    if num_adj.rem_trunc(&den_pos).is_negative() {
         quotient - 1
     } else {
         quotient
@@ -153,8 +151,10 @@ fn round_div_away_from_zero(num: &BigInt, den: &BigInt) -> BigInt {
 }
 
 /// Exact integer quantization, including values outside machine integer ranges.
-pub fn quantize_rat_micros(value: Rat) -> BigInt {
-    round_div_away_from_zero(value.num(), value.den())
+pub fn quantize_rat_micros(value: Rat) -> Integer {
+    let num = value.num();
+    let den = Integer::from(&value.den());
+    round_div_away_from_zero(&num, &den)
 }
 
 pub fn duration_from_rat_micros(value: Rat) -> Duration {
@@ -190,21 +190,23 @@ pub fn point_from_seconds_rat(seconds: Rat) -> TimePoint {
 }
 
 /// `Time.fromMillis`.
-pub fn from_millis(millis: impl Into<BigInt>) -> Duration {
+pub fn from_millis(millis: impl Into<Integer>) -> Duration {
     Duration::from_micros(millis_to_micros(millis))
 }
 
 /// `Time.pointFromMillis`.
-pub fn point_from_millis(millis: impl Into<BigInt>) -> TimePoint {
+pub fn point_from_millis(millis: impl Into<Integer>) -> TimePoint {
     TimePoint::from_micros(millis_to_micros(millis))
 }
 
 /// Parse decimal seconds and round fractional microseconds half away from zero.
-pub fn quantize_seconds_string(text: &str) -> Option<BigInt> {
+pub fn quantize_seconds_string(text: &str) -> Option<Integer> {
     let value = crate::simai::timing::parse_rat_string(text)?;
-    let numerator = value.num().abs() * MICROS_PER_SECOND;
-    let micros = (numerator + value.den() / 2u8) / value.den();
-    Some(if value.num().is_negative() {
+    let num = value.num();
+    let den = Integer::from(&value.den());
+    let numerator = num.abs() * MICROS_PER_SECOND;
+    let micros = (numerator + (&den / 2u8)).div_trunc(&den);
+    Some(if num.is_negative() {
         -micros
     } else {
         micros
@@ -230,11 +232,11 @@ mod tests {
         // 120 BPM → one beat = 500000µs, one measure = 2000000µs.
         assert_eq!(
             quantize_rat_micros(bpm_beat_micros_rat(Rat::from_int(120))),
-            BigInt::from(500000)
+            Integer::from(500000)
         );
         assert_eq!(
             quantize_rat_micros(bpm_measure_micros_rat(Rat::from_int(120))),
-            BigInt::from(2000000)
+            Integer::from(2000000)
         );
     }
 
@@ -247,13 +249,13 @@ mod tests {
     fn seconds_string() {
         assert_eq!(
             quantize_seconds_string("1.5"),
-            Some(BigInt::from(1_500_000))
+            Some(Integer::from(1_500_000))
         );
         assert_eq!(
             quantize_seconds_string("-0.25"),
-            Some(BigInt::from(-250_000))
+            Some(Integer::from(-250_000))
         );
-        assert_eq!(quantize_seconds_string("0.0000005"), Some(BigInt::from(1))); // half away from zero
+        assert_eq!(quantize_seconds_string("0.0000005"), Some(Integer::from(1))); // half away from zero
         assert_eq!(quantize_seconds_string("abc"), None);
         assert_eq!(quantize_seconds_string(""), None);
     }

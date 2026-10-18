@@ -1,10 +1,9 @@
 //! Exact score arithmetic; finite grade coefficients come from the verified core.
 pub use crate::accuracy::{compute_acc_rates, AccRates};
 pub use crate::judge::count_fast_late;
-use crate::{natural::Natural, types::JudgeGrade};
+use crate::{integer::Integer, natural::Natural, types::JudgeGrade};
 pub use kernel::base_score;
 use lnmai_core_verify::score as kernel;
-use num_bigint::BigInt;
 
 /// `LnmaiCore.Score.extraScore`: DX extra score of one Break note.
 pub const EXTRA_SCORE: u32 = 100;
@@ -35,14 +34,14 @@ pub struct ComboDelta {
     pub combo: Natural,
     pub p_combo: Natural,
     pub c_p_combo: Natural,
-    pub dx_score_lost: BigInt,
+    pub dx_score_lost: Integer,
 }
 
 pub fn update_combo(
     combo: impl Into<Natural>,
     p_combo: impl Into<Natural>,
     c_p_combo: impl Into<Natural>,
-    dx_score_lost: impl Into<BigInt>,
+    dx_score_lost: impl Into<Integer>,
     grade: JudgeGrade,
     multiple: impl Into<Natural>,
 ) -> ComboDelta {
@@ -64,7 +63,8 @@ pub fn update_combo(
         } else {
             c_p_combo.into() + &m
         },
-        dx_score_lost: dx_score_lost.into() + BigInt::from(delta.dx_score_lost) * BigInt::from(m),
+        dx_score_lost: dx_score_lost.into()
+            + Integer::from(delta.dx_score_lost) * Integer::from(m),
     }
 }
 

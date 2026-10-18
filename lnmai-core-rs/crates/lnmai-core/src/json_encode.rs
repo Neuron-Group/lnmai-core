@@ -238,6 +238,6 @@ ffi_encoder! {
     TimedInputEvent => timed_event_json,
     TapFamilyNote => tap_family_json,
     SlideChartNote => slide_chart_note_json,
-    [BigUint; 15] => grade_counts_json,
+    [Natural; 15] => grade_counts_json,
     RuntimeScoreState => score_json,
 }

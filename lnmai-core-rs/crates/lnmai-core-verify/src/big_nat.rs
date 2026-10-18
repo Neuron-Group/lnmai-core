@@ -30,7 +30,9 @@ pub fn zero() -> BigNat {
 
 /// One.
 pub fn one() -> BigNat {
-    BigNat { limbs: vec![1u64] }
+    let mut limbs: Vec<u64> = Vec::new();
+    limbs.push(1u64);
+    BigNat { limbs }
 }
 
 /// The value of a single machine word.

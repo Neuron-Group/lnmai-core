@@ -1126,9 +1126,9 @@ fn touch_hold_body_group_states_from_holds(
 
 #[derive(Debug, Clone, Default)]
 pub struct ChartScoreTotals {
-    pub total_base: num_bigint::BigUint,
-    pub total_extra: num_bigint::BigUint,
-    pub note_count: num_bigint::BigUint,
+    pub total_base: Natural,
+    pub total_extra: Natural,
+    pub note_count: Natural,
 }
 
 fn add_score_total(
@@ -1137,13 +1137,11 @@ fn add_score_total(
     is_break: bool,
     multiple: Natural,
 ) -> ChartScoreTotals {
-    let multiple = multiple.max(1.into()).to_biguint();
+    let multiple = multiple.max(1.into());
     let score_kind = if is_break { NoteType::Break } else { kind };
     ChartScoreTotals {
-        total_base: totals.total_base
-            + num_bigint::BigUint::from(score_kind.base_score()) * &multiple,
-        total_extra: totals.total_extra
-            + num_bigint::BigUint::from(score_kind.extra_score()) * &multiple,
+        total_base: totals.total_base + Natural::from(score_kind.base_score()) * &multiple,
+        total_extra: totals.total_extra + Natural::from(score_kind.extra_score()) * &multiple,
         note_count: totals.note_count + multiple,
     }
 }
@@ -1406,8 +1404,8 @@ mod loader_tests {
     fn build_game_state_from_chart() {
         let spec: ChartSpec = frontend_lowered_chart(MAIDATA, (1).into()).unwrap();
         let state = build_game_state(&spec);
-        assert_eq!(state.score.total_base, 1500u32.into()); // 3 taps * 500
-        assert_eq!(state.score.max_dx_score, 9u32.into()); // 3 notes * 3
+        assert_eq!(state.score.total_base, Natural::from(1500u32)); // 3 taps * 500
+        assert_eq!(state.score.max_dx_score, Natural::from(9u32)); // 3 notes * 3
         let total_queued: usize = (0..8)
             .map(|i| {
                 let zone = ButtonZone::of_index(i).unwrap();

@@ -1130,7 +1130,7 @@ fn native_input_events_match_lean() {
 #[test]
 #[ignore = "requires Lean oracle binaries; run tools/run_differential.sh"]
 fn exact_arithmetic_matches_lean() {
-    use lnmai_core::{ffi::integer_json, integer::Integer, natural::Natural, rat::Rat};
+    use lnmai_core::{ffi::{integer_json, natural_json}, integer::Integer, natural::Natural, rat::Rat};
     use num_bigint::BigInt;
 
     let cli = lean_runtime_cli().expect("Lean oracle is required; run tools/run_differential.sh");
@@ -1179,7 +1179,7 @@ fn exact_arithmetic_matches_lean() {
     for _ in 0..512 {
         inputs.push([big(), big(), big(), big()]);
     }
-    let pair = |r: Rat| serde_json::json!([integer_json(r.num()), integer_json(r.den())]);
+    let pair = |r: Rat| serde_json::json!([integer_json(r.num()), natural_json(r.den())]);
     for (chunk, input) in inputs.chunks(64).enumerate() {
         let mut cases = Vec::new();
         let mut results = Vec::new();
@@ -1215,8 +1215,11 @@ fn exact_arithmetic_matches_lean() {
             ]));
             let ar = Rat::new(a.clone(), b.clone());
             let br = Rat::new(c.clone(), d.clone());
-            cases.push(serde_json::json!({"kind":"rational","a":integer_json(a),
-                "b":integer_json(b),"c":integer_json(c),"d":integer_json(d)}));
+            cases.push(serde_json::json!({"kind":"rational",
+                "a":integer_json(Integer::from(a.clone())),
+                "b":integer_json(Integer::from(b.clone())),
+                "c":integer_json(Integer::from(c.clone())),
+                "d":integer_json(Integer::from(d.clone()))}));
             results.push(serde_json::json!([
                 pair(ar.clone()),
                 pair(br.clone()),
@@ -1249,6 +1252,7 @@ fn exact_arithmetic_matches_lean() {
 fn numeric_boundaries_match_lean() {
     use lnmai_core::{
         ffi::grade_str,
+        integer::Integer,
         judge,
         rat::Rat,
         score,
@@ -1297,11 +1301,11 @@ fn numeric_boundaries_match_lean() {
     for bits in [128usize, 256, 1024] {
         let large = num_bigint::BigInt::from(1u8) << bits;
         for sign in [-1, 1] {
-            let numerator = &large * sign + 1;
+            let numerator: num_bigint::BigInt = &large * sign + 1;
             for denominator in [num_bigint::BigInt::from(3), &large - 1] {
                 cases.push(serde_json::json!({"kind":"quantize",
-                    "num":lnmai_core::ffi::integer_json(&numerator),
-                    "den":lnmai_core::ffi::integer_json(&denominator)}));
+                    "num":lnmai_core::ffi::integer_json(Integer::from(numerator.clone())),
+                    "den":lnmai_core::ffi::integer_json(Integer::from(denominator.clone()))}));
                 results.push(lnmai_core::ffi::integer_json(&time::quantize_rat_micros(
                     Rat::new(numerator.clone(), denominator),
                 )));
@@ -1371,7 +1375,7 @@ fn numeric_boundaries_match_lean() {
                 ]
                 .map(|r| [
                     lnmai_core::ffi::integer_json(r.num()),
-                    lnmai_core::ffi::integer_json(r.den())
+                    lnmai_core::ffi::natural_json(r.den())
                 ])));
             }
         }
@@ -1396,7 +1400,7 @@ fn json_oracle(lean: &mut LeanRuntime, action: &str, arg: &str, batch: &str) -> 
 #[ignore = "requires Lean oracle binaries; run tools/run_differential.sh"]
 fn arbitrary_time_judgments_match_lean() {
     use lnmai_core::{
-        ffi::{grade_str, integer_json},
+        ffi::{bigint_json, grade_str},
         judge,
         time::Duration,
         types::JudgeGrade::*,
@@ -1462,11 +1466,11 @@ fn arbitrary_time_judgments_match_lean() {
                         serde_json::json!(grade_str(judge::judge_slide_classic(d.clone()))),
                     ),
                 ] {
-                    cases.push(serde_json::json!({"kind":kind,"diff":integer_json(diff),"ex":ex}));
+                    cases.push(serde_json::json!({"kind":kind,"diff":bigint_json(diff),"ex":ex}));
                     results.push(result);
                 }
                 for stay in &stays {
-                    cases.push(serde_json::json!({"kind":"slideModern","diff":integer_json(diff),"stay":integer_json(stay),"ex":ex}));
+                    cases.push(serde_json::json!({"kind":"slideModern","diff":bigint_json(diff),"stay":bigint_json(stay),"ex":ex}));
                     results.push(serde_json::json!(grade_str(judge::judge_slide_modern(
                         d.clone(),
                         Duration::from_micros(stay.clone()),
@@ -1475,7 +1479,7 @@ fn arbitrary_time_judgments_match_lean() {
                 }
             }
             for offset in &stays {
-                cases.push(serde_json::json!({"kind":"tooLate","diff":integer_json(diff),"offset":integer_json(offset)}));
+                cases.push(serde_json::json!({"kind":"tooLate","diff":bigint_json(diff),"offset":bigint_json(offset)}));
                 results.push(serde_json::json!(judge::is_too_late_slide(
                     d.clone(),
                     Duration::from_micros(offset.clone())
@@ -1499,8 +1503,8 @@ fn arbitrary_time_judgments_match_lean() {
                 for release in [-&huge, BigInt::from(0), BigInt::from(1), huge.clone()] {
                     for diff in [-1, 0, 1] {
                         cases.push(serde_json::json!({"kind":"hold","grade":grade_str(grade),
-                            "diff":diff,"length":integer_json(&length),"ignore":integer_json(&ignore),
-                            "release":integer_json(&release)}));
+                            "diff":diff,"length":bigint_json(&length),"ignore":bigint_json(&ignore),
+                            "release":bigint_json(&release)}));
                         results.push(serde_json::json!(grade_str(judge::judge_hold_end(
                             grade,
                             Duration::from_micros(diff),
@@ -1525,7 +1529,7 @@ fn arbitrary_time_judgments_match_lean() {
                 let length = &huge * 3;
                 let release = &timing + &length - &diff;
                 cases.push(serde_json::json!({"kind":"holdClassic","grade":grade_str(grade),
-                    "timing":integer_json(&timing),"length":integer_json(&length),"release":integer_json(&release)}));
+                    "timing":bigint_json(&timing),"length":bigint_json(&length),"release":bigint_json(&release)}));
                 results.push(serde_json::json!(grade_str(judge::judge_hold_classic_end(
                     grade,
                     timing,
@@ -1541,7 +1545,7 @@ fn arbitrary_time_judgments_match_lean() {
                     let release = &reality - &huge * percent + delta;
                     let diff = -&huge;
                     cases.push(serde_json::json!({"kind":"hold","grade":grade_str(grade),
-                        "diff":integer_json(&diff),"length":integer_json(&length),"ignore":300000,"release":integer_json(&release)}));
+                        "diff":bigint_json(&diff),"length":bigint_json(&length),"ignore":300000,"release":bigint_json(&release)}));
                     results.push(serde_json::json!(grade_str(judge::judge_hold_end(
                         grade,
                         Duration::from_micros(diff),
@@ -1590,7 +1594,7 @@ fn arbitrary_timeline_parser_and_runtime_match_lean() {
                 "large timeline build",
             );
             for offset in [-1000000, 0, 40000, 150001, 500000, 1000001, 10000000] {
-                let time = ffi::integer_json(&(&first * 1000000 + offset));
+                let time = ffi::bigint_json(&(&first * 1000000 + offset));
                 let events: Vec<_> = ["K1","K2","K3"].iter().map(|zone|
                     serde_json::json!({"buttonClick":{"tp":time,"zone":zone}}))
                     .chain(["A1","A2"].iter().map(|area|
@@ -1615,7 +1619,8 @@ fn arbitrary_timeline_parser_and_runtime_match_lean() {
 #[ignore = "requires Lean oracle binaries; run tools/run_differential.sh"]
 fn arbitrary_natural_scores_match_lean() {
     use lnmai_core::{
-        ffi::{grade_str, integer_json},
+        ffi::{grade_str, integer_json, natural_json},
+        integer::Integer,
         natural::Natural,
         score,
         types::JudgeGrade::*,
@@ -1656,7 +1661,7 @@ fn arbitrary_natural_scores_match_lean() {
             let (a, b, c, d, e, f) = score::score_break(grade, n);
             results.push(serde_json::json!([a, [b, [c, [d, [e, f]]]]]));
             for sign in [-1, 1] {
-                let dx = BigInt::from(n) * sign;
+                let dx = Integer::from(n) * sign;
                 cases.push(
                     serde_json::json!({"kind":"combo", "combo":n, "pCombo":n+1, "cPCombo":n+2,
                     "dxScoreLost":integer_json(&dx), "grade":grade_str(grade), "multiple":n}),
@@ -1691,7 +1696,7 @@ fn arbitrary_natural_scores_match_lean() {
                 r.dx_acc_minus100,
                 r.dx_acc_plus
             ]
-            .map(|r| [integer_json(r.num()), integer_json(r.den())])));
+            .map(|r| [integer_json(r.num()), natural_json(r.den())])));
         }
     }
     // Keep each oracle request small enough to avoid testing its recursion limit.
@@ -1717,7 +1722,7 @@ fn arbitrary_natural_chart_and_runtime_match_lean() {
                 for (key, value) in map {
                     if fields.contains(&key.as_str()) && value.is_number() {
                         let n: BigUint = value.to_string().parse().unwrap();
-                        *value = ffi::natural_json(&(n + huge));
+                        *value = ffi::biguint_json(&(n + huge));
                     } else {
                         bump_fields(value, fields, huge);
                     }
@@ -1784,7 +1789,7 @@ fn arbitrary_natural_chart_and_runtime_match_lean() {
                 );
                 for key in ["buttonQueueFrontiers", "touchQueueFrontiers"] {
                     for value in state[key].as_array_mut().unwrap() {
-                        *value = ffi::natural_json(&huge);
+                        *value = ffi::biguint_json(&huge);
                     }
                 }
             }
@@ -1815,7 +1820,7 @@ fn arbitrary_natural_chart_and_runtime_match_lean() {
             format!("(120)1h[4:{huge}],2-4[8:{huge}],"),
         ] {
             let content = format!("&first=0\n&inote_{huge}={body}");
-            let expected = lean.request(&serde_json::json!({"op":"parseNat","content":content,"levelIndex":ffi::natural_json(&huge)}));
+            let expected = lean.request(&serde_json::json!({"op":"parseNat","content":content,"levelIndex":ffi::biguint_json(&huge)}));
             assert_eq!(expected["ok"], true, "{expected}");
             let actual =
                 frontend::frontend_lowered_chart(&content, Natural::from(huge.clone())).unwrap();
@@ -2140,8 +2145,8 @@ fn arbitrary_score_restore_and_judgments_match_lean() {
         for sign in [-1, 1] {
             for time in [0, 40000, 80000, 120000, 10000000] {
                 let mut state = initial.clone();
-                replace_counts(&mut state["score"], &ffi::integer_json(&huge));
-                state["score"]["dxScore"] = ffi::integer_json(&(&huge * sign));
+                replace_counts(&mut state["score"], &ffi::bigint_json(&huge));
+                state["score"]["dxScore"] = ffi::bigint_json(&(&huge * sign));
                 let events: Vec<_> = ["K1", "K2", "K3", "K4"]
                     .iter()
                     .map(|zone| serde_json::json!({"buttonClick":{"tp":time,"zone":zone}}))

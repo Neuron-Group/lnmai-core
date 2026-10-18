@@ -125,16 +125,11 @@ fn optional_bool(value: Option<bool>) -> u64 {
 }
 
 // UInt64.ofNat/ofInt reduce modulo 2^64 at the native boundary.
-fn word_nat(n: &num_bigint::BigUint) -> u64 {
-    n.iter_u64_digits().next().unwrap_or(0)
+fn word_nat(n: &Natural) -> u64 {
+    n.to_word()
 }
-fn word_int(n: &num_bigint::BigInt) -> u64 {
-    let magnitude = n.iter_u64_digits().next().unwrap_or(0);
-    if n.sign() == num_bigint::Sign::Minus {
-        magnitude.wrapping_neg()
-    } else {
-        magnitude
-    }
+fn word_int(n: &crate::integer::Integer) -> u64 {
+    n.to_word()
 }
 
 fn emit_score(out: &mut LnmaiResult, state: &GameState) {

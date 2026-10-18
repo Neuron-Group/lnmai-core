@@ -829,9 +829,9 @@ impl Decode for SlideChartNote {
         })
     }
 }
-impl Decode for [BigUint; 15] {
+impl Decode for [crate::natural::Natural; 15] {
     fn decode(v: &Value) -> Result<Self, String> {
-        let mut counts = std::array::from_fn(|_| BigUint::default());
+        let mut counts = std::array::from_fn(|_| crate::natural::Natural::default());
         for (i, name) in [
             "Miss",
             "LateGood",

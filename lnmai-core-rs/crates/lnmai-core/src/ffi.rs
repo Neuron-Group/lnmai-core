@@ -100,12 +100,26 @@ pub fn error_json(code: &str, message: &str) -> String {
 // Scalar encoders
 // ---------------------------------------------------------------------------
 
-pub fn natural_json(n: &num_bigint::BigUint) -> Value {
+pub fn natural_json(n: impl std::borrow::Borrow<crate::natural::Natural>) -> Value {
+    let n = n.borrow();
     Value::Number(n.to_string().parse().expect("natural is a JSON number"))
 }
 
-pub fn integer_json(n: &num_bigint::BigInt) -> Value {
+pub fn integer_json(n: impl std::borrow::Borrow<crate::integer::Integer>) -> Value {
+    let n = n.borrow();
     Value::Number(n.to_string().parse().expect("integer is a JSON number"))
+}
+
+/// Boundary encoder for a raw num-bigint integer. Only the JSON/FFI boundary
+/// and its tests use it; runtime arithmetic goes through Integer.
+pub fn bigint_json(n: &num_bigint::BigInt) -> Value {
+    Value::Number(n.to_string().parse().expect("integer is a JSON number"))
+}
+
+/// Boundary encoder for a raw num-bigint natural, used by the JSON boundary
+/// tests only.
+pub fn biguint_json(n: &num_bigint::BigUint) -> Value {
+    Value::Number(n.to_string().parse().expect("natural is a JSON number"))
 }
 
 fn duration_json(d: Duration) -> Value {
@@ -255,7 +269,7 @@ pub fn render_cmd_json(c: &crate::events::RenderCommand) -> Value {
     }
 }
 
-pub(crate) fn grade_counts_json(counts: &[num_bigint::BigUint; 15]) -> Value {
+pub(crate) fn grade_counts_json(counts: &[crate::natural::Natural; 15]) -> Value {
     let names = [
         "Miss",
         "LateGood",
