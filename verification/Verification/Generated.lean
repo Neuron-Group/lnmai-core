@@ -1142,6 +1142,1873 @@ def areas.OuterSlot.rotate
     let i ← areas.ring_index steps 8#usize
     areas.ring_outer i
 
+/-- [lnmai_core_verify::big_nat::BigNat]
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 16:0-18:1
+    Visibility: public -/
+structure big_nat.BigNat where
+  limbs : alloc.vec.Vec Std.U64
+
+/-- [lnmai_core_verify::big_int::BigIntKernel]
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 14:0-17:1
+    Visibility: public -/
+structure big_int.BigIntKernel where
+  negative : Bool
+  magnitude : big_nat.BigNat
+
+/-- [lnmai_core_verify::big_nat::{impl core::clone::Clone for lnmai_core_verify::big_nat::BigNat}::clone]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 15:9-15:14
+    Visibility: public -/
+def big_nat.BigNat.Insts.CoreCloneClone.clone
+  (self : big_nat.BigNat) : Result big_nat.BigNat := do
+  let v ← alloc.vec.CloneVec.clone core.clone.CloneU64 self.limbs
+  ok { limbs := v }
+
+/-- [lnmai_core_verify::big_int::{impl core::clone::Clone for lnmai_core_verify::big_int::BigIntKernel}::clone]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 13:9-13:14
+    Visibility: public -/
+def big_int.BigIntKernel.Insts.CoreCloneClone.clone
+  (self : big_int.BigIntKernel) : Result big_int.BigIntKernel := do
+  let b ← lift (core.clone.impls.CloneBool.clone self.negative)
+  let bn ← big_nat.BigNat.Insts.CoreCloneClone.clone self.magnitude
+  ok { negative := b, magnitude := bn }
+
+/-- Trait implementation: [lnmai_core_verify::big_int::{impl core::clone::Clone for lnmai_core_verify::big_int::BigIntKernel}]
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 13:9-13:14 -/
+@[reducible]
+def big_int.BigIntKernel.Insts.CoreCloneClone : core.clone.Clone
+  big_int.BigIntKernel := {
+  clone := big_int.BigIntKernel.Insts.CoreCloneClone.clone
+}
+
+/-- [lnmai_core_verify::big_nat::is_zero]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 66:0-68:1
+    Visibility: public -/
+def big_nat.is_zero (value : big_nat.BigNat) : Result Bool := do
+  let i := alloc.vec.Vec.len value.limbs
+  ok (i = 0#usize)
+
+/-- [lnmai_core_verify::big_int::make]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 20:0-32:1
+    Visibility: public -/
+def big_int.make
+  (negative : Bool) (magnitude : big_nat.BigNat) :
+  Result big_int.BigIntKernel
+  := do
+  let b ← big_nat.is_zero magnitude
+  if b
+  then ok { negative := false, magnitude }
+  else ok { negative, magnitude }
+
+/-- [lnmai_core_verify::big_nat::zero]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 36:0-38:1
+    Visibility: public -/
+def big_nat.zero : Result big_nat.BigNat := do
+  ok { limbs := (alloc.vec.Vec.new Std.U64) }
+
+/-- [lnmai_core_verify::big_int::zero]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 34:0-39:1
+    Visibility: public -/
+def big_int.zero : Result big_int.BigIntKernel := do
+  let bn ← big_nat.zero
+  ok { negative := false, magnitude := bn }
+
+/-- [lnmai_core_verify::big_nat::from_u64]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 49:0-55:1
+    Visibility: public -/
+def big_nat.from_u64 (value : Std.U64) : Result big_nat.BigNat := do
+  if value != 0#u64
+  then
+    let limbs ← alloc.vec.Vec.push (alloc.vec.Vec.new Std.U64) value
+    ok { limbs }
+  else ok { limbs := (alloc.vec.Vec.new Std.U64) }
+
+/-- [lnmai_core_verify::big_int::from_u64]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 41:0-43:1
+    Visibility: public -/
+def big_int.from_u64 (value : Std.U64) : Result big_int.BigIntKernel := do
+  let bn ← big_nat.from_u64 value
+  big_int.make false bn
+
+/-- [lnmai_core_verify::big_nat::normalize]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 23:4-25:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.normalize_loop0.body
+  (limbs : alloc.vec.Vec Std.U64) (length : Std.Usize) :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  if length > 0#usize
+  then
+    let i ← length - 1#usize
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) limbs
+        i
+    if i1 = 0#u64
+    then ok (cont i)
+    else ok (done length)
+  else ok (done length)
+
+/-- [lnmai_core_verify::big_nat::normalize]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 23:4-25:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.normalize_loop0
+  (limbs : alloc.vec.Vec Std.U64) (length : Std.Usize) : Result Std.Usize := do
+  loop
+    (fun length1 => big_nat.normalize_loop0.body limbs length1)
+    length
+
+/-- [lnmai_core_verify::big_nat::normalize]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 28:4-31:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.normalize_loop1.body
+  (limbs : alloc.vec.Vec Std.U64) (length : Std.Usize)
+  (normalized : alloc.vec.Vec Std.U64) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.Usize) (alloc.vec.Vec
+    Std.U64))
+  := do
+  if index < length
+  then
+    let i ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) limbs
+        index
+    let normalized1 ← alloc.vec.Vec.push normalized i
+    let index1 ← index + 1#usize
+    ok (cont (normalized1, index1))
+  else ok (done normalized)
+
+/-- [lnmai_core_verify::big_nat::normalize]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 28:4-31:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.normalize_loop1
+  (limbs : alloc.vec.Vec Std.U64) (length : Std.Usize)
+  (normalized : alloc.vec.Vec Std.U64) (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (normalized1, index1) => big_nat.normalize_loop1.body limbs length
+      normalized1 index1)
+    (normalized, index)
+
+/-- [lnmai_core_verify::big_nat::normalize]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 21:0-33:1
+    Visibility: public -/
+def big_nat.normalize
+  (limbs : alloc.vec.Vec Std.U64) : Result big_nat.BigNat := do
+  let length := alloc.vec.Vec.len limbs
+  let length1 ← big_nat.normalize_loop0 limbs length
+  let normalized ←
+    big_nat.normalize_loop1 limbs length1 (alloc.vec.Vec.new Std.U64) 0#usize
+  ok { limbs := normalized }
+
+/-- [lnmai_core_verify::big_nat::from_u64_pair]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 59:0-64:1
+    Visibility: public -/
+def big_nat.from_u64_pair
+  (high : Std.U64) (low : Std.U64) : Result big_nat.BigNat := do
+  let limbs ← alloc.vec.Vec.push (alloc.vec.Vec.new Std.U64) low
+  let limbs1 ← alloc.vec.Vec.push limbs high
+  big_nat.normalize limbs1
+
+/-- [lnmai_core_verify::big_int::from_u128]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 45:0-49:1
+    Visibility: public -/
+def big_int.from_u128 (value : Std.U128) : Result big_int.BigIntKernel := do
+  let low ← lift (UScalar.cast .U64 value)
+  let i ← value >>> 64#i32
+  let high ← lift (UScalar.cast .U64 i)
+  let bn ← big_nat.from_u64_pair high low
+  big_int.make false bn
+
+/-- [lnmai_core_verify::big_int::from_i64]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 51:0-58:1
+    Visibility: public -/
+def big_int.from_i64 (value : Std.I64) : Result big_int.BigIntKernel := do
+  if value < 0#i64
+  then
+    let i ← lift (IScalar.cast .I128 value)
+    let i1 ← 0#i128 - i
+    let magnitude ← lift (IScalar.hcast .U64 i1)
+    let bn ← big_nat.from_u64 magnitude
+    big_int.make true bn
+  else
+    let i ← lift (IScalar.hcast .U64 value)
+    let bn ← big_nat.from_u64 i
+    big_int.make false bn
+
+/-- [lnmai_core_verify::big_int::from_i128]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 60:0-71:1
+    Visibility: public -/
+def big_int.from_i128 (value : Std.I128) : Result big_int.BigIntKernel := do
+  if value < 0#i128
+  then
+    let magnitude ←
+      if value = core.num.I128.MIN
+      then 1#u128 <<< 127#i32
+      else do
+           let i ← 0#i128 - value
+           ok (IScalar.hcast .U128 i)
+    let bik ← big_int.from_u128 magnitude
+    big_int.make true bik.magnitude
+  else
+    let i ← lift (IScalar.hcast .U128 value)
+    let bik ← big_int.from_u128 i
+    big_int.make false bik.magnitude
+
+/-- [lnmai_core_verify::big_int::of_nat]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 74:0-76:1
+    Visibility: public -/
+def big_int.of_nat (value : big_nat.BigNat) : Result big_int.BigIntKernel := do
+  let bn ← big_nat.BigNat.Insts.CoreCloneClone.clone value
+  big_int.make false bn
+
+/-- [lnmai_core_verify::big_int::is_zero]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 78:0-80:1
+    Visibility: public -/
+def big_int.is_zero (value : big_int.BigIntKernel) : Result Bool := do
+  big_nat.is_zero value.magnitude
+
+/-- [lnmai_core_verify::big_int::is_negative]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 82:0-84:1
+    Visibility: public -/
+def big_int.is_negative (value : big_int.BigIntKernel) : Result Bool := do
+  if value.negative
+  then let b ← big_nat.is_zero value.magnitude
+       ok (¬ b)
+  else ok false
+
+/-- [lnmai_core_verify::big_int::is_positive]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 86:0-88:1
+    Visibility: public -/
+def big_int.is_positive (value : big_int.BigIntKernel) : Result Bool := do
+  if value.negative
+  then ok false
+  else let b ← big_nat.is_zero value.magnitude
+       ok (¬ b)
+
+/-- [lnmai_core_verify::big_int::neg]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 90:0-95:1
+    Visibility: public -/
+def big_int.neg
+  (value : big_int.BigIntKernel) : Result big_int.BigIntKernel := do
+  let b ← big_nat.is_zero value.magnitude
+  if b
+  then big_int.zero
+  else
+    let bn ← big_nat.BigNat.Insts.CoreCloneClone.clone value.magnitude
+    big_int.make (¬ value.negative) bn
+
+/-- [lnmai_core_verify::big_int::abs]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 97:0-99:1
+    Visibility: public -/
+def big_int.abs
+  (value : big_int.BigIntKernel) : Result big_int.BigIntKernel := do
+  let bn ← big_nat.BigNat.Insts.CoreCloneClone.clone value.magnitude
+  big_int.make false bn
+
+/-- [lnmai_core_verify::big_nat::compare]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 99:4-106:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.compare_loop.body
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64) (index : Std.Usize)
+  (order : Std.I8) :
+  Result (ControlFlow (Std.Usize × Std.I8) Std.I8)
+  := do
+  if index > 0#usize
+  then
+    if order = 0#i8
+    then
+      let index1 ← index - 1#usize
+      let i ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+          index1
+      let i1 ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v1
+          index1
+      if i < i1
+      then ok (cont (index1, (-1)#i8))
+      else
+        if i > i1
+        then ok (cont (index1, 1#i8))
+        else ok (cont (index1, order))
+    else ok (done order)
+  else ok (done order)
+
+/-- [lnmai_core_verify::big_nat::compare]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 99:4-106:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.compare_loop
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64) (index : Std.Usize)
+  (order : Std.I8) :
+  Result Std.I8
+  := do
+  loop
+    (fun (index1, order1) => big_nat.compare_loop.body v v1 index1 order1)
+    (index, order)
+
+/-- [lnmai_core_verify::big_nat::compare]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 88:0-108:1
+    Visibility: public -/
+def big_nat.compare
+  (left : big_nat.BigNat) (right : big_nat.BigNat) : Result Std.I8 := do
+  let left_len := alloc.vec.Vec.len left.limbs
+  let right_len := alloc.vec.Vec.len right.limbs
+  if left_len < right_len
+  then ok (-1)#i8
+  else
+    if left_len > right_len
+    then ok 1#i8
+    else big_nat.compare_loop left.limbs right.limbs left_len 0#i8
+
+/-- [lnmai_core_verify::big_int::compare]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 102:0-116:1
+    Visibility: public -/
+def big_int.compare
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result Std.I8
+  := do
+  let left_negative ← big_int.is_negative left
+  let right_negative ← big_int.is_negative right
+  if left_negative
+  then
+    if right_negative
+    then
+      let magnitude ← big_nat.compare left.magnitude right.magnitude
+      0#i8 - magnitude
+    else ok (-1)#i8
+  else
+    if right_negative
+    then ok 1#i8
+    else big_nat.compare left.magnitude right.magnitude
+
+/-- [lnmai_core_verify::big_nat::equal]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 80:4-83:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.equal_loop.body
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64) (index : Std.Usize)
+  (same : Bool) :
+  Result (ControlFlow (Std.Usize × Bool) Bool)
+  := do
+  let i := alloc.vec.Vec.len v
+  if index < i
+  then
+    if same
+    then
+      let i1 ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+          index
+      let i2 ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v1
+          index
+      let index1 ← index + 1#usize
+      ok (cont (index1, i1 = i2))
+    else ok (done false)
+  else ok (done same)
+
+/-- [lnmai_core_verify::big_nat::equal]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 80:4-83:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.equal_loop
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64) (index : Std.Usize)
+  (same : Bool) :
+  Result Bool
+  := do
+  loop
+    (fun (index1, same1) => big_nat.equal_loop.body v v1 index1 same1)
+    (index, same)
+
+/-- [lnmai_core_verify::big_nat::equal]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 74:0-85:1
+    Visibility: public -/
+def big_nat.equal
+  (left : big_nat.BigNat) (right : big_nat.BigNat) : Result Bool := do
+  let i := alloc.vec.Vec.len left.limbs
+  let i1 := alloc.vec.Vec.len right.limbs
+  if i != i1
+  then ok false
+  else big_nat.equal_loop left.limbs right.limbs 0#usize true
+
+/-- [lnmai_core_verify::big_int::equal]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 118:0-120:1
+    Visibility: public -/
+def big_int.equal
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result Bool
+  := do
+  if left.negative = right.negative
+  then big_nat.equal left.magnitude right.magnitude
+  else ok false
+
+/-- [lnmai_core_verify::big_nat::sub]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 151:4-167:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.sub_loop.body
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (borrow : Std.U64) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.U64 × Std.Usize)
+    (alloc.vec.Vec Std.U64))
+  := do
+  if index < left_len
+  then
+    let x ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+        index
+    let y ←
+      if index < right_len
+      then
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v1
+          index
+      else ok 0#u64
+    let (partial1, first_borrow) ← lift (core.num.U64.overflowing_sub x y)
+    let (digit, second_borrow) ←
+      lift (core.num.U64.overflowing_sub partial1 borrow)
+    let out1 ← alloc.vec.Vec.push out digit
+    let borrow1 ←
+      if first_borrow
+      then ok 1#u64
+      else if second_borrow
+           then ok 1#u64
+           else ok 0#u64
+    let index1 ← index + 1#usize
+    ok (cont (out1, borrow1, index1))
+  else ok (done out)
+
+/-- [lnmai_core_verify::big_nat::sub]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 151:4-167:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.sub_loop
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (borrow : Std.U64) (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (out1, borrow1, index1) => big_nat.sub_loop.body v v1 left_len
+      right_len out1 borrow1 index1)
+    (out, borrow, index)
+
+/-- [lnmai_core_verify::big_nat::sub]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 142:0-169:1
+    Visibility: public -/
+def big_nat.sub
+  (left : big_nat.BigNat) (right : big_nat.BigNat) :
+  Result big_nat.BigNat
+  := do
+  let i ← big_nat.compare left right
+  if i <= 0#i8
+  then big_nat.zero
+  else
+    let left_len := alloc.vec.Vec.len left.limbs
+    let right_len := alloc.vec.Vec.len right.limbs
+    let out ←
+      big_nat.sub_loop left.limbs right.limbs left_len right_len
+        (alloc.vec.Vec.new Std.U64) 0#u64 0#usize
+    big_nat.normalize out
+
+/-- [lnmai_core_verify::big_nat::add]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 117:4-137:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.add_loop.body
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (carry : Std.U64) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.U64 × Std.Usize)
+    (alloc.vec.Vec Std.U64))
+  := do
+  if index < left_len
+  then
+    let x ←
+      if index < left_len
+      then
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+          index
+      else ok 0#u64
+    let y ←
+      if index < right_len
+      then
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v1
+          index
+      else ok 0#u64
+    let (partial1, first_carry) ← lift (core.num.U64.overflowing_add x y)
+    let (digit, second_carry) ←
+      lift (core.num.U64.overflowing_add partial1 carry)
+    let out1 ← alloc.vec.Vec.push out digit
+    let carry1 ←
+      if first_carry
+      then ok 1#u64
+      else if second_carry
+           then ok 1#u64
+           else ok 0#u64
+    let index1 ← index + 1#usize
+    ok (cont (out1, carry1, index1))
+  else
+    if index < right_len
+    then
+      let x ←
+        if index < left_len
+        then
+          alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+            index
+        else ok 0#u64
+      let y ←
+        if index < right_len
+        then
+          alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+            v1 index
+        else ok 0#u64
+      let (partial1, first_carry) ← lift (core.num.U64.overflowing_add x y)
+      let (digit, second_carry) ←
+        lift (core.num.U64.overflowing_add partial1 carry)
+      let out1 ← alloc.vec.Vec.push out digit
+      let carry1 ←
+        if first_carry
+        then ok 1#u64
+        else if second_carry
+             then ok 1#u64
+             else ok 0#u64
+      let index1 ← index + 1#usize
+      ok (cont (out1, carry1, index1))
+    else
+      if carry != 0#u64
+      then
+        let x ←
+          if index < left_len
+          then
+            alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+              v index
+          else ok 0#u64
+        let y ←
+          if index < right_len
+          then
+            alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+              v1 index
+          else ok 0#u64
+        let (partial1, first_carry) ← lift (core.num.U64.overflowing_add x y)
+        let (digit, second_carry) ←
+          lift (core.num.U64.overflowing_add partial1 carry)
+        let out1 ← alloc.vec.Vec.push out digit
+        let carry1 ←
+          if first_carry
+          then ok 1#u64
+          else if second_carry
+               then ok 1#u64
+               else ok 0#u64
+        let index1 ← index + 1#usize
+        ok (cont (out1, carry1, index1))
+      else ok (done out)
+
+/-- [lnmai_core_verify::big_nat::add]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 117:4-137:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.add_loop
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (carry : Std.U64) (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (out1, carry1, index1) => big_nat.add_loop.body v v1 left_len
+      right_len out1 carry1 index1)
+    (out, carry, index)
+
+/-- [lnmai_core_verify::big_nat::add]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 111:0-139:1
+    Visibility: public -/
+def big_nat.add
+  (left : big_nat.BigNat) (right : big_nat.BigNat) :
+  Result big_nat.BigNat
+  := do
+  let left_len := alloc.vec.Vec.len left.limbs
+  let right_len := alloc.vec.Vec.len right.limbs
+  let out ←
+    big_nat.add_loop left.limbs right.limbs left_len right_len
+      (alloc.vec.Vec.new Std.U64) 0#u64 0#usize
+  big_nat.normalize out
+
+/-- [lnmai_core_verify::big_int::add]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 124:0-147:1
+    Visibility: public -/
+def big_int.add
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_int.BigIntKernel
+  := do
+  let b ← big_nat.is_zero left.magnitude
+  if b
+  then big_int.BigIntKernel.Insts.CoreCloneClone.clone right
+  else
+    let b1 ← big_nat.is_zero right.magnitude
+    if b1
+    then big_int.BigIntKernel.Insts.CoreCloneClone.clone left
+    else
+      let left_negative ← big_int.is_negative left
+      let right_negative ← big_int.is_negative right
+      if left_negative = right_negative
+      then
+        let magnitude ← big_nat.add left.magnitude right.magnitude
+        big_int.make left_negative magnitude
+      else
+        let order ← big_nat.compare left.magnitude right.magnitude
+        if order = 0#i8
+        then big_int.zero
+        else
+          if order > 0#i8
+          then
+            let magnitude ← big_nat.sub left.magnitude right.magnitude
+            big_int.make left_negative magnitude
+          else
+            let magnitude ← big_nat.sub right.magnitude left.magnitude
+            big_int.make right_negative magnitude
+
+/-- [lnmai_core_verify::big_int::sub]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 149:0-151:1
+    Visibility: public -/
+def big_int.sub
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_int.BigIntKernel
+  := do
+  let bik ← big_int.neg right
+  big_int.add left bik
+
+/-- [lnmai_core_verify::big_nat::mul]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 180:4-183:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.mul_loop0.body
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.Usize) (alloc.vec.Vec
+    Std.U64))
+  := do
+  let i ← left_len + right_len
+  if index < i
+  then
+    let out1 ← alloc.vec.Vec.push out 0#u64
+    let index1 ← index + 1#usize
+    ok (cont (out1, index1))
+  else ok (done out)
+
+/-- [lnmai_core_verify::big_nat::mul]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 180:4-183:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.mul_loop0
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (out1, index1) => big_nat.mul_loop0.body left_len right_len out1
+      index1)
+    (out, index)
+
+/-- [lnmai_core_verify::big_nat::mul]: loop body 2:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 188:8-195:9
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.mul_loop1_loop0.body
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (right_len : Std.Usize) (i : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (carry : Std.U64) (j : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.U64 × Std.Usize)
+    ((alloc.vec.Vec Std.U64) × Std.U64))
+  := do
+  if j < right_len
+  then
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v i
+    let i2 ← lift (UScalar.cast .U128 i1)
+    let i3 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v1 j
+    let i4 ← lift (UScalar.cast .U128 i3)
+    let i5 ← i2 * i4
+    let i6 ← i + j
+    let i7 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) out
+        i6
+    let i8 ← lift (UScalar.cast .U128 i7)
+    let i9 ← i5 + i8
+    let i10 ← lift (UScalar.cast .U128 carry)
+    let product ← i9 + i10
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Std.U64)
+        out i6
+    let i11 ← lift (UScalar.cast .U64 product)
+    let i12 ← product >>> 64#i32
+    let carry1 ← lift (UScalar.cast .U64 i12)
+    let j1 ← j + 1#usize
+    let out1 := index_mut_back i11
+    ok (cont (out1, carry1, j1))
+  else ok (done (out, carry))
+
+/-- [lnmai_core_verify::big_nat::mul]: loop 2:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 188:8-195:9
+    Visibility: public -/
+@[rust_loop]
+def big_nat.mul_loop1_loop0
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64) (i : Std.Usize)
+  (carry : Std.U64) (j : Std.Usize) :
+  Result ((alloc.vec.Vec Std.U64) × Std.U64)
+  := do
+  loop
+    (fun (out1, carry1, j1) => big_nat.mul_loop1_loop0.body v v1 right_len i
+      out1 carry1 j1)
+    (out, carry, j)
+
+/-- [lnmai_core_verify::big_nat::mul]: loop body 3:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 203:8-208:9
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.mul_loop1_loop1.body
+  (out : alloc.vec.Vec Std.U64) (position : Std.Usize) (overflow : Bool) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.Usize × Bool)
+    ((alloc.vec.Vec Std.U64) × Bool))
+  := do
+  if overflow
+  then
+    let i := alloc.vec.Vec.len out
+    if position < i
+    then
+      let i1 ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) out
+          position
+      let (next, next_overflow) ←
+        lift (core.num.U64.overflowing_add i1 1#u64)
+      let (_, index_mut_back) ←
+        alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Std.U64)
+          out position
+      let position1 ← position + 1#usize
+      let out1 := index_mut_back next
+      ok (cont (out1, position1, next_overflow))
+    else ok (done (out, true))
+  else ok (done (out, false))
+
+/-- [lnmai_core_verify::big_nat::mul]: loop 3:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 203:8-208:9
+    Visibility: public -/
+@[rust_loop]
+def big_nat.mul_loop1_loop1
+  (out : alloc.vec.Vec Std.U64) (position : Std.Usize) (overflow : Bool) :
+  Result ((alloc.vec.Vec Std.U64) × Bool)
+  := do
+  loop
+    (fun (out1, position1, overflow1) => big_nat.mul_loop1_loop1.body out1
+      position1 overflow1)
+    (out, position, overflow)
+
+/-- [lnmai_core_verify::big_nat::mul]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 185:10-208:9
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.mul_loop1.body
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.Usize) (alloc.vec.Vec
+    Std.U64))
+  := do
+  if i < left_len
+  then
+    let (out1, carry) ←
+      big_nat.mul_loop1_loop0 v v1 right_len out i 0#u64 0#usize
+    let position ← i + right_len
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) out1
+        position
+    let (sum, overflow) ← lift (core.num.U64.overflowing_add i1 carry)
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Std.U64)
+        out1 position
+    let position1 ← position + 1#usize
+    let out2 := index_mut_back sum
+    let (out3, overflow1) ← big_nat.mul_loop1_loop1 out2 position1 overflow
+    massert (¬ overflow1)
+    let i2 ← i + 1#usize
+    ok (cont (out3, i2))
+  else ok (done out)
+
+/-- [lnmai_core_verify::big_nat::mul]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 185:10-208:9
+    Visibility: public -/
+@[rust_loop]
+def big_nat.mul_loop1
+  (v : alloc.vec.Vec Std.U64) (v1 : alloc.vec.Vec Std.U64)
+  (left_len : Std.Usize) (right_len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (i : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (out1, i1) => big_nat.mul_loop1.body v v1 left_len right_len out1 i1)
+    (out, i)
+
+/-- [lnmai_core_verify::big_nat::mul]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 172:0-213:1
+    Visibility: public -/
+def big_nat.mul
+  (left : big_nat.BigNat) (right : big_nat.BigNat) :
+  Result big_nat.BigNat
+  := do
+  let left_len := alloc.vec.Vec.len left.limbs
+  let right_len := alloc.vec.Vec.len right.limbs
+  if left_len = 0#usize
+  then big_nat.zero
+  else
+    if right_len = 0#usize
+    then big_nat.zero
+    else
+      let out ←
+        big_nat.mul_loop0 left_len right_len (alloc.vec.Vec.new Std.U64)
+          0#usize
+      let out1 ←
+        big_nat.mul_loop1 left.limbs right.limbs left_len right_len out 0#usize
+      big_nat.normalize out1
+
+/-- [lnmai_core_verify::big_int::mul]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 153:0-156:1
+    Visibility: public -/
+def big_int.mul
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_int.BigIntKernel
+  := do
+  let b ← big_int.is_negative left
+  let b1 ← big_int.is_negative right
+  let bn ← big_nat.mul left.magnitude right.magnitude
+  big_int.make (b != b1) bn
+
+/-- [lnmai_core_verify::big_nat::one]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 42:0-46:1
+    Visibility: public -/
+def big_nat.one : Result big_nat.BigNat := do
+  let limbs ← alloc.vec.Vec.push (alloc.vec.Vec.new Std.U64) 1#u64
+  ok { limbs }
+
+/-- [lnmai_core_verify::big_nat::succ]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 310:0-313:1
+    Visibility: public -/
+def big_nat.succ (value : big_nat.BigNat) : Result big_nat.BigNat := do
+  let one ← big_nat.one
+  big_nat.add value one
+
+/-- [lnmai_core_verify::big_nat::shl_one]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 293:4-302:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.shl_one_loop.body
+  (v : alloc.vec.Vec Std.U64) (len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (index2 : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.Usize) (alloc.vec.Vec
+    Std.U64))
+  := do
+  if index2 < len
+  then
+    let i ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+        index2
+    let current ← i <<< 1#i32
+    let carry ←
+      if index2 = 0#usize
+      then ok 0#u64
+      else
+        do
+        let i1 ← index2 - 1#usize
+        let i2 ←
+          alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+            i1
+        i2 >>> 63#i32
+    let i1 ← lift (current ||| carry)
+    let out1 ← alloc.vec.Vec.push out i1
+    let index21 ← index2 + 1#usize
+    ok (cont (out1, index21))
+  else ok (done out)
+
+/-- [lnmai_core_verify::big_nat::shl_one]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 293:4-302:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.shl_one_loop
+  (v : alloc.vec.Vec Std.U64) (len : Std.Usize) (out : alloc.vec.Vec Std.U64)
+  (index2 : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (out1, index21) => big_nat.shl_one_loop.body v len out1 index21)
+    (out, index2)
+
+/-- [lnmai_core_verify::big_nat::shl_one]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 284:0-307:1
+    Visibility: public -/
+def big_nat.shl_one (value : big_nat.BigNat) : Result big_nat.BigNat := do
+  let len := alloc.vec.Vec.len value.limbs
+  if len = 0#usize
+  then big_nat.normalize (alloc.vec.Vec.new Std.U64)
+  else
+    let i ← len - 1#usize
+    let top ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+        value.limbs i
+    let extra ← top >>> 63#i32
+    let out ←
+      big_nat.shl_one_loop value.limbs len (alloc.vec.Vec.new Std.U64) 0#usize
+    let out1 ←
+      if extra != 0#u64
+      then alloc.vec.Vec.push out extra
+      else ok out
+    big_nat.normalize out1
+
+/-- [lnmai_core_verify::big_nat::bit_at]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 275:0-281:1
+    Visibility: public -/
+def big_nat.bit_at
+  (value : big_nat.BigNat) (index : Std.Usize) : Result Std.U64 := do
+  let limb ← index / 64#usize
+  let i := alloc.vec.Vec.len value.limbs
+  if limb >= i
+  then ok 0#u64
+  else
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+        value.limbs limb
+    let i2 ← index % 64#usize
+    let i3 ← i1 >>> i2
+    ok (i3 &&& 1#u64)
+
+/-- [lnmai_core_verify::big_nat::bit_length]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 267:4-270:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.bit_length_loop.body
+  (bits : Std.Usize) (probe : Std.U64) :
+  Result (ControlFlow (Std.Usize × Std.U64) Std.Usize)
+  := do
+  if probe != 0#u64
+  then
+    let bits1 ← bits + 1#usize
+    let probe1 ← probe >>> 1#i32
+    ok (cont (bits1, probe1))
+  else ok (done bits)
+
+/-- [lnmai_core_verify::big_nat::bit_length]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 267:4-270:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.bit_length_loop
+  (bits : Std.Usize) (probe : Std.U64) : Result Std.Usize := do
+  loop
+    (fun (bits1, probe1) => big_nat.bit_length_loop.body bits1 probe1)
+    (bits, probe)
+
+/-- [lnmai_core_verify::big_nat::bit_length]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 260:0-272:1
+    Visibility: public -/
+def big_nat.bit_length (value : big_nat.BigNat) : Result Std.Usize := do
+  let i := alloc.vec.Vec.len value.limbs
+  if i = 0#usize
+  then ok 0#usize
+  else
+    let i1 := alloc.vec.Vec.len value.limbs
+    let i2 ← i1 - 1#usize
+    let top ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+        value.limbs i2
+    let i3 := alloc.vec.Vec.len value.limbs
+    let i4 ← i3 - 1#usize
+    let bits ← i4 * 64#usize
+    big_nat.bit_length_loop bits top
+
+/-- [lnmai_core_verify::big_nat::divmod]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 335:4-349:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.divmod_loop.body
+  (value : big_nat.BigNat) (divisor : big_nat.BigNat)
+  (quotient : big_nat.BigNat) (remainder : big_nat.BigNat)
+  (position : Std.Usize) :
+  Result (ControlFlow (big_nat.BigNat × big_nat.BigNat × Std.Usize)
+    (big_nat.BigNat × big_nat.BigNat))
+  := do
+  if position > 0#usize
+  then
+    let position1 ← position - 1#usize
+    let rest ← big_nat.shl_one remainder
+    let bit ← big_nat.bit_at value position1
+    let remainder1 ← if bit = 1#u64
+                       then big_nat.succ rest
+                       else ok rest
+    let quotient1 ← big_nat.shl_one quotient
+    let i ← big_nat.compare remainder1 divisor
+    if i >= 0#i8
+    then
+      let remainder2 ← big_nat.sub remainder1 divisor
+      let quotient2 ← big_nat.succ quotient1
+      ok (cont (quotient2, remainder2, position1))
+    else ok (cont (quotient1, remainder1, position1))
+  else ok (done (quotient, remainder))
+
+/-- [lnmai_core_verify::big_nat::divmod]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 335:4-349:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.divmod_loop
+  (value : big_nat.BigNat) (divisor : big_nat.BigNat)
+  (quotient : big_nat.BigNat) (remainder : big_nat.BigNat)
+  (position : Std.Usize) :
+  Result (big_nat.BigNat × big_nat.BigNat)
+  := do
+  loop
+    (fun (quotient1, remainder1, position1) => big_nat.divmod_loop.body value
+      divisor quotient1 remainder1 position1)
+    (quotient, remainder, position)
+
+/-- [lnmai_core_verify::big_nat::divmod]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 324:0-351:1
+    Visibility: public -/
+def big_nat.divmod
+  (value : big_nat.BigNat) (divisor : big_nat.BigNat) :
+  Result (big_nat.BigNat × big_nat.BigNat)
+  := do
+  let b ← big_nat.is_zero divisor
+  if b
+  then
+    let bn ← big_nat.zero
+    let bn1 ← big_nat.BigNat.Insts.CoreCloneClone.clone value
+    ok (bn, bn1)
+  else
+    let i ← big_nat.compare value divisor
+    if i < 0#i8
+    then
+      let bn ← big_nat.zero
+      let bn1 ← big_nat.BigNat.Insts.CoreCloneClone.clone value
+      ok (bn, bn1)
+    else
+      let high ← big_nat.bit_length value
+      let quotient ← big_nat.zero
+      big_nat.divmod_loop value divisor quotient quotient high
+
+/-- [lnmai_core_verify::big_nat::div]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 353:0-355:1
+    Visibility: public -/
+def big_nat.div
+  (value : big_nat.BigNat) (divisor : big_nat.BigNat) :
+  Result big_nat.BigNat
+  := do
+  let (bn, _) ← big_nat.divmod value divisor
+  ok bn
+
+/-- [lnmai_core_verify::big_int::div_trunc]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 159:0-165:1
+    Visibility: public -/
+def big_int.div_trunc
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_int.BigIntKernel
+  := do
+  let b ← big_int.is_zero right
+  if b
+  then big_int.zero
+  else
+    let b1 ← big_int.is_negative left
+    let b2 ← big_int.is_negative right
+    let bn ← big_nat.div left.magnitude right.magnitude
+    big_int.make (b1 != b2) bn
+
+/-- [lnmai_core_verify::big_nat::rem]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 357:0-359:1
+    Visibility: public -/
+def big_nat.rem
+  (value : big_nat.BigNat) (divisor : big_nat.BigNat) :
+  Result big_nat.BigNat
+  := do
+  let (_, bn) ← big_nat.divmod value divisor
+  ok bn
+
+/-- [lnmai_core_verify::big_int::rem_trunc]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 169:0-177:1
+    Visibility: public -/
+def big_int.rem_trunc
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_int.BigIntKernel
+  := do
+  let b ← big_int.is_zero right
+  if b
+  then big_int.BigIntKernel.Insts.CoreCloneClone.clone left
+  else
+    let b1 ← big_int.is_negative left
+    let bn ← big_nat.rem left.magnitude right.magnitude
+    big_int.make b1 bn
+
+/-- [lnmai_core_verify::big_int::div_euclid]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 180:0-194:1
+    Visibility: public -/
+def big_int.div_euclid
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_int.BigIntKernel
+  := do
+  let b ← big_int.is_zero right
+  if b
+  then big_int.zero
+  else
+    let quotient ← big_nat.div left.magnitude right.magnitude
+    let remainder ← big_nat.rem left.magnitude right.magnitude
+    let b1 ← big_nat.is_zero remainder
+    if b1
+    then
+      let b2 ← big_int.is_negative left
+      let b3 ← big_int.is_negative right
+      big_int.make (b2 != b3) quotient
+    else
+      let b2 ← big_int.is_negative left
+      if b2
+      then
+        let bumped ← big_nat.succ quotient
+        let b3 ← big_int.is_negative right
+        big_int.make (¬ b3) bumped
+      else let b3 ← big_int.is_negative right
+           big_int.make b3 quotient
+
+/-- [lnmai_core_verify::big_int::rem_euclid]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 197:0-200:1
+    Visibility: public -/
+def big_int.rem_euclid
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_int.BigIntKernel
+  := do
+  let bik ← big_int.div_euclid left right
+  let bik1 ← big_int.mul bik right
+  let residual ← big_int.sub left bik1
+  big_int.abs residual
+
+/-- [lnmai_core_verify::big_nat::low_u64]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 362:0-367:1
+    Visibility: public -/
+def big_nat.low_u64 (value : big_nat.BigNat) : Result Std.U64 := do
+  let i := alloc.vec.Vec.len value.limbs
+  if i = 0#usize
+  then ok 0#u64
+  else
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+      value.limbs 0#usize
+
+/-- [lnmai_core_verify::big_int::low_u64]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 203:0-210:1
+    Visibility: public -/
+def big_int.low_u64 (value : big_int.BigIntKernel) : Result Std.U64 := do
+  let magnitude ← big_nat.low_u64 value.magnitude
+  let b ← big_int.is_negative value
+  if b
+  then
+    let (negated, _) ← lift (core.num.U64.overflowing_sub 0#u64 magnitude)
+    ok negated
+  else ok magnitude
+
+/-- [lnmai_core_verify::big_int::to_i64]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 213:0-234:1
+    Visibility: public -/
+def big_int.to_i64
+  (value : big_int.BigIntKernel) : Result (Option Std.I64) := do
+  let b ← big_nat.is_zero value.magnitude
+  if b
+  then ok (some 0#i64)
+  else
+    let i := alloc.vec.Vec.len value.magnitude.limbs
+    if i > 1#usize
+    then ok none
+    else
+      let magnitude ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+          value.magnitude.limbs 0#usize
+      let b1 ← big_int.is_negative value
+      if b1
+      then
+        if magnitude > 9223372036854775808#u64
+        then ok none
+        else
+          if magnitude = 9223372036854775808#u64
+          then ok (some core.num.I64.MIN)
+          else
+            let i1 ← lift (UScalar.hcast .I64 magnitude)
+            let i2 ← 0#i64 - i1
+            ok (some i2)
+      else
+        let i1 ← lift (IScalar.hcast .U64 core.num.I64.MAX)
+        if magnitude > i1
+        then ok none
+        else let i2 ← lift (UScalar.hcast .I64 magnitude)
+             ok (some i2)
+
+/-- [lnmai_core_verify::big_nat::gcd]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 388:4-392:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.gcd_loop.body
+  (a : big_nat.BigNat) (b : big_nat.BigNat) :
+  Result (ControlFlow (big_nat.BigNat × big_nat.BigNat) big_nat.BigNat)
+  := do
+  let b1 ← big_nat.is_zero b
+  if b1
+  then ok (done a)
+  else let rest ← big_nat.rem a b
+       ok (cont (b, rest))
+
+/-- [lnmai_core_verify::big_nat::gcd]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 388:4-392:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.gcd_loop
+  (a : big_nat.BigNat) (b : big_nat.BigNat) : Result big_nat.BigNat := do
+  loop
+    (fun (a1, b1) => big_nat.gcd_loop.body a1 b1)
+    (a, b)
+
+/-- [lnmai_core_verify::big_nat::gcd]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 385:0-394:1
+    Visibility: public -/
+def big_nat.gcd
+  (left : big_nat.BigNat) (right : big_nat.BigNat) :
+  Result big_nat.BigNat
+  := do
+  let a ← big_nat.BigNat.Insts.CoreCloneClone.clone left
+  let b ← big_nat.BigNat.Insts.CoreCloneClone.clone right
+  big_nat.gcd_loop a b
+
+/-- [lnmai_core_verify::big_int::gcd]:
+    Source: 'crates/lnmai-core-verify/src/big_int.rs', lines 237:0-239:1
+    Visibility: public -/
+def big_int.gcd
+  (left : big_int.BigIntKernel) (right : big_int.BigIntKernel) :
+  Result big_nat.BigNat
+  := do
+  big_nat.gcd left.magnitude right.magnitude
+
+/-- Trait implementation: [lnmai_core_verify::big_nat::{impl core::clone::Clone for lnmai_core_verify::big_nat::BigNat}]
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 15:9-15:14 -/
+@[reducible]
+def big_nat.BigNat.Insts.CoreCloneClone : core.clone.Clone big_nat.BigNat := {
+  clone := big_nat.BigNat.Insts.CoreCloneClone.clone
+}
+
+/-- [lnmai_core_verify::big_nat::is_one]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 70:0-72:1
+    Visibility: public -/
+def big_nat.is_one (value : big_nat.BigNat) : Result Bool := do
+  let i := alloc.vec.Vec.len value.limbs
+  if i = 1#usize
+  then
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+        value.limbs 0#usize
+    ok (i1 = 1#u64)
+  else ok false
+
+/-- [lnmai_core_verify::big_nat::mul_add_small]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 221:4-226:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.mul_add_small_loop0.body
+  (v : alloc.vec.Vec Std.U64) (mul : Std.U64) (len : Std.Usize)
+  (out : alloc.vec.Vec Std.U64) (carry : Std.U128) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.U128 × Std.Usize)
+    ((alloc.vec.Vec Std.U64) × Std.U128))
+  := do
+  if index < len
+  then
+    let i ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+        index
+    let i1 ← lift (UScalar.cast .U128 i)
+    let i2 ← lift (UScalar.cast .U128 mul)
+    let i3 ← i1 * i2
+    let product ← i3 + carry
+    let i4 ← lift (UScalar.cast .U64 product)
+    let out1 ← alloc.vec.Vec.push out i4
+    let carry1 ← product >>> 64#i32
+    let index1 ← index + 1#usize
+    ok (cont (out1, carry1, index1))
+  else ok (done (out, carry))
+
+/-- [lnmai_core_verify::big_nat::mul_add_small]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 221:4-226:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.mul_add_small_loop0
+  (v : alloc.vec.Vec Std.U64) (mul : Std.U64) (len : Std.Usize)
+  (out : alloc.vec.Vec Std.U64) (carry : Std.U128) (index : Std.Usize) :
+  Result ((alloc.vec.Vec Std.U64) × Std.U128)
+  := do
+  loop
+    (fun (out1, carry1, index1) => big_nat.mul_add_small_loop0.body v mul len
+      out1 carry1 index1)
+    (out, carry, index)
+
+/-- [lnmai_core_verify::big_nat::mul_add_small]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 228:4-231:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.mul_add_small_loop1.body
+  (out : alloc.vec.Vec Std.U64) (tail : Std.U128) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.U128) (alloc.vec.Vec
+    Std.U64))
+  := do
+  if tail != 0#u128
+  then
+    let i ← lift (UScalar.cast .U64 tail)
+    let out1 ← alloc.vec.Vec.push out i
+    let tail1 ← tail >>> 64#i32
+    ok (cont (out1, tail1))
+  else ok (done out)
+
+/-- [lnmai_core_verify::big_nat::mul_add_small]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 228:4-231:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.mul_add_small_loop1
+  (out : alloc.vec.Vec Std.U64) (tail : Std.U128) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (out1, tail1) => big_nat.mul_add_small_loop1.body out1 tail1)
+    (out, tail)
+
+/-- [lnmai_core_verify::big_nat::mul_add_small]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 216:0-233:1
+    Visibility: public -/
+def big_nat.mul_add_small
+  (value : big_nat.BigNat) (mul : Std.U64) (addend : Std.U64) :
+  Result big_nat.BigNat
+  := do
+  let len := alloc.vec.Vec.len value.limbs
+  let carry ← lift (UScalar.cast .U128 addend)
+  let (out, tail) ←
+    big_nat.mul_add_small_loop0 value.limbs mul len (alloc.vec.Vec.new Std.U64)
+      carry 0#usize
+  let out1 ← big_nat.mul_add_small_loop1 out tail
+  big_nat.normalize out1
+
+/-- [lnmai_core_verify::big_nat::divmod_small]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 244:4-247:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.divmod_small_loop0.body
+  (len : Std.Usize) (quotient : alloc.vec.Vec Std.U64) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.Usize) (alloc.vec.Vec
+    Std.U64))
+  := do
+  if index < len
+  then
+    let quotient1 ← alloc.vec.Vec.push quotient 0#u64
+    let index1 ← index + 1#usize
+    ok (cont (quotient1, index1))
+  else ok (done quotient)
+
+/-- [lnmai_core_verify::big_nat::divmod_small]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 244:4-247:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.divmod_small_loop0
+  (len : Std.Usize) (quotient : alloc.vec.Vec Std.U64) (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  loop
+    (fun (quotient1, index1) => big_nat.divmod_small_loop0.body len quotient1
+      index1)
+    (quotient, index)
+
+/-- [lnmai_core_verify::big_nat::divmod_small]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 250:4-255:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.divmod_small_loop1.body
+  (v : alloc.vec.Vec Std.U64) (divisor : Std.U64)
+  (quotient : alloc.vec.Vec Std.U64) (remainder : Std.U128)
+  (position : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U64) × Std.U128 × Std.Usize)
+    ((alloc.vec.Vec Std.U64) × Std.U128))
+  := do
+  if position > 0#usize
+  then
+    let position1 ← position - 1#usize
+    let i ← remainder <<< 64#i32
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64) v
+        position1
+    let i2 ← lift (UScalar.cast .U128 i1)
+    let current ← lift (i ||| i2)
+    let i3 ← lift (UScalar.cast .U128 divisor)
+    let i4 ← current / i3
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Std.U64)
+        quotient position1
+    let i5 ← lift (UScalar.cast .U64 i4)
+    let i6 ← lift (UScalar.cast .U128 divisor)
+    let remainder1 ← current % i6
+    let quotient1 := index_mut_back i5
+    ok (cont (quotient1, remainder1, position1))
+  else ok (done (quotient, remainder))
+
+/-- [lnmai_core_verify::big_nat::divmod_small]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 250:4-255:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.divmod_small_loop1
+  (v : alloc.vec.Vec Std.U64) (divisor : Std.U64)
+  (quotient : alloc.vec.Vec Std.U64) (remainder : Std.U128)
+  (position : Std.Usize) :
+  Result ((alloc.vec.Vec Std.U64) × Std.U128)
+  := do
+  loop
+    (fun (quotient1, remainder1, position1) => big_nat.divmod_small_loop1.body
+      v divisor quotient1 remainder1 position1)
+    (quotient, remainder, position)
+
+/-- [lnmai_core_verify::big_nat::divmod_small]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 236:0-257:1
+    Visibility: public -/
+def big_nat.divmod_small
+  (value : big_nat.BigNat) (divisor : Std.U64) :
+  Result (Std.U64 × big_nat.BigNat)
+  := do
+  let len := alloc.vec.Vec.len value.limbs
+  if divisor = 0#u64
+  then
+    let quotient ← big_nat.BigNat.Insts.CoreCloneClone.clone value
+    ok (0#u64, quotient)
+  else
+    let quotient ←
+      big_nat.divmod_small_loop0 len (alloc.vec.Vec.new Std.U64) 0#usize
+    let (quotient1, remainder) ←
+      big_nat.divmod_small_loop1 value.limbs divisor quotient 0#u128 len
+    let i ← lift (UScalar.cast .U64 remainder)
+    let bn ← big_nat.normalize quotient1
+    ok (i, bn)
+
+/-- [lnmai_core_verify::big_nat::add_u64]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 316:0-319:1
+    Visibility: public -/
+def big_nat.add_u64
+  (value : big_nat.BigNat) (addend : Std.U64) : Result big_nat.BigNat := do
+  let word ← big_nat.from_u64 addend
+  big_nat.add value word
+
+/-- [lnmai_core_verify::big_nat::to_usize]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 370:0-382:1
+    Visibility: public -/
+def big_nat.to_usize (value : big_nat.BigNat) : Result (Option Std.Usize) := do
+  let i := alloc.vec.Vec.len value.limbs
+  if i = 0#usize
+  then ok (some 0#usize)
+  else
+    let i1 := alloc.vec.Vec.len value.limbs
+    if i1 > 1#usize
+    then ok none
+    else
+      let low ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U64)
+          value.limbs 0#usize
+      let i2 ← lift (UScalar.cast .U64 core.num.Usize.MAX)
+      if low > i2
+      then ok none
+      else let i3 ← lift (UScalar.cast .Usize low)
+           ok (some i3)
+
+/-- [lnmai_core_verify::big_nat::to_decimal_digits]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 404:4-408:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.to_decimal_digits_loop0.body
+  (digits : alloc.vec.Vec Std.U8) (rest : big_nat.BigNat) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U8) × big_nat.BigNat) (alloc.vec.Vec
+    Std.U8))
+  := do
+  let b ← big_nat.is_zero rest
+  if b
+  then ok (done digits)
+  else
+    let (remainder, quotient) ← big_nat.divmod_small rest 10#u64
+    let i ← lift (UScalar.cast .U8 remainder)
+    let i1 ← 48#u8 + i
+    let digits1 ← alloc.vec.Vec.push digits i1
+    ok (cont (digits1, quotient))
+
+/-- [lnmai_core_verify::big_nat::to_decimal_digits]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 404:4-408:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.to_decimal_digits_loop0
+  (digits : alloc.vec.Vec Std.U8) (rest : big_nat.BigNat) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  loop
+    (fun (digits1, rest1) => big_nat.to_decimal_digits_loop0.body digits1
+      rest1)
+    (digits, rest)
+
+/-- [lnmai_core_verify::big_nat::to_decimal_digits]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 411:4-415:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_nat.to_decimal_digits_loop1.body
+  (len : Std.Usize) (digits : alloc.vec.Vec Std.U8) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U8) × Std.Usize) (alloc.vec.Vec
+    Std.U8))
+  := do
+  let i ← len / 2#usize
+  if index < i
+  then
+    let i1 ← len - 1#usize
+    let opposite ← i1 - index
+    let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut digits)
+    let s1 ← core.slice.Slice.swap s index opposite
+    let index1 ← index + 1#usize
+    let digits1 := deref_mut_back s1
+    ok (cont (digits1, index1))
+  else ok (done digits)
+
+/-- [lnmai_core_verify::big_nat::to_decimal_digits]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 411:4-415:5
+    Visibility: public -/
+@[rust_loop]
+def big_nat.to_decimal_digits_loop1
+  (digits : alloc.vec.Vec Std.U8) (len : Std.Usize) (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  loop
+    (fun (digits1, index1) => big_nat.to_decimal_digits_loop1.body len digits1
+      index1)
+    (digits, index)
+
+/-- [lnmai_core_verify::big_nat::to_decimal_digits]:
+    Source: 'crates/lnmai-core-verify/src/big_nat.rs', lines 397:0-417:1
+    Visibility: public -/
+def big_nat.to_decimal_digits
+  (value : big_nat.BigNat) : Result (alloc.vec.Vec Std.U8) := do
+  let b ← big_nat.is_zero value
+  if b
+  then alloc.vec.Vec.push (alloc.vec.Vec.new Std.U8) 48#u8
+  else
+    let rest ← big_nat.BigNat.Insts.CoreCloneClone.clone value
+    let digits ←
+      big_nat.to_decimal_digits_loop0 (alloc.vec.Vec.new Std.U8) rest
+    let len := alloc.vec.Vec.len digits
+    big_nat.to_decimal_digits_loop1 digits len 0#usize
+
+/-- [lnmai_core_verify::big_rat::BigRat]
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 13:0-16:1
+    Visibility: public -/
+structure big_rat.BigRat where
+  num : big_int.BigIntKernel
+  den : big_nat.BigNat
+
+/-- [lnmai_core_verify::big_rat::{impl core::clone::Clone for lnmai_core_verify::big_rat::BigRat}::clone]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 12:9-12:14
+    Visibility: public -/
+def big_rat.BigRat.Insts.CoreCloneClone.clone
+  (self : big_rat.BigRat) : Result big_rat.BigRat := do
+  let bik ← big_int.BigIntKernel.Insts.CoreCloneClone.clone self.num
+  let bn ← big_nat.BigNat.Insts.CoreCloneClone.clone self.den
+  ok { num := bik, den := bn }
+
+/-- Trait implementation: [lnmai_core_verify::big_rat::{impl core::clone::Clone for lnmai_core_verify::big_rat::BigRat}]
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 12:9-12:14 -/
+@[reducible]
+def big_rat.BigRat.Insts.CoreCloneClone : core.clone.Clone big_rat.BigRat := {
+  clone := big_rat.BigRat.Insts.CoreCloneClone.clone
+}
+
+/-- [lnmai_core_verify::big_rat::from_int]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 18:0-23:1
+    Visibility: public -/
+def big_rat.from_int (num : big_int.BigIntKernel) : Result big_rat.BigRat := do
+  let bik ← big_int.BigIntKernel.Insts.CoreCloneClone.clone num
+  let bn ← big_nat.one
+  ok { num := bik, den := bn }
+
+/-- [lnmai_core_verify::big_rat::zero]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 25:0-30:1
+    Visibility: public -/
+def big_rat.zero : Result big_rat.BigRat := do
+  let bik ← big_int.zero
+  let bn ← big_nat.one
+  ok { num := bik, den := bn }
+
+/-- [lnmai_core_verify::big_rat::one]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 32:0-37:1
+    Visibility: public -/
+def big_rat.one : Result big_rat.BigRat := do
+  let bik ← big_int.from_u64 1#u64
+  let bn ← big_nat.one
+  ok { num := bik, den := bn }
+
+/-- [lnmai_core_verify::big_rat::is_zero]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 39:0-41:1
+    Visibility: public -/
+def big_rat.is_zero (value : big_rat.BigRat) : Result Bool := do
+  big_int.is_zero value.num
+
+/-- [lnmai_core_verify::big_rat::is_negative]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 43:0-45:1
+    Visibility: public -/
+def big_rat.is_negative (value : big_rat.BigRat) : Result Bool := do
+  big_int.is_negative value.num
+
+/-- [lnmai_core_verify::big_rat::den_int]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 47:0-49:1 -/
+def big_rat.den_int
+  (value : big_rat.BigRat) : Result big_int.BigIntKernel := do
+  big_int.of_nat value.den
+
+/-- [lnmai_core_verify::big_rat::reduce]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 52:0-71:1 -/
+def big_rat.reduce
+  (num : big_int.BigIntKernel) (den : big_int.BigIntKernel) :
+  Result big_rat.BigRat
+  := do
+  let b ← big_int.is_zero den
+  if b
+  then big_rat.zero
+  else
+    let negative ← big_int.is_negative den
+    let numer ← if negative
+                  then big_int.neg num
+                  else ok num
+    let denom ← big_int.abs den
+    let divisor ← big_int.gcd numer denom
+    let b1 ← big_nat.is_zero divisor
+    if b1
+    then ok { num := numer, den := denom.magnitude }
+    else
+      let divisor_int ← big_int.of_nat divisor
+      let bik ← big_int.div_trunc numer divisor_int
+      let bn ← big_nat.div denom.magnitude divisor
+      ok { num := bik, den := bn }
+
+/-- [lnmai_core_verify::big_rat::new]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 74:0-76:1
+    Visibility: public -/
+def big_rat.new
+  (num : big_int.BigIntKernel) (den : big_int.BigIntKernel) :
+  Result big_rat.BigRat
+  := do
+  let bik ← big_int.BigIntKernel.Insts.CoreCloneClone.clone num
+  let bik1 ← big_int.BigIntKernel.Insts.CoreCloneClone.clone den
+  big_rat.reduce bik bik1
+
+/-- [lnmai_core_verify::big_rat::add]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 78:0-84:1
+    Visibility: public -/
+def big_rat.add
+  (left : big_rat.BigRat) (right : big_rat.BigRat) :
+  Result big_rat.BigRat
+  := do
+  let bik ← big_rat.den_int right
+  let first ← big_int.mul left.num bik
+  let bik1 ← big_rat.den_int left
+  let second ← big_int.mul right.num bik1
+  let numerator ← big_int.add first second
+  let bn ← big_nat.mul left.den right.den
+  let denominator ← big_int.of_nat bn
+  big_rat.reduce numerator denominator
+
+/-- [lnmai_core_verify::big_rat::sub]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 86:0-92:1
+    Visibility: public -/
+def big_rat.sub
+  (left : big_rat.BigRat) (right : big_rat.BigRat) :
+  Result big_rat.BigRat
+  := do
+  let bik ← big_rat.den_int right
+  let first ← big_int.mul left.num bik
+  let bik1 ← big_rat.den_int left
+  let second ← big_int.mul right.num bik1
+  let numerator ← big_int.sub first second
+  let bn ← big_nat.mul left.den right.den
+  let denominator ← big_int.of_nat bn
+  big_rat.reduce numerator denominator
+
+/-- [lnmai_core_verify::big_rat::mul]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 94:0-98:1
+    Visibility: public -/
+def big_rat.mul
+  (left : big_rat.BigRat) (right : big_rat.BigRat) :
+  Result big_rat.BigRat
+  := do
+  let numerator ← big_int.mul left.num right.num
+  let bn ← big_nat.mul left.den right.den
+  let denominator ← big_int.of_nat bn
+  big_rat.reduce numerator denominator
+
+/-- [lnmai_core_verify::big_rat::div]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 100:0-104:1
+    Visibility: public -/
+def big_rat.div
+  (left : big_rat.BigRat) (right : big_rat.BigRat) :
+  Result big_rat.BigRat
+  := do
+  let bik ← big_rat.den_int right
+  let numerator ← big_int.mul left.num bik
+  let bik1 ← big_rat.den_int left
+  let denominator ← big_int.mul right.num bik1
+  big_rat.reduce numerator denominator
+
+/-- [lnmai_core_verify::big_rat::compare]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 107:0-111:1
+    Visibility: public -/
+def big_rat.compare
+  (left : big_rat.BigRat) (right : big_rat.BigRat) : Result Std.I8 := do
+  let bik ← big_rat.den_int right
+  let first ← big_int.mul left.num bik
+  let bik1 ← big_rat.den_int left
+  let second ← big_int.mul right.num bik1
+  big_int.compare first second
+
+/-- [lnmai_core_verify::big_rat::equal]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 113:0-115:1
+    Visibility: public -/
+def big_rat.equal
+  (left : big_rat.BigRat) (right : big_rat.BigRat) : Result Bool := do
+  let i ← big_rat.compare left right
+  ok (i = 0#i8)
+
+/-- [lnmai_core_verify::big_rat::whole_digits]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 118:0-122:1
+    Visibility: public -/
+def big_rat.whole_digits
+  (value : big_rat.BigRat) : Result (alloc.vec.Vec Std.U8) := do
+  let whole ← big_nat.div value.num.magnitude value.den
+  big_nat.to_decimal_digits whole
+
+/-- [lnmai_core_verify::big_rat::fraction_digits]: loop body 0:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 132:4-138:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_rat.fraction_digits_loop0.body
+  (bn : big_nat.BigNat) (fraction : alloc.vec.Vec Std.U8)
+  (rest : big_nat.BigNat) (count : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U8) × big_nat.BigNat × Std.Usize)
+    (alloc.vec.Vec Std.U8))
+  := do
+  if count < 12#usize
+  then
+    let b ← big_nat.is_zero rest
+    if b
+    then ok (done fraction)
+    else
+      let scaled ← big_nat.mul_add_small rest 10#u64 0#u64
+      let digit ← big_nat.div scaled bn
+      let rest1 ← big_nat.rem scaled bn
+      let i ← big_nat.low_u64 digit
+      let i1 ← lift (UScalar.cast .U8 i)
+      let i2 ← 48#u8 + i1
+      let fraction1 ← alloc.vec.Vec.push fraction i2
+      let count1 ← count + 1#usize
+      ok (cont (fraction1, rest1, count1))
+  else ok (done fraction)
+
+/-- [lnmai_core_verify::big_rat::fraction_digits]: loop 0:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 132:4-138:5
+    Visibility: public -/
+@[rust_loop]
+def big_rat.fraction_digits_loop0
+  (bn : big_nat.BigNat) (fraction : alloc.vec.Vec Std.U8)
+  (rest : big_nat.BigNat) (count : Std.Usize) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  loop
+    (fun (fraction1, rest1, count1) => big_rat.fraction_digits_loop0.body bn
+      fraction1 rest1 count1)
+    (fraction, rest, count)
+
+/-- [lnmai_core_verify::big_rat::fraction_digits]: loop body 1:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 140:4-142:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_rat.fraction_digits_loop1.body
+  (fraction : alloc.vec.Vec Std.U8) (length : Std.Usize) :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  if length > 0#usize
+  then
+    let i ← length - 1#usize
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U8)
+        fraction i
+    if i1 = 48#u8
+    then ok (cont i)
+    else ok (done length)
+  else ok (done length)
+
+/-- [lnmai_core_verify::big_rat::fraction_digits]: loop 1:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 140:4-142:5
+    Visibility: public -/
+@[rust_loop]
+def big_rat.fraction_digits_loop1
+  (fraction : alloc.vec.Vec Std.U8) (length : Std.Usize) :
+  Result Std.Usize
+  := do
+  loop
+    (fun length1 => big_rat.fraction_digits_loop1.body fraction length1)
+    length
+
+/-- [lnmai_core_verify::big_rat::fraction_digits]: loop body 2:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 145:4-148:5
+    Visibility: public -/
+@[rust_loop_body]
+def big_rat.fraction_digits_loop2.body
+  (fraction : alloc.vec.Vec Std.U8) (length : Std.Usize)
+  (trimmed : alloc.vec.Vec Std.U8) (index : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U8) × Std.Usize) (alloc.vec.Vec
+    Std.U8))
+  := do
+  if index < length
+  then
+    let i ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U8)
+        fraction index
+    let trimmed1 ← alloc.vec.Vec.push trimmed i
+    let index1 ← index + 1#usize
+    ok (cont (trimmed1, index1))
+  else ok (done trimmed)
+
+/-- [lnmai_core_verify::big_rat::fraction_digits]: loop 2:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 145:4-148:5
+    Visibility: public -/
+@[rust_loop]
+def big_rat.fraction_digits_loop2
+  (fraction : alloc.vec.Vec Std.U8) (length : Std.Usize)
+  (trimmed : alloc.vec.Vec Std.U8) (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  loop
+    (fun (trimmed1, index1) => big_rat.fraction_digits_loop2.body fraction
+      length trimmed1 index1)
+    (trimmed, index)
+
+/-- [lnmai_core_verify::big_rat::fraction_digits]:
+    Source: 'crates/lnmai-core-verify/src/big_rat.rs', lines 125:0-150:1
+    Visibility: public -/
+def big_rat.fraction_digits
+  (value : big_rat.BigRat) : Result (alloc.vec.Vec Std.U8) := do
+  let b ← big_nat.is_zero value.num.magnitude
+  if b
+  then ok (alloc.vec.Vec.new Std.U8)
+  else
+    let rest ← big_nat.rem value.num.magnitude value.den
+    let fraction ←
+      big_rat.fraction_digits_loop0 value.den (alloc.vec.Vec.new Std.U8) rest
+        0#usize
+    let length := alloc.vec.Vec.len fraction
+    let length1 ← big_rat.fraction_digits_loop1 fraction length
+    big_rat.fraction_digits_loop2 fraction length1 (alloc.vec.Vec.new Std.U8)
+      0#usize
+
 /-- [lnmai_core_verify::time::Duration]
     Source: 'crates/lnmai-core-verify/src/time.rs', lines 10:0-12:1
     Visibility: public -/
@@ -2583,7 +4450,7 @@ def judge.is_too_late_slide
   ok (diff.micros > i)
 
 /-- Trait declaration: [lnmai_core_verify::judgment_adapter::IntegerOps]
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 19:0-29:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 20:0-30:1
     Visibility: public -/
 structure judgment_adapter.IntegerOps (Self : Type) (I : Type) where
   from_i64 : Self → Std.I64 → Result I
@@ -2597,7 +4464,7 @@ structure judgment_adapter.IntegerOps (Self : Type) (I : Type) where
   to_i64 : Self → I → Result (Option Std.I64)
 
 /-- [lnmai_core_verify::judgment_adapter::bounded]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 35:0-46:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 36:0-47:1
     Visibility: public -/
 def judgment_adapter.bounded
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2620,7 +4487,7 @@ def judgment_adapter.bounded
       | some value1 => ok value1
 
 /-- [lnmai_core_verify::judgment_adapter::diff_rep]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 50:0-52:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 51:0-53:1
     Visibility: public -/
 def judgment_adapter.diff_rep
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2633,7 +4500,7 @@ def judgment_adapter.diff_rep
   time.Duration.from_micros i
 
 /-- [lnmai_core_verify::judgment_adapter::judge_tap]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 54:0-56:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 55:0-57:1
     Visibility: public -/
 def judgment_adapter.judge_tap
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2644,7 +4511,7 @@ def judgment_adapter.judge_tap
   judge.judge_tap d is_ex
 
 /-- [lnmai_core_verify::judgment_adapter::judge_touch]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 58:0-60:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 59:0-61:1
     Visibility: public -/
 def judgment_adapter.judge_touch
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2655,7 +4522,7 @@ def judgment_adapter.judge_touch
   judge.judge_touch d is_ex
 
 /-- [lnmai_core_verify::judgment_adapter::judge_slide_classic]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 62:0-64:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 63:0-65:1
     Visibility: public -/
 def judgment_adapter.judge_slide_classic
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2666,7 +4533,7 @@ def judgment_adapter.judge_slide_classic
   judge.judge_slide_classic d
 
 /-- [lnmai_core_verify::judgment_adapter::judge_slide_modern]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 66:0-80:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 67:0-81:1
     Visibility: public -/
 def judgment_adapter.judge_slide_modern
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2680,7 +4547,7 @@ def judgment_adapter.judge_slide_modern
   judge.judge_slide_modern d d1 is_ex
 
 /-- [lnmai_core_verify::judgment_adapter::judge_slide_too_late]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 83:0-90:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 84:0-91:1
     Visibility: public -/
 def judgment_adapter.judge_slide_too_late
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2695,7 +4562,7 @@ def judgment_adapter.judge_slide_too_late
   judge.judge_slide_too_late representative
 
 /-- [lnmai_core_verify::judgment_adapter::is_too_late_slide]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 92:0-100:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 93:0-101:1
     Visibility: public -/
 def judgment_adapter.is_too_late_slide
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2710,7 +4577,7 @@ def judgment_adapter.is_too_late_slide
   judge.is_too_late_slide d d1
 
 /-- [lnmai_core_verify::judgment_adapter::press_band_micros]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 104:0-116:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 105:0-117:1
     Visibility: public -/
 def judgment_adapter.press_band_micros
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2739,7 +4606,7 @@ def judgment_adapter.press_band_micros
   else ok 0#u32
 
 /-- [lnmai_core_verify::judgment_adapter::judge_hold_end]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 118:0-139:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 119:0-140:1
     Visibility: public -/
 def judgment_adapter.judge_hold_end
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2766,7 +4633,7 @@ def judgment_adapter.judge_hold_end
   else ok head
 
 /-- [lnmai_core_verify::judgment_adapter::judge_hold_classic_end]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 141:0-156:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 142:0-157:1
     Visibility: public -/
 def judgment_adapter.judge_hold_classic_end
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -2866,7 +4733,7 @@ def score.count_fast_late
         else ok (false, true)
 
 /-- [lnmai_core_verify::judgment_adapter::count_fast_late]:
-    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 158:0-165:1
+    Source: 'crates/lnmai-core-verify/src/judgment_adapter.rs', lines 159:0-166:1
     Visibility: public -/
 def judgment_adapter.count_fast_late
   {I : Type} {Ops : Type} (IntegerOpsInst : judgment_adapter.IntegerOps Ops I)
@@ -4842,13 +6709,6 @@ def lifecycle.SlideArea.check
       { self with policy := ap }
   ok { sa with was_on, was_off, target_was_on, target_was_off }
 
-/-- [lnmai_core_verify::maidata_scan::Span]
-    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 7:0-10:1
-    Visibility: public -/
-structure maidata_scan.Span where
-  start : Std.Usize
-  «end» : Std.Usize
-
 /-- Trait declaration: [lnmai_core_verify::maidata_scan::LineRead]
     Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 14:0-19:1
     Visibility: public -/
@@ -4867,6 +6727,13 @@ structure maidata_scan.LineWrite (Self : Type) (Header : Type) (Fields : Type)
   begin_chart : Self → Header → Result Body
   append_body_line : Self → Body → Std.Usize → Result Body
   append_chart : Self → Charts → Body → Result Charts
+
+/-- [lnmai_core_verify::maidata_scan::Span]
+    Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 7:0-10:1
+    Visibility: public -/
+structure maidata_scan.Span where
+  start : Std.Usize
+  «end» : Std.Usize
 
 /-- [lnmai_core_verify::maidata_scan::LinePlan]
     Source: 'crates/lnmai-core-verify/src/maidata_scan.rs', lines 32:0-36:1
@@ -5364,7 +7231,7 @@ def natural_parser.decimal_digit (c : Char) : Result (Option Std.U8) := do
                        else ok none
 
 /-- [lnmai_core_verify::natural_parser::parse_decimal]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/natural_parser.rs', lines 45:4-68:1
+    Source: 'crates/lnmai-core-verify/src/natural_parser.rs', lines 46:4-68:1
     Visibility: public -/
 @[rust_loop_body]
 def natural_parser.parse_decimal_loop.body
@@ -5397,7 +7264,7 @@ def natural_parser.parse_decimal_loop.body
        else ok (done none)
 
 /-- [lnmai_core_verify::natural_parser::parse_decimal]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/natural_parser.rs', lines 45:4-68:1
+    Source: 'crates/lnmai-core-verify/src/natural_parser.rs', lines 46:4-68:1
     Visibility: public -/
 @[rust_loop]
 def natural_parser.parse_decimal_loop
@@ -5413,7 +7280,7 @@ def natural_parser.parse_decimal_loop
     (value, last_was_digit, index)
 
 /-- [lnmai_core_verify::natural_parser::parse_decimal]:
-    Source: 'crates/lnmai-core-verify/src/natural_parser.rs', lines 37:0-68:1
+    Source: 'crates/lnmai-core-verify/src/natural_parser.rs', lines 38:0-68:1
     Visibility: public -/
 def natural_parser.parse_decimal
   {T : Type} {Z : Type} {F : Type} (coreopsfunctionFnZTupleTInst :
@@ -6451,7 +8318,7 @@ def scheduler.tap_queue_has_unused_click
   else ok fallback_sensor_available
 
 /-- [lnmai_core_verify::scheduler::touch_input_available]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 49:0-59:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 50:0-60:1
     Visibility: public -/
 def scheduler.touch_input_available
   (button_ring_for_touch : Bool) (sensor_available : Bool)
@@ -6469,7 +8336,7 @@ def scheduler.touch_input_available
        else ok false
 
 /-- [lnmai_core_verify::scheduler::FramePhase]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:0-69:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 64:0-70:1
     Visibility: public -/
 @[discriminant isize]
 inductive scheduler.FramePhase where
@@ -6480,7 +8347,7 @@ inductive scheduler.FramePhase where
 | TouchHold : scheduler.FramePhase
 
 /-- [lnmai_core_verify::scheduler::{impl core::fmt::Debug for lnmai_core_verify::scheduler::FramePhase}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:9-62:14
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:9-63:14
     Visibility: public -/
 def scheduler.FramePhase.Insts.CoreFmtDebug.fmt
   (self : scheduler.FramePhase) (f : core.fmt.Formatter) :
@@ -6497,7 +8364,7 @@ def scheduler.FramePhase.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.write_str f (toStr "TouchHold")
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::fmt::Debug for lnmai_core_verify::scheduler::FramePhase}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:9-62:14 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:9-63:14 -/
 @[reducible]
 def scheduler.FramePhase.Insts.CoreFmtDebug : core.fmt.Debug
   scheduler.FramePhase := {
@@ -6505,14 +8372,14 @@ def scheduler.FramePhase.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [lnmai_core_verify::scheduler::{impl core::clone::Clone for lnmai_core_verify::scheduler::FramePhase}::clone]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:16-62:21
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:16-63:21
     Visibility: public -/
 def scheduler.FramePhase.Insts.CoreCloneClone.clone
   (self : scheduler.FramePhase) : Result scheduler.FramePhase := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::clone::Clone for lnmai_core_verify::scheduler::FramePhase}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:16-62:21 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:16-63:21 -/
 @[reducible]
 def scheduler.FramePhase.Insts.CoreCloneClone : core.clone.Clone
   scheduler.FramePhase := {
@@ -6520,7 +8387,7 @@ def scheduler.FramePhase.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::marker::Copy for lnmai_core_verify::scheduler::FramePhase}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:23-62:27 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:23-63:27 -/
 @[reducible]
 def scheduler.FramePhase.Insts.CoreMarkerCopy : core.marker.Copy
   scheduler.FramePhase := {
@@ -6528,14 +8395,14 @@ def scheduler.FramePhase.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::marker::StructuralPartialEq for lnmai_core_verify::scheduler::FramePhase}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:29-62:38 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:29-63:38 -/
 @[reducible]
 def scheduler.FramePhase.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq scheduler.FramePhase := {
 }
 
 /-- [lnmai_core_verify::scheduler::{impl core::cmp::PartialEq<lnmai_core_verify::scheduler::FramePhase> for lnmai_core_verify::scheduler::FramePhase}::eq]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:29-62:38
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:29-63:38
     Visibility: public -/
 def scheduler.FramePhase.Insts.CoreCmpPartialEqFramePhase.eq
   (self : scheduler.FramePhase) (other : scheduler.FramePhase) :
@@ -6546,7 +8413,7 @@ def scheduler.FramePhase.Insts.CoreCmpPartialEqFramePhase.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::cmp::PartialEq<lnmai_core_verify::scheduler::FramePhase> for lnmai_core_verify::scheduler::FramePhase}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:29-62:38 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:29-63:38 -/
 @[reducible]
 def scheduler.FramePhase.Insts.CoreCmpPartialEqFramePhase : core.cmp.PartialEq
   scheduler.FramePhase scheduler.FramePhase := {
@@ -6554,14 +8421,14 @@ def scheduler.FramePhase.Insts.CoreCmpPartialEqFramePhase : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::scheduler::{impl core::cmp::Eq for lnmai_core_verify::scheduler::FramePhase}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:40-62:42
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:40-63:42
     Visibility: public -/
 def scheduler.FramePhase.Insts.CoreCmpEq.assert_fields_are_eq
   (self : scheduler.FramePhase) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::cmp::Eq for lnmai_core_verify::scheduler::FramePhase}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 62:40-62:42 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 63:40-63:42 -/
 @[reducible]
 def scheduler.FramePhase.Insts.CoreCmpEq : core.cmp.Eq scheduler.FramePhase
   := {
@@ -6571,7 +8438,7 @@ def scheduler.FramePhase.Insts.CoreCmpEq : core.cmp.Eq scheduler.FramePhase
 }
 
 /-- [lnmai_core_verify::scheduler::process_frame]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 74:0-83:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 75:0-84:1
     Visibility: public -/
 def scheduler.process_frame
   {S : Type} {F : Type} (coreopsfunctionFnFPairFramePhaseSSInst :
@@ -6595,7 +8462,7 @@ def scheduler.process_frame
     (scheduler.FramePhase.TouchHold, state4)
 
 /-- [lnmai_core_verify::scheduler::FrameEvents]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 86:0-92:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 87:0-93:1
     Visibility: public -/
 structure scheduler.FrameEvents (E : Type) where
   tap : E
@@ -6605,7 +8472,7 @@ structure scheduler.FrameEvents (E : Type) where
   touch_hold : E
 
 /-- [lnmai_core_verify::scheduler::combine_events]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 96:0-104:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 97:0-105:1
     Visibility: public -/
 def scheduler.combine_events
   {E : Type} {F : Type} (coreopsfunctionFnFPairEInst : core.ops.function.Fn F
@@ -6619,7 +8486,7 @@ def scheduler.combine_events
   coreopsfunctionFnFPairEInst.call append (out2, events.slide)
 
 /-- [lnmai_core_verify::scheduler::combine_commands]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 109:0-126:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 110:0-127:1
     Visibility: public -/
 def scheduler.combine_commands
   {A : Type} {R : Type} {FA : Type} {FR : Type} (coreopsfunctionFnFAPairAInst :
@@ -6639,14 +8506,14 @@ def scheduler.combine_commands
   ok (audio1, render)
 
 /-- [lnmai_core_verify::scheduler::TouchGroupProbe]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 130:0-133:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 131:0-134:1
     Visibility: public -/
 structure scheduler.TouchGroupProbe where
   matches_group : Bool
   has_majority : Bool
 
 /-- [lnmai_core_verify::scheduler::TouchGroupAction]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:0-139:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 137:0-140:1
     Visibility: public -/
 @[discriminant isize]
 inductive scheduler.TouchGroupAction where
@@ -6654,7 +8521,7 @@ inductive scheduler.TouchGroupAction where
 | Update : Std.Usize → Bool → scheduler.TouchGroupAction
 
 /-- [lnmai_core_verify::scheduler::{impl core::fmt::Debug for lnmai_core_verify::scheduler::TouchGroupAction}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:9-135:14
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:9-136:14
     Visibility: public -/
 def scheduler.TouchGroupAction.Insts.CoreFmtDebug.fmt
   (self : scheduler.TouchGroupAction) (f : core.fmt.Formatter) :
@@ -6671,7 +8538,7 @@ def scheduler.TouchGroupAction.Insts.CoreFmtDebug.fmt
       "index") __self_01 (toStr "keep_result") __self_11
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::fmt::Debug for lnmai_core_verify::scheduler::TouchGroupAction}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:9-135:14 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:9-136:14 -/
 @[reducible]
 def scheduler.TouchGroupAction.Insts.CoreFmtDebug : core.fmt.Debug
   scheduler.TouchGroupAction := {
@@ -6679,14 +8546,14 @@ def scheduler.TouchGroupAction.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [lnmai_core_verify::scheduler::{impl core::clone::Clone for lnmai_core_verify::scheduler::TouchGroupAction}::clone]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:16-135:21
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:16-136:21
     Visibility: public -/
 def scheduler.TouchGroupAction.Insts.CoreCloneClone.clone
   (self : scheduler.TouchGroupAction) : Result scheduler.TouchGroupAction := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::clone::Clone for lnmai_core_verify::scheduler::TouchGroupAction}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:16-135:21 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:16-136:21 -/
 @[reducible]
 def scheduler.TouchGroupAction.Insts.CoreCloneClone : core.clone.Clone
   scheduler.TouchGroupAction := {
@@ -6694,7 +8561,7 @@ def scheduler.TouchGroupAction.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::marker::Copy for lnmai_core_verify::scheduler::TouchGroupAction}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:23-135:27 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:23-136:27 -/
 @[reducible]
 def scheduler.TouchGroupAction.Insts.CoreMarkerCopy : core.marker.Copy
   scheduler.TouchGroupAction := {
@@ -6702,14 +8569,14 @@ def scheduler.TouchGroupAction.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::marker::StructuralPartialEq for lnmai_core_verify::scheduler::TouchGroupAction}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:29-135:38 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:29-136:38 -/
 @[reducible]
 def scheduler.TouchGroupAction.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq scheduler.TouchGroupAction := {
 }
 
 /-- [lnmai_core_verify::scheduler::{impl core::cmp::PartialEq<lnmai_core_verify::scheduler::TouchGroupAction> for lnmai_core_verify::scheduler::TouchGroupAction}::eq]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:29-135:38
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:29-136:38
     Visibility: public -/
 def scheduler.TouchGroupAction.Insts.CoreCmpPartialEqTouchGroupAction.eq
   (self : scheduler.TouchGroupAction) (other : scheduler.TouchGroupAction) :
@@ -6732,7 +8599,7 @@ def scheduler.TouchGroupAction.Insts.CoreCmpPartialEqTouchGroupAction.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::cmp::PartialEq<lnmai_core_verify::scheduler::TouchGroupAction> for lnmai_core_verify::scheduler::TouchGroupAction}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:29-135:38 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:29-136:38 -/
 @[reducible]
 def scheduler.TouchGroupAction.Insts.CoreCmpPartialEqTouchGroupAction :
   core.cmp.PartialEq scheduler.TouchGroupAction scheduler.TouchGroupAction := {
@@ -6740,14 +8607,14 @@ def scheduler.TouchGroupAction.Insts.CoreCmpPartialEqTouchGroupAction :
 }
 
 /-- [lnmai_core_verify::scheduler::{impl core::cmp::Eq for lnmai_core_verify::scheduler::TouchGroupAction}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:40-135:42
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:40-136:42
     Visibility: public -/
 def scheduler.TouchGroupAction.Insts.CoreCmpEq.assert_fields_are_eq
   (self : scheduler.TouchGroupAction) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::scheduler::{impl core::cmp::Eq for lnmai_core_verify::scheduler::TouchGroupAction}]
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 135:40-135:42 -/
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 136:40-136:42 -/
 @[reducible]
 def scheduler.TouchGroupAction.Insts.CoreCmpEq : core.cmp.Eq
   scheduler.TouchGroupAction := {
@@ -6758,7 +8625,7 @@ def scheduler.TouchGroupAction.Insts.CoreCmpEq : core.cmp.Eq
 }
 
 /-- [lnmai_core_verify::scheduler::touch_group_plan]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 150:4-161:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 151:4-162:1
     Visibility: public -/
 @[rust_loop_body]
 def scheduler.touch_group_plan_loop.body
@@ -6778,7 +8645,7 @@ def scheduler.touch_group_plan_loop.body
   else ok (done scheduler.TouchGroupAction.Append)
 
 /-- [lnmai_core_verify::scheduler::touch_group_plan]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 150:4-161:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 151:4-162:1
     Visibility: public -/
 @[rust_loop]
 def scheduler.touch_group_plan_loop
@@ -6793,7 +8660,7 @@ def scheduler.touch_group_plan_loop
     index
 
 /-- [lnmai_core_verify::scheduler::touch_group_plan]:
-    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 145:0-161:1
+    Source: 'crates/lnmai-core-verify/src/scheduler.rs', lines 146:0-162:1
     Visibility: public -/
 @[reducible]
 def scheduler.touch_group_plan
@@ -8079,7 +9946,7 @@ def shape.shape_mirrored (slide_shape : shape.SlideShape) : Result Bool := do
   symmetry.is_mirrored slide_shape.symmetry
 
 /-- [lnmai_core_verify::shape::mk_canonical_slide_shape_opt]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 114:0-147:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 115:0-148:1
     Visibility: public -/
 def shape.mk_canonical_slide_shape_opt
   (kind : shape.SlideKind) (rel_end : Option Std.Usize) :
@@ -8135,7 +10002,7 @@ def shape.mk_canonical_slide_shape_opt
     | some _ => ok none
 
 /-- [lnmai_core_verify::shape::mk_canonical_slide_shape]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 149:0-157:1 -/
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 150:0-158:1 -/
 def shape.mk_canonical_slide_shape
   (kind : shape.SlideKind) (rel_end : Option Std.Usize) :
   Result (core.result.Result shape.CanonicalSlideShape shape.ShapeError)
@@ -8146,7 +10013,7 @@ def shape.mk_canonical_slide_shape
   | some shape => ok (core.result.Result.Ok shape)
 
 /-- [lnmai_core_verify::shape::mk_canonical_slide_shape_unchecked]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 160:0-180:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 161:0-181:1
     Visibility: public -/
 def shape.mk_canonical_slide_shape_unchecked
   (kind : shape.SlideKind) (rel_end : Option Std.Usize) :
@@ -8181,7 +10048,7 @@ def shape.mk_canonical_slide_shape_unchecked
   | shape.SlideKind.Wifi => ok shape.CanonicalSlideShape.Wifi
 
 /-- [lnmai_core_verify::shape::mk_slide_shape]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 183:0-188:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 184:0-189:1
     Visibility: public -/
 def shape.mk_slide_shape
   (canonical : shape.CanonicalSlideShape) (sym : symmetry.SlideSymmetry) :
@@ -8190,7 +10057,7 @@ def shape.mk_slide_shape
   ok { canonical, symmetry := sym }
 
 /-- [lnmai_core_verify::shape::digit_to_nat]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 191:0-211:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 192:0-212:1
     Visibility: public -/
 def shape.digit_to_nat (c : Char) : Result (Option Std.Usize) := do
   if c = '1'
@@ -8218,7 +10085,7 @@ def shape.digit_to_nat (c : Char) : Result (Option Std.Usize) := do
                    else ok none
 
 /-- [lnmai_core_verify::shape::mirror_key]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 213:0-225:1 -/
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 214:0-226:1 -/
 def shape.mirror_key (n : Std.Usize) : Result Std.Usize := do
   match n.val with
   | 1 => ok 1#usize
@@ -8232,7 +10099,7 @@ def shape.mirror_key (n : Std.Usize) : Result Std.Usize := do
   | _ => ok n
 
 /-- [lnmai_core_verify::shape::canonical_rel_end]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 228:0-234:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 229:0-235:1
     Visibility: public -/
 def shape.canonical_rel_end
   (sym : symmetry.SlideSymmetry) (rel_end : Std.Usize) : Result Std.Usize := do
@@ -8242,14 +10109,14 @@ def shape.canonical_rel_end
   else ok rel_end
 
 /-- [lnmai_core_verify::shape::base_rel_end]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 237:0-239:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 238:0-240:1
     Visibility: public -/
 def shape.base_rel_end
   (sym : symmetry.SlideSymmetry) (rel_end : Std.Usize) : Result Std.Usize := do
   shape.canonical_rel_end sym rel_end
 
 /-- [lnmai_core_verify::shape::relative_end_pos]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 241:0-243:1 -/
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 242:0-244:1 -/
 def shape.relative_end_pos
   (start_pos : Std.Usize) (end_pos : Std.Usize) : Result Std.Usize := do
   let i ← end_pos - 1#usize
@@ -8260,14 +10127,14 @@ def shape.relative_end_pos
   i4 + 1#usize
 
 /-- [lnmai_core_verify::shape::outer_slot_is_right_half]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 245:0-247:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 246:0-248:1
     Visibility: public -/
 def shape.outer_slot_is_right_half (slot : areas.OuterSlot) : Result Bool := do
   let i ← areas.OuterSlot.to_index slot
   ok (i < 4#usize)
 
 /-- [lnmai_core_verify::shape::outer_slot_is_upper_half]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 249:0-254:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 250:0-255:1
     Visibility: public -/
 def shape.outer_slot_is_upper_half (slot : areas.OuterSlot) : Result Bool := do
   match slot with
@@ -8281,7 +10148,7 @@ def shape.outer_slot_is_upper_half (slot : areas.OuterSlot) : Result Bool := do
   | areas.OuterSlot.S8 => ok true
 
 /-- [lnmai_core_verify::shape::relative_end_from_typed]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 256:0-267:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 257:0-268:1
     Visibility: public -/
 def shape.relative_end_from_typed
   (start_lane : areas.OuterSlot) (end_area : areas.SensorArea) :
@@ -8305,7 +10172,7 @@ def symmetry.mirror : Result symmetry.SlideSymmetry := do
   ok (symmetry.SlideSymmetry.Sr 0#u32)
 
 /-- [lnmai_core_verify::shape::solve_shape]:
-    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 280:0-400:1
+    Source: 'crates/lnmai-core-verify/src/shape.rs', lines 282:0-402:1
     Visibility: public -/
 def shape.solve_shape
   (kind : shape.SlideBodyKind) (start_lane : areas.OuterSlot)
@@ -8884,7 +10751,7 @@ def slide_chain.read_digit
   else ok (core.result.Result.Err slide_chain.ChainError.InvalidSyntax)
 
 /-- [lnmai_core_verify::slide_chain::read_shape]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 67:0-88:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 67:0-84:1
     Visibility: public -/
 def slide_chain.read_shape
   (chars : Slice Char) (op : Char) (cursor : Std.Usize) :
@@ -8927,7 +10794,7 @@ def slide_chain.read_shape
     slide_chain.read_digit chars cursor1
 
 /-- [lnmai_core_verify::slide_chain::timing_end_with_fuel]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 98:4-110:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 94:4-106:1
     Visibility: public -/
 @[rust_loop_body]
 def slide_chain.timing_end_with_fuel_loop.body
@@ -8954,7 +10821,7 @@ def slide_chain.timing_end_with_fuel_loop.body
       slide_chain.ChainError.UnterminatedTiming))
 
 /-- [lnmai_core_verify::slide_chain::timing_end_with_fuel]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 98:4-110:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 94:4-106:1
     Visibility: public -/
 @[rust_loop]
 def slide_chain.timing_end_with_fuel_loop
@@ -8967,7 +10834,7 @@ def slide_chain.timing_end_with_fuel_loop
     (cursor, fuel)
 
 /-- [lnmai_core_verify::slide_chain::timing_end_with_fuel]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 93:0-110:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 89:0-106:1
     Visibility: public -/
 @[reducible]
 def slide_chain.timing_end_with_fuel
@@ -8977,7 +10844,7 @@ def slide_chain.timing_end_with_fuel
   slide_chain.timing_end_with_fuel_loop chars cursor fuel
 
 /-- [lnmai_core_verify::slide_chain::timing_end]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 114:0-119:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 110:0-115:1
     Visibility: public -/
 def slide_chain.timing_end
   (chars : Slice Char) (cursor : Std.Usize) :
@@ -9029,7 +10896,7 @@ def tokenize.is_slide_mark_char (c : Char) : Result Bool := do
                          else ok (c = 'K')
 
 /-- [lnmai_core_verify::slide_chain::parse_plans_with_fuel]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 131:4-170:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 128:4-165:1
     Visibility: public -/
 @[rust_loop_body]
 def slide_chain.parse_plans_with_fuel_loop.body
@@ -9111,7 +10978,7 @@ def slide_chain.parse_plans_with_fuel_loop.body
   else ok (done (core.result.Result.Ok plans))
 
 /-- [lnmai_core_verify::slide_chain::parse_plans_with_fuel]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 131:4-170:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 128:4-165:1
     Visibility: public -/
 @[rust_loop]
 def slide_chain.parse_plans_with_fuel_loop
@@ -9127,7 +10994,7 @@ def slide_chain.parse_plans_with_fuel_loop
     (current_start, fuel, plans, cursor)
 
 /-- [lnmai_core_verify::slide_chain::parse_plans_with_fuel]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 124:0-170:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 121:0-165:1
     Visibility: public -/
 @[reducible]
 def slide_chain.parse_plans_with_fuel
@@ -9139,7 +11006,7 @@ def slide_chain.parse_plans_with_fuel
     (alloc.vec.Vec.new slide_chain.SegmentPlan) 0#usize
 
 /-- [lnmai_core_verify::slide_chain::parse_plans]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 175:0-177:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 170:0-172:1
     Visibility: public -/
 def slide_chain.parse_plans
   (chars : Slice Char) (current_start : Char) :
@@ -9150,7 +11017,7 @@ def slide_chain.parse_plans
   slide_chain.parse_plans_with_fuel chars current_start i
 
 /-- [lnmai_core_verify::slide_chain::render_plan]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 186:4-189:5
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 181:4-184:5
     Visibility: public -/
 @[rust_loop_body]
 def slide_chain.render_plan_loop.body
@@ -9167,7 +11034,7 @@ def slide_chain.render_plan_loop.body
   else ok (done text)
 
 /-- [lnmai_core_verify::slide_chain::render_plan]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 186:4-189:5
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 181:4-184:5
     Visibility: public -/
 @[rust_loop]
 def slide_chain.render_plan_loop
@@ -9181,7 +11048,7 @@ def slide_chain.render_plan_loop
     (text, cursor)
 
 /-- [lnmai_core_verify::slide_chain::render_plan]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 182:0-191:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 177:0-186:1
     Visibility: public -/
 def slide_chain.render_plan
   (chars : Slice Char) (plan : slide_chain.SegmentPlan) :
@@ -9191,7 +11058,7 @@ def slide_chain.render_plan
   slide_chain.render_plan_loop chars plan.«end» text plan.«begin»
 
 /-- [lnmai_core_verify::slide_chain::encode_plans]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 205:4-213:5
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 200:4-208:5
     Visibility: public -/
 @[rust_loop_body]
 def slide_chain.encode_plans_loop.body
@@ -9217,7 +11084,7 @@ def slide_chain.encode_plans_loop.body
   else ok (done segments)
 
 /-- [lnmai_core_verify::slide_chain::encode_plans]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 205:4-213:5
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 200:4-208:5
     Visibility: public -/
 @[rust_loop]
 def slide_chain.encode_plans_loop
@@ -9234,7 +11101,7 @@ def slide_chain.encode_plans_loop
     (segments, index)
 
 /-- [lnmai_core_verify::slide_chain::encode_plans]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 195:0-215:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 190:0-210:1
     Visibility: public -/
 @[reducible]
 def slide_chain.encode_plans
@@ -9247,7 +11114,7 @@ def slide_chain.encode_plans
     chars plans encode (alloc.vec.Vec.new (slide_chain.Segment Text)) 0#usize
 
 /-- [lnmai_core_verify::slide_chain::parse_segments]:
-    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 219:0-231:1
+    Source: 'crates/lnmai-core-verify/src/slide_chain.rs', lines 214:0-226:1
     Visibility: public -/
 def slide_chain.parse_segments
   {Text : Type} {Encode : Type} (coreopsfunctionFnEncodeTupleVecCharTextInst :
@@ -11221,7 +13088,7 @@ def slide_parser_frontend.detect_just_type
   slide_parser_frontend.detect_just_type_observed facts o o1 o2
 
 /-- [lnmai_core_verify::slide_parser_sequence::try_map_indexed]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/slide_parser_sequence.rs', lines 12:4-20:1
+    Source: 'crates/lnmai-core-verify/src/slide_parser_sequence.rs', lines 13:4-22:1
     Visibility: public -/
 @[rust_loop_body]
 def slide_parser_sequence.try_map_indexed_loop.body
@@ -11243,7 +13110,7 @@ def slide_parser_sequence.try_map_indexed_loop.body
   else ok (done (core.result.Result.Ok result))
 
 /-- [lnmai_core_verify::slide_parser_sequence::try_map_indexed]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/slide_parser_sequence.rs', lines 12:4-20:1
+    Source: 'crates/lnmai-core-verify/src/slide_parser_sequence.rs', lines 13:4-22:1
     Visibility: public -/
 @[rust_loop]
 def slide_parser_sequence.try_map_indexed_loop
@@ -11258,7 +13125,7 @@ def slide_parser_sequence.try_map_indexed_loop
     (result, index)
 
 /-- [lnmai_core_verify::slide_parser_sequence::try_map_indexed]:
-    Source: 'crates/lnmai-core-verify/src/slide_parser_sequence.rs', lines 6:0-20:1
+    Source: 'crates/lnmai-core-verify/src/slide_parser_sequence.rs', lines 7:0-22:1
     Visibility: public -/
 @[reducible]
 def slide_parser_sequence.try_map_indexed
@@ -13496,7 +15363,7 @@ def timing_aggregate.sum_optional_indexed
     parse add none 0#usize
 
 /-- [lnmai_core_verify::timing_aggregate::sum_then_map_indexed]:
-    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 26:0-36:1
+    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 27:0-37:1
     Visibility: public -/
 def timing_aggregate.sum_then_map_indexed
   {T : Type} {U : Type} {P : Type} {A : Type} {Q : Type}
@@ -13517,7 +15384,7 @@ def timing_aggregate.sum_then_map_indexed
     ok (some t)
 
 /-- [lnmai_core_verify::timing_aggregate::first_some_indexed]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 45:4-52:1
+    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 46:4-53:1
     Visibility: public -/
 @[rust_loop_body]
 def timing_aggregate.first_some_indexed_loop.body
@@ -13536,7 +15403,7 @@ def timing_aggregate.first_some_indexed_loop.body
   else ok (done none)
 
 /-- [lnmai_core_verify::timing_aggregate::first_some_indexed]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 45:4-52:1
+    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 46:4-53:1
     Visibility: public -/
 @[rust_loop]
 def timing_aggregate.first_some_indexed_loop
@@ -13551,7 +15418,7 @@ def timing_aggregate.first_some_indexed_loop
     index
 
 /-- [lnmai_core_verify::timing_aggregate::first_some_indexed]:
-    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 40:0-52:1
+    Source: 'crates/lnmai-core-verify/src/timing_aggregate.rs', lines 41:0-53:1
     Visibility: public -/
 @[reducible]
 def timing_aggregate.first_some_indexed
@@ -13579,7 +15446,7 @@ structure timing_number.Parts (T : Type) where
   fraction : Option (T × T)
 
 /-- [lnmai_core_verify::timing_number::fraction]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 27:4-38:1
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 28:4-38:1
     Visibility: public -/
 @[rust_loop_body]
 def timing_number.fraction_loop.body
@@ -13603,7 +15470,7 @@ def timing_number.fraction_loop.body
   else ok (done (some (value, denominator)))
 
 /-- [lnmai_core_verify::timing_number::fraction]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 27:4-38:1
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 28:4-38:1
     Visibility: public -/
 @[rust_loop]
 def timing_number.fraction_loop
@@ -13618,7 +15485,7 @@ def timing_number.fraction_loop
     (index, value, denominator)
 
 /-- [lnmai_core_verify::timing_number::fraction]:
-    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 21:0-38:1
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 22:0-38:1
     Visibility: public -/
 def timing_number.fraction
   {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
@@ -13635,7 +15502,7 @@ def timing_number.fraction
       denominator
 
 /-- [lnmai_core_verify::timing_number::parse]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 51:4-91:1
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 52:4-91:1
     Visibility: public -/
 @[rust_loop_body]
 def timing_number.parse_loop.body
@@ -13680,7 +15547,7 @@ def timing_number.parse_loop.body
     else ok (done none)
 
 /-- [lnmai_core_verify::timing_number::parse]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 51:4-91:1
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 52:4-91:1
     Visibility: public -/
 @[rust_loop]
 def timing_number.parse_loop
@@ -13695,7 +15562,7 @@ def timing_number.parse_loop
     (index, whole, last_was_digit)
 
 /-- [lnmai_core_verify::timing_number::parse]:
-    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 43:0-91:1
+    Source: 'crates/lnmai-core-verify/src/timing_number.rs', lines 44:0-91:1
     Visibility: public -/
 def timing_number.parse
   {T : Type} {O : Type} (DecimalOpsInst : timing_number.DecimalOps O T)
@@ -14142,7 +16009,7 @@ def touch_automatic.process
   touch_automatic.process_loop TouchAutomaticInst source work ops len 0#usize
 
 /-- [lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 13:0-17:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 15:0-19:1
     Visibility: public -/
 structure touch_hold_body.TouchHoldBodyGroupState (Id : Type) where
   group_id : Id
@@ -14150,7 +16017,7 @@ structure touch_hold_body.TouchHoldBodyGroupState (Id : Type) where
   triggered_note_indices : alloc.vec.Vec Id
 
 /-- [lnmai_core_verify::touch_hold_body::{impl core::fmt::Debug for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:9-12:14
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:9-14:14
     Visibility: public -/
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreFmtDebug.fmt
   {Id : Type} (corefmtDebugInst : core.fmt.Debug Id)
@@ -14169,7 +16036,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreFmtDebug.fmt
     "member_note_indices") dyn1 (toStr "triggered_note_indices") dyn2
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::fmt::Debug for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:9-12:14 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:9-14:14 -/
 @[reducible]
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreFmtDebug {Id : Type}
   (corefmtDebugInst : core.fmt.Debug Id) : core.fmt.Debug
@@ -14179,7 +16046,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreFmtDebug {Id : Type}
 }
 
 /-- [lnmai_core_verify::touch_hold_body::{impl core::clone::Clone for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::clone]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:16-12:21
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:16-14:21
     Visibility: public -/
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone.clone
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14194,7 +16061,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone.clone
   ok { group_id := t, member_note_indices := v, triggered_note_indices := v1 }
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::clone::Clone for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:16-12:21 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:16-14:21 -/
 @[reducible]
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone {Id : Type}
   (corecloneCloneInst : core.clone.Clone Id) : core.clone.Clone
@@ -14204,7 +16071,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCloneClone {Id : Type}
 }
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::marker::StructuralPartialEq for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:23-12:32 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:23-14:32 -/
 @[reducible]
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreMarkerStructuralPartialEq
   (Id : Type) : core.marker.StructuralPartialEq
@@ -14212,7 +16079,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreMarkerStructuralPartialEq
 }
 
 /-- [lnmai_core_verify::touch_hold_body::{impl core::cmp::PartialEq<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>> for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::eq]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:23-12:32
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:23-14:32
     Visibility: public -/
 def
   touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpPartialEqTouchHoldBodyGroupState.eq
@@ -14235,7 +16102,7 @@ def
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::cmp::PartialEq<lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>> for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:23-12:32 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:23-14:32 -/
 @[reducible]
 def
   touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpPartialEqTouchHoldBodyGroupState
@@ -14248,7 +16115,7 @@ def
 }
 
 /-- [lnmai_core_verify::touch_hold_body::{impl core::cmp::Eq for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:34-12:36
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:34-14:36
     Visibility: public -/
 def
   touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpEq.assert_fields_are_eq
@@ -14259,7 +16126,7 @@ def
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::cmp::Eq for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 12:34-12:36 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 14:34-14:36 -/
 @[reducible]
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpEq {Id : Type}
   (corecmpEqInst : core.cmp.Eq Id) : core.cmp.Eq
@@ -14273,7 +16140,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreCmpEq {Id : Type}
 }
 
 /-- [lnmai_core_verify::touch_hold_body::{impl core::default::Default for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}::default]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 20:4-26:5
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 22:4-28:5
     Visibility: public -/
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault.default
   {Id : Type} (coredefaultDefaultInst : core.default.Default Id) :
@@ -14288,7 +16155,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault.default
     }
 
 /-- Trait implementation: [lnmai_core_verify::touch_hold_body::{impl core::default::Default for lnmai_core_verify::touch_hold_body::TouchHoldBodyGroupState<Id>}]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 19:0-27:1 -/
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 21:0-29:1 -/
 @[reducible]
 def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault {Id :
   Type} (coredefaultDefaultInst : core.default.Default Id) :
@@ -14299,7 +16166,7 @@ def touch_hold_body.TouchHoldBodyGroupState.Insts.CoreDefaultDefault {Id :
 }
 
 /-- [lnmai_core_verify::touch_hold_body::empty]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 29:0-31:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 31:0-33:1
     Visibility: public -/
 def touch_hold_body.empty
   (Id : Type) :
@@ -14308,7 +16175,7 @@ def touch_hold_body.empty
   ok (alloc.vec.Vec.new (touch_hold_body.TouchHoldBodyGroupState Id))
 
 /-- [lnmai_core_verify::touch_hold_body::group_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 33:0-35:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 35:0-37:1
     Visibility: public -/
 def touch_hold_body.group_length
   {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id)) :
@@ -14317,7 +16184,7 @@ def touch_hold_body.group_length
   ok (Slice.len groups)
 
 /-- [lnmai_core_verify::touch_hold_body::group_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 37:0-43:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 39:0-45:1
     Visibility: public -/
 def touch_hold_body.group_matches
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14329,7 +16196,7 @@ def touch_hold_body.group_matches
   core.cmp.impls.PartialEqShared.eq corecmpPartialEqInst thbgs.group_id id
 
 /-- [lnmai_core_verify::touch_hold_body::member_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 45:0-47:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 47:0-49:1
     Visibility: public -/
 def touch_hold_body.member_length
   {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
@@ -14340,7 +16207,7 @@ def touch_hold_body.member_length
   ok (alloc.vec.Vec.len thbgs.member_note_indices)
 
 /-- [lnmai_core_verify::touch_hold_body::member_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 49:0-56:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 51:0-58:1
     Visibility: public -/
 def touch_hold_body.member_matches
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14355,7 +16222,7 @@ def touch_hold_body.member_matches
   core.cmp.impls.PartialEqShared.eq corecmpPartialEqInst t note
 
 /-- [lnmai_core_verify::touch_hold_body::trigger_length]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 58:0-60:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 60:0-62:1
     Visibility: public -/
 def touch_hold_body.trigger_length
   {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
@@ -14366,7 +16233,7 @@ def touch_hold_body.trigger_length
   ok (alloc.vec.Vec.len thbgs.triggered_note_indices)
 
 /-- [lnmai_core_verify::touch_hold_body::trigger_matches]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 62:0-69:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 64:0-71:1
     Visibility: public -/
 def touch_hold_body.trigger_matches
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14381,7 +16248,7 @@ def touch_hold_body.trigger_matches
   core.cmp.impls.PartialEqShared.eq corecmpPartialEqInst t note
 
 /-- [lnmai_core_verify::touch_hold_body::find_group]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 75:4-82:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 77:4-84:1
     Visibility: public -/
 @[rust_loop_body]
 def touch_hold_body.find_group_loop.body
@@ -14401,7 +16268,7 @@ def touch_hold_body.find_group_loop.body
   else ok (done none)
 
 /-- [lnmai_core_verify::touch_hold_body::find_group]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 75:4-82:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 77:4-84:1
     Visibility: public -/
 @[rust_loop]
 def touch_hold_body.find_group_loop
@@ -14416,7 +16283,7 @@ def touch_hold_body.find_group_loop
     index
 
 /-- [lnmai_core_verify::touch_hold_body::find_group]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 72:0-82:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 74:0-84:1
     Visibility: public -/
 def touch_hold_body.find_group
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14427,7 +16294,7 @@ def touch_hold_body.find_group
   touch_hold_body.find_group_loop corecmpPartialEqInst groups id len 0#usize
 
 /-- [lnmai_core_verify::touch_hold_body::find_id]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 89:4-96:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 91:4-98:1
     Visibility: public -/
 @[rust_loop_body]
 def touch_hold_body.find_id_loop.body
@@ -14446,7 +16313,7 @@ def touch_hold_body.find_id_loop.body
   else ok (done none)
 
 /-- [lnmai_core_verify::touch_hold_body::find_id]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 89:4-96:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 91:4-98:1
     Visibility: public -/
 @[rust_loop]
 def touch_hold_body.find_id_loop
@@ -14460,7 +16327,7 @@ def touch_hold_body.find_id_loop
     index
 
 /-- [lnmai_core_verify::touch_hold_body::find_id]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 86:0-96:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 88:0-98:1
     Visibility: public -/
 def touch_hold_body.find_id
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14471,7 +16338,7 @@ def touch_hold_body.find_id
   touch_hold_body.find_id_loop corecmpPartialEqInst values note len 0#usize
 
 /-- [lnmai_core_verify::touch_hold_body::find_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 98:0-104:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 100:0-106:1
     Visibility: public -/
 def touch_hold_body.find_member
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14484,7 +16351,7 @@ def touch_hold_body.find_member
   touch_hold_body.find_id corecmpPartialEqInst s note
 
 /-- [lnmai_core_verify::touch_hold_body::find_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 106:0-112:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 108:0-114:1
     Visibility: public -/
 def touch_hold_body.find_trigger
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14497,7 +16364,7 @@ def touch_hold_body.find_trigger
   touch_hold_body.find_id corecmpPartialEqInst s note
 
 /-- [lnmai_core_verify::touch_hold_body::has_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 114:0-120:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 116:0-122:1
     Visibility: public -/
 def touch_hold_body.has_member
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14509,7 +16376,7 @@ def touch_hold_body.has_member
   ok (core.option.Option.is_some o)
 
 /-- [lnmai_core_verify::touch_hold_body::has_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 122:0-128:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 124:0-130:1
     Visibility: public -/
 def touch_hold_body.has_trigger
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14521,7 +16388,7 @@ def touch_hold_body.has_trigger
   ok (core.option.Option.is_some o)
 
 /-- [lnmai_core_verify::touch_hold_body::members_empty]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 130:0-132:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 132:0-134:1
     Visibility: public -/
 def touch_hold_body.members_empty
   {Id : Type} (groups : Slice (touch_hold_body.TouchHoldBodyGroupState Id))
@@ -14573,7 +16440,7 @@ def vec_prepend.prepend
   vec_prepend.prepend_loop values1 index
 
 /-- [lnmai_core_verify::touch_hold_body::prepend_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 135:0-142:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 137:0-144:1
     Visibility: public -/
 def touch_hold_body.prepend_member
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14589,7 +16456,7 @@ def touch_hold_body.prepend_member
   ok (index_mut_back { thbgs with member_note_indices := v })
 
 /-- [lnmai_core_verify::touch_hold_body::prepend_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 144:0-151:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 146:0-153:1
     Visibility: public -/
 def touch_hold_body.prepend_trigger
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14650,7 +16517,7 @@ def vec_erase.erase
   alloc.vec.Vec.resize corecloneCloneInst values1 last filler
 
 /-- [lnmai_core_verify::touch_hold_body::remove_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 155:0-162:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 157:0-164:1
     Visibility: public -/
 def touch_hold_body.remove_member
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14668,7 +16535,7 @@ def touch_hold_body.remove_member
   ok (index_mut_back { thbgs with member_note_indices := v })
 
 /-- [lnmai_core_verify::touch_hold_body::remove_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 164:0-175:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 166:0-177:1
     Visibility: public -/
 def touch_hold_body.remove_trigger
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14686,7 +16553,7 @@ def touch_hold_body.remove_trigger
   ok (index_mut_back { thbgs with triggered_note_indices := v })
 
 /-- [lnmai_core_verify::touch_hold_body::erase_member]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 178:0-187:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 180:0-189:1
     Visibility: public -/
 def touch_hold_body.erase_member
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14705,7 +16572,7 @@ def touch_hold_body.erase_member
       groups group index
 
 /-- [lnmai_core_verify::touch_hold_body::erase_trigger]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 189:0-198:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 191:0-200:1
     Visibility: public -/
 def touch_hold_body.erase_trigger
   {Id : Type} (corecmpPartialEqInst : core.cmp.PartialEq Id Id)
@@ -14724,7 +16591,7 @@ def touch_hold_body.erase_trigger
       groups group index
 
 /-- [lnmai_core_verify::touch_hold_body::append_empty]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 201:0-211:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 203:0-213:1
     Visibility: public -/
 def touch_hold_body.append_empty
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14741,7 +16608,7 @@ def touch_hold_body.append_empty
      } : touch_hold_body.TouchHoldBodyGroupState Id)
 
 /-- [lnmai_core_verify::touch_hold_body::append]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 215:0-231:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 218:0-234:1
     Visibility: public -/
 def touch_hold_body.append
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14763,7 +16630,7 @@ def touch_hold_body.append
      } : touch_hold_body.TouchHoldBodyGroupState Id)
 
 /-- [lnmai_core_verify::touch_hold_body::remove_group]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 235:0-241:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 238:0-244:1
     Visibility: public -/
 def touch_hold_body.remove_group
   {Id : Type} (corecloneCloneInst : core.clone.Clone Id)
@@ -14779,7 +16646,7 @@ def touch_hold_body.remove_group
     corecloneCloneInst) groups index thbgs
 
 /-- [lnmai_core_verify::touch_hold_body::swap_groups]:
-    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 243:0-250:1
+    Source: 'crates/lnmai-core-verify/src/touch_hold_body.rs', lines 246:0-253:1
     Visibility: public -/
 def touch_hold_body.swap_groups
   {Id : Type}
@@ -14814,6 +16681,74 @@ structure touch_hold_rebuild.TouchHoldRebuild (Self : Type) (S : Type) (B :
   remove_trigger : Self → B → Std.Usize → Std.Usize → Result B
   append_empty : Self → B → Id → Result B
   swap_groups : Self → B → Std.Usize → Std.Usize → Result B
+
+/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::BodyGroups]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 31:0-44:1
+    Visibility: public -/
+structure touch_hold_schedule.BodyGroups (Self : Type) (B : Type) (Id : Type)
+  where
+  body_length : Self → B → Result Std.Usize
+  body_matches : Self → B → Std.Usize → Id → Result Bool
+  body_majority : Self → B → Std.Usize → Result Bool
+  body_has_member : Self → B → Std.Usize → Id → Result Bool
+  body_has_trigger : Self → B → Std.Usize → Id → Result Bool
+  body_prepend_member : Self → B → Std.Usize → Id → Result B
+  body_prepend_trigger : Self → B → Std.Usize → Id → Result B
+  body_erase_member : Self → B → Std.Usize → Id → Result B
+  body_erase_trigger : Self → B → Std.Usize → Id → Result B
+  body_members_empty : Self → B → Std.Usize → Result Bool
+  body_remove : Self → B → Std.Usize → Result B
+  body_append : Self → B → Id → Id → Result B
+
+/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::HeadGroups]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 18:0-27:1
+    Visibility: public -/
+structure touch_hold_schedule.HeadGroups (Self : Type) (G : Type) (Id : Type)
+  (Grade : Type) (D : Type) where
+  head_length : Self → G → Result Std.Usize
+  head_matches : Self → G → Std.Usize → Id → Result Bool
+  head_majority : Self → G → Std.Usize → Result Bool
+  head_result : Self → G → Std.Usize → Result (Grade × D)
+  head_increment : Self → G → Std.Usize → Result G
+  head_set_size : Self → G → Std.Usize → Id → Result G
+  head_set_result : Self → G → Std.Usize → Grade → D → Result G
+  head_append : Self → G → Id → Id → Grade → D → Result G
+
+/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule]
+    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 46:0-83:1
+    Visibility: public -/
+structure touch_hold_schedule.TouchHoldSchedule (Self : Type) (S : Type) (A :
+  Type) (N : Type) (F : Type) (Q : Type) (C : Type) (H : Type) (E : Type)
+  (Event : Type) (D : Type) (Z : Type) (Id : Type) (Grade : Type) where
+  length : Self → S → Result Std.Usize
+  get : Self → S → Std.Usize → Result (A × N)
+  sensor_diff : Self → N → Result D
+  button_diff : Self → N → Result D
+  local_pressed : Self → A → Result Bool
+  body_check_active : Self → N → Result Bool
+  body_group_id : Self → N → Result (Option Id)
+  head_group_id : Self → N → Result (Option Id)
+  note_index : Self → N → Result Id
+  group_size : Self → N → Result Id
+  phase : Self → N → Result hold_schedule.HoldPhase
+  head_grade : Self → N → Result (Option Grade)
+  head_diff : Self → N → Result D
+  grade_rejected : Self → Grade → Result Bool
+  within_head_window : Self → N → Result Bool
+  unlocked : Self → F → A → N → Result Bool
+  eligible : Self → N → Result Bool
+  button_ring : Self → Result Bool
+  outer_button : Self → A → Result (Option Z)
+  button_available : Self → C → Z → Result Bool
+  sensor_available : Self → C → A → Result Bool
+  use_button : Self → C → Z → Result C
+  use_sensor : Self → C → A → Result C
+  step : Self → N → D → Bool → Bool → Option (Grade × D) → Result
+    (N × (Option Event))
+  advance_frontier : Self → F → A → Result F
+  update_queue : Self → Q → A → N → Result Q
+  append_active : Self → H → A → N → Result H
+  append_event : Self → E → Event → Result E
 
 /-- [lnmai_core_verify::touch_hold_rebuild::find_group]: loop body 0:
     Source: 'crates/lnmai-core-verify/src/touch_hold_rebuild.rs', lines 46:4-53:1
@@ -15127,74 +17062,6 @@ structure touch_hold_schedule.TouchHoldWork (F : Type) (Q : Type) (C : Type) (H
   events : E
   groups : G
   body_groups : B
-
-/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::HeadGroups]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 18:0-27:1
-    Visibility: public -/
-structure touch_hold_schedule.HeadGroups (Self : Type) (G : Type) (Id : Type)
-  (Grade : Type) (D : Type) where
-  head_length : Self → G → Result Std.Usize
-  head_matches : Self → G → Std.Usize → Id → Result Bool
-  head_majority : Self → G → Std.Usize → Result Bool
-  head_result : Self → G → Std.Usize → Result (Grade × D)
-  head_increment : Self → G → Std.Usize → Result G
-  head_set_size : Self → G → Std.Usize → Id → Result G
-  head_set_result : Self → G → Std.Usize → Grade → D → Result G
-  head_append : Self → G → Id → Id → Grade → D → Result G
-
-/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::BodyGroups]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 31:0-44:1
-    Visibility: public -/
-structure touch_hold_schedule.BodyGroups (Self : Type) (B : Type) (Id : Type)
-  where
-  body_length : Self → B → Result Std.Usize
-  body_matches : Self → B → Std.Usize → Id → Result Bool
-  body_majority : Self → B → Std.Usize → Result Bool
-  body_has_member : Self → B → Std.Usize → Id → Result Bool
-  body_has_trigger : Self → B → Std.Usize → Id → Result Bool
-  body_prepend_member : Self → B → Std.Usize → Id → Result B
-  body_prepend_trigger : Self → B → Std.Usize → Id → Result B
-  body_erase_member : Self → B → Std.Usize → Id → Result B
-  body_erase_trigger : Self → B → Std.Usize → Id → Result B
-  body_members_empty : Self → B → Std.Usize → Result Bool
-  body_remove : Self → B → Std.Usize → Result B
-  body_append : Self → B → Id → Id → Result B
-
-/-- Trait declaration: [lnmai_core_verify::touch_hold_schedule::TouchHoldSchedule]
-    Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 46:0-83:1
-    Visibility: public -/
-structure touch_hold_schedule.TouchHoldSchedule (Self : Type) (S : Type) (A :
-  Type) (N : Type) (F : Type) (Q : Type) (C : Type) (H : Type) (E : Type)
-  (Event : Type) (D : Type) (Z : Type) (Id : Type) (Grade : Type) where
-  length : Self → S → Result Std.Usize
-  get : Self → S → Std.Usize → Result (A × N)
-  sensor_diff : Self → N → Result D
-  button_diff : Self → N → Result D
-  local_pressed : Self → A → Result Bool
-  body_check_active : Self → N → Result Bool
-  body_group_id : Self → N → Result (Option Id)
-  head_group_id : Self → N → Result (Option Id)
-  note_index : Self → N → Result Id
-  group_size : Self → N → Result Id
-  phase : Self → N → Result hold_schedule.HoldPhase
-  head_grade : Self → N → Result (Option Grade)
-  head_diff : Self → N → Result D
-  grade_rejected : Self → Grade → Result Bool
-  within_head_window : Self → N → Result Bool
-  unlocked : Self → F → A → N → Result Bool
-  eligible : Self → N → Result Bool
-  button_ring : Self → Result Bool
-  outer_button : Self → A → Result (Option Z)
-  button_available : Self → C → Z → Result Bool
-  sensor_available : Self → C → A → Result Bool
-  use_button : Self → C → Z → Result C
-  use_sensor : Self → C → A → Result C
-  step : Self → N → D → Bool → Bool → Option (Grade × D) → Result
-    (N × (Option Event))
-  advance_frontier : Self → F → A → Result F
-  update_queue : Self → Q → A → N → Result Q
-  append_active : Self → H → A → N → Result H
-  append_event : Self → E → Event → Result E
 
 /-- [lnmai_core_verify::touch_hold_schedule::find_head]: loop body 0:
     Source: 'crates/lnmai-core-verify/src/touch_hold_schedule.rs', lines 92:4-99:1
@@ -15735,7 +17602,7 @@ structure touch_schedule.TouchSchedule (Self : Type) (Q : Type) (N : Type) (F :
   advance_frontier : Self → F → Result F
 
 /-- [lnmai_core_verify::touch_schedule::process]: loop body 0:
-    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 77:4-173:5
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 77:4-171:5
     Visibility: public -/
 @[rust_loop_body]
 def touch_schedule.process_loop.body
@@ -15894,7 +17761,7 @@ def touch_schedule.process_loop.body
       else ok (done (t7, t8, t3, t4, t5))
 
 /-- [lnmai_core_verify::touch_schedule::process]: loop 0:
-    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 77:4-173:5
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 77:4-171:5
     Visibility: public -/
 @[rust_loop]
 def touch_schedule.process_loop
@@ -15914,7 +17781,7 @@ def touch_schedule.process_loop
     (fuel, work)
 
 /-- [lnmai_core_verify::touch_schedule::process]:
-    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 68:0-174:1
+    Source: 'crates/lnmai-core-verify/src/touch_schedule.rs', lines 68:0-172:1
     Visibility: public -/
 def touch_schedule.process
   {Q : Type} {N : Type} {F : Type} {C : Type} {G : Type} {E : Type} {Event :
@@ -17689,7 +19556,7 @@ def types.JudgeEvent.Insts.CoreCmpEq : core.cmp.Eq types.JudgeEvent := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeEvent}::default]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:4-337:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:44-310:51
     Visibility: public -/
 def types.JudgeEvent.Insts.CoreDefaultDefault.default
   : Result types.JudgeEvent := do
@@ -17698,6 +19565,7 @@ def types.JudgeEvent.Insts.CoreDefaultDefault.default
   let jg ← types.JudgeGrade.Insts.CoreDefaultDefault.default
   let d ← time.Duration.Insts.CoreDefaultDefault.default
   let rp ← types.RuntimePos.Insts.CoreDefaultDefault.default
+  let b ← core.default.DefaultBool.default
   ok
     {
       kind := jek,
@@ -17705,14 +19573,14 @@ def types.JudgeEvent.Insts.CoreDefaultDefault.default
       grade := jg,
       diff := d,
       position := rp,
-      note_index := 0#usize,
-      is_break := false,
-      is_ex := false,
-      multiple := 0#usize
+      note_index := (core.default.DefaultUsize.default),
+      is_break := b,
+      is_ex := b,
+      multiple := (core.default.DefaultUsize.default)
     }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::JudgeEvent}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 323:0-338:1 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 310:44-310:51 -/
 @[reducible]
 def types.JudgeEvent.Insts.CoreDefaultDefault : core.default.Default
   types.JudgeEvent := {
@@ -17720,7 +19588,7 @@ def types.JudgeEvent.Insts.CoreDefaultDefault : core.default.Default
 }
 
 /-- [lnmai_core_verify::types::ScoreState]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 342:0-358:1
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 325:0-341:1
     Visibility: public -/
 structure types.ScoreState where
   combo : Std.Usize
@@ -17740,7 +19608,7 @@ structure types.ScoreState where
   late_count : Std.Usize
 
 /-- [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::ScoreState}::fmt]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:9-341:14
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:9-324:14
     Visibility: public -/
 def types.ScoreState.Insts.CoreFmtDebug.fmt
   (self : types.ScoreState) (f : core.fmt.Formatter) :
@@ -17780,21 +19648,21 @@ def types.ScoreState.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_fields_finish f (toStr "ScoreState") s values
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::fmt::Debug for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:9-341:14 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:9-324:14 -/
 @[reducible]
 def types.ScoreState.Insts.CoreFmtDebug : core.fmt.Debug types.ScoreState := {
   fmt := types.ScoreState.Insts.CoreFmtDebug.fmt
 }
 
 /-- [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::ScoreState}::clone]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:16-341:21
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:16-324:21
     Visibility: public -/
 def types.ScoreState.Insts.CoreCloneClone.clone
   (self : types.ScoreState) : Result types.ScoreState := do
   ok self
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::clone::Clone for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:16-341:21 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:16-324:21 -/
 @[reducible]
 def types.ScoreState.Insts.CoreCloneClone : core.clone.Clone types.ScoreState
   := {
@@ -17802,7 +19670,7 @@ def types.ScoreState.Insts.CoreCloneClone : core.clone.Clone types.ScoreState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::Copy for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:23-341:27 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:23-324:27 -/
 @[reducible]
 def types.ScoreState.Insts.CoreMarkerCopy : core.marker.Copy types.ScoreState
   := {
@@ -17810,14 +19678,14 @@ def types.ScoreState.Insts.CoreMarkerCopy : core.marker.Copy types.ScoreState
 }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::marker::StructuralPartialEq for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:29-341:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:29-324:38 -/
 @[reducible]
 def types.ScoreState.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.ScoreState := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::ScoreState> for lnmai_core_verify::types::ScoreState}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:29-341:38
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:29-324:38
     Visibility: public -/
 def types.ScoreState.Insts.CoreCmpPartialEqScoreState.eq
   (self : types.ScoreState) (other : types.ScoreState) : Result Bool := do
@@ -17865,7 +19733,7 @@ def types.ScoreState.Insts.CoreCmpPartialEqScoreState.eq
   else ok false
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::ScoreState> for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:29-341:38 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:29-324:38 -/
 @[reducible]
 def types.ScoreState.Insts.CoreCmpPartialEqScoreState : core.cmp.PartialEq
   types.ScoreState types.ScoreState := {
@@ -17873,14 +19741,14 @@ def types.ScoreState.Insts.CoreCmpPartialEqScoreState : core.cmp.PartialEq
 }
 
 /-- [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::ScoreState}::assert_fields_are_eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:40-341:42
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:40-324:42
     Visibility: public -/
 def types.ScoreState.Insts.CoreCmpEq.assert_fields_are_eq
   (self : types.ScoreState) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::Eq for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 341:40-341:42 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 324:40-324:42 -/
 @[reducible]
 def types.ScoreState.Insts.CoreCmpEq : core.cmp.Eq types.ScoreState := {
   partialEqInst := types.ScoreState.Insts.CoreCmpPartialEqScoreState
@@ -17888,7 +19756,7 @@ def types.ScoreState.Insts.CoreCmpEq : core.cmp.Eq types.ScoreState := {
 }
 
 /-- [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::ScoreState}::default]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 363:4-381:5
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 346:4-364:5
     Visibility: public -/
 def types.ScoreState.Insts.CoreDefaultDefault.default
   : Result types.ScoreState := do
@@ -17912,7 +19780,7 @@ def types.ScoreState.Insts.CoreDefaultDefault.default
     }
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::default::Default for lnmai_core_verify::types::ScoreState}]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 362:0-382:1 -/
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 345:0-365:1 -/
 @[reducible]
 def types.ScoreState.Insts.CoreDefaultDefault : core.default.Default
   types.ScoreState := {

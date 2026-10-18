@@ -76,12 +76,8 @@ pub fn read_shape(
         };
         read_digit(chars, cursor)
     } else {
-        if op == 'p' || op == 'q' {
-            if cursor < chars.len() {
-                if chars[cursor] == op {
-                    cursor += 1;
-                }
-            }
+        if (op == 'p' || op == 'q') && cursor < chars.len() && chars[cursor] == op {
+            cursor += 1;
         }
         read_digit(chars, cursor)
     }
@@ -121,6 +117,7 @@ pub fn timing_end(chars: &[char], cursor: usize) -> Result<usize, ChainError> {
 /// Outer fuel: empty succeeds before the fuel guard; nonempty/fuel=0 returns
 /// InvalidSyntax before digit/mark inspection. A later error discards all plans,
 /// as with the original Except recursion.
+#[allow(clippy::question_mark)]
 pub fn parse_plans_with_fuel(
     chars: &[char],
     mut current_start: char,
@@ -148,15 +145,13 @@ pub fn parse_plans_with_fuel(
         };
         cursor = next;
         let mut has_timing = false;
-        if cursor < chars.len() {
-            if chars[cursor] == '[' {
-                has_timing = true;
-                cursor += 1;
-                cursor = match timing_end(chars, cursor) {
-                    Ok(next) => next,
-                    Err(error) => return Err(error),
-                };
-            }
+        if cursor < chars.len() && chars[cursor] == '[' {
+            has_timing = true;
+            cursor += 1;
+            cursor = match timing_end(chars, cursor) {
+                Ok(next) => next,
+                Err(error) => return Err(error),
+            };
         }
         plans.push(SegmentPlan {
             head: current_start,

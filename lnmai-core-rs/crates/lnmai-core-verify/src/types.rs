@@ -307,7 +307,7 @@ pub enum JudgePhase {
 }
 
 /// Judge event emitted by Core, consumed by the host for rendering.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct JudgeEvent {
     pub kind: JudgeEventKind,
     pub phase: JudgePhase,
@@ -318,23 +318,6 @@ pub struct JudgeEvent {
     pub is_break: bool,
     pub is_ex: bool,
     pub multiple: usize,
-}
-
-impl Default for JudgeEvent {
-    fn default() -> Self {
-        Self {
-            kind: JudgeEventKind::default(),
-            phase: JudgePhase::default(),
-            grade: JudgeGrade::default(),
-            diff: Duration::default(),
-            position: RuntimePos::default(),
-            note_index: 0,
-            is_break: false,
-            is_ex: false,
-            // Lean's derived Inhabited uses Nat.default, not the field initializer.
-            multiple: 0,
-        }
-    }
 }
 
 /// Score accumulation state.

@@ -6,7 +6,7 @@
 
 /// Keep the actual Vec length primitive in the extracted subset. The Vec
 /// reference is intentional: no slice conversion or element clone is needed.
-pub fn vec_len<T>(notes: &Vec<T>) -> usize {
+pub fn vec_len<T>(notes: &[T]) -> usize {
     notes.len()
 }
 

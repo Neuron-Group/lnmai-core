@@ -2643,6 +2643,6 @@ mod tests {
         let (next, events, _audio, _render) = step_frame_timed(&state, &batch);
         // First tap judged at time 0 (delta 0 window contains exact point).
         assert!(!events.is_empty());
-        assert!(next.score.combo >= Natural::from(1u32));
+        assert!(next.score.combo >= 1u32);
     }
 }

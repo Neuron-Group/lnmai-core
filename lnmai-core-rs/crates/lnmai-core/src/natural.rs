@@ -133,10 +133,14 @@ impl FromStr for Natural {
         let mut value = Natural::default();
         while index < bytes.len() {
             let digit = bytes[index];
-            if digit < b'0' || digit > b'9' {
+            if !digit.is_ascii_digit() {
                 return Err("invalid digit found in string".into());
             }
-            value = Natural(big_nat::mul_add_small(&value.0, 10u64, (digit - b'0') as u64));
+            value = Natural(big_nat::mul_add_small(
+                &value.0,
+                10u64,
+                (digit - b'0') as u64,
+            ));
             index += 1;
         }
         Ok(value)
@@ -217,7 +221,9 @@ primitive!(u8, u16, u32, u64, u128, usize);
 // uses the JSON decoder / FromStr instead.
 impl From<i32> for Natural {
     fn from(n: i32) -> Self {
-        Self(big_nat::from_u64(u32::try_from(n).expect("nonnegative natural literal") as u64))
+        Self(big_nat::from_u64(
+            u32::try_from(n).expect("nonnegative natural literal") as u64,
+        ))
     }
 }
 impl PartialEq<i32> for Natural {
@@ -252,11 +258,21 @@ macro_rules! operation {
         }
     };
 }
-operation!(Add, add, |a: &big_nat::BigNat, b: &big_nat::BigNat| big_nat::add(a, b));
-operation!(Mul, mul, |a: &big_nat::BigNat, b: &big_nat::BigNat| big_nat::mul(a, b));
-operation!(Sub, sub, |a: &big_nat::BigNat, b: &big_nat::BigNat| big_nat::sub(a, b));
-operation!(Div, div, |a: &big_nat::BigNat, b: &big_nat::BigNat| big_nat::div(a, b));
-operation!(Rem, rem, |a: &big_nat::BigNat, b: &big_nat::BigNat| big_nat::rem(a, b));
+operation!(Add, add, |a: &big_nat::BigNat, b: &big_nat::BigNat| {
+    big_nat::add(a, b)
+});
+operation!(Mul, mul, |a: &big_nat::BigNat, b: &big_nat::BigNat| {
+    big_nat::mul(a, b)
+});
+operation!(Sub, sub, |a: &big_nat::BigNat, b: &big_nat::BigNat| {
+    big_nat::sub(a, b)
+});
+operation!(Div, div, |a: &big_nat::BigNat, b: &big_nat::BigNat| {
+    big_nat::div(a, b)
+});
+operation!(Rem, rem, |a: &big_nat::BigNat, b: &big_nat::BigNat| {
+    big_nat::rem(a, b)
+});
 impl<T: Into<Natural>> AddAssign<T> for Natural {
     fn add_assign(&mut self, rhs: T) {
         *self = &*self + rhs;

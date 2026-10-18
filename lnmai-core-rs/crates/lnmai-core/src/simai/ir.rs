@@ -140,7 +140,7 @@ impl Default for NormalizedSlide {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct NormalizedChart {
     pub taps: Vec<NormalizedTap>,
     pub holds: Vec<NormalizedHold>,
@@ -149,20 +149,6 @@ pub struct NormalizedChart {
     pub slides: Vec<NormalizedSlide>,
     pub slide_debug: Vec<NormalizedSlideDebug>,
     pub slide_skipping: bool,
-}
-
-impl Default for NormalizedChart {
-    fn default() -> Self {
-        NormalizedChart {
-            taps: Vec::new(),
-            holds: Vec::new(),
-            touches: Vec::new(),
-            touch_holds: Vec::new(),
-            slides: Vec::new(),
-            slide_debug: Vec::new(),
-            slide_skipping: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

@@ -21,8 +21,8 @@ namespace lnmai_core_verify
     Source: 'crates/lnmai-core-verify/src/queue_remaining.rs', lines 9:0-11:1
     Visibility: public -/
 def queue_remaining.vec_len
-  {T : Type} (notes : alloc.vec.Vec T) : Result Std.Usize := do
-  ok (alloc.vec.Vec.len notes)
+  {T : Type} (notes : Slice T) : Result Std.Usize := do
+  ok (Slice.len notes)
 
 /-- [lnmai_core_verify::queue_remaining::remaining_scalar]:
     Source: 'crates/lnmai-core-verify/src/queue_remaining.rs', lines 15:0-17:1

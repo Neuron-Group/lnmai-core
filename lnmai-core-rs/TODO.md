@@ -8,6 +8,40 @@ suite passes.
 `../verification/SOURCE_AUDIT.md` records module coverage, concrete source
 findings, current proof builds and remaining gaps.
 
+## Current checkpoint (2026-10-19)
+
+The current Rust, LLBC and generated-Lean batch is complete and ready to
+commit. A fresh extraction check passed with
+`rtk env AENEAS_HOME=/Users/pingfanh/bin/aeneas
+CHARON_HOME=/Users/pingfanh/bin/charon bash
+lnmai-core-rs/tools/regen_aeneas.sh --check`: the six permitted formatter
+external declarations are the only external declarations, no runtime axioms
+are present, `byte_exact` is `true`, and the LLBC, generated Lean, partition
+files and extraction manifest match the Rust sources.
+
+The full Lean build under `verification` completed all 17,540 tasks.
+`Verification.Audit` audited 8,000 theorems. The audit uses only
+`propext`, `Classical.choice` and `Quot.sound`; no `sorryAx` or runtime axiom
+was introduced. `rtk git diff --check` also passed.
+
+This closes the extraction and proof-audit obligations for the current batch,
+but it does not establish whole-runtime Rust–Lean equivalence. The remaining
+representation, parser, lifecycle, scheduler, session, FFI and ABI
+obligations listed below are still open. The historical checkpoint notes
+below preserve earlier evidence; statements there that an independent audit
+was pending refer to those earlier checkpoints and are superseded by this
+section.
+
+Tests remain intentionally deferred for this checkpoint. After the remaining
+equivalence work is complete, run `rtk tools/validate_all.sh` and include the
+registered chart cases:
+
+- `tools/assets/011996 Usagi Flap`
+- `tools/assets/011951 サイエンス`
+- `tools/assets/蛙石`
+
+The three cases are registered but have not been executed in this checkpoint.
+
 ## Current work order
 
 Finish the module-by-module implementation alignment and equivalence proofs

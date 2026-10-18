@@ -118,7 +118,6 @@ pub fn time_point_sub_duration(point: TimePoint, duration: Duration) -> TimePoin
 }
 
 use crate::integer::Integer;
-use crate::natural::Natural;
 use crate::rat::Rat;
 
 pub const MICROS_PER_MILLI: i128 = 1000;
@@ -206,11 +205,7 @@ pub fn quantize_seconds_string(text: &str) -> Option<Integer> {
     let den = Integer::from(&value.den());
     let numerator = num.abs() * MICROS_PER_SECOND;
     let micros = (numerator + (&den / 2u8)).div_trunc(&den);
-    Some(if num.is_negative() {
-        -micros
-    } else {
-        micros
-    })
+    Some(if num.is_negative() { -micros } else { micros })
 }
 
 /// `Time.parseSecondsString?`.

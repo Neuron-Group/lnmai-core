@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 //! `lnmai-core` — Rust port of the Lean `LnmaiCore` gameplay core.
 //!
 //! The runtime uses arbitrary-precision integers, naturals and rational values

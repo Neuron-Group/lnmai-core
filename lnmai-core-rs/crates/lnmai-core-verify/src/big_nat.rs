@@ -9,6 +9,8 @@
 //! Subtraction, division and remainder are total, matching Lean Nat: a - b
 //! floors at zero, a / 0 is zero and a % 0 is a.
 
+#![allow(clippy::len_zero)]
+
 /// Little-endian 64-bit limbs in canonical form; empty means zero.
 #[derive(Clone)]
 pub struct BigNat {
@@ -16,11 +18,18 @@ pub struct BigNat {
 }
 
 /// Remove trailing zero limbs, restoring the canonical form.
-pub fn normalize(mut limbs: Vec<u64>) -> BigNat {
-    while !limbs.is_empty() && limbs[limbs.len() - 1] == 0 {
-        limbs.pop();
+pub fn normalize(limbs: Vec<u64>) -> BigNat {
+    let mut length = limbs.len();
+    while length > 0 && limbs[length - 1] == 0 {
+        length -= 1;
     }
-    BigNat { limbs }
+    let mut normalized: Vec<u64> = Vec::new();
+    let mut index = 0usize;
+    while index < length {
+        normalized.push(limbs[index]);
+        index += 1;
+    }
+    BigNat { limbs: normalized }
 }
 
 /// Zero.
@@ -29,6 +38,7 @@ pub fn zero() -> BigNat {
 }
 
 /// One.
+#[allow(clippy::vec_init_then_push)]
 pub fn one() -> BigNat {
     let mut limbs: Vec<u64> = Vec::new();
     limbs.push(1u64);
@@ -45,6 +55,7 @@ pub fn from_u64(value: u64) -> BigNat {
 }
 
 /// Two limbs, most significant first, canonicalized.
+#[allow(clippy::vec_init_then_push)]
 pub fn from_u64_pair(high: u64, low: u64) -> BigNat {
     let mut limbs = Vec::new();
     limbs.push(low);
@@ -53,7 +64,7 @@ pub fn from_u64_pair(high: u64, low: u64) -> BigNat {
 }
 
 pub fn is_zero(value: &BigNat) -> bool {
-    value.limbs.is_empty()
+    value.limbs.len() == 0
 }
 
 pub fn is_one(value: &BigNat) -> bool {
@@ -182,7 +193,20 @@ pub fn mul(left: &BigNat, right: &BigNat) -> BigNat {
             carry = (product >> 64) as u64;
             j += 1;
         }
-        out[i + right_len] = carry;
+        // The next limb may already contain the contribution from a prior
+        // row. Add this row's carry to it and propagate any overflow instead
+        // of overwriting that contribution.
+        let mut position = i + right_len;
+        let (sum, mut overflow) = out[position].overflowing_add(carry);
+        out[position] = sum;
+        position += 1;
+        while overflow && position < out.len() {
+            let (next, next_overflow) = out[position].overflowing_add(1u64);
+            out[position] = next;
+            overflow = next_overflow;
+            position += 1;
+        }
+        debug_assert!(!overflow);
         i += 1;
     }
     normalize(out)
@@ -203,7 +227,7 @@ pub fn mul_add_small(value: &BigNat, mul: u64, addend: u64) -> BigNat {
     let mut tail = carry;
     while tail != 0 {
         out.push(tail as u64);
-        tail = tail >> 64;
+        tail >>= 64;
     }
     normalize(out)
 }
@@ -234,7 +258,7 @@ pub fn divmod_small(value: &BigNat, divisor: u64) -> (u64, BigNat) {
 
 /// Number of significant bits; zero has none.
 pub fn bit_length(value: &BigNat) -> usize {
-    if value.limbs.is_empty() {
+    if value.limbs.len() == 0 {
         return 0;
     }
     let top = value.limbs[value.limbs.len() - 1];
@@ -242,7 +266,7 @@ pub fn bit_length(value: &BigNat) -> usize {
     let mut probe = top;
     while probe != 0 {
         bits += 1;
-        probe = probe >> 1;
+        probe >>= 1;
     }
     bits
 }
@@ -336,7 +360,7 @@ pub fn rem(value: &BigNat, divisor: &BigNat) -> BigNat {
 
 /// Low 64 bits, matching Lean UInt64.ofNat truncation.
 pub fn low_u64(value: &BigNat) -> u64 {
-    if value.limbs.is_empty() {
+    if value.limbs.len() == 0 {
         return 0;
     }
     value.limbs[0]
@@ -344,7 +368,7 @@ pub fn low_u64(value: &BigNat) -> u64 {
 
 /// The value as usize when it fits, mirroring BigUint::to_usize.
 pub fn to_usize(value: &BigNat) -> Option<usize> {
-    if value.limbs.is_empty() {
+    if value.limbs.len() == 0 {
         return Some(0usize);
     }
     if value.limbs.len() > 1 {
@@ -386,9 +410,7 @@ pub fn to_decimal_digits(value: &BigNat) -> Vec<u8> {
     let mut index = 0usize;
     while index < len / 2 {
         let opposite = len - 1 - index;
-        let head = digits[index];
-        digits[index] = digits[opposite];
-        digits[opposite] = head;
+        digits.swap(index, opposite);
         index += 1;
     }
     digits
@@ -414,7 +436,7 @@ mod tests {
     }
 
     fn canonical(value: &BigNat) -> bool {
-        value.limbs.is_empty() || value.limbs[value.limbs.len() - 1] != 0
+        value.limbs.len() == 0 || value.limbs[value.limbs.len() - 1] != 0
     }
 
     #[test]

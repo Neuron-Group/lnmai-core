@@ -718,12 +718,26 @@ fn requested_corpus_playthroughs_match_lean() {
 }
 
 fn check_corpus_playthroughs(cases: Vec<(String, String, u32)>) {
+    let cases = match std::env::var("LNMAI_CORPUS_FILTER") {
+        Ok(filter) if !filter.is_empty() => cases
+            .into_iter()
+            .filter(|(name, _, _)| name.starts_with(&filter))
+            .collect(),
+        _ => cases,
+    };
+    assert!(!cases.is_empty(), "LNMAI_CORPUS_FILTER selected no cases");
     let cli = lean_runtime_cli().expect("Lean oracle is required; run tools/run_differential.sh");
     // Each shard owns an independent Lean process and game state. Parallelize
     // complete playthroughs without dropping any frame or checkpoint.
-    let workers = std::thread::available_parallelism()
-        .map_or(1, usize::from)
-        .min(4)
+    let workers = std::env::var("LNMAI_CORPUS_WORKERS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map_or(1, usize::from)
+                .min(4)
+        })
         .min(cases.len());
     let mut shards = vec![Vec::new(); workers];
     for (index, case) in cases.into_iter().enumerate() {
@@ -1130,7 +1144,12 @@ fn native_input_events_match_lean() {
 #[test]
 #[ignore = "requires Lean oracle binaries; run tools/run_differential.sh"]
 fn exact_arithmetic_matches_lean() {
-    use lnmai_core::{ffi::{integer_json, natural_json}, integer::Integer, natural::Natural, rat::Rat};
+    use lnmai_core::{
+        ffi::{integer_json, natural_json},
+        integer::Integer,
+        natural::Natural,
+        rat::Rat,
+    };
     use num_bigint::BigInt;
 
     let cli = lean_runtime_cli().expect("Lean oracle is required; run tools/run_differential.sh");
@@ -1270,7 +1289,7 @@ fn numeric_boundaries_match_lean() {
             ));
             cases.push(serde_json::json!({"kind":"quantize","num":value,"den":divisor}));
             results.push(serde_json::json!(lnmai_core::ffi::integer_json(
-                &time::quantize_rat_micros(Rat::new(value, divisor))
+                time::quantize_rat_micros(Rat::new(value, divisor))
             )));
         }
     }
@@ -1306,7 +1325,7 @@ fn numeric_boundaries_match_lean() {
                 cases.push(serde_json::json!({"kind":"quantize",
                     "num":lnmai_core::ffi::integer_json(Integer::from(numerator.clone())),
                     "den":lnmai_core::ffi::integer_json(Integer::from(denominator.clone()))}));
-                results.push(lnmai_core::ffi::integer_json(&time::quantize_rat_micros(
+                results.push(lnmai_core::ffi::integer_json(time::quantize_rat_micros(
                     Rat::new(numerator.clone(), denominator),
                 )));
             }
@@ -1625,7 +1644,7 @@ fn arbitrary_natural_scores_match_lean() {
         score,
         types::JudgeGrade::*,
     };
-    use num_bigint::{BigInt, BigUint};
+    use num_bigint::BigUint;
     let mut lean = LeanRuntime::spawn(&lean_runtime_cli().expect("Lean oracle required")).unwrap();
     let grades = [
         Miss,

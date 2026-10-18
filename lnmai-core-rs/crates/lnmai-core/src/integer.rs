@@ -148,10 +148,7 @@ fn bigint_to_kernel(value: &BigInt) -> kernel::BigIntKernel {
         limbs.push(u64::from_le_bytes(chunk));
         index += 8;
     }
-    let negative = match sign {
-        num_bigint::Sign::Minus => true,
-        _ => false,
-    };
+    let negative = matches!(sign, num_bigint::Sign::Minus);
     kernel::make(negative, nat_kernel::normalize(limbs))
 }
 
@@ -437,7 +434,7 @@ mod tests {
         assert_eq!((-large.clone()).to_word(), 1u64 << 63);
         assert_eq!(large.to_i64(), None);
         assert!(large.is_positive());
-        assert!((&-large).is_negative());
+        assert!((-large).is_negative());
     }
 
     #[test]
@@ -497,7 +494,10 @@ mod tests {
         assert!(!maximum.is_negative());
         assert_eq!(maximum.to_bigint(), BigInt::from(u128::MAX));
         assert!(maximum > i128::MAX);
-        assert_eq!(Integer::from(i128::MIN).to_bigint(), BigInt::from(i128::MIN));
+        assert_eq!(
+            Integer::from(i128::MIN).to_bigint(),
+            BigInt::from(i128::MIN)
+        );
         assert!(Integer::from(i128::MIN).is_negative());
         assert_eq!(Integer::from(u64::MAX).to_i64(), None);
         assert_eq!(Integer::from(1u64 << 63).to_i64(), None);

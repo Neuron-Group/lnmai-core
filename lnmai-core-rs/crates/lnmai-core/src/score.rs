@@ -63,8 +63,7 @@ pub fn update_combo(
         } else {
             c_p_combo.into() + &m
         },
-        dx_score_lost: dx_score_lost.into()
-            + Integer::from(delta.dx_score_lost) * Integer::from(m),
+        dx_score_lost: dx_score_lost.into() + Integer::from(delta.dx_score_lost) * Integer::from(m),
     }
 }
 

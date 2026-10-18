@@ -34,6 +34,7 @@ pub fn decimal_digit(c: char) -> Option<u8> {
 /// `zero` constructs zero; `append(value, digit)` computes value * 10 + digit.
 /// The scan itself rejects empty input, signs, whitespace, non-ASCII digits,
 /// and leading, trailing, or repeated underscores.
+#[allow(clippy::question_mark)]
 pub fn parse_decimal<T, Z, F>(chars: &[char], zero: Z, append: F) -> Option<T>
 where
     Z: Fn() -> T,
@@ -50,13 +51,12 @@ where
             }
             last_was_digit = false;
         } else {
-            match decimal_digit(c) {
-                Some(digit) => {
-                    value = append(value, digit);
-                    last_was_digit = true;
-                }
+            let digit = match decimal_digit(c) {
+                Some(digit) => digit,
                 None => return None,
-            }
+            };
+            value = append(value, digit);
+            last_was_digit = true;
         }
         index += 1;
     }

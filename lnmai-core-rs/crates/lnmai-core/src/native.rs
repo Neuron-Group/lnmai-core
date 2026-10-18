@@ -597,7 +597,7 @@ fn dispatch(
             };
             let inputs = batch();
             let events = if inputs.events.is_empty() {
-                &*tactic
+                tactic
             } else {
                 &inputs.events
             };

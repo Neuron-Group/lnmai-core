@@ -46,6 +46,7 @@ pub fn tap_queue_has_unused_click(button_available: bool, fallback_sensor_availa
 
 /// Touch families may also accept the button ring mapped from the sensor area.
 /// The last argument is none when the area has no outer button zone.
+#[allow(clippy::manual_unwrap_or, clippy::manual_unwrap_or_default)]
 pub fn touch_input_available(
     button_ring_for_touch: bool,
     sensor_available: bool,

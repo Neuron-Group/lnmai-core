@@ -111,6 +111,7 @@ pub fn shape_mirrored(slide_shape: SlideShape) -> bool {
 }
 
 /// `mkCanonicalSlideShape?`.
+#[allow(clippy::manual_range_contains)]
 pub fn mk_canonical_slide_shape_opt(
     kind: SlideKind,
     rel_end: Option<usize>,
@@ -277,6 +278,7 @@ macro_rules! shape_try {
 }
 
 /// `solveSlideShape`.
+#[allow(clippy::manual_range_contains)]
 pub fn solve_shape(
     kind: SlideBodyKind,
     start_lane: OuterSlot,

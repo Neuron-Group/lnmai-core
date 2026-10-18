@@ -50,7 +50,8 @@ pub fn from_u128(value: u128) -> BigIntKernel {
 
 pub fn from_i64(value: i64) -> BigIntKernel {
     if value < 0 {
-        make(true, big_nat::from_u64(value.unsigned_abs()))
+        let magnitude = (0i128 - (value as i128)) as u64;
+        make(true, big_nat::from_u64(magnitude))
     } else {
         make(false, big_nat::from_u64(value as u64))
     }
@@ -58,7 +59,12 @@ pub fn from_i64(value: i64) -> BigIntKernel {
 
 pub fn from_i128(value: i128) -> BigIntKernel {
     if value < 0 {
-        make(true, from_u128(value.unsigned_abs()).magnitude)
+        let magnitude = if value == i128::MIN {
+            1u128 << 127
+        } else {
+            (0i128 - value) as u128
+        };
+        make(true, from_u128(magnitude).magnitude)
     } else {
         make(false, from_u128(value as u128).magnitude)
     }
@@ -164,7 +170,10 @@ pub fn rem_trunc(left: &BigIntKernel, right: &BigIntKernel) -> BigIntKernel {
     if is_zero(right) {
         return left.clone();
     }
-    make(is_negative(left), big_nat::rem(&left.magnitude, &right.magnitude))
+    make(
+        is_negative(left),
+        big_nat::rem(&left.magnitude, &right.magnitude),
+    )
 }
 
 /// Euclidean quotient: the unique q with a = q * b + r and 0 <= r < |b|.
@@ -194,7 +203,8 @@ pub fn rem_euclid(left: &BigIntKernel, right: &BigIntKernel) -> BigIntKernel {
 pub fn low_u64(value: &BigIntKernel) -> u64 {
     let magnitude = big_nat::low_u64(&value.magnitude);
     if is_negative(value) {
-        return magnitude.wrapping_neg();
+        let (negated, _) = 0u64.overflowing_sub(magnitude);
+        return negated;
     }
     magnitude
 }
@@ -274,7 +284,10 @@ mod tests {
                         &div_trunc(&int(left), &int(right)),
                         &int(left / right)
                     ));
-                    assert!(equal(&rem_trunc(&int(left), &int(right)), &int(left % right)));
+                    assert!(equal(
+                        &rem_trunc(&int(left), &int(right)),
+                        &int(left % right)
+                    ));
                     let quotient = div_euclid(&int(left), &int(right));
                     let remainder = rem_euclid(&int(left), &int(right));
                     assert!(equal(
@@ -312,6 +325,9 @@ mod tests {
         assert!(!is_negative(&make(true, big_nat::zero())));
         assert!(equal(&make(true, big_nat::zero()), &zero()));
         // gcd ignores signs.
-        assert!(big_nat::equal(&gcd(&int(-12), &int(18)), &big_nat::from_u64(6)));
+        assert!(big_nat::equal(
+            &gcd(&int(-12), &int(18)),
+            &big_nat::from_u64(6)
+        ));
     }
 }

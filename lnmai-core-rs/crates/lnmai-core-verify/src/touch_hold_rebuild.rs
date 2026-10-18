@@ -13,8 +13,8 @@
 /// - append_empty appends one group with the supplied ID and two empty lists;
 /// - swap_groups exchanges exactly two outer-list slots, preserving both groups;
 /// - every other group/field and all unaffected lengths are unchanged.
-/// Indexed reads/mutations require in-bounds indices; insert/append also need
-/// successful allocation and representable resulting lengths.
+///   Indexed reads/mutations require in-bounds indices; insert/append also need
+///   successful allocation and representable resulting lengths.
 pub trait TouchHoldRebuild<S, B, Id> {
     fn hold_length(&self, holds: &S) -> usize;
     fn hold_group_id(&self, holds: &S, index: usize) -> Option<Id>;

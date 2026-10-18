@@ -4,8 +4,8 @@
 //! grade → count table per note type), matching `LnmaiCore/Types.lean`.
 //! Counts are stored as fixed arrays indexed by the Lean `JudgeGrade` order.
 
-use crate::natural::Natural;
 use crate::integer::Integer;
+use crate::natural::Natural;
 use crate::score::{base_score, count_fast_late, score_break, score_non_break, update_combo};
 use crate::types::{
     ComboState, JudgeDisplayOption, JudgeEvent, JudgeEventKind, JudgeGrade, NoteType,
@@ -201,7 +201,6 @@ pub fn fold_event_into_score(
         &multiple,
     );
     let [eb, ee, ece, lb, le, lce] = event_score_deltas(evt, &multiple);
-    let multiple = multiple;
     let display = if evt.is_break || evt.kind == JudgeEventKind::Break {
         break_display
     } else {

@@ -5,6 +5,8 @@
 //! existing reconstruction/pass control flow remain outside this module.
 //! All scans stop at the first equal ID, including on inputs with duplicates.
 
+#![allow(clippy::len_zero)]
+
 use crate::{vec_erase, vec_prepend};
 
 /// Same public fields and derives as the runtime record. The runtime aliases
@@ -212,6 +214,7 @@ pub fn append_empty<Id: Clone>(
 
 /// Same clone order/count as the runtime literal: id, member note, trigger note.
 /// Each new singleton has its own one-element buffer; no old tail is copied.
+#[allow(clippy::vec_init_then_push)]
 pub fn append<Id: Clone>(
     mut groups: Vec<TouchHoldBodyGroupState<Id>>,
     id: &Id,

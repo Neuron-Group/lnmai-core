@@ -138,10 +138,15 @@ pub fn fraction_digits(value: &BigRat) -> Vec<u8> {
     }
     let mut length = fraction.len();
     while length > 0 && fraction[length - 1] == b'0' {
-        fraction.pop();
         length -= 1;
     }
-    fraction
+    let mut trimmed: Vec<u8> = Vec::new();
+    let mut index = 0usize;
+    while index < length {
+        trimmed.push(fraction[index]);
+        index += 1;
+    }
+    trimmed
 }
 
 #[cfg(test)]
@@ -171,15 +176,8 @@ mod tests {
 
     #[test]
     fn arithmetic_matches_cross_products() {
-        let values: [(i128, i128); 7] = [
-            (0, 1),
-            (1, 3),
-            (1, 6),
-            (-1, 4),
-            (7, 5),
-            (-22, 7),
-            (100, 9),
-        ];
+        let values: [(i128, i128); 7] =
+            [(0, 1), (1, 3), (1, 6), (-1, 4), (7, 5), (-22, 7), (100, 9)];
         for (ln, ld) in values {
             for (rn, rd) in values {
                 let left = rat(ln, ld);
@@ -211,10 +209,16 @@ mod tests {
         assert_eq!(render(&rat(3, 1)), (b"3".to_vec(), Vec::new()));
         assert_eq!(render(&rat(-1, 4)), (b"0".to_vec(), b"25".to_vec()));
         assert_eq!(render(&zero()), (b"0".to_vec(), Vec::new()));
-        assert_eq!(render(&rat(1, 3)), (b"0".to_vec(), b"333333333333".to_vec()));
+        assert_eq!(
+            render(&rat(1, 3)),
+            (b"0".to_vec(), b"333333333333".to_vec())
+        );
         assert_eq!(render(&rat(1, 8)), (b"0".to_vec(), b"125".to_vec()));
         assert_eq!(render(&rat(7, 4)), (b"1".to_vec(), b"75".to_vec()));
-        assert_eq!(render(&rat(22, 7)), (b"3".to_vec(), b"142857142857".to_vec()));
+        assert_eq!(
+            render(&rat(22, 7)),
+            (b"3".to_vec(), b"142857142857".to_vec())
+        );
         assert_eq!(render(&rat(100, 1)), (b"100".to_vec(), Vec::new()));
         let huge = big_nat::from_u64_pair(1, 0);
         let whole = BigRat {

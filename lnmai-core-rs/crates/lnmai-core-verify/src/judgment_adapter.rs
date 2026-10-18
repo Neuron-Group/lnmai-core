@@ -16,6 +16,7 @@ use super::{
 /// `Some(n)` exactly when the represented integer is the representable `n`;
 /// it returns `None` outside the i64 range. Implementations must be pure.
 /// No method performs a judgment, clamp, or compound hold calculation.
+#[allow(clippy::wrong_self_convention)]
 pub trait IntegerOps<I> {
     fn from_i64(&self, value: i64) -> I;
     fn less(&self, left: &I, right: &I) -> bool;

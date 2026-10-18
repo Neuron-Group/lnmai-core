@@ -107,11 +107,9 @@ where
             }
         }
         let mut used_sensor = false;
-        if can_consume_click && !used_button {
-            if ops.sensor_available(&work.cursor, &area) {
-                work.cursor = ops.use_sensor(work.cursor, &area);
-                used_sensor = true;
-            }
+        if can_consume_click && !used_button && ops.sensor_available(&work.cursor, &area) {
+            work.cursor = ops.use_sensor(work.cursor, &area);
+            used_sensor = true;
         }
         let clicked = used_button || used_sensor;
         let diff = if used_button {

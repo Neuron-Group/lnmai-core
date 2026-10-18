@@ -23,6 +23,7 @@ where
 }
 
 /// Quantize exactly once after the complete exact sum, or never for `None`.
+#[allow(clippy::manual_map)]
 pub fn sum_then_map_indexed<T, U, P, A, Q>(len: usize, parse: P, add: A, quantize: Q) -> Option<U>
 where
     P: Fn(usize) -> Option<T>,
