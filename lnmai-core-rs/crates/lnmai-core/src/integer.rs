@@ -294,7 +294,59 @@ macro_rules! primitive {
         impl PartialOrd<Integer> for $ty { fn partial_cmp(&self, n: &Integer) -> Option<Ordering> { Some(Integer::from(*self).cmp(n)) } }
     )* };
 }
-primitive!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+primitive!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
+
+// The 128-bit widths do not fit the i128 round trip the macro uses.
+impl From<i128> for Integer {
+    fn from(n: i128) -> Self {
+        Self::from_kernel(kernel::from_i128(n))
+    }
+}
+impl From<u128> for Integer {
+    fn from(n: u128) -> Self {
+        Self::from_kernel(kernel::from_u128(n))
+    }
+}
+impl PartialEq<i128> for Integer {
+    fn eq(&self, n: &i128) -> bool {
+        self == &Self::from(*n)
+    }
+}
+impl PartialOrd<i128> for Integer {
+    fn partial_cmp(&self, n: &i128) -> Option<Ordering> {
+        Some(self.cmp(&Self::from(*n)))
+    }
+}
+impl PartialEq<Integer> for i128 {
+    fn eq(&self, n: &Integer) -> bool {
+        n == self
+    }
+}
+impl PartialOrd<Integer> for i128 {
+    fn partial_cmp(&self, n: &Integer) -> Option<Ordering> {
+        Some(Integer::from(*self).cmp(n))
+    }
+}
+impl PartialEq<u128> for Integer {
+    fn eq(&self, n: &u128) -> bool {
+        self == &Self::from(*n)
+    }
+}
+impl PartialOrd<u128> for Integer {
+    fn partial_cmp(&self, n: &u128) -> Option<Ordering> {
+        Some(self.cmp(&Self::from(*n)))
+    }
+}
+impl PartialEq<Integer> for u128 {
+    fn eq(&self, n: &Integer) -> bool {
+        n == self
+    }
+}
+impl PartialOrd<Integer> for u128 {
+    fn partial_cmp(&self, n: &Integer) -> Option<Ordering> {
+        Some(Integer::from(*self).cmp(n))
+    }
+}
 
 macro_rules! arithmetic {
     ($trait:ident,$method:ident,$checked:ident,$kernel:path) => {
@@ -437,5 +489,17 @@ mod tests {
         let integer = Integer::from(&natural);
         assert_eq!(integer.to_bigint(), BigInt::from(1u8) << 100);
         assert_eq!(Integer::from(7u8), Integer::small(7));
+    }
+
+    #[test]
+    fn wide_unsigned_conversions_stay_nonnegative() {
+        let maximum = Integer::from(u128::MAX);
+        assert!(!maximum.is_negative());
+        assert_eq!(maximum.to_bigint(), BigInt::from(u128::MAX));
+        assert!(maximum > i128::MAX);
+        assert_eq!(Integer::from(i128::MIN).to_bigint(), BigInt::from(i128::MIN));
+        assert!(Integer::from(i128::MIN).is_negative());
+        assert_eq!(Integer::from(u64::MAX).to_i64(), None);
+        assert_eq!(Integer::from(1u64 << 63).to_i64(), None);
     }
 }
