@@ -6,6 +6,9 @@
 //! adapters; unbounded time and scoring arithmetic live in `lnmai_core`.
 
 pub mod areas;
+pub mod big_int;
+pub mod big_nat;
+pub mod big_rat;
 pub mod constants;
 pub mod convert;
 pub mod frame_commands;
