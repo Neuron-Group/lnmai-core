@@ -6,11 +6,22 @@ prevents a claim of full equivalence.
 
 ## Current checkpoint
 
-- 8000 audited theorems (`Verification.Audit`), only `propext`,
-  `Classical.choice` and `Quot.sound`. Independent audit accepted over the
-  213-module closure with byte-exact source hashes.
+- On 2026-10-19, the Aeneas freshness check passed with `byte_exact: true`.
+  The LLBC, generated Lean, four partition artifacts and extraction manifest
+  match the Rust sources; only the six permitted formatter declarations are
+  external, and there are no runtime axioms.
+- The full Lean build completed all 17,541 jobs. `Verification.Audit`
+  completed successfully over 8,054 theorems, using only `propext`,
+  `Classical.choice` and `Quot.sound`.
+- The connected-slide metadata kernel is now extracted and called by runtime
+  normalization. Its Lean bridge proves the source-group decision, chain reset,
+  parent selection, slide-kind conversion, group flags and next-chain state
+  under the explicit BigNat adapter contract.
 - Full differential suite green at the previous checkpoint
   (`22 passed; 0 failed`, 232 playthroughs, 2,010,664 compared frames).
+- No Rust, unit, differential, real-chart or ABI tests have been run in this
+  current equivalence checkpoint. The three requested charts remain registered
+  for the testing phase after the remaining equivalence obligations are done.
 - The extraction covers `lnmai-core-verify`; anything that crate does not call
   is outside the Lean model.
 
@@ -27,10 +38,9 @@ and accuracy arithmetic had no Lean model at all.
 - [x] Runtime `Natural`, `Integer` and `Rat` delegate to those kernels; score
       state, grade counts, chart totals, timeline rounding and the FFI
       encoders carry `Natural`/`Integer`.
-- [ ] Regenerate the extraction so the kernels appear in the Aeneas output;
-      install the new blocks as their own partition module, extend
-      `extraction-manifest.json`, and keep the unchanged core blocks
-      byte-identical.
+- [x] Regenerate the extraction so the kernels appear in the Aeneas output;
+      `extraction-manifest.json` now reconstructs the current generated
+      artifacts byte-for-byte.
 - [ ] Lean model and per-operation refinement proofs:
   - [ ] `big_nat`: `normalize`, `compare`, `equal`, `add`, `sub`, `mul`,
         `mul_add_small`, `divmod_small`, `divmod`, `div`, `rem`, `low_u64`,

@@ -7,9 +7,7 @@ The reference is the current `LnmaiCore/` tree on `rust`, including the
 ## Work order and evidence
 
 The requested order is implementation/source equivalence first, tests second.
-The latest user instruction authorizes testing the three requested songs as
-soon as the current proof batch and its axiom audit finish, before continuing
-the remaining equivalence obligations. The full suite remains deferred.
+Tests remain deferred until the Rust/Lean equivalence obligations are complete.
 No unit, differential, real-chart or ABI tests have been run in the current
 equivalence pass. Library-only Rust typechecking, extraction and Lean theorem
 compilation are permitted in this pass. The interrupted Koishi diagnostic is
@@ -56,7 +54,33 @@ passing finite comparison discharges the remaining formal obligations.
 | JSON instances throughout `LnmaiCore` | `json_decode`, `json_encode`, `lean_json`, FFI encoders | Inventory covers 75 derived ToJson, 71 derived FromJson, 26 concrete custom instances and 50 structure field sequences. Reviewed constructor retrieval/error order, missing-as-null, qualified field errors, custom fallback distinctions, nested Lean triples, escaping, rational errors and unbounded rotation reduction. FFI runtime step/light results and chart summaries now use their shared Encode implementations. | JSON parser/formatter and arbitrary-input serialization proof. |
 | `FFI` | `ffi`, `cabi`, `native` | Public result/summary/session/registry types; one registry lock; wrap/collision/unload/erase semantics; native output success before state commit; exact missing seek-origin error. Native low-word conversion is separate from unbounded gameplay arithmetic. | Session/ownership/ABI proof and deferred native acceptance. |
 
-## Most recent non-test checks
+## Current non-test checkpoint (2026-10-19)
+
+The current Rust, LLBC and generated-Lean batch passed the Aeneas freshness
+check with `byte_exact: true`. The LLBC, generated Lean, four partition
+artifacts and extraction manifest match the Rust sources. Aeneas reports only
+the six permitted formatter external declarations and no runtime axioms.
+
+The full Lean build completed 17,541 jobs. A direct `lake build
+Verification.Audit` completed successfully (17,538 cached jobs) and audited
+8,054 theorems with only `propext`, `Classical.choice` and `Quot.sound`.
+The build emitted existing linter/deprecation warnings but no errors.
+
+This batch adds `ConnectedSlideMetadata`. Rust normalization now delegates
+source-group application to the extracted `connected_slide_metadata::apply`
+kernel. The Lean bridge proves the source-group presence and reset cases,
+connected/non-connected slide-kind selection, parent and group flags, timing
+chain state and next parent index under an explicit BigNat adapter contract.
+The proof is registered in `Verification.Audit`; it does not discharge the
+runtime BigNat representation or the remaining whole-parser and scheduler
+composition obligations.
+
+No tests were run in this checkpoint. The three requested chart paths remain
+registered for the later testing phase:
+`tools/assets/011996 Usagi Flap`, `tools/assets/011951 サイエンス` and
+`tools/assets/蛙石`.
+
+## Historical non-test checks
 
 The installed collection is now stage9 (`/tmp/lnmai-shared-fields-extraction-9`,
 full SHA256 `de09958d6c01b1e5c931c05f3c9813672b636c7dcbccefec4889b3770d430227`),

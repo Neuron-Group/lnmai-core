@@ -3009,6 +3009,167 @@ def big_rat.fraction_digits
     big_rat.fraction_digits_loop2 fraction length1 (alloc.vec.Vec.new Std.U8)
       0#usize
 
+/-- [lnmai_core_verify::types::SlideKind]
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 155:0-160:1
+    Visibility: public -/
+@[discriminant isize]
+inductive types.SlideKind where
+| Single : types.SlideKind
+| Wifi : types.SlideKind
+| ConnPart : types.SlideKind
+
+/-- [lnmai_core_verify::connected_slide_metadata::AppliedMetadata]
+    Source: 'crates/lnmai-core-verify/src/connected_slide_metadata.rs', lines 12:0-20:1
+    Visibility: public -/
+structure connected_slide_metadata.AppliedMetadata where
+  slide_kind : types.SlideKind
+  is_conn_slide : Bool
+  parent_note_index : Option big_nat.BigNat
+  is_group_head : Bool
+  is_group_end : Bool
+  next_group_id : Option big_nat.BigNat
+  next_parent_note_index : Option big_nat.BigNat
+
+/-- [lnmai_core_verify::connected_slide_metadata::MetadataStep]
+    Source: 'crates/lnmai-core-verify/src/connected_slide_metadata.rs', lines 23:0-34:1
+    Visibility: public -/
+@[discriminant isize]
+inductive connected_slide_metadata.MetadataStep where
+| Clear : connected_slide_metadata.MetadataStep
+| Reset : connected_slide_metadata.MetadataStep
+| Apply :
+  connected_slide_metadata.AppliedMetadata →
+  connected_slide_metadata.MetadataStep
+
+/-- [lnmai_core_verify::connected_slide_metadata::option_equal]:
+    Source: 'crates/lnmai-core-verify/src/connected_slide_metadata.rs', lines 36:0-42:1 -/
+def connected_slide_metadata.option_equal
+  (left : Option big_nat.BigNat) (right : Option big_nat.BigNat) :
+  Result Bool
+  := do
+  match left with
+  | none => match right with
+            | none => ok true
+            | some _ => ok false
+  | some left1 =>
+    match right with
+    | none => ok false
+    | some right1 => big_nat.equal left1 right1
+
+/-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::SlideKind> for lnmai_core_verify::types::SlideKind}::eq]:
+    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:29-154:38
+    Visibility: public -/
+def types.SlideKind.Insts.CoreCmpPartialEqSlideKind.eq
+  (self : types.SlideKind) (other : types.SlideKind) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- [lnmai_core_verify::connected_slide_metadata::apply]:
+    Source: 'crates/lnmai-core-verify/src/connected_slide_metadata.rs', lines 49:0-90:1
+    Visibility: public -/
+def connected_slide_metadata.apply
+  (source_group_id : Option big_nat.BigNat)
+  (source_group_index : Option big_nat.BigNat)
+  (source_group_size : Option big_nat.BigNat)
+  (original_slide_kind : types.SlideKind)
+  (current_group_id : Option big_nat.BigNat)
+  (parent_note_index : Option big_nat.BigNat) (note_index : big_nat.BigNat) :
+  Result connected_slide_metadata.MetadataStep
+  := do
+  match source_group_id with
+  | none => ok connected_slide_metadata.MetadataStep.Clear
+  | some group_id =>
+    match source_group_index with
+    | none => ok connected_slide_metadata.MetadataStep.Clear
+    | some index =>
+      match source_group_size with
+      | none => ok connected_slide_metadata.MetadataStep.Clear
+      | some size =>
+        let zero ← big_nat.zero
+        let one ← big_nat.one
+        let is_head ← big_nat.equal index zero
+        let i ← big_nat.compare size one
+        let bn ← big_nat.add_u64 index 1#u64
+        let is_end ← big_nat.equal bn size
+        let actual_parent ← if is_head
+                              then ok none
+                              else ok parent_note_index
+        let (is_conn, slide_kind) ←
+          if i > 0#i8
+          then
+            do
+            let b ←
+              types.SlideKind.Insts.CoreCmpPartialEqSlideKind.eq
+                original_slide_kind types.SlideKind.Wifi
+            let sk ←
+              if b
+              then ok types.SlideKind.Wifi
+              else ok types.SlideKind.ConnPart
+            ok (true, sk)
+          else ok (false, original_slide_kind)
+        if is_head
+        then
+          let o ← if is_end
+                    then ok none
+                    else ok source_group_id
+          if is_end
+          then
+            ok (connected_slide_metadata.MetadataStep.Apply
+              {
+                slide_kind,
+                is_conn_slide := is_conn,
+                parent_note_index := actual_parent,
+                is_group_head := true,
+                is_group_end := is_end,
+                next_group_id := o,
+                next_parent_note_index := none
+              })
+          else
+            ok (connected_slide_metadata.MetadataStep.Apply
+              {
+                slide_kind,
+                is_conn_slide := is_conn,
+                parent_note_index := actual_parent,
+                is_group_head := true,
+                is_group_end := is_end,
+                next_group_id := o,
+                next_parent_note_index := (some note_index)
+              })
+        else
+          let bn1 ← big_nat.BigNat.Insts.CoreCloneClone.clone group_id
+          let b ←
+            connected_slide_metadata.option_equal current_group_id (some bn1)
+          if b
+          then
+            let o ← if is_end
+                      then ok none
+                      else ok source_group_id
+            if is_end
+            then
+              ok (connected_slide_metadata.MetadataStep.Apply
+                {
+                  slide_kind,
+                  is_conn_slide := is_conn,
+                  parent_note_index := actual_parent,
+                  is_group_head := false,
+                  is_group_end := is_end,
+                  next_group_id := o,
+                  next_parent_note_index := none
+                })
+            else
+              ok (connected_slide_metadata.MetadataStep.Apply
+                {
+                  slide_kind,
+                  is_conn_slide := is_conn,
+                  parent_note_index := actual_parent,
+                  is_group_head := false,
+                  is_group_end := is_end,
+                  next_group_id := o,
+                  next_parent_note_index := (some note_index)
+                })
+          else ok connected_slide_metadata.MetadataStep.Reset
+
 /-- [lnmai_core_verify::time::Duration]
     Source: 'crates/lnmai-core-verify/src/time.rs', lines 10:0-12:1
     Visibility: public -/
@@ -7684,15 +7845,6 @@ inductive shape.SlideKind where
     Visibility: public -/
 structure normalization.ShapeKind (Self : Type) (Shape : Type) where
   kind : Self → Shape → Result shape.SlideKind
-
-/-- [lnmai_core_verify::types::SlideKind]
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 155:0-160:1
-    Visibility: public -/
-@[discriminant isize]
-inductive types.SlideKind where
-| Single : types.SlideKind
-| Wifi : types.SlideKind
-| ConnPart : types.SlideKind
 
 /-- [lnmai_core_verify::normalization::SlideLayout]
     Source: 'crates/lnmai-core-verify/src/normalization.rs', lines 129:0-141:1
@@ -18266,15 +18418,6 @@ def types.SlideKind.Insts.CoreMarkerCopy : core.marker.Copy types.SlideKind
 def types.SlideKind.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq types.SlideKind := {
 }
-
-/-- [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::SlideKind> for lnmai_core_verify::types::SlideKind}::eq]:
-    Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:29-154:38
-    Visibility: public -/
-def types.SlideKind.Insts.CoreCmpPartialEqSlideKind.eq
-  (self : types.SlideKind) (other : types.SlideKind) : Result Bool := do
-  let self1 := read_discriminant self
-  let other1 := read_discriminant other
-  ok (self1 = other1)
 
 /-- Trait implementation: [lnmai_core_verify::types::{impl core::cmp::PartialEq<lnmai_core_verify::types::SlideKind> for lnmai_core_verify::types::SlideKind}]
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 154:29-154:38 -/

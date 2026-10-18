@@ -24,7 +24,7 @@ use crate::simai::syntax::{
 };
 use crate::simai::timing::note_timing_increment;
 use crate::time::{time_point_add_duration, Duration, TimePoint};
-use crate::types::SlideKind;
+use lnmai_core_verify::connected_slide_metadata::{self as connected_slide_kernel, MetadataStep};
 use lnmai_core_verify::normalization::{self as normalize_kernel, NotePlan};
 
 fn normalization_kind(kind: RawNoteKind) -> normalize_kernel::NoteKind {
@@ -238,77 +238,91 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
             slide.source_group_index.clone(),
             slide.source_group_size.clone(),
         ) {
-            (Some(gid), Some(idx), Some(size)) => {
-                let actual_parent = if idx == 0 { None } else { parent_note_index };
-                let is_conn = size > 1;
-                let slide_kind = if !is_conn {
-                    slide.slide_kind
-                } else if slide.slide_kind == SlideKind::Wifi {
-                    SlideKind::Wifi
-                } else {
-                    SlideKind::ConnPart
-                };
-                let start_timing = if idx == 0 {
-                    slide.start_timing.clone()
-                } else {
-                    parent_end_timing.unwrap_or(slide.start_timing.clone())
-                };
-                let group_start_timing = if idx == 0 {
-                    slide.start_timing.clone()
-                } else {
-                    group_start_timing_state.unwrap_or(slide.start_timing.clone())
-                };
-                let stored_group_start = if is_conn {
-                    Some(group_start_timing.clone())
-                } else {
-                    None
-                };
-                let start_shift = start_timing.clone() - slide.start_timing.clone();
-                let judge_at = slide
-                    .judge_at
-                    .clone()
-                    .map(|tp| time_point_add_duration(tp, start_shift));
-                let updated = NormalizedSlide {
-                    start_timing,
-                    group_start_timing: stored_group_start,
-                    judge_at,
-                    slide_kind,
-                    is_conn_slide: is_conn,
-                    parent_note_index: actual_parent,
-                    is_group_head: idx == 0,
-                    is_group_end: idx.clone() + 1 == size,
-                    ..slide.clone()
-                };
-                let next_parent_end =
-                    time_point_add_duration(updated.start_timing.clone(), updated.length.clone());
-                let is_end = idx.clone() + 1 == size;
-                let reset_chain = current_group_id != Some(gid.clone()) && idx != 0;
-                if reset_chain {
-                    acc.push(NormalizedSlide {
-                        is_conn_slide: false,
-                        is_group_head: false,
-                        is_group_end: false,
-                        parent_note_index: None,
-                        ..slide.clone()
-                    });
-                    current_group_id = None;
-                    parent_note_index = None;
-                    parent_end_timing = None;
-                    group_start_timing_state = None;
-                } else {
-                    acc.push(updated.clone());
-                    current_group_id = if is_end { None } else { Some(gid) };
-                    parent_note_index = if is_end {
-                        None
-                    } else {
-                        Some(updated.note_index)
-                    };
-                    parent_end_timing = if is_end { None } else { Some(next_parent_end) };
-                    group_start_timing_state = if is_end {
-                        None
-                    } else {
-                        Some(group_start_timing)
-                    };
+            (Some(_), Some(_), Some(_)) => {
+                let metadata = connected_slide_kernel::apply(
+                    slide
+                        .source_group_id
+                        .as_ref()
+                        .map(|value| value.kernel_value().clone()),
+                    slide
+                        .source_group_index
+                        .as_ref()
+                        .map(|value| value.kernel_value().clone()),
+                    slide
+                        .source_group_size
+                        .as_ref()
+                        .map(|value| value.kernel_value().clone()),
+                    slide.slide_kind,
+                    current_group_id
+                        .as_ref()
+                        .map(|value| value.kernel_value().clone()),
+                    parent_note_index
+                        .as_ref()
+                        .map(|value| value.kernel_value().clone()),
+                    slide.note_index.kernel_value().clone(),
+                );
+                match metadata {
+                    MetadataStep::Clear | MetadataStep::Reset => {
+                        acc.push(NormalizedSlide {
+                            is_conn_slide: false,
+                            is_group_head: false,
+                            is_group_end: false,
+                            parent_note_index: None,
+                            ..slide.clone()
+                        });
+                        current_group_id = None;
+                        parent_note_index = None;
+                        parent_end_timing = None;
+                        group_start_timing_state = None;
+                    }
+                    MetadataStep::Apply(metadata) => {
+                        let start_timing = if metadata.is_group_head {
+                            slide.start_timing.clone()
+                        } else {
+                            parent_end_timing.unwrap_or(slide.start_timing.clone())
+                        };
+                        let group_start_timing = if metadata.is_group_head {
+                            slide.start_timing.clone()
+                        } else {
+                            group_start_timing_state.unwrap_or(slide.start_timing.clone())
+                        };
+                        let stored_group_start = if metadata.is_conn_slide {
+                            Some(group_start_timing.clone())
+                        } else {
+                            None
+                        };
+                        let start_shift = start_timing.clone() - slide.start_timing.clone();
+                        let judge_at = slide
+                            .judge_at
+                            .clone()
+                            .map(|tp| time_point_add_duration(tp, start_shift));
+                        let updated = NormalizedSlide {
+                            start_timing,
+                            group_start_timing: stored_group_start,
+                            judge_at,
+                            slide_kind: metadata.slide_kind,
+                            is_conn_slide: metadata.is_conn_slide,
+                            parent_note_index: metadata.parent_note_index.map(Natural::from_kernel),
+                            is_group_head: metadata.is_group_head,
+                            is_group_end: metadata.is_group_end,
+                            ..slide.clone()
+                        };
+                        let next_parent_end = time_point_add_duration(
+                            updated.start_timing.clone(),
+                            updated.length.clone(),
+                        );
+                        let is_end = metadata.is_group_end;
+                        acc.push(updated.clone());
+                        current_group_id = metadata.next_group_id.map(Natural::from_kernel);
+                        parent_note_index =
+                            metadata.next_parent_note_index.map(Natural::from_kernel);
+                        parent_end_timing = if is_end { None } else { Some(next_parent_end) };
+                        group_start_timing_state = if is_end {
+                            None
+                        } else {
+                            Some(group_start_timing)
+                        };
+                    }
                 }
             }
             _ => {

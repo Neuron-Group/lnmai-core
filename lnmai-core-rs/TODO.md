@@ -19,8 +19,8 @@ external declarations are the only external declarations, no runtime axioms
 are present, `byte_exact` is `true`, and the LLBC, generated Lean, partition
 files and extraction manifest match the Rust sources.
 
-The full Lean build under `verification` completed all 17,540 tasks.
-`Verification.Audit` audited 8,000 theorems. The audit uses only
+The full Lean build under `verification` completed all 17,541 tasks.
+`Verification.Audit` audited 8,054 theorems. The audit uses only
 `propext`, `Classical.choice` and `Quot.sound`; no `sorryAx` or runtime axiom
 was introduced. `rtk git diff --check` also passed.
 
@@ -40,7 +40,9 @@ registered chart cases:
 - `tools/assets/011951 サイエンス`
 - `tools/assets/蛙石`
 
-The three cases are registered but have not been executed in this checkpoint.
+The three cases are registered but have not been executed in this checkpoint;
+testing remains deferred until the remaining equivalence obligations are
+complete.
 
 ## Current work order
 
@@ -87,6 +89,14 @@ requirements.
    unbounded gameplay arithmetic.
 
 ## Kernel additions in this working revision
+
+The current batch adds the extracted `connected_slide_metadata` kernel and
+wires runtime normalization through it. `ConnectedSlideMetadata.apply_semantics`
+proves the source-group presence/reset branches, connected slide-kind choice,
+parent selection, group flags and next-chain state under the explicit BigNat
+adapter contract. It is included in `Verification.Audit`; the concrete
+Natural representation, timing adapters and whole normalization composition
+remain open.
 
 `Hold`, `HoldModern`, `Rotations`, `Time`, `Constants` and `ScoreExtra` contain
 new obligations for the formerly missing pure functions. Their completion

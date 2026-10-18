@@ -74,6 +74,7 @@ import Verification.HoldScheduleQueueJudgments
 import Verification.SchedulerFrameTraversals
 import Verification.StorageSensorRefinement
 import Verification.NormalizationModel
+import Verification.ConnectedSlideMetadata
 import Verification.NormalizationPoints
 import Verification.Normalization
 import Verification.NormalizationFrontend
@@ -415,6 +416,9 @@ run_cmd do
     ``Verification.NormalizationModel.planFold_reference,
     ``Verification.NormalizationModel.referenceFold_original,
     ``Verification.NormalizationModel.lowerWithPlan_reference,
+    ``Verification.ConnectedSlideMetadata.slideKind_eq_spec,
+    ``Verification.ConnectedSlideMetadata.optionEqual_spec,
+    ``Verification.ConnectedSlideMetadata.apply_semantics,
     ``Verification.NormalizationPoints.planNote_map,
     ``Verification.NormalizationPoints.slideLayoutCall_success,
     ``Verification.NormalizationPoints.increment_within_capacity,
