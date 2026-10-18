@@ -17,3 +17,4 @@
 /verification/.lake/
 /*.llbc
 /lnmai-core-rs/.idea/
+__pycache__/

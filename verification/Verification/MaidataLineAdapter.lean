@@ -78,4 +78,45 @@ theorem read_points (E : ValueEncoding Text View Level) (S : StringOps Text View
       bind_tc_ok, A.borrow, A.starts_with_inote, L.startsWithView, L.borrow, decodeHeader]
     rfl
 
+theorem append_field_eq (P : LinePrimitives Ops Text View Level) (prims : Ops)
+    (lines : Slice Text) (fields : Fields Text) (header : Header Text) :
+    (lineWrite P).append_field ⟨lines, prims⟩ fields header =
+      alloc.vec.Vec.push fields header := rfl
+
+theorem append_chart_eq (P : LinePrimitives Ops Text View Level) (prims : Ops)
+    (lines : Slice Text) (charts : alloc.vec.Vec (MaidataChartBlock Text Level))
+    (body : MaidataChartBlock Text Level) :
+    (lineWrite P).append_chart ⟨lines, prims⟩ charts body =
+      alloc.vec.Vec.push charts body := rfl
+
+/-- The extracted begin_chart reads the header key once and keeps the value
+verbatim. The runtime level operation is supplied explicitly. -/
+theorem begin_chart_eq (S : StringOps Text View Level)
+    (P : LinePrimitives Ops Text View Level) (A : PrimitiveAgrees S P)
+    (prims : Ops) (lines : Slice Text) (key value : Text) (level : Level)
+    (hlevel : S.level (S.borrow key) = ok level) :
+    (lineWrite P).begin_chart ⟨lines, prims⟩ (key, value) =
+      ok { level_index := level, raw_body := value } := by
+  simp only [lineWrite,
+    MaidataLineOps.Insts.Lnmai_core_verifyMaidata_scanLineWritePairVecPairVecMaidataChartBlockMaidataChartBlock,
+    MaidataLineOps.Insts.Lnmai_core_verifyMaidata_scanLineWritePairVecPairVecMaidataChartBlockMaidataChartBlock.begin_chart,
+    bind_tc_ok, A.borrow, A.level, hlevel]
+  simp [hlevel]
+
+/-- Newline is pushed before the source line is indexed, exactly as the runtime
+facade does; each primitive result is supplied explicitly. -/
+theorem append_body_line_eq (S : StringOps Text View Level)
+    (P : LinePrimitives Ops Text View Level) (A : PrimitiveAgrees S P)
+    (prims : Ops) (lines : Slice Text) (body : MaidataChartBlock Text Level)
+    (index : Usize) (raw nl out : Text)
+    (hget : Slice.index_usize lines index = ok raw)
+    (hnl : S.pushNewline body.raw_body = ok nl)
+    (hout : S.pushStr nl (S.borrow raw) = ok out) :
+    (lineWrite P).append_body_line ⟨lines, prims⟩ body index =
+      ok { body with raw_body := out } := by
+  simp only [lineWrite,
+    MaidataLineOps.Insts.Lnmai_core_verifyMaidata_scanLineWritePairVecPairVecMaidataChartBlockMaidataChartBlock,
+    MaidataLineOps.Insts.Lnmai_core_verifyMaidata_scanLineWritePairVecPairVecMaidataChartBlockMaidataChartBlock.append_body_line,
+    hget, hnl, hout, bind_tc_ok, A.borrow, A.push_newline, A.push_str]
+
 end Verification.MaidataLineAdapterProof
