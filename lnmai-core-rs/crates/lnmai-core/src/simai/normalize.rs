@@ -6,9 +6,9 @@ use crate::chart_loader::{
     ChartSpec, HoldChartNote, SlideChartNote, SlideHeadChartNote, TapChartNote, TouchChartNote,
     TouchHoldChartNote,
 };
+use crate::integer::Integer;
 use crate::natural::Natural;
 use crate::rat::Rat;
-use crate::integer::Integer;
 use crate::simai::ir::{
     NormalizedChart, NormalizedHold, NormalizedSlide, NormalizedSlideDebug, NormalizedTap,
     NormalizedTouch, NormalizedTouchHold,
@@ -25,8 +25,8 @@ use crate::simai::syntax::{
 };
 use crate::simai::timing::note_timing_increment;
 use crate::time::{time_point_add_duration, Duration, TimePoint};
-use lnmai_core_verify::connected_slide_metadata::{self as connected_slide_kernel, MetadataStep};
 use lnmai_core_verify::connected_slide_lifecycle as connected_slide_lifecycle_kernel;
+use lnmai_core_verify::connected_slide_metadata::{self as connected_slide_kernel, MetadataStep};
 use lnmai_core_verify::normalization::{self as normalize_kernel, NotePlan};
 
 fn normalization_kind(kind: RawNoteKind) -> normalize_kernel::NoteKind {
@@ -283,21 +283,15 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
                             metadata.is_group_head,
                             metadata.is_group_end,
                             slide.start_timing.micros.kernel(),
-                            slide
-                                .judge_at
-                                .as_ref()
-                                .map(|tp| tp.micros.kernel()),
+                            slide.judge_at.as_ref().map(|tp| tp.micros.kernel()),
                             slide.length.micros.kernel(),
-                            parent_end_timing
-                                .as_ref()
-                                .map(|tp| tp.micros.kernel()),
+                            parent_end_timing.as_ref().map(|tp| tp.micros.kernel()),
                             group_start_timing_state
                                 .as_ref()
                                 .map(|tp| tp.micros.kernel()),
                         );
-                        let start_timing = TimePoint::from_micros(
-                            Integer::from_kernel(timing.start_timing),
-                        );
+                        let start_timing =
+                            TimePoint::from_micros(Integer::from_kernel(timing.start_timing));
                         let stored_group_start = timing
                             .stored_group_start_timing
                             .map(|value| TimePoint::from_micros(Integer::from_kernel(value)));
@@ -319,12 +313,12 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
                         current_group_id = metadata.next_group_id.map(Natural::from_kernel);
                         parent_note_index =
                             metadata.next_parent_note_index.map(Natural::from_kernel);
-                        parent_end_timing = timing.next_parent_end_timing.map(|value| {
-                            TimePoint::from_micros(Integer::from_kernel(value))
-                        });
-                        group_start_timing_state = timing.next_group_start_timing.map(|value| {
-                            TimePoint::from_micros(Integer::from_kernel(value))
-                        });
+                        parent_end_timing = timing
+                            .next_parent_end_timing
+                            .map(|value| TimePoint::from_micros(Integer::from_kernel(value)));
+                        group_start_timing_state = timing
+                            .next_group_start_timing
+                            .map(|value| TimePoint::from_micros(Integer::from_kernel(value)));
                     }
                 }
             }
