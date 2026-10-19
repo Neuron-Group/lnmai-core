@@ -17,6 +17,10 @@ prevents a claim of full equivalence.
   normalization. Its Lean bridge proves the source-group decision, chain reset,
   parent selection, slide-kind conversion, group flags and next-chain state
   under the explicit BigNat adapter contract.
+- The connected-slide lifecycle kernel is now extracted and called by runtime
+  normalization. Its Lean bridge proves timing propagation, judge-time shifts,
+  parent/group timing state and chain reset under the explicit BigInt adapter
+  contract.
 - Full differential suite green at the previous checkpoint
   (`22 passed; 0 failed`, 232 playthroughs, 2,010,664 compared frames).
 - No Rust, unit, differential, real-chart or ABI tests have been run in this
@@ -65,6 +69,8 @@ and accuracy arithmetic had no Lean model at all.
 
 ## 3. Scheduler and judgment composition
 
+- [x] Prove the connected-slide timing lifecycle step used by normalization,
+      including optional judge timing and parent/group chain state.
 - [ ] Compose the per-phase frame theorems into one arbitrary-trace theorem
       from initial state plus any input frame sequence to the final state.
 - [ ] Cover the still-open lifecycle branches with arbitrary, not just finite,

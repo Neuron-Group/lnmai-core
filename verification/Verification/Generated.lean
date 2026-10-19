@@ -3009,6 +3009,83 @@ def big_rat.fraction_digits
     big_rat.fraction_digits_loop2 fraction length1 (alloc.vec.Vec.new Std.U8)
       0#usize
 
+/-- [lnmai_core_verify::connected_slide_lifecycle::TimingStep]
+    Source: 'crates/lnmai-core-verify/src/connected_slide_lifecycle.rs', lines 14:0-20:1
+    Visibility: public -/
+structure connected_slide_lifecycle.TimingStep where
+  start_timing : big_int.BigIntKernel
+  stored_group_start_timing : Option big_int.BigIntKernel
+  judge_at : Option big_int.BigIntKernel
+  next_parent_end_timing : Option big_int.BigIntKernel
+  next_group_start_timing : Option big_int.BigIntKernel
+
+/-- [lnmai_core_verify::connected_slide_lifecycle::apply]:
+    Source: 'crates/lnmai-core-verify/src/connected_slide_lifecycle.rs', lines 28:0-82:1
+    Visibility: public -/
+def connected_slide_lifecycle.apply
+  (is_conn_slide : Bool) (is_group_head : Bool) (is_group_end : Bool)
+  (original_start_timing : big_int.BigIntKernel)
+  (original_judge_at : Option big_int.BigIntKernel)
+  (length : big_int.BigIntKernel)
+  (parent_end_timing : Option big_int.BigIntKernel)
+  (group_start_timing : Option big_int.BigIntKernel) :
+  Result connected_slide_lifecycle.TimingStep
+  := do
+  let start_timing ←
+    if is_group_head
+    then big_int.BigIntKernel.Insts.CoreCloneClone.clone original_start_timing
+    else
+      match parent_end_timing with
+      | none =>
+        big_int.BigIntKernel.Insts.CoreCloneClone.clone original_start_timing
+      | some value => ok value
+  let group_start ←
+    if is_group_head
+    then big_int.BigIntKernel.Insts.CoreCloneClone.clone original_start_timing
+    else
+      match group_start_timing with
+      | none =>
+        big_int.BigIntKernel.Insts.CoreCloneClone.clone original_start_timing
+      | some value => ok value
+  let stored_group_start_timing ←
+    if is_conn_slide
+    then
+      do
+      let bik ← big_int.BigIntKernel.Insts.CoreCloneClone.clone group_start
+      ok (some bik)
+    else ok none
+  let start_shift ← big_int.sub start_timing original_start_timing
+  let judge_at ←
+    match original_judge_at with
+    | none => ok none
+    | some value => do
+                    let bik ← big_int.add value start_shift
+                    ok (some bik)
+  let next_parent_end ← big_int.add start_timing length
+  let next_parent_end_timing ←
+    if is_group_end
+    then ok none
+    else ok (some next_parent_end)
+  if is_group_end
+  then
+    ok
+      {
+        start_timing,
+        stored_group_start_timing,
+        judge_at,
+        next_parent_end_timing,
+        next_group_start_timing := none
+      }
+  else
+    ok
+      {
+        start_timing,
+        stored_group_start_timing,
+        judge_at,
+        next_parent_end_timing,
+        next_group_start_timing := (some group_start)
+      }
+
 /-- [lnmai_core_verify::types::SlideKind]
     Source: 'crates/lnmai-core-verify/src/types.rs', lines 155:0-160:1
     Visibility: public -/

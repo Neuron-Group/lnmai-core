@@ -10,6 +10,7 @@ pub mod big_int;
 pub mod big_nat;
 pub mod big_rat;
 pub mod connected_slide_metadata;
+pub mod connected_slide_lifecycle;
 pub mod constants;
 pub mod convert;
 pub mod frame_commands;

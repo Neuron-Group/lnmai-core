@@ -50,6 +50,7 @@ passing finite comparison discharges the remaining formal obligations.
 | `Simai.Syntax`, `IR`, `Tokenize`, `SlideParser`, `Timing`, `Maidata`, `Typecheck`, `Normalize`, `Frontend`, `DSL`, `SlideTables` | `simai/*` | Source pass corrected error order, public APIs, exact timing and normalization/lowering. Lean numeric underscores now work in natural timing, rational whole parts and Maidata suffixes; public Maidata aliases and typed-slide defaults are aligned. JSON inventory includes Syntax/IR and canonical shapes. | End-to-end arbitrary-input parser, table, normalization and lowering proof. |
 | `ChartLoader`, `InputModel` | `chart_loader`, `input_model` | Earlier source pass aligned public loading/input/queue APIs and defaults. `FrameInput` JSON decoding added in this pass; defaults do not make required JSON fields optional. | Container/ordering representation proofs and frame composition. |
 | `Lifecycle`, `Scheduler`, `AutoplayPlan` | `lifecycle`, `scheduler`, `events`, `default_tactic` | Completed source pass through lifecycle, scheduler and probes: per-target latching, zip truncation, legacy seeding, queue traversal/fuel, WiFi progress, gating, timeout-before-traversal and command order. Autoplay review covers equal-time ties, stable events, duplicate IDs, connected roots, WiFi deduplication and hold release timing. Runtime shares generic `SlideArea<P>` and queue traversal with the extracted kernel. Checkpoint proofs compiled separately; queue proofs and every-frame reference/replay bridges passed combined-source elaboration. | Fresh separate-module audit; complete transition/event-order proof, including EX, hold heads/tails, parent slides, touch groups and all settings. |
+| `Normalize` connected-slide timing lifecycle | `simai/normalize`, `connected_slide_lifecycle` | Runtime calls the extracted lifecycle kernel. `Verification.ConnectedSlideLifecycle.apply_semantics` relates source timing, optional judge shifts, parent/group timing state and reset behavior to the Lean normalization definition under the explicit BigInt adapter laws. | Actual arbitrary-precision representation refinement and composition with the complete parser/scheduler trace remain open. |
 | `RuntimeSeek` | `runtime_seek` | Reviewed duplicate IDs (first root lookup, last map entry), original queue ranks, queue rebuild truncation/default filling, replay boundary `max(current, target - 1)`, target-time input retention, settings/held state, score reset and expired slide restoration. Nat hash uses low 64 bits; render-memory bucket/list order follows Lean HashMap. | Arbitrary-trace seek/restoration and HashMap iteration-order proofs. |
 | JSON instances throughout `LnmaiCore` | `json_decode`, `json_encode`, `lean_json`, FFI encoders | Inventory covers 75 derived ToJson, 71 derived FromJson, 26 concrete custom instances and 50 structure field sequences. Reviewed constructor retrieval/error order, missing-as-null, qualified field errors, custom fallback distinctions, nested Lean triples, escaping, rational errors and unbounded rotation reduction. FFI runtime step/light results and chart summaries now use their shared Encode implementations. | JSON parser/formatter and arbitrary-input serialization proof. |
 | `FFI` | `ffi`, `cabi`, `native` | Public result/summary/session/registry types; one registry lock; wrap/collision/unload/erase semantics; native output success before state commit; exact missing seek-origin error. Native low-word conversion is separate from unbounded gameplay arithmetic. | Session/ownership/ABI proof and deferred native acceptance. |
@@ -74,6 +75,14 @@ chain state and next parent index under an explicit BigNat adapter contract.
 The proof is registered in `Verification.Audit`; it does not discharge the
 runtime BigNat representation or the remaining whole-parser and scheduler
 composition obligations.
+
+The same batch adds `ConnectedSlideLifecycle`. Rust normalization now delegates
+the timing propagation step to `connected_slide_lifecycle::apply`. The Lean
+bridge proves optional judge-time shifting, parent and group timing selection,
+next parent/group state, and end-of-group reset under the explicit BigInt
+adapter contract. The proof is registered in `Verification.Audit`; the
+arbitrary-precision representation and whole normalization composition remain
+separate obligations.
 
 No tests were run in this checkpoint. The three requested chart paths remain
 registered for the later testing phase:

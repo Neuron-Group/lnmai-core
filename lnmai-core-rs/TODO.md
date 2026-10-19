@@ -98,6 +98,13 @@ adapter contract. It is included in `Verification.Audit`; the concrete
 Natural representation, timing adapters and whole normalization composition
 remain open.
 
+The same batch adds the extracted `connected_slide_lifecycle` kernel and
+wires the normalization timing step through it. `ConnectedSlideLifecycle.apply_semantics`
+proves optional judge-time shifts, parent/group timing selection, next-chain
+state and end-of-group reset under the explicit BigInt adapter contract. The
+proof is included in `Verification.Audit`; arbitrary-precision refinement
+and whole normalization composition remain open.
+
 `Hold`, `HoldModern`, `Rotations`, `Time`, `Constants` and `ScoreExtra` contain
 new obligations for the formerly missing pure functions. Their completion
 requires a passing fresh proof build and axiom audit, not just the presence of

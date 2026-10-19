@@ -8,6 +8,7 @@ use crate::chart_loader::{
 };
 use crate::natural::Natural;
 use crate::rat::Rat;
+use crate::integer::Integer;
 use crate::simai::ir::{
     NormalizedChart, NormalizedHold, NormalizedSlide, NormalizedSlideDebug, NormalizedTap,
     NormalizedTouch, NormalizedTouchHold,
@@ -25,6 +26,7 @@ use crate::simai::syntax::{
 use crate::simai::timing::note_timing_increment;
 use crate::time::{time_point_add_duration, Duration, TimePoint};
 use lnmai_core_verify::connected_slide_metadata::{self as connected_slide_kernel, MetadataStep};
+use lnmai_core_verify::connected_slide_lifecycle as connected_slide_lifecycle_kernel;
 use lnmai_core_verify::normalization::{self as normalize_kernel, NotePlan};
 
 fn normalization_kind(kind: RawNoteKind) -> normalize_kernel::NoteKind {
@@ -276,26 +278,32 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
                         group_start_timing_state = None;
                     }
                     MetadataStep::Apply(metadata) => {
-                        let start_timing = if metadata.is_group_head {
-                            slide.start_timing.clone()
-                        } else {
-                            parent_end_timing.unwrap_or(slide.start_timing.clone())
-                        };
-                        let group_start_timing = if metadata.is_group_head {
-                            slide.start_timing.clone()
-                        } else {
-                            group_start_timing_state.unwrap_or(slide.start_timing.clone())
-                        };
-                        let stored_group_start = if metadata.is_conn_slide {
-                            Some(group_start_timing.clone())
-                        } else {
-                            None
-                        };
-                        let start_shift = start_timing.clone() - slide.start_timing.clone();
-                        let judge_at = slide
+                        let timing = connected_slide_lifecycle_kernel::apply(
+                            metadata.is_conn_slide,
+                            metadata.is_group_head,
+                            metadata.is_group_end,
+                            slide.start_timing.micros.kernel(),
+                            slide
+                                .judge_at
+                                .as_ref()
+                                .map(|tp| tp.micros.kernel()),
+                            slide.length.micros.kernel(),
+                            parent_end_timing
+                                .as_ref()
+                                .map(|tp| tp.micros.kernel()),
+                            group_start_timing_state
+                                .as_ref()
+                                .map(|tp| tp.micros.kernel()),
+                        );
+                        let start_timing = TimePoint::from_micros(
+                            Integer::from_kernel(timing.start_timing),
+                        );
+                        let stored_group_start = timing
+                            .stored_group_start_timing
+                            .map(|value| TimePoint::from_micros(Integer::from_kernel(value)));
+                        let judge_at = timing
                             .judge_at
-                            .clone()
-                            .map(|tp| time_point_add_duration(tp, start_shift));
+                            .map(|value| TimePoint::from_micros(Integer::from_kernel(value)));
                         let updated = NormalizedSlide {
                             start_timing,
                             group_start_timing: stored_group_start,
@@ -307,21 +315,16 @@ fn apply_connected_slide_metadata(slides: &[NormalizedSlide]) -> Vec<NormalizedS
                             is_group_end: metadata.is_group_end,
                             ..slide.clone()
                         };
-                        let next_parent_end = time_point_add_duration(
-                            updated.start_timing.clone(),
-                            updated.length.clone(),
-                        );
-                        let is_end = metadata.is_group_end;
                         acc.push(updated.clone());
                         current_group_id = metadata.next_group_id.map(Natural::from_kernel);
                         parent_note_index =
                             metadata.next_parent_note_index.map(Natural::from_kernel);
-                        parent_end_timing = if is_end { None } else { Some(next_parent_end) };
-                        group_start_timing_state = if is_end {
-                            None
-                        } else {
-                            Some(group_start_timing)
-                        };
+                        parent_end_timing = timing.next_parent_end_timing.map(|value| {
+                            TimePoint::from_micros(Integer::from_kernel(value))
+                        });
+                        group_start_timing_state = timing.next_group_start_timing.map(|value| {
+                            TimePoint::from_micros(Integer::from_kernel(value))
+                        });
                     }
                 }
             }
